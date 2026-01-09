@@ -1,9 +1,9 @@
 # backend/main.py
 import io
-from PIL import Image
 import os
 import shutil
 import sys
+from PIL import Image
 
 # ======================= AUTO-ENV CREATION =======================
 # Verifica se o arquivo .env existe. Se não, cria uma cópia baseada
@@ -50,7 +50,8 @@ from app.models.organization_model import Organization
 from app.models.user_model import User
 from app.models.vehicle_model import Vehicle
 from app.models.implement_model import Implement
-from app.models.part_model import Part
+# Nota: InventoryItem está definido dentro de part_model.py
+from app.models.part_model import Part, InventoryItem 
 from app.models.client_model import Client
 from app.models.freight_order_model import FreightOrder
 from app.models.stop_point_model import StopPoint
@@ -69,8 +70,6 @@ from app.models.vehicle_component_model import VehicleComponent
 from app.models.tire_model import VehicleTire
 from app.models.fine_model import Fine
 from app.models.feedback_model import Feedback
-# --- ESTA É A CORREÇÃO DEFINITIVA ---
-# Adiciona o nosso novo modelo à lista de modelos conhecidos.
 from app.models.demo_usage_model import DemoUsage
 # ==============================================================================
 
@@ -90,21 +89,38 @@ app = FastAPI(
 # 4. Criar diretórios necessários
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# 5. Configurar o CORS
-if settings.BACKEND_CORS_ORIGINS:
-    # Removemos a barra final (rstrip) para garantir que bata com o Origin do navegador
-    origins_list = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    
-    # Adicione este print para DEBUG no terminal
-    print(f"🔓  CORS Permitidos: {origins_list}")
+# 5. Configurar o CORS (Híbrido: Settings + Manuais)
+origins_list = []
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins_list,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Adiciona origens do arquivo .env (se houver)
+if settings.BACKEND_CORS_ORIGINS:
+    origins_list.extend([str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS])
+
+# Adiciona origens manuais necessárias (Local, Rede, Netlify)
+manual_origins = [
+    "http://localhost",
+    "http://localhost:9000",
+    "http://127.0.0.1:9000",
+    "http://localhost:3000",
+    "http://192.168.0.22:9000", # Acesso via rede local
+    "http://192.168.0.22",
+    "https://trumachine.netlify.app", # Seu front no Netlify
+    "https://trumachine.netlify.app/"
+]
+origins_list.extend(manual_origins)
+
+# Remove duplicatas para limpar o log
+origins_list = list(set(origins_list))
+
+print(f"🔓  CORS Permitidos: {origins_list}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 6. Adicionar o evento de startup para criar as tabelas
 @app.on_event("startup")
@@ -113,8 +129,7 @@ async def on_startup():
     Cria as tabelas no banco de dados na inicialização da aplicação.
     """
     async with engine.begin() as conn:
-        # Agora, Base.metadata.create_all conhece a tabela 'organization'
-        # e a 'demousage', e as criará na ordem correta.
+        # Agora, Base.metadata.create_all conhece todas as tabelas importadas acima
         await conn.run_sync(Base.metadata.create_all)
 
 # 7. Adicionar Handlers de Exceção
@@ -125,14 +140,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     for err in errors:
         new_err = err.copy()
         
-        # CORREÇÃO: Remove ou converte campos 'input' que sejam bytes
-        # pois json.dumps não consegue serializar bytes.
+        # Correção para upload de arquivos: remove o input binário do log de erro
         if 'input' in new_err and isinstance(new_err['input'], bytes):
             new_err['input'] = "Binary data (files or multipart form)"
             
         if err['type'] == 'enum':
-            allowed_values = err['ctx']['expected']
+            allowed_values = err['ctx'].get('expected', 'valores permitidos')
             new_err['msg'] = f"O valor deve ser um dos seguintes: {allowed_values}"
+        
         custom_errors.append(new_err)
     
     return JSONResponse(
@@ -150,7 +165,6 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             content={"detail": "Arquivo muito grande. O limite máximo é de 5MB."},
         )
-    # Mantém o comportamento padrão para outras exceções HTTP
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
@@ -164,11 +178,9 @@ async def upload_photo(file: UploadFile = File(..., max_size=5 * 1024 * 1024)): 
 
     # --- Validação de conteúdo com Pillow ---
     try:
-        # Lê o conteúdo do arquivo para um buffer de memória
         contents = await file.read()
-        # Tenta abrir o buffer com o Pillow
         img = Image.open(io.BytesIO(contents))
-        img.verify() # Verifica a integridade dos dados da imagem
+        img.verify() 
     except Exception:
         raise HTTPException(status_code=400, detail="Falha ao processar. O arquivo pode estar corrompido ou não é uma imagem válida.")
     # --- Fim da validação ---
@@ -178,7 +190,6 @@ async def upload_photo(file: UploadFile = File(..., max_size=5 * 1024 * 1024)): 
     file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
     try:
-        # Salva o conteúdo 'contents' que já lemos e validamos
         with open(file_path, "wb") as buffer:
             buffer.write(contents)
     except Exception as e:
