@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruMachine - Manutenção Industrial</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- CSS GERAL --- */
+        :root {
+            --industrial-blue: #263238; /* Cinza azulado escuro */
+            --safety-orange: #FF6D00;   /* Laranja de segurança */
+            --metal-grey: #ECEFF1;
+            --success: #2E7D32;
+            --border: #CFD8DC;
+            --bg-app: #F5F5F5;
+        }
+
+        body {
+            font-family: 'Roboto', 'Segoe UI', sans-serif;
+            background-color: var(--bg-app);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        /* --- CARD COMUM --- */
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 24px;
+            border: 1px solid #ddd;
+        }
+
+        /* --- SESSÃO 1: ETIQUETA PATRIMONIAL (QR) --- */
+        .asset-tag-header {
+            background: linear-gradient(to bottom, #455A64, #263238); /* Efeito metal escuro */
+            color: #fff;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--safety-orange); /* Faixa de segurança */
+        }
+
+        .asset-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .qr-section {
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background-color: #fafafa;
+        }
+
+        .qr-frame {
+            border: 2px solid #333;
+            padding: 4px;
+            background: white;
+            display: inline-block;
+        }
+
+        .qr-frame img {
+            display: block;
+            width: 100px;
+            height: 100px;
+        }
+
+        .machine-info h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--industrial-blue);
+        }
+
+        .machine-info .model {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #555;
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .machine-info .sector {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        /* --- SESSÃO 2: ORDEM DE MANUTENÇÃO --- */
+        .os-header {
+            padding: 20px;
+            background: #fff;
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .os-badge {
+            background-color: var(--industrial-blue);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .os-title {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #333;
+        }
+
+        .os-meta {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .os-meta i { color: var(--safety-orange); }
+
+        /* --- STEPS / CHECKLIST --- */
+        .steps-container {
+            padding: 0 20px 20px 20px;
+        }
+
+        .step-item {
+            border-left: 2px solid var(--border);
+            padding-left: 25px;
+            position: relative;
+            padding-bottom: 30px;
+            margin-top: 20px;
+        }
+
+        .step-item:last-child {
+            border-left: 2px solid transparent;
+            padding-bottom: 0;
+        }
+
+        .step-circle {
+            position: absolute;
+            left: -16px; /* Metade de 30px + 1px borda */
+            top: 0;
+            width: 30px;
+            height: 30px;
+            background: var(--metal-grey);
+            border: 2px solid #90A4AE;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #546E7A;
+            font-size: 0.9rem;
+            z-index: 2;
+        }
+
+        .step-title {
+            font-weight: bold;
+            color: var(--industrial-blue);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-desc {
+            font-size: 0.9rem;
+            color: #555;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        /* Inputs Industriais */
+        .input-group {
+            background: #F5F5F5;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #777;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            background: white;
+            font-family: monospace; /* Estilo técnico */
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        /* Botão LOTO (Lockout Tagout) */
+        .loto-check {
+            display: flex;
+            align-items: center;
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ef9a9a;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .loto-check input { margin-right: 10px; width: 18px; height: 18px; }
+
+        /* Rodapé */
+        .action-bar {
+            padding: 15px 20px;
+            background: #fff;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-main {
+            background-color: var(--industrial-blue);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+        }
+
+        .btn-main:hover { background-color: #1a2327; }
+
+        /* Animação */
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <div class="card">
+            <div class="asset-tag-header">
+                <span class="asset-title"><i class="fa-solid fa-industry"></i> Asset Tag</span>
+                <i class="fa-solid fa-wifi"></i>
+            </div>
+            <div class="qr-section">
+                <div class="qr-frame">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=IND-CNC-MAZAK-V5" alt="QR Industrial">
+                </div>
+                <div class="machine-info">
+                    <h2>Centro de Usinagem</h2>
+                    <span class="model">TAG: USI-088</span>
+                    <span class="sector"><i class="fa-solid fa-location-dot"></i> Setor: Usinagem Pesada</span>
+                    <div style="margin-top: 8px; color: var(--success); font-size: 0.85rem; font-weight: bold;">
+                        <i class="fa-solid fa-circle-check"></i> Escaneamento Confirmado
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card fade-in-up" style="animation-delay: 0.2s;">
+            <div class="os-header">
+                <span class="os-badge">Manutenção Preventiva - 2.000h</span>
+                <h1 class="os-title">Ordem #IND-4092</h1>
+                <div class="os-meta">
+                    <span><i class="fa-solid fa-stopwatch"></i> Horímetro: 2.150 h</span>
+                    <span><i class="fa-solid fa-calendar"></i> Vencimento: Hoje</span>
+                </div>
+            </div>
+
+            <div class="steps-container">
+
+                <div class="step-item">
+                    <div class="step-circle" style="background: var(--safety-orange); color: white; border-color: var(--safety-orange);">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <div class="step-title">1. Bloqueio de Energia (LOTO)</div>
+                    <div class="step-desc">
+                        Aplicar cadeado no painel principal e verificar energia residual antes de abrir a porta de serviço.
+                    </div>
+                    <label class="loto-check">
+                        <input type="checkbox"> Confirmo Bloqueio Efetuado
+                    </label>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle"><i class="fa-solid fa-vial"></i></div>
+                    <div class="step-title">2. Fluido de Corte (Refrigerante)</div>
+                    <div class="step-desc">
+                        Medir concentração (Brix) e completar nível do reservatório se necessário.
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Leitura Refratômetro (Brix %)</label>
+                        <input type="number" placeholder="Ex: 8.5" step="0.1">
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle"><i class="fa-solid fa-gears"></i></div>
+                    <div class="step-title">3. Lubrificação Guias Lineares</div>
+                    <div class="step-desc">
+                        Verificar reservatório da bomba automática de óleo de barramento (Vactra #2).
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Nível do Reservatório</label>
+                        <select>
+                            <option>Cheio</option>
+                            <option>Médio</option>
+                            <option>Baixo (Completar)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle"><i class="fa-solid fa-temperature-arrow-up"></i></div>
+                    <div class="step-title">4. Temperatura do Spindle</div>
+                    <div class="step-desc">
+                        Rodar ciclo de aquecimento (10 min) e verificar temperatura no chiller.
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Temp. Chiller (°C)</label>
+                        <input type="number" placeholder="24" step="1">
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="action-bar">
+                <div style="font-size: 0.8rem; color: #777;">
+                    Técnico: <strong>V. Lemes</strong>
+                </div>
+                <button class="btn-main" onclick="alert('Dados salvos no ERP Industrial.')">
+                    <i class="fa-solid fa-floppy-disk"></i> Finalizar OS
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

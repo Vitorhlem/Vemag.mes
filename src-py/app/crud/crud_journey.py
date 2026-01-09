@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List, Tuple, Union, Dict, Any
+from typing import List, Tuple, Union, Dict, Any, Optional
 from sqlalchemy import desc 
 
 from datetime import datetime, date, timedelta
@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 from app.crud.base import CRUDBase
 from app.models.journey_model import Journey
 from app.models.vehicle_model import Vehicle, VehicleStatus
-from app.models.user_model import User
+from app.models.user_model import User, UserRole
 from app.schemas.journey_schema import JourneyCreate, JourneyUpdate
 from app.models.implement_model import Implement, ImplementStatus
 from app.models.alert_model import Alert, AlertLevel
@@ -32,7 +32,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             implement.status = ImplementStatus.IN_USE
             db.add(implement)
         
-        # Validação do Veículo
+        # Validação de Veículo
         if not journey_in.vehicle_id:
             raise ValueError("O ID da máquina é obrigatório.")
             
@@ -45,10 +45,9 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
 
         journey_data = journey_in.model_dump(exclude_unset=True)
         
-        # Consistência de Horímetro Inicial
+        # Garante consistência com o valor atual da máquina
         if journey_in.start_engine_hours is not None:
              current = vehicle.current_engine_hours or 0
-             # Se o usuário mandou um valor menor que o atual, usa o atual
              if journey_in.start_engine_hours < current:
                  journey_data['start_engine_hours'] = current
         else:
@@ -64,7 +63,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         )
         db.add(db_journey)
         
-        # Atualiza Status Veículo
+        # Atualiza status da máquina
         vehicle.status = VehicleStatus.IN_USE
         db.add(vehicle)
 
@@ -75,6 +74,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
     async def end_journey(
         self, db: AsyncSession, *, db_journey: Journey, journey_in: JourneyUpdate
     ) -> Tuple[Journey, Vehicle]:
+        """Finaliza operação e atualiza horímetro da máquina."""
         
         db_journey.end_time = datetime.utcnow()
         db_journey.is_active = False
@@ -92,7 +92,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             if vehicle:
                 vehicle.status = VehicleStatus.AVAILABLE
                 
-                # Atualização do Horímetro da Máquina
+                # --- Atualização do Horímetro/KM ---
                 if journey_in.end_engine_hours is not None:
                     current = vehicle.current_engine_hours or 0
                     if journey_in.end_engine_hours >= current:
@@ -103,7 +103,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
                     if journey_in.end_mileage >= current_km:
                         vehicle.current_km = journey_in.end_mileage
 
-                # Verificação de Alerta de Manutenção
+                # Verifica Preventiva
                 limit = vehicle.next_maintenance_km
                 current = vehicle.current_engine_hours or 0
                 
@@ -117,7 +117,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
                     )
                     db.add(alert)
 
-                db.add(vehicle)
+                db.add(vehicle) 
                 updated_vehicle = vehicle
 
         if db_journey.implement_id:
@@ -133,11 +133,27 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         
         return db_journey, updated_vehicle
 
-    # --- MÉTODO QUE ESTAVA FALTANDO/COM NOME DIFERENTE ---
+    # --- MÉTODO RESTAURADO (CRUCIAL PARA O ERRO ATUAL) ---
+    async def get_active_journey_by_driver(self, db: AsyncSession, *, driver_id: int, organization_id: int) -> Optional[Journey]:
+        stmt = select(Journey).where(
+            Journey.driver_id == driver_id,
+            Journey.organization_id == organization_id,
+            Journey.is_active == True
+        )
+        # Opcional: carregar relacionamentos se necessário
+        stmt = stmt.options(
+            selectinload(Journey.vehicle),
+            selectinload(Journey.implement)
+        )
+        result = await db.execute(stmt)
+        return result.scalars().first()
+
+    # --- MÉTODO DE LISTAGEM COMPLETA ---
     async def get_all_journeys(
         self, 
         db: AsyncSession, *, 
         organization_id: int, 
+        requester_role: UserRole = None, # Valor padrão para evitar erro se não passado
         skip: int = 0, 
         limit: int = 100,
         driver_id: int | None = None,
@@ -161,7 +177,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             stmt.order_by(desc(Journey.start_time))
             .options(
                 selectinload(Journey.vehicle),
-                selectinload(Journey.driver).selectinload(User.organization),
+                selectinload(Journey.driver),
                 selectinload(Journey.implement) 
             )
             .offset(skip)
@@ -171,5 +187,24 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         result = await db.execute(final_stmt)
         return result.scalars().all()
 
-# INSTÂNCIA EXPORTADA (IMPORTANTE)
+    # --- OUTROS MÉTODOS AUXILIARES ---
+    async def get_journey(self, db: AsyncSession, *, journey_id: int, organization_id: int) -> Optional[Journey]:
+        stmt = (
+            select(Journey).where(Journey.id == journey_id, Journey.organization_id == organization_id)
+            .options(selectinload(Journey.driver), selectinload(Journey.vehicle), selectinload(Journey.implement))
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def delete_journey(self, db: AsyncSession, *, journey_to_delete: Journey) -> Journey:
+        vehicle = journey_to_delete.vehicle
+        if journey_to_delete.is_active and vehicle:
+            vehicle.status = VehicleStatus.AVAILABLE
+            db.add(vehicle)
+
+        await db.delete(journey_to_delete)
+        await db.commit()
+        return journey_to_delete
+
+# Instância exportada
 journey = CRUDJourney(Journey)
