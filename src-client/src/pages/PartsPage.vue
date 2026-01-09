@@ -422,7 +422,7 @@ import PartHistoryDialog from 'components/PartHistoryDialog.vue';
 // --- CONFIGURAÇÃO DE URL DE IMAGENS ---
 const getBaseUrlForAssets = () => {
     if (process.env.DEV) return 'http://localhost:8000';
-    return 'https://trucar.onrender.com';
+    return 'https://trumachine.onrender.com';
 };
 
 function getImageUrl(url: string | null | undefined): string | undefined {
