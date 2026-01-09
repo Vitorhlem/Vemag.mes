@@ -10,7 +10,7 @@ from . import crud_vehicle_component as vehicle_component
 from . import crud_fuel_log as fuel_log
 from . import crud_maintenance as maintenance
 from . import crud_maintenance_comment as maintenance_comment
-from . import crud_journey as journey
+from .crud_journey import journey  # <--- CERTIFIQUE-SE QUE ESTÁ ASSIM
 from . import crud_document as document
 from . import crud_client as client
 from . import crud_freight_order as freight_order

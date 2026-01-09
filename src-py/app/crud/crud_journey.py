@@ -22,6 +22,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
     async def create_journey(
         self, db: AsyncSession, *, journey_in: JourneyCreate, driver_id: int, organization_id: int
     ) -> Journey:
+        # Lógica de Implemento
         if journey_in.implement_id:
             implement = await db.get(Implement, journey_in.implement_id)
             if not implement or implement.organization_id != organization_id:
@@ -31,6 +32,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             implement.status = ImplementStatus.IN_USE
             db.add(implement)
         
+        # Validação do Veículo
         if not journey_in.vehicle_id:
             raise ValueError("O ID da máquina é obrigatório.")
             
@@ -43,9 +45,10 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
 
         journey_data = journey_in.model_dump(exclude_unset=True)
         
-        # Garante consistência com o valor atual da máquina
+        # Consistência de Horímetro Inicial
         if journey_in.start_engine_hours is not None:
              current = vehicle.current_engine_hours or 0
+             # Se o usuário mandou um valor menor que o atual, usa o atual
              if journey_in.start_engine_hours < current:
                  journey_data['start_engine_hours'] = current
         else:
@@ -61,6 +64,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         )
         db.add(db_journey)
         
+        # Atualiza Status Veículo
         vehicle.status = VehicleStatus.IN_USE
         db.add(vehicle)
 
@@ -71,7 +75,6 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
     async def end_journey(
         self, db: AsyncSession, *, db_journey: Journey, journey_in: JourneyUpdate
     ) -> Tuple[Journey, Vehicle]:
-        """Finaliza operação e atualiza horímetro da máquina."""
         
         db_journey.end_time = datetime.utcnow()
         db_journey.is_active = False
@@ -89,7 +92,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             if vehicle:
                 vehicle.status = VehicleStatus.AVAILABLE
                 
-                # --- ATUALIZAÇÃO DO HORÍMETRO/KM ---
+                # Atualização do Horímetro da Máquina
                 if journey_in.end_engine_hours is not None:
                     current = vehicle.current_engine_hours or 0
                     if journey_in.end_engine_hours >= current:
@@ -99,9 +102,8 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
                     current_km = vehicle.current_km or 0
                     if journey_in.end_mileage >= current_km:
                         vehicle.current_km = journey_in.end_mileage
-                # -----------------------------------
 
-                # Verifica Preventiva
+                # Verificação de Alerta de Manutenção
                 limit = vehicle.next_maintenance_km
                 current = vehicle.current_engine_hours or 0
                 
@@ -115,7 +117,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
                     )
                     db.add(alert)
 
-                db.add(vehicle) # Persiste a atualização do veículo
+                db.add(vehicle)
                 updated_vehicle = vehicle
 
         if db_journey.implement_id:
@@ -131,24 +133,21 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         
         return db_journey, updated_vehicle
 
-    # --- CORREÇÃO AQUI: Renomeado/Adicionado get_all_journeys ---
+    # --- MÉTODO QUE ESTAVA FALTANDO/COM NOME DIFERENTE ---
     async def get_all_journeys(
         self, 
         db: AsyncSession, *, 
         organization_id: int, 
         skip: int = 0, 
         limit: int = 100,
-        # Parâmetros opcionais de filtro que o endpoint pode estar passando
         driver_id: int | None = None,
         vehicle_id: int | None = None,
         date_from: date | None = None,
         date_to: date | None = None
     ) -> List[Journey]:
-        """Busca todas as viagens de uma organização com filtros opcionais."""
         
         stmt = select(Journey).where(Journey.organization_id == organization_id)
         
-        # Filtros dinâmicos
         if date_from:
             stmt = stmt.where(Journey.start_time >= date_from)
         if date_to:
@@ -158,12 +157,11 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         if vehicle_id:
             stmt = stmt.where(Journey.vehicle_id == vehicle_id)
 
-        # Ordenação e Eager Loading
         final_stmt = (
             stmt.order_by(desc(Journey.start_time))
             .options(
                 selectinload(Journey.vehicle),
-                selectinload(Journey.driver),
+                selectinload(Journey.driver).selectinload(User.organization),
                 selectinload(Journey.implement) 
             )
             .offset(skip)
@@ -173,5 +171,5 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         result = await db.execute(final_stmt)
         return result.scalars().all()
 
-# Instância exportada
+# INSTÂNCIA EXPORTADA (IMPORTANTE)
 journey = CRUDJourney(Journey)
