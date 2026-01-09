@@ -515,7 +515,6 @@ import { format, differenceInDays, parse } from 'date-fns';
 import { storeToRefs } from 'pinia';
 
 // Stores
-import { useAuthStore } from 'stores/auth-store';
 import { useVehicleStore } from 'stores/vehicle-store';
 import { useVehicleCostStore } from 'stores/vehicle-cost-store';
 import { useVehicleComponentStore } from 'stores/vehicle-component-store';
@@ -546,7 +545,6 @@ import AddCostDialog from 'components/AddCostDialog.vue';
 const route = useRoute();
 const router = useRouter(); 
 const $q = useQuasar();
-const authStore = useAuthStore();
 const vehicleStore = useVehicleStore();
 const costStore = useVehicleCostStore();
 const componentStore = useVehicleComponentStore();
@@ -559,8 +557,6 @@ const { removedTiresHistory } = storeToRefs(tireStore);
 const vehicleId = Number(route.params.id);
 const tab = ref((route.query.tab as string) || 'tires');
 // Força lógica "Agro/Industrial" para usar Horas
-const isAgro = ref(true); 
-
 const isHistoryLoading = ref(false);
 const inventoryHistory = ref<InventoryTransaction[]>([]);
 
@@ -607,7 +603,6 @@ async function refreshAllVehicleData() {
 // LÓGICA DE DESGASTE E KPIS
 const tiresWithStatus = computed((): TireWithStatus[] => {
   if (!tireStore.tireLayout?.tires || !vehicleStore.selectedVehicle) return [];
-  const currentKm = vehicleStore.selectedVehicle.current_km || 0;
   const currentEngineHours = vehicleStore.selectedVehicle.current_engine_hours || 0;
   
   return tireStore.tireLayout.tires.map(tire => {

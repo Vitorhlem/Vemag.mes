@@ -432,9 +432,6 @@ function getImageUrl(url: string | null | undefined): string | undefined {
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function openUrl(url: string | undefined) {
-    if (url) window.open(url, '_blank');
-}
 
 const $q = useQuasar();
 const partStore = usePartStore();

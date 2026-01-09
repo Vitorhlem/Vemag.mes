@@ -98,7 +98,6 @@ const vehicleOptions = computed(() =>
   }))
 );
 
-// ESSA LISTA DEVE BATER EXATAMENTE COM O PYTHON ENUM
 const costTypeOptions: CostType[] = [
     'Manutenção Corretiva', 
     'Manutenção Preventiva', 
@@ -138,11 +137,13 @@ async function handleSubmit() {
     $q.notify({ type: 'positive', message: 'Custo registrado com sucesso!' });
     emit('cost-added');
     emit('close');
-  } catch (error: any) {
+  } catch (error) {
     console.error(error);
-    // Melhoria na mensagem de erro para debug
-    const msg = error.response?.data?.detail 
-        ? JSON.stringify(error.response.data.detail) 
+    // CORREÇÃO: Cast explícito dentro do bloco catch para evitar erro do ESLint
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = error as any; 
+    const msg = err.response?.data?.detail 
+        ? JSON.stringify(err.response.data.detail) 
         : 'Erro ao registrar custo.';
     $q.notify({ type: 'negative', message: msg });
   } finally {

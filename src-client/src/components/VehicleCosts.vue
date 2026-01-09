@@ -79,7 +79,7 @@
 import { ref, onMounted } from 'vue';
 import { useVehicleCostStore } from 'stores/vehicle-cost-store';
 import type { QTableProps } from 'quasar';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import type { VehicleCostCreate, CostType } from 'src/models/vehicle-cost-models';
 
 const props = defineProps<{
@@ -90,7 +90,6 @@ const costsStore = useVehicleCostStore();
 const isDialogOpen = ref(false);
 const isSubmitting = ref(false);
 
-// Lista padronizada (igual ao AddCostDialog e Modelo)
 const costTypeOptions: CostType[] = [
     'Manutenção Corretiva', 
     'Manutenção Preventiva', 
@@ -104,12 +103,13 @@ const costTypeOptions: CostType[] = [
 const formData = ref<VehicleCostCreate>({
   cost_type: 'Outros',
   amount: 0,
-  date: new Date().toISOString().split('T')[0],
+  // CORREÇÃO AQUI: Adicionado || '' para evitar tipo undefined
+  date: new Date().toISOString().split('T')[0] || '', 
   description: '',
 });
 
 const columns: QTableProps['columns'] = [
-  { name: 'date', label: 'Data', field: 'date', align: 'left', sortable: true, format: (val) => val ? format(new Date(val), 'dd/MM/yyyy') : '--' },
+  { name: 'date', label: 'Data', field: 'date', align: 'left', sortable: true, format: (val) => format(new Date(val), 'dd/MM/yyyy') || '--' },
   { name: 'cost_type', label: 'Categoria', field: 'cost_type', align: 'left', sortable: true },
   { name: 'description', label: 'Descrição', field: 'description', align: 'left' },
   { name: 'amount', label: 'Valor', field: 'amount', align: 'right', sortable: true },
@@ -119,7 +119,8 @@ function resetForm() {
   formData.value = {
     cost_type: 'Outros',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    // CORREÇÃO AQUI TAMBÉM
+    date: new Date().toISOString().split('T')[0] || '',
     description: '',
   };
 }
@@ -132,10 +133,13 @@ function openAddDialog() {
 async function onFormSubmit() {
   isSubmitting.value = true;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const parsedDate = parse(formData.value.date, 'yyyy-MM-dd', new Date()); // O input date retorna yyyy-MM-dd
+    
     const payload: VehicleCostCreate = {
       cost_type: formData.value.cost_type,
       amount: formData.value.amount,
-      date: formData.value.date,
+      date: formData.value.date, // Já está no formato correto do input type="date"
       description: formData.value.description
     };
     

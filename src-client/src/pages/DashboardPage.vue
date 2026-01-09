@@ -81,6 +81,7 @@
             :value="kpis?.total_vehicles ?? 0" 
             icon="domain" 
             color="primary" 
+            :loading="dashboardStore.isLoading"
             to="/vehicles" 
             class="full-height shadow-1 hover-lift" 
           />
@@ -89,8 +90,9 @@
           <StatCard 
             label="Em Produção" 
             :value="kpis?.in_use_vehicles ?? 0" 
-            icon="settings" 
+            icon="settings_motion" 
             color="positive" 
+            :loading="dashboardStore.isLoading"
             to="/vehicles?status=IN_USE" 
             class="full-height shadow-1 hover-lift" 
           />
@@ -101,6 +103,7 @@
             :value="kpis?.available_vehicles ?? 0" 
             icon="pause_circle_outline" 
             color="warning" 
+            :loading="dashboardStore.isLoading"
             to="/vehicles?status=AVAILABLE" 
             class="full-height shadow-1 hover-lift" 
           />
@@ -111,6 +114,7 @@
             :value="kpis?.maintenance_vehicles ?? 0" 
             icon="build" 
             color="negative" 
+            :loading="dashboardStore.isLoading"
             to="/maintenance" 
             class="full-height shadow-1 hover-lift" 
           />
@@ -177,7 +181,7 @@
               <div v-else class="text-center text-grey q-pa-xl column flex-center" style="height: 320px">
                  <q-icon name="bar_chart" size="4em" color="grey-3" />
                  <div class="q-mt-sm">Nenhum custo lançado no período.</div>
-                 <q-btn flat color="primary" label="Lançar Custos" to="/costs" size="sm" />
+                 <q-btn flat color="primary" label="Lançar Custos" to="/vehicle-costs" size="sm" />
               </div>
             </PremiumWidget>
           </div>
@@ -332,7 +336,6 @@ const efficiencyKpis = computed(() => managerData.value?.efficiency_kpis);
 const upcomingMaintenances = computed(() => managerData.value?.upcoming_maintenances as UpcomingMaintenance[] || []);
 const recentAlerts = computed(() => managerData.value?.recent_alerts);
 
-// CORREÇÃO: Removemos todos os dados mockados. Se for vazio, retorna vazio.
 const processedAlerts = computed(() => {
     return recentAlerts.value || [];
 });
