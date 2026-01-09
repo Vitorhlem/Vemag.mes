@@ -1,15 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List, Optional, Tuple, Union, Dict, Any
-from sqlalchemy import func, desc 
+from typing import List, Tuple, Union, Dict, Any
+from sqlalchemy import desc 
 
 from datetime import datetime, date, timedelta
 
 from app.crud.base import CRUDBase
 from app.models.journey_model import Journey
 from app.models.vehicle_model import Vehicle, VehicleStatus
-from app.models.user_model import User, UserRole
+from app.models.user_model import User
 from app.schemas.journey_schema import JourneyCreate, JourneyUpdate
 from app.models.implement_model import Implement, ImplementStatus
 from app.models.alert_model import Alert, AlertLevel
@@ -32,7 +32,7 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
             db.add(implement)
         
         if not journey_in.vehicle_id:
-            raise ValueError("O ID do veículo é obrigatório.")
+            raise ValueError("O ID da máquina é obrigatório.")
             
         vehicle = await db.get(Vehicle, journey_in.vehicle_id)
         if not vehicle or vehicle.organization_id != organization_id:
@@ -131,22 +131,47 @@ class CRUDJourney(CRUDBase[Journey, JourneyCreate, JourneyUpdate]):
         
         return db_journey, updated_vehicle
 
-    async def get_multi_by_org(
-        self, db: AsyncSession, *, organization_id: int, skip: int = 0, limit: int = 100
+    # --- CORREÇÃO AQUI: Renomeado/Adicionado get_all_journeys ---
+    async def get_all_journeys(
+        self, 
+        db: AsyncSession, *, 
+        organization_id: int, 
+        skip: int = 0, 
+        limit: int = 100,
+        # Parâmetros opcionais de filtro que o endpoint pode estar passando
+        driver_id: int | None = None,
+        vehicle_id: int | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None
     ) -> List[Journey]:
-        stmt = (
-            select(Journey)
-            .where(Journey.organization_id == organization_id)
+        """Busca todas as viagens de uma organização com filtros opcionais."""
+        
+        stmt = select(Journey).where(Journey.organization_id == organization_id)
+        
+        # Filtros dinâmicos
+        if date_from:
+            stmt = stmt.where(Journey.start_time >= date_from)
+        if date_to:
+            stmt = stmt.where(Journey.start_time < date_to + timedelta(days=1))
+        if driver_id:
+            stmt = stmt.where(Journey.driver_id == driver_id)
+        if vehicle_id:
+            stmt = stmt.where(Journey.vehicle_id == vehicle_id)
+
+        # Ordenação e Eager Loading
+        final_stmt = (
+            stmt.order_by(desc(Journey.start_time))
             .options(
                 selectinload(Journey.vehicle),
                 selectinload(Journey.driver),
                 selectinload(Journey.implement) 
             )
-            .order_by(desc(Journey.start_time))
             .offset(skip)
             .limit(limit)
         )
-        result = await db.execute(stmt)
+        
+        result = await db.execute(final_stmt)
         return result.scalars().all()
 
+# Instância exportada
 journey = CRUDJourney(Journey)
