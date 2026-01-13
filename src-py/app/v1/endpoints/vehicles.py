@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi.encoders import jsonable_encoder  # <--- IMPORTANTE: Adicione este import
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from pydantic import BaseModel  # Importa BaseModel
+from pydantic import BaseModel
 from app.schemas.audit_log_schema import AuditLogCreate
 from app.crud import crud_audit_log
 from app import crud, deps
@@ -102,10 +103,13 @@ async def create_vehicle(
         )
 
         try:
+            # jsonable_encoder aqui também por segurança, embora create use strings simples
+            details_data = {"plate": vehicle.license_plate, "model": vehicle.model}
+            
             await crud_audit_log.create(db=db, log_in=AuditLogCreate(
                 action="CREATE", resource_type="Veículos", resource_id=str(vehicle.id),
                 user_id=current_user.id, organization_id=current_user.organization_id,
-                details={"plate": vehicle.license_plate, "model": vehicle.model}
+                details=jsonable_encoder(details_data)
             ))
             await db.commit()
         except Exception as e:
@@ -118,10 +122,6 @@ async def create_vehicle(
             status_code=status.HTTP_409_CONFLICT,
             detail="Um veículo com esta placa ou identificador já existe na sua organização.",
         )
-    
-
-    
-
 
 @router.put("/{vehicle_id}", response_model=VehiclePublic)
 async def update_vehicle(
@@ -143,14 +143,22 @@ async def update_vehicle(
     updated_vehicle = await crud.vehicle.update(db=db, db_vehicle=db_vehicle, vehicle_in=vehicle_in)
 
     try:
+        # --- CORREÇÃO AQUI ---
+        # Convertemos o objeto de update para um formato JSON-friendly (datas viram strings ISO)
+        log_details = jsonable_encoder(vehicle_in.model_dump(exclude_unset=True))
+        
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
             action="UPDATE", resource_type="Veículos", resource_id=str(updated_vehicle.id),
             user_id=current_user.id, organization_id=current_user.organization_id,
-            details={"updates": vehicle_in.model_dump(exclude_unset=True)}
+            details={"updates": log_details}
         ))
         await db.commit()
     except Exception as e:
         print(f"Erro auditoria: {e}")
+        # Opcional: Se a auditoria falhar, não queremos quebrar o update principal,
+        # mas se o commit da auditoria estava atrelado à transação, pode ter dado rollback.
+        # Como o crud.vehicle.update já faz um commit interno, o veículo já está salvo.
+        # O erro estava ocorrendo porque o SQLAlchemy tentava serializar o JSON antes de enviar pro banco.
 
     return updated_vehicle
 

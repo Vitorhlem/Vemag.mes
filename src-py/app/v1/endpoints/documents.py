@@ -11,7 +11,7 @@ from app.crud import crud_audit_log
 from app import crud, deps
 from app.models.user_model import User, UserRole
 from app.schemas.document_schema import DocumentPublic, DocumentCreate, DocumentUpdate
-from app.models.document_model import DocumentType
+# from app.models.document_model import DocumentType # <-- Não precisamos mais importar o Enum aqui para validação
 
 router = APIRouter()
 
@@ -34,7 +34,7 @@ async def save_upload_file(upload_file: UploadFile) -> str:
 async def create_document(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    document_type: DocumentType = Form(...),
+    document_type: str = Form(...), # <--- ALTERADO: Aceita qualquer string agora
     expiry_date: date = Form(...),
     notes: str = Form(None),
     vehicle_id: int = Form(None),
@@ -61,10 +61,11 @@ async def create_document(
         organization_id=current_user.organization_id, file_url=file_url
     )
     try:
+        # Ajuste no log de auditoria para usar os dados do objeto criado, não da classe estática
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-            action="CREATE", resource_type="Documentos", resource_id=str(Document.id),
+            action="CREATE", resource_type="Documentos", resource_id=str(created_document.id),
             user_id=current_user.id, organization_id=current_user.organization_id,
-            details={"type": Document.document_type, "title": Document.title, "vehicle_id": Document.vehicle_id}
+            details={"type": created_document.document_type, "vehicle_id": created_document.vehicle_id}
         ))
         await db.commit()
     except Exception as e:
@@ -93,7 +94,7 @@ async def read_documents(
         skip=skip,
         limit=limit,
         expiring_in_days=expiring_in_days,
-        driver_id=driver_id_filter # Passa o filtro
+        driver_id=driver_id_filter
     )
     return documents
 
@@ -116,17 +117,20 @@ async def delete_document(
          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento não encontrado.")
 
     try:
+        # Remove a barra inicial se existir para encontrar o caminho relativo correto
         file_path_str = doc_to_delete.file_url.lstrip("/")
+        # Se o caminho começar com 'static/', certifique-se de que o Path o encontra
         file_path = Path(file_path_str)
         if file_path.exists():
             file_path.unlink()
     except Exception as e:
         print(f"Erro ao apagar arquivo físico: {e}")
+    
     try:
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-            action="DELETE", resource_type="Documentos", resource_id=str(Document.id),
+            action="DELETE", resource_type="Documentos", resource_id=str(doc_id),
             user_id=current_user.id, organization_id=current_user.organization_id,
-            details={"deleted_title": Document.title}
+            details={"deleted_type": doc_to_delete.document_type}
         ))
         await db.commit()
     except Exception as e:

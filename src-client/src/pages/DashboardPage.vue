@@ -21,7 +21,7 @@
               color="primary" 
               icon="refresh" 
               label="Atualizar" 
-              @click="refreshData" 
+              @click="() => refreshData()" 
               :loading="dashboardStore.isLoading"
            />
            <q-btn-dropdown 
@@ -197,29 +197,47 @@
               </q-card-section>
               
               <q-list separator>
-                  <q-item v-for="maint in upcomingMaintenances" :key="maint.vehicle_id" class="q-py-md hover-bg">
+                  <q-item 
+                    v-for="item in mergedMaintenanceList" 
+                    :key="item.id" 
+                    class="q-py-md hover-bg"
+                    :class="{'bg-red-1': item.is_overdue}"
+                  >
                     <q-item-section avatar>
-                       <q-avatar color="grey-2" text-color="primary" icon="engineering" />
+                       <q-avatar 
+                          :color="item.is_overdue ? 'negative' : 'grey-2'" 
+                          :text-color="item.is_overdue ? 'white' : 'primary'" 
+                          :icon="item.is_overdue ? 'warning' : 'engineering'" 
+                        />
                     </q-item-section>
                     
                     <q-item-section>
-                      <q-item-label class="text-weight-bold text-subtitle1">{{ maint.vehicle_info }}</q-item-label>
+                      <q-item-label class="text-weight-bold text-subtitle1">{{ item.info }}</q-item-label>
                       <q-item-label caption>
-                         <q-badge v-if="isOverdue(maint)" color="negative" label="VENCIDA" class="q-mr-xs" />
+                         <q-badge v-if="item.is_overdue" color="negative" label="VENCIDA" class="q-mr-xs" />
                          <span v-else class="text-grey-7">Vence em: </span>
                          
-                         <span class="text-weight-medium" :class="isOverdue(maint) ? 'text-negative' : 'text-grey-9'">
-                            {{ maint.due_date ? new Date(maint.due_date).toLocaleDateString() : `${maint.due_km} Horas` }}
+                         <span class="text-weight-medium" :class="item.is_overdue ? 'text-negative' : 'text-grey-9'">
+                            {{ item.is_overdue ? `Passou do limite há ${item.overdue_diff}h` : item.due_label }}
                          </span>
                       </q-item-label>
                     </q-item-section>
                     
                     <q-item-section side>
-                       <q-btn outline dense size="sm" color="primary" label="Abrir OS" @click="scheduleMaintenance(maint.vehicle_id)" />
+                       <q-btn 
+                          :outline="!item.is_overdue"
+                          :unelevated="item.is_overdue"
+                          dense 
+                          size="sm" 
+                          :color="item.is_overdue ? 'negative' : 'primary'" 
+                          :label="item.is_overdue ? 'Abrir OM Urgente' : 'Abrir OS'" 
+                          :icon="item.is_overdue ? 'add_alert' : undefined"
+                          @click="scheduleMaintenance(item.id)" 
+                        />
                     </q-item-section>
                   </q-item>
                   
-                  <q-item v-if="!upcomingMaintenances?.length" class="q-pa-lg">
+                  <q-item v-if="!mergedMaintenanceList.length" class="q-pa-lg">
                      <q-item-section class="text-center text-grey-6">
                         <q-icon name="check_circle_outline" size="3em" class="q-mb-sm text-positive" />
                         <div>Nenhuma manutenção preventiva próxima.</div>
@@ -303,6 +321,7 @@ import { useRouter } from 'vue-router';
 import { colors } from 'quasar';
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
+import { useVehicleStore } from 'stores/vehicle-store'; 
 import ApexChart from 'vue3-apexcharts';
 import StatCard from 'components/StatCard.vue';
 import MetricCard from 'components/MetricCard.vue'; 
@@ -322,8 +341,18 @@ interface UpcomingMaintenance {
     due_km?: number;
 }
 
+// NOVO: Interface para itens unificados da lista
+interface UnifiedMaintenanceItem {
+    id: number;
+    info: string;
+    due_label: string;
+    is_overdue: boolean;
+    overdue_diff: string | number;
+}
+
 const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
+const vehicleStore = useVehicleStore(); 
 const router = useRouter();
 
 const showCreateMaintenanceDialog = ref(false); 
@@ -340,7 +369,51 @@ const processedAlerts = computed(() => {
     return recentAlerts.value || [];
 });
 
-// Calcula custo variável total (Energia + Insumos + Combustível legado)
+// [NOVO] Veículos Vencidos
+const overdueVehicles = computed(() => {
+   return vehicleStore.vehicles.filter(v => {
+      if (v.next_maintenance_km && v.current_engine_hours) {
+         return v.current_engine_hours >= v.next_maintenance_km;
+      }
+      return false;
+   });
+});
+
+// [NOVO] Lista Unificada para o Card (CORRIGIDA TIPAGEM)
+const mergedMaintenanceList = computed(() => {
+    const list: UnifiedMaintenanceItem[] = []; // TIPAGEM EXPLÍCITA
+    const addedIds = new Set<number>();
+
+    // 1. Adiciona as Vencidas (Alta Prioridade)
+    overdueVehicles.value.forEach(v => {
+        const diff = (v.current_engine_hours || 0) - (v.next_maintenance_km || 0);
+        list.push({
+            id: v.id,
+            info: `${v.brand} ${v.model}`,
+            due_label: `${v.next_maintenance_km} h`,
+            is_overdue: true,
+            overdue_diff: diff.toFixed(0)
+        });
+        addedIds.add(v.id);
+    });
+
+    // 2. Adiciona as Próximas (Vindas do Dashboard)
+    upcomingMaintenances.value.forEach(m => {
+        if (!addedIds.has(m.vehicle_id)) {
+            list.push({
+                id: m.vehicle_id,
+                info: m.vehicle_info,
+                due_label: m.due_date ? new Date(m.due_date).toLocaleDateString() : `${m.due_km} h`,
+                is_overdue: false,
+                overdue_diff: 0
+            });
+        }
+    });
+
+    return list;
+});
+
+// Calcula custo variável total
 const variableCostTotal = computed(() => {
   const costs: ICostItem[] = managerData.value?.costs_by_category || [];
   const items = costs.filter(c => 
@@ -377,7 +450,6 @@ const costAnalysisChart = computed(() => {
 
 const fleetStatusChart = computed(() => {
     if (!kpis.value) return { series: [], options: {} };
-    // Mapeamento correto dos dados reais
     const series = [
         kpis.value.available_vehicles || 0, 
         kpis.value.in_use_vehicles || 0, 
@@ -387,7 +459,7 @@ const fleetStatusChart = computed(() => {
         series,
         options: {
             labels: ['Paradas (Disp.)', 'Produzindo', 'Manutenção'],
-            colors: ['#F2C037', '#21BA45', '#C10015'], // Warning, Positive, Negative
+            colors: ['#F2C037', '#21BA45', '#C10015'], 
             chart: { type: 'donut' },
             legend: { position: 'bottom' },
             dataLabels: { enabled: false },
@@ -396,8 +468,11 @@ const fleetStatusChart = computed(() => {
     };
 });
 
-function refreshData() {
-    void dashboardStore.fetchManagerDashboard('last_30_days');
+async function refreshData() {
+    // Carrega dashboard
+    await dashboardStore.fetchManagerDashboard('last_30_days');
+    // Carrega veículos para calcular os alertas de preventivas
+    await vehicleStore.fetchAllVehicles({ page: 1, rowsPerPage: 100 });
 }
 
 function scheduleMaintenance(vehicleId: number) {
@@ -412,15 +487,10 @@ function scheduleMaintenanceGeneral() {
   showCreateMaintenanceDialog.value = true;
 }
 
-function isOverdue(maint: UpcomingMaintenance): boolean {
-    if (maint.due_date) {
-        return new Date(maint.due_date) < new Date();
-    }
-    return false;
-}
-
 onMounted(() => {
-    if (authStore.isManager) void dashboardStore.fetchManagerDashboard('last_30_days');
+    if (authStore.isManager) {
+        void refreshData(); // void para ignorar a promise flutuante (ESLint)
+    }
 });
 </script>
 

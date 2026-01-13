@@ -2,13 +2,12 @@ from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import date
 
-# Importamos o Enum do nosso model para reutilizá-lo
-from app.models.document_model import DocumentType
-
+# Removemos a importação estrita do Enum para evitar erros de validação
+# from app.models.document_model import DocumentType 
 
 # Schema base com os campos comuns
 class DocumentBase(BaseModel):
-    document_type: DocumentType
+    document_type: str  # <--- ALTERADO DE DocumentType PARA str
     expiry_date: date
     notes: Optional[str] = None
 
@@ -31,7 +30,7 @@ class DocumentCreate(DocumentBase):
 
 # Schema para atualizar um documento existente (todos os campos são opcionais)
 class DocumentUpdate(BaseModel):
-    document_type: Optional[DocumentType] = None
+    document_type: Optional[str] = None # <--- ALTERADO PARA str
     expiry_date: Optional[date] = None
     notes: Optional[str] = None
 

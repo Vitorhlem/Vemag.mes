@@ -66,10 +66,14 @@ api_router.include_router(parts.router, prefix="/parts", tags=["Parts"])
 api_router.include_router(vehicle_components.router, tags=["Vehicle Components"])
 api_router.include_router(tires.router, prefix="/tires", tags=["Tire Management"])
 api_router.include_router(costs.router, prefix="/costs", tags=["Costs"])
-api_router.include_router(fines.router, prefix="/fines", tags=["Fines"]) # <-- ADICIONE ESTA LINHA
+api_router.include_router(fines.router, prefix="/fines", tags=["Fines"])
 api_router.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
-api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["Audit Logs"]) # <--- ADICIONE
-api_router.include_router(weather.router, prefix="/weather", tags=["weather"]) # <--- ADICIONE ISTO
-api_router.include_router(routes.router, prefix="/routes", tags=["routes"]) # <--- Adicionar       
+api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["Audit Logs"])
+api_router.include_router(weather.router, prefix="/weather", tags=["weather"])
+api_router.include_router(routes.router, prefix="/routes", tags=["routes"])
 api_router.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
+
+# --- CORREÇÃO: Rota direta para corrigir o 404 ---
+# Adiciona o endpoint de upload diretamente na raiz da API v1 (/api/v1/upload-photo)
+api_router.add_api_route("/upload-photo", utils.upload_photo, methods=["POST"], tags=["Utilities"])
