@@ -207,7 +207,8 @@ function getTypeIcon(type: string) {
    return 'info';
 }
 
-function getStatusTextColor(status: string) {
+function getStatusTextColor(status?: string) {
+   if (!status) return 'text-dark';
    if (status === 'RUNNING' || status === 'IN_USE') return 'text-positive';
    if (status === 'STOPPED' || status === 'MAINTENANCE') return 'text-negative';
    if (status === 'SETUP') return 'text-orange-9';
@@ -223,7 +224,7 @@ async function onRequest(reqProps: { pagination: { page: number; rowsPerPage: nu
     const data = await store.fetchMachineHistory(props.machineId || 1, {
       skip: skip,
       limit: rowsPerPage,
-      event_type: (filterType.value as string) || undefined
+      event_type: filterType.value || undefined
     });
     
     rows.value = data;
@@ -248,23 +249,46 @@ function resetAndFetch() {
   void onRequest({ pagination: pagination.value });
 }
 
-// Corrigido: Tipagem da função de formatação
+// CORREÇÃO: Tipagem e lógica segura de conversão para string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrapCsvValue(val: unknown, formatFn?: (v: any, r?: any) => any) {
-  let formatted = formatFn !== undefined ? formatFn(val) : val;
-  formatted = formatted === undefined || formatted === null ? '' : String(formatted);
-  formatted = String(formatted).split('"').join('""');
-  return `"${formatted}"`;
+  // Passamos 'val' direto. O segundo argumento do formatFn (row) vai como undefined pois no CSV tratamos celula a celula
+  let formatted = formatFn !== undefined ? formatFn(val, undefined) : val;
+  
+  if (formatted === undefined || formatted === null) {
+    formatted = '';
+  }
+  
+  const safeStr = String(formatted);
+  const result = safeStr.split('"').join('""');
+  return `"${result}"`;
 }
 
 function exportTable() {
   if (rows.value.length === 0) return;
 
-  const content = [columns.map(col => wrapCsvValue(col.label))].concat(
-    rows.value.map(row => columns.map(col => wrapCsvValue(
-      typeof col.field === 'function' ? col.field(row) : row[col.field === undefined ? col.name : col.field as string],
-      col.format
-    )).join(','))
-  ).join('\r\n');
+  // 1. Gera o cabeçalho
+  const header = columns.map(col => wrapCsvValue(col.label)).join(',');
+
+  // 2. Gera as linhas de dados
+  const body = rows.value.map(row => {
+    return columns.map(col => {
+      // Type assertion para acessar dinamicamente
+      const rowData = row as Record<string, unknown>;
+      
+      // Acessa valor do campo
+      const fieldVal = typeof col.field === 'function' 
+        ? col.field(row) 
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        : rowData[col.field as string];
+      
+      // CORREÇÃO: Agora o TypeScript aceita col.format porque as assinaturas batem
+      return wrapCsvValue(fieldVal, col.format);
+    }).join(',');
+  }).join('\r\n');
+
+  // 3. Junta tudo
+  const content = `${header}\r\n${body}`;
 
   const status = exportFile(
     `historico_producao_maq_${props.machineId}_${format(new Date(), 'yyyyMMdd')}.csv`,

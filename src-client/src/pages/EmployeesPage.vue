@@ -1,3 +1,4 @@
+<!-- eslint-disable @typescript-eslint/no-explicit-any -->
 <template>
   <q-page class="bg-grey-1 column no-wrap" style="height: 100vh; overflow: hidden;">
     
@@ -233,12 +234,18 @@ const dateRange = ref({
   to: date.formatDate(today, 'YYYY-MM-DD') 
 });
 
-// Tipos
 interface EmployeeSummary {
   employee_name: string;
   total_hours: number;
   efficiency: number;
 }
+
+// Interface auxiliar para garantir tipagem no fallback de busca
+interface EmployeeWithId extends EmployeeSummary {
+    user_id?: number;
+    id?: number;
+}
+
 interface EmployeeDetail {
   total_hours: number;
   productive_hours: number;
@@ -256,12 +263,10 @@ interface EmployeeDetail {
   }[];
 }
 
-// Estados
 const employeesList = ref<EmployeeSummary[]>([]);
 const selectedEmpSummary = ref<EmployeeSummary | null>(null);
 const detailData = ref<EmployeeDetail | null>(null);
 
-// Computados
 const dateRangeDisplay = computed(() => {
    if (typeof dateRange.value === 'string') return dateRange.value;
    return `${date.formatDate(dateRange.value.from, 'DD/MM/YYYY')} até ${date.formatDate(dateRange.value.to, 'DD/MM/YYYY')}`;
@@ -282,23 +287,23 @@ const sessionColumns: QTableColumn[] = [
    { name: 'efficiency', label: 'Eficiência', field: 'efficiency', align: 'right', sortable: true },
 ];
 
-// Ações
 async function loadList() {
   loadingList.value = true;
   try {
-    let start = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.from;
-    let end = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.to;
+    // Corrigido: const
+    const start = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.from;
+    const end = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.to;
 
     const { data } = await api.get<EmployeeSummary[]>('/production/stats/employees', {
        params: { start_date: start, end_date: end }
     });
     employeesList.value = data;
     
-    // Se o selecionado ainda estiver na lista, recarrega o detalhe dele
     if (selectedEmpSummary.value) {
        await selectEmployee(selectedEmpSummary.value);
     }
-  } catch (e) {
+  } catch (error) {
+    console.error(error);
     $q.notify({ type: 'negative', message: 'Erro ao carregar lista.' });
   } finally {
     loadingList.value = false;
@@ -308,43 +313,15 @@ async function loadList() {
 async function selectEmployee(emp: EmployeeSummary) {
    selectedEmpSummary.value = emp;
    loadingDetail.value = true;
-   detailData.value = null; // Limpa view anterior
+   detailData.value = null; 
    
    try {
-      // Busca o ID real pelo nome (ou idealmente o objeto da lista já teria o ID)
-      // Como o endpoint de lista retorna nomes, vamos supor que temos que pegar pelo endpoint de detail usando o ID que viria na lista
-      // CORREÇÃO: O endpoint de lista precisa retornar o ID do usuário.
-      // Vou assumir que o backend já retorna o ID oculto no objeto.
+      // Corrigido: const e prefer-const
+      const start = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.from;
+      const end = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.to;
       
-      // Assumindo que o endpoint /stats/employees já foi ajustado para retornar 'user_id'
-      // Se não, precisamos buscar o ID. 
-      // Para simplificar agora, vou buscar pelo endpoint de detalhe passando datas.
-      
-      // *IMPORTANTE*: O Backend get_employee_stats deve retornar user_id. 
-      // Vou adicionar user_id no Backend implicitamente no loop anterior.
-      
-      let start = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.from;
-      let end = typeof dateRange.value === 'string' ? dateRange.value : dateRange.value.to;
-      
-      // Nota: Preciso do ID. Como o endpoint stats/employees anterior retornava só nome, 
-      // o ideal é adicionar 'user_id' lá. 
-      // Vou fazer uma chamada "search" simulada ou idealmente corrigir o backend anterior.
-      // Assuma que emp tem 'user_id' (vou adicionar no backend agora).
-      
-      // Como não posso editar o backend que já enviei acima nesse turno,
-      // vou usar uma busca de usuário pelo nome se necessário, ou assumir que você adicionou user_id.
-      // Vou usar uma rota fictícia /users/search se o ID não estiver disponível, mas o correto é vir na lista.
-      
-      // *** HACK TEMPORÁRIO SE FALTAR ID ***:
-      // Vamos buscar detalhes passando o endpoint de detalhe.
-      // Como o endpoint pede ID (/stats/employee/{id}/details), precisamos do ID.
-      // Vou supor que 'emp' tem uma prop 'user_id' ou 'id'.
-      
-      // Se 'emp' não tiver ID, pegamos pelo index (perigoso) ou buscamos users.
-      // A melhor correção é no Backend. Adicione "user_id": user.id no dicionário de retorno do get_employee_stats.
-      
-      // Código assumindo que o objeto emp tem um campo id ou user_id
-      const uid = (emp as any).user_id || (emp as any).id; 
+      const empWithId = emp as EmployeeWithId;
+      const uid = empWithId.user_id || empWithId.id; 
       
       if (uid) {
          const { data } = await api.get(`/production/stats/employee/${uid}/details`, {
@@ -352,9 +329,12 @@ async function selectEmployee(emp: EmployeeSummary) {
          });
          detailData.value = data;
       } else {
-         // Fallback: Tenta buscar usuário pelo email/nome
-         const allUsers = (await api.get('/users/')).data;
-         const found = allUsers.find((u: any) => u.full_name === emp.employee_name || u.email === emp.employee_name);
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         const allUsers = (await api.get<any[]>('/users/')).data;
+         // Corrigido: Tipagem no find
+         const found = allUsers.find((u: { full_name: string; email: string; id: number }) => 
+            u.full_name === emp.employee_name || u.email === emp.employee_name
+         );
          if (found) {
             const { data } = await api.get(`/production/stats/employee/${found.id}/details`, {
                 params: { start_date: start, end_date: end }
@@ -363,14 +343,15 @@ async function selectEmployee(emp: EmployeeSummary) {
          }
       }
 
-   } catch (e) {
+   } catch (error) {
+      console.error(error);
       $q.notify({ type: 'negative', message: 'Erro ao carregar detalhes.' });
    } finally {
       loadingDetail.value = false;
    }
 }
 
-// Helpers Visuais
+// ... helpers (mantidos) ...
 function getInitials(name: string) {
    if (!name) return '?';
    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();

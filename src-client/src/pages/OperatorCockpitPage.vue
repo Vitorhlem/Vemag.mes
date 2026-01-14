@@ -69,21 +69,73 @@
             </q-card>
 
             <q-card class="col-grow shadow-3 column bg-white" style="border-radius: 12px; border-left: 6px solid var(--q-primary);">
-              <q-card-section class="col column justify-center q-pt-sm text-center">
-                 <div class="text-h2 text-weight-bolder text-dark q-mb-md">
-                    {{ productionStore.activeOrder.produced_quantity }} <span class="text-h5 text-grey">/ {{ productionStore.activeOrder.target_quantity }}</span>
+              
+              <q-card-section class="row items-center justify-between border-bottom-light">
+                 <div>
+                    <div class="text-subtitle1 text-weight-bold text-uppercase text-grey-8 letter-spacing-1">
+                       <q-icon name="list_alt" class="q-mr-sm" />Roteiro de Operação
+                    </div>
+                    <div class="text-caption text-grey-6">Instruções de processo</div>
                  </div>
-                 <div class="text-subtitle1 text-uppercase text-grey-6 letter-spacing-1">Peças Produzidas</div>
-                 
-                 <div class="row justify-center q-gutter-md q-mt-lg">
-                    <q-btn push round color="negative" icon="delete" size="xl" @click="productionStore.addProduction(1, true)">
-                        <q-tooltip>Refugo</q-tooltip>
-                    </q-btn>
-                    <q-btn push round color="positive" icon="add" size="30px" class="q-pa-lg" @click="productionStore.addProduction(1, false)">
-                        <q-tooltip>Peça Boa</q-tooltip>
-                    </q-btn>
+                 <div class="text-right">
+                    <div class="text-h4 text-weight-bolder text-primary">
+                       {{ productionStore.activeOrder.produced_quantity }} <span class="text-h6 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }}</span>
+                    </div>
+                    <div class="text-caption text-grey-7">Peças Produzidas</div>
                  </div>
               </q-card-section>
+              
+              <q-linear-progress :value="productionStore.activeOrder.produced_quantity / productionStore.activeOrder.target_quantity" color="primary" size="6px" />
+
+              <q-card-section class="col scroll q-pa-none">
+                 <q-list separator>
+                    <q-item>
+                       <q-item-section avatar><q-icon name="check_circle" color="positive" /></q-item-section>
+                       <q-item-section>
+                          <q-item-label class="text-weight-bold">1. Preparação de Matéria Prima</q-item-label>
+                          <q-item-label caption>Verificar lote da bobina e posicionar no desbobinador.</q-item-label>
+                       </q-item-section>
+                    </q-item>
+                    <q-item>
+                       <q-item-section avatar><q-icon name="check_circle" color="positive" /></q-item-section>
+                       <q-item-section>
+                          <q-item-label class="text-weight-bold">2. Ajuste de Ferramenta (Setup)</q-item-label>
+                          <q-item-label caption>Garantir alinhamento de 0.5mm conforme desenho técnico.</q-item-label>
+                       </q-item-section>
+                    </q-item>
+                    <q-item class="bg-blue-1">
+                       <q-item-section avatar><q-spinner-dots color="primary" /></q-item-section>
+                       <q-item-section>
+                          <q-item-label class="text-weight-bold text-primary">3. Operação de Corte e Dobra</q-item-label>
+                          <q-item-label caption class="text-dark">Acompanhar ciclo automático. Verificar rebarbas a cada 50 peças.</q-item-label>
+                       </q-item-section>
+                       <q-item-section side><q-badge color="primary">EM ANDAMENTO</q-badge></q-item-section>
+                    </q-item>
+                    <q-item>
+                       <q-item-section avatar><q-icon name="radio_button_unchecked" color="grey-5" /></q-item-section>
+                       <q-item-section>
+                          <q-item-label class="text-grey-7">4. Paletização</q-item-label>
+                          <q-item-label caption>Acomodar em caixas padrão KLT (20 un/caixa).</q-item-label>
+                       </q-item-section>
+                    </q-item>
+                 </q-list>
+              </q-card-section>
+
+              <q-separator />
+
+              <q-card-actions align="right" class="q-pa-md bg-grey-1">
+                 <div class="row items-center q-gutter-md">
+                    <span class="text-caption text-grey-7 text-italic mobile-hide">Contagem de peças boas é automática via sensor.</span>
+                    <q-btn 
+                       outline 
+                       color="negative" 
+                       icon="delete_outline" 
+                       label="Apontar Refugo / Peça Defeituosa" 
+                       class="q-px-lg shadow-1 bg-white"
+                       @click="productionStore.addProduction(1, true)"
+                    />
+                 </div>
+              </q-card-actions>
             </q-card>
           </div>
 
@@ -138,8 +190,10 @@
 
                <q-btn 
                   class="col shadow-3 hover-scale"
-                  color="negative" outline
-                  style="border-radius: 16px; background: white;"
+                  color="purple-9" 
+                  text-color="white"
+                  push
+                  style="border-radius: 16px;"
                   @click="isAndonDialogOpen = true"
                >
                   <div class="column items-center">
@@ -203,15 +257,49 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isAndonDialogOpen">
-      <q-card style="width: 500px">
-        <q-card-section class="bg-negative text-white text-center q-py-lg"><div class="text-h5 text-weight-bold">Solicitar Apoio</div></q-card-section>
-        <q-card-section class="q-gutter-md q-pa-lg">
-          <q-btn class="full-width" color="primary" label="Mecânica" @click="triggerAndon('Mecânica')" />
-          <q-btn class="full-width" color="orange" label="Elétrica" @click="triggerAndon('Elétrica')" />
-          <q-btn class="full-width" color="purple" label="Logística" @click="triggerAndon('Logística')" />
+    <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
+      <q-card style="width: 700px; max-width: 90vw; border-radius: 16px;">
+        
+        <q-card-section class="bg-primary text-white row items-center justify-between">
+          <div class="text-h6 text-weight-bold row items-center">
+            <q-icon name="campaign" size="md" class="q-mr-sm" />
+            Central de Ajuda (Andon)
+          </div>
+          <q-btn icon="close" flat round dense v-close-popup />
         </q-card-section>
-        <q-card-actions align="right"><q-btn flat label="Cancelar" v-close-popup /></q-card-actions>
+
+        <q-card-section class="q-pa-lg">
+          <div class="text-subtitle1 q-mb-md text-grey-8">Selecione o setor responsável:</div>
+          
+          <div class="row q-col-gutter-md">
+            <div v-for="opt in andonOptions" :key="opt.label" class="col-6 col-md-4">
+              <q-btn 
+                push 
+                class="full-width full-height column flex-center q-pa-md shadow-2 transition-hover"
+                :color="opt.color" 
+                text-color="white"
+                style="border-radius: 12px; min-height: 110px;"
+                @click="triggerAndon(opt.label)"
+              >
+                <q-icon :name="opt.icon" size="36px" class="q-mb-sm" />
+                <div class="text-weight-bold text-subtitle2">{{ opt.label }}</div>
+              </q-btn>
+            </div>
+          </div>
+
+          <div class="q-mt-lg">
+            <q-input 
+              v-model="andonNote" 
+              outlined 
+              label="Observação (Opcional)" 
+              placeholder="Descreva brevemente o problema..." 
+              dense
+              bg-color="grey-1"
+            >
+              <template v-slot:prepend><q-icon name="edit_note" /></template>
+            </q-input>
+          </div>
+        </q-card-section>
       </q-card>
     </q-dialog>
 
@@ -229,7 +317,7 @@ const router = useRouter();
 const $q = useQuasar();
 const productionStore = useProductionStore();
 
-const logoPath = ref('/Logo-Oficial.png');
+const logoPath = ref('https://cdn.quasar.dev/logo-v2/svg/logo-dark.svg');
 const isLoadingAction = ref(false);
 
 const isStopDialogOpen = ref(false);
@@ -238,6 +326,17 @@ const stopSearch = ref('');
 const statusStartTime = ref(new Date());
 const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
+
+// --- ANDON (AJUDA) CONFIG ---
+const andonNote = ref('');
+const andonOptions = [
+  { label: 'Mecânica', icon: 'build', color: 'blue-9' },
+  { label: 'Elétrica', icon: 'bolt', color: 'orange-9' },
+  { label: 'Logística', icon: 'forklift', color: 'brown-6' }, // ou local_shipping se não tiver forklift
+  { label: 'Qualidade', icon: 'verified', color: 'purple-8' },
+  { label: 'Processo', icon: 'engineering', color: 'teal-7' },
+  { label: 'Segurança', icon: 'health_and_safety', color: 'red-9' }
+];
 
 const elapsedTime = computed(() => {
    const diff = Math.max(0, Math.floor((currentTime.value.getTime() - statusStartTime.value.getTime()) / 1000));
@@ -312,7 +411,6 @@ async function confirmStop(reason: string) {
   isLoadingAction.value = false;
 }
 
-// NOVO: AÇÃO DE FINALIZAR
 function confirmFinishOp() {
   $q.dialog({
     title: 'Finalizar O.P.',
@@ -320,9 +418,12 @@ function confirmFinishOp() {
     cancel: true,
     persistent: true,
     ok: { label: 'Finalizar', color: 'negative', push: true }
-  }).onOk(async () => {
-     await productionStore.finishSession();
-     resetTimer();
+  }).onOk(() => {
+     // Correção: Void para promessa
+     void (async () => {
+        await productionStore.finishSession();
+        resetTimer();
+     })();
   });
 }
 
@@ -336,7 +437,16 @@ function handleLogout() {
 }
 
 function triggerAndon(sector: string) {
-  void productionStore.triggerAndon(sector);
+  productionStore.triggerAndon(sector, andonNote.value);
+  
+  $q.notify({
+    type: 'info',
+    icon: 'check_circle',
+    message: `Chamado aberto para: ${sector}`,
+    caption: 'A equipe foi notificada.'
+  });
+
+  andonNote.value = '';
   isAndonDialogOpen.value = false;
 }
 
@@ -360,4 +470,6 @@ onUnmounted(() => { clearInterval(timerInterval); });
 .opacity-60 { opacity: 0.6; }
 .hover-scale-producing { transition: all 0.3s ease-in-out; }
 .hover-scale-producing:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(33, 186, 69, 0.3); }
+.border-bottom-light { border-bottom: 1px solid #e0e0e0; }
+.transition-hover:hover { filter: brightness(1.1); transform: translateY(-2px); }
 </style>

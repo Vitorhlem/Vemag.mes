@@ -240,7 +240,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { type QTableColumn, Notify } from 'quasar';
+import { type QTableColumn } from 'quasar';
 import { format } from 'date-fns';
 
 import { useVehicleStore } from 'stores/vehicle-store';
@@ -291,10 +291,10 @@ const statusRaw = computed(() => {
    if ((!s || s === 'null' || s === 'undefined' || s === 'OFFLINE') && productionStore.machineHistory.length > 0) {
        const lastLog = productionStore.machineHistory[0];
        // Mapeia termos do evento para termos de exibição
-       if (lastLog.new_status === 'RUNNING') s = 'Em uso';
-       else if (lastLog.new_status === 'STOPPED') s = 'Disponível';
-       else if (lastLog.new_status === 'SETUP') s = 'Em manutenção';
-       else s = lastLog.new_status || '';
+       if (lastLog?.new_status === 'RUNNING') s = 'Em uso';
+       else if (lastLog?.new_status === 'STOPPED') s = 'Disponível';
+       else if (lastLog?.new_status === 'SETUP') s = 'Em manutenção';
+       else s = lastLog?.new_status || '';
    }
    return s;
 });
@@ -464,10 +464,6 @@ function confirmDiscard(row: VehicleComponent) {
        await componentStore.discardComponent(row.id, vehicleId);
        await refreshAllVehicleData();
     })();
-}
-
-function openPartHistoryDialog(part: Part | undefined) { 
-    if(part) { selectedPart.value = part; isPartHistoryDialogOpen.value = true; }
 }
 
 function openMaintenanceDetails(m: MaintenanceRequest) { 

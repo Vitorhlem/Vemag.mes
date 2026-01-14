@@ -21,12 +21,10 @@ export interface ProductionOrder {
   target_quantity: number;
   produced_quantity: number;
   scrap_quantity: number;
-  // CORREÇÃO: Adicionados status que faltavam para evitar erro de comparação
-  status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'STOPPED' | 'IDLE' | 'MAINTENANCE';
-  operations: Record<string, unknown>[]; // CORREÇÃO: any[] -> Record
+  status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'STOPPED' | 'IDLE' | 'MAINTENANCE' | 'AVAILABLE';
+  operations: Record<string, unknown>[]; 
 }
 
-// CORREÇÃO: Interface para o Log
 export interface ProductionLog {
   id: number;
   event_type: string;
@@ -48,7 +46,7 @@ export const useProductionStore = defineStore('production', () => {
 
   const currentOperatorBadge = ref<string | null>(null);
   const activeOrder = ref<ProductionOrder | null>(null);
-  const machineHistory = ref<ProductionLog[]>([]); // CORREÇÃO: Tipagem
+  const machineHistory = ref<ProductionLog[]>([]);
 
   // --- GETTERS ---
   const isKioskConfigured = computed(() => !!machineId.value);
@@ -96,8 +94,8 @@ export const useProductionStore = defineStore('production', () => {
     machineSector.value = data.category || 'Geral';
   }
 
-  // CORREÇÃO: Tipagem dos params
-  async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string } = {}) {
+  // CORREÇÃO AQUI: Tipagem explícita para aceitar undefined/null no event_type
+  async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string | null | undefined } = {}) {
     try {
       const q = new URLSearchParams();
       if (params.skip) q.append('skip', String(params.skip));
@@ -107,8 +105,8 @@ export const useProductionStore = defineStore('production', () => {
       const { data } = await api.get<ProductionLog[]>(`/production/history/${id}?${q.toString()}`);
       machineHistory.value = data;
       return data;
-    } catch (e) {
-      console.error('Erro history', e);
+    } catch (error) {
+      console.error('Erro history', error);
       return [];
     }
   }
@@ -146,7 +144,7 @@ export const useProductionStore = defineStore('production', () => {
         reason: 'Logoff'
       });
     } catch (error) {
-       console.error(error); // CORREÇÃO: no-empty catch
+       console.error('Erro ao deslogar:', error);
     }
     currentOperatorBadge.value = null;
     activeOrder.value = null;
@@ -206,7 +204,6 @@ export const useProductionStore = defineStore('production', () => {
       });
       
       if (payload.new_status && typeof payload.new_status === 'string') {
-         // CORREÇÃO: Cast seguro para ProductionOrder['status']
          if (activeOrder.value) activeOrder.value.status = payload.new_status as ProductionOrder['status'];
          if (currentMachine.value) currentMachine.value.status = payload.new_status;
       }
@@ -215,10 +212,8 @@ export const useProductionStore = defineStore('production', () => {
     }
   }
 
-  // CORREÇÃO: Removido async pois não usa await internamente (fire-and-forget)
   function triggerAndon(sector: string, notes = '') {
     if (!machineId.value || !currentOperatorBadge.value) return;
-    // CORREÇÃO: void operator para floating promise explícita
     void api.post('/production/andon', {
         machine_id: machineId.value,
         operator_badge: currentOperatorBadge.value,
@@ -236,7 +231,6 @@ export const useProductionStore = defineStore('production', () => {
     await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
   }
   
-  // CORREÇÃO: Removido async desnecessário
   function addProduction(qty: number, isScrap = false) {
     if (!activeOrder.value) return;
     if (isScrap) activeOrder.value.scrap_quantity += qty;
