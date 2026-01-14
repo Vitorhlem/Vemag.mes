@@ -243,7 +243,7 @@ function getManagerMenu(): MenuCategory[] {
     label: 'Supervisão', icon: 'monitor_heart',
     children: [
       { title: 'Dashboard Geral', icon: 'analytics', to: '/dashboard' },
-      { title: 'Mapa da Planta', icon: 'floor', to: '/live-map' }, 
+      { title: 'Colaboradores', icon: 'people', to: '/employees' }, 
     ]
   });
 

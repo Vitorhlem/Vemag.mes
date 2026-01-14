@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .tire_model import VehicleTire
     from .fine_model import Fine
     from .location_history_model import LocationHistory
+    from .production_model import AndonAlert
 
 class VehicleStatus(str, enum.Enum):
     AVAILABLE = "Disponível"
@@ -33,7 +34,7 @@ class Vehicle(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     brand: Mapped[str] = mapped_column(String(50), nullable=False)
     model: Mapped[str] = mapped_column(String(50), nullable=False)
-    
+    andon_alerts: Mapped[List["AndonAlert"]] = relationship("AndonAlert", back_populates="vehicle", cascade="all, delete-orphan")
     # --- CORREÇÃO: Removido unique=True global ---
     license_plate: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     identifier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

@@ -14,3 +14,4 @@ from .achievement_model import Achievement, UserAchievement
 from .inventory_transaction_model import InventoryTransaction# --> Depende de 'parts'
 from .part_model import Part, PartCategory
 from .audit_log_model import AuditLog # <--- ADICIONE
+from .production_model import ProductionOrder, ProductionLog

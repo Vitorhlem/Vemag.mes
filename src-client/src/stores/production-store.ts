@@ -1,113 +1,257 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { Notify } from 'quasar';
+import { Notify, Loading } from 'quasar';
+import { api } from 'boot/axios';
 
-const PART_IMAGE_URL = '/a.jpg';
-
-export interface OperationStep {
-  opCode: string;      
-  title: string;       
-  description: string; 
-  tools: string[];     
-  params: string;      
+export interface Machine {
+  id: number;
+  brand: string;
+  model: string;
+  license_plate?: string;
+  status?: string;
+  category?: string;
+  current_driver_id?: number;
 }
 
 export interface ProductionOrder {
-  id: string;
+  id: number;
   code: string;
-  partName: string;
-  partImage: string;
-  targetQuantity: number;
-  producedQuantity: number;
-  scrapQuantity: number;
-  status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED';
-  operations: OperationStep[];
-  documents: { title: string; type: string; url: string }[];
+  part_name: string;
+  part_image_url: string;
+  target_quantity: number;
+  produced_quantity: number;
+  scrap_quantity: number;
+  // CORREÇÃO: Adicionados status que faltavam para evitar erro de comparação
+  status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'STOPPED' | 'IDLE' | 'MAINTENANCE';
+  operations: Record<string, unknown>[]; // CORREÇÃO: any[] -> Record
+}
+
+// CORREÇÃO: Interface para o Log
+export interface ProductionLog {
+  id: number;
+  event_type: string;
+  timestamp: string;
+  new_status?: string;
+  reason?: string;
+  details?: string;
+  operator_name?: string;
 }
 
 export const useProductionStore = defineStore('production', () => {
-  const currentOperator = ref<{ name: string; id: number; avatar: string } | null>(null);
+  
+  // --- ESTADO ---
+  const machinesList = ref<Machine[]>([]);
+  const machineId = ref<number | null>(null);
+  const currentMachine = ref<Machine | null>(null);
+  const machineName = ref<string>('Não Configurado');
+  const machineSector = ref<string>('-');
+
+  const currentOperatorBadge = ref<string | null>(null);
   const activeOrder = ref<ProductionOrder | null>(null);
+  const machineHistory = ref<ProductionLog[]>([]); // CORREÇÃO: Tipagem
 
-  const isShiftActive = computed(() => !!currentOperator.value);
+  // --- GETTERS ---
+  const isKioskConfigured = computed(() => !!machineId.value);
+  const isShiftActive = computed(() => !!currentOperatorBadge.value);
 
-  // CORREÇÃO: Removemos o underscore e USAMOS a variável na lógica
-  function loginOperator(badgeCode: string) {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // Uso da variável para satisfazer o Linter
-        const mockId = badgeCode === 'BADGE-123' ? 592 : 888;
-        
-        currentOperator.value = {
-          name: 'Carlos Oliveira',
-          id: mockId,
-          avatar: ''
-        };
-        Notify.create({ type: 'positive', message: `Operador Autenticado: ${currentOperator.value.name}` });
-        resolve();
-      }, 800);
-    });
-  }
+  // --- ACTIONS ---
 
-  function logoutOperator() {
-    currentOperator.value = null;
-    activeOrder.value = null;
-  }
-
-  // CORREÇÃO: Removemos o underscore e USAMOS a variável na lógica
-  function loadOrderFromQr(qrCode: string) {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        activeOrder.value = {
-          id: '4599',
-          // Uso da variável aqui:
-          code: qrCode || 'OS-4599/24',
-          partName: 'Eixo Pinhão Z18 - Aço SAE 4340 (Temperado)',
-          partImage: PART_IMAGE_URL, 
-          targetQuantity: 150,
-          producedQuantity: 32,
-          scrapQuantity: 1,
-          status: 'RUNNING',
-          
-          operations: [
-            { opCode: 'OP 10', title: 'PREPARAÇÃO E SETUP', description: 'Fixar peça bruta na castanha dura. Ajustar pressão para 30 Bar. Zerar ferramenta T01 na face da peça (Z0).', tools: ['Chave de Castanha', 'Relógio Comparador'], params: 'N/A' },
-            { opCode: 'OP 20', title: 'FACEAMENTO E CENTRO', description: 'Facear a peça para limpar a face (tirar 1.0mm). Fazer furo de centro para contra-ponta.', tools: ['T01 - Faceadora WNMG', 'T08 - Broca de Centro A4'], params: 'S: 1200 RPM | F: 0.15 mm/rev' },
-            { opCode: 'OP 30', title: 'DESBASTE EXTERNO (Roughing)', description: 'Usinar perfil externo deixando 0.5mm de sobremetal para acabamento. Atenção à vibração no diâmetro menor.', tools: ['T02 - Desbaste CNMG 1204'], params: 'S: 1800 RPM | F: 0.25 mm/rev | Ap: 2.0mm' },
-            { opCode: 'OP 40', title: 'ACABAMENTO (Finishing)', description: 'Dar passe de acabamento em todo o perfil. Garantir tolerância H7 no colo do rolamento (Ø35.00 +0.025/-0).', tools: ['T03 - Acabamento VCMT 1604 (Raio 0.4)'], params: 'S: 2500 RPM | F: 0.08 mm/rev' },
-            { opCode: 'OP 50', title: 'CANAIS E ALÍVIOS', description: 'Abrir canal de anel elástico (Largura 1.85mm). Quebrar cantos vivos 0.5x45º.', tools: ['T04 - Bedame 2mm'], params: 'S: 800 RPM | F: 0.05 mm/rev' },
-            { opCode: 'OP 60', title: 'ROSCAMENTO M30x1.5', description: 'Executar rosca métrica na ponta do eixo. Verificar com anel PASSA/NÃO-PASSA a cada 10 peças.', tools: ['T05 - Insert Full Profile 1.5ISO', 'Calibrador Anel M30'], params: 'S: 600 RPM | Passes: 8' },
-            { opCode: 'OP 70', title: 'INSPEÇÃO FINAL', description: 'Medir rugosidade (Ra < 0.8) e dimensional crítico. Preencher carta de CEP.', tools: ['Rugosímetro', 'Micrômetro Externo 25-50mm'], params: 'Manual' }
-          ],
-          documents: []
-        };
-        Notify.create({ type: 'info', icon: 'description', message: `Roteiro ${qrCode} carregado com sucesso.` });
-        resolve();
-      }, 1500);
-    });
-  }
-
-  function startProduction() { if (activeOrder.value) activeOrder.value.status = 'RUNNING'; }
-  
-  function pauseProduction(reason: string) { 
-      if (activeOrder.value) {
-          activeOrder.value.status = 'PAUSED'; 
-          // Uso simples para evitar erro de não usado
-          console.log('Parada registrada:', reason); 
+  async function loadKioskConfig() {
+    const savedId = localStorage.getItem('TRU_MACHINE_ID');
+    if (savedId) {
+      machineId.value = Number(savedId);
+      try {
+        const { data } = await api.get<Machine>(`/vehicles/${savedId}`);
+        _setMachineData(data);
+      } catch {
+        console.warn('Máquina salva offline ou removida.');
       }
-  }
-  
-  function addProduction(qty: number, isScrap = false) {
-    if (!activeOrder.value) return;
-    if (isScrap) {
-        activeOrder.value.scrapQuantity += qty;
-    } else {
-        activeOrder.value.producedQuantity += qty;
     }
   }
 
+  async function fetchAvailableMachines() {
+    try {
+      const { data } = await api.get<Machine[]>('/production/machines', { params: { limit: 100 } });
+      machinesList.value = data;
+    } catch {
+      Notify.create({ type: 'negative', message: 'Erro ao buscar máquinas.' });
+    }
+  }
+
+  async function configureKiosk(id: number) {
+    try {
+      const { data } = await api.get<Machine>(`/vehicles/${id}`);
+      _setMachineData(data);
+      localStorage.setItem('TRU_MACHINE_ID', String(data.id));
+      Notify.create({ type: 'positive', message: 'Terminal Vinculado!' });
+    } catch {
+      Notify.create({ type: 'negative', message: 'Erro ao configurar.' });
+    }
+  }
+
+  function _setMachineData(data: Machine) {
+    currentMachine.value = data;
+    machineId.value = data.id;
+    machineName.value = `${data.brand} ${data.model}`;
+    machineSector.value = data.category || 'Geral';
+  }
+
+  // CORREÇÃO: Tipagem dos params
+  async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string } = {}) {
+    try {
+      const q = new URLSearchParams();
+      if (params.skip) q.append('skip', String(params.skip));
+      if (params.limit) q.append('limit', String(params.limit));
+      if (params.event_type) q.append('event_type', params.event_type);
+
+      const { data } = await api.get<ProductionLog[]>(`/production/history/${id}?${q.toString()}`);
+      machineHistory.value = data;
+      return data;
+    } catch (e) {
+      console.error('Erro history', e);
+      return [];
+    }
+  }
+
+  async function loginOperator(badge: string) {
+    if (!machineId.value) return;
+    try {
+      Loading.show();
+      await api.post('/production/event', {
+        machine_id: machineId.value,
+        operator_badge: badge,
+        event_type: 'LOGIN',
+        new_status: 'IDLE',
+        reason: 'Início de Turno'
+      });
+      currentOperatorBadge.value = badge;
+      if (currentMachine.value) currentMachine.value.status = 'IDLE';
+      Notify.create({ type: 'positive', message: 'Login Efetuado' });
+    } catch {
+      Notify.create({ type: 'negative', message: 'Crachá Inválido' });
+      throw new Error('Login falhou');
+    } finally {
+      Loading.hide();
+    }
+  }
+
+  async function logoutOperator() {
+    if (!machineId.value || !currentOperatorBadge.value) return;
+    try {
+      await api.post('/production/event', {
+        machine_id: machineId.value,
+        operator_badge: currentOperatorBadge.value,
+        event_type: 'LOGOUT',
+        new_status: 'AVAILABLE',
+        reason: 'Logoff'
+      });
+    } catch (error) {
+       console.error(error); // CORREÇÃO: no-empty catch
+    }
+    currentOperatorBadge.value = null;
+    activeOrder.value = null;
+  }
+
+  async function loadOrderFromQr(qrCode: string) {
+    try {
+      Loading.show();
+      const { data } = await api.get<ProductionOrder>(`/production/orders/${qrCode}`);
+      activeOrder.value = data;
+      
+      if (currentOperatorBadge.value && machineId.value) {
+         await api.post('/production/session/start', {
+            machine_id: machineId.value,
+            operator_badge: currentOperatorBadge.value,
+            order_code: data.code
+         });
+      }
+
+      Notify.create({ type: 'positive', message: 'O.P. Iniciada com Sucesso' });
+    } catch (e) {
+      Notify.create({ type: 'negative', message: 'O.S. não encontrada ou erro ao iniciar sessão.' });
+      console.error(e);
+    } finally {
+      Loading.hide();
+    }
+  }
+
+  async function finishSession() {
+    if (!machineId.value || !currentOperatorBadge.value) return;
+    try {
+      Loading.show();
+      await api.post('/production/session/stop', {
+        machine_id: machineId.value,
+        operator_badge: currentOperatorBadge.value
+      });
+      Notify.create({ type: 'positive', message: 'O.P. Finalizada! Dados salvos.' });
+      activeOrder.value = null;
+      if (currentMachine.value) currentMachine.value.status = 'AVAILABLE';
+    } catch (e) {
+      Notify.create({ type: 'negative', message: 'Erro ao finalizar O.P.' });
+      console.error(e);
+    } finally {
+      Loading.hide();
+    }
+  }
+
+  async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
+    if (!machineId.value || !currentOperatorBadge.value) return;
+    try {
+      await api.post('/production/event', {
+        machine_id: machineId.value,
+        operator_badge: currentOperatorBadge.value,
+        order_code: activeOrder.value?.code,
+        event_type: type,
+        ...payload
+      });
+      
+      if (payload.new_status && typeof payload.new_status === 'string') {
+         // CORREÇÃO: Cast seguro para ProductionOrder['status']
+         if (activeOrder.value) activeOrder.value.status = payload.new_status as ProductionOrder['status'];
+         if (currentMachine.value) currentMachine.value.status = payload.new_status;
+      }
+    } catch (e) {
+      console.error('Falha de sync', e);
+    }
+  }
+
+  // CORREÇÃO: Removido async pois não usa await internamente (fire-and-forget)
+  function triggerAndon(sector: string, notes = '') {
+    if (!machineId.value || !currentOperatorBadge.value) return;
+    // CORREÇÃO: void operator para floating promise explícita
+    void api.post('/production/andon', {
+        machine_id: machineId.value,
+        operator_badge: currentOperatorBadge.value,
+        sector: sector,
+        notes: notes
+    });
+    Notify.create({ type: 'warning', icon: 'campaign', message: `Chamado para ${sector}` });
+  }
+
+  async function startProduction() { 
+    await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
+  }
+  
+  async function pauseProduction(reason: string) { 
+    await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
+  }
+  
+  // CORREÇÃO: Removido async desnecessário
+  function addProduction(qty: number, isScrap = false) {
+    if (!activeOrder.value) return;
+    if (isScrap) activeOrder.value.scrap_quantity += qty;
+    else activeOrder.value.produced_quantity += qty;
+    
+    void sendEvent('COUNT', { quantity_good: isScrap ? 0 : qty, quantity_scrap: isScrap ? qty : 0 });
+  }
+
   return {
-    currentOperator, activeOrder, isShiftActive,
-    loginOperator, logoutOperator, loadOrderFromQr,
-    startProduction, pauseProduction, addProduction
+    machinesList, machineId, currentMachine, machineName, machineSector,
+    currentOperatorBadge, activeOrder, machineHistory,
+    isKioskConfigured, isShiftActive,
+    loadKioskConfig, fetchAvailableMachines, configureKiosk, fetchMachineHistory,
+    loginOperator, logoutOperator, loadOrderFromQr, finishSession,
+    startProduction, pauseProduction, addProduction,
+    sendEvent, triggerAndon 
   };
 });

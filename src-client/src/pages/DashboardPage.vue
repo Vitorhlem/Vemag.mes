@@ -4,48 +4,48 @@
     <div class="row items-center justify-between q-mb-lg animate-fade-down">
       <div class="col-12 col-md-auto">
         <div class="text-caption text-uppercase text-grey-7 text-weight-bold letter-spacing-1">
-          Visão Geral
+          Visão Geral da Planta
         </div>
         <h1 class="text-h4 text-weight-bolder q-my-none text-primary">
           Painel de Controle
         </h1>
         <div class="text-subtitle2 text-grey-6 q-mt-xs">
-          Bem-vindo, {{ authStore.user?.full_name?.split(' ')[0] }}. Resumo da operação em tempo real.
+          Bem-vindo, {{ authStore.user?.full_name?.split(' ')[0] }}. Monitoramento em tempo real.
         </div>
       </div>
 
       <div class="col-12 col-md-auto q-mt-md q-md-mt-none">
         <div class="row q-gutter-sm">
            <q-btn 
-              outline 
-              color="primary" 
-              icon="refresh" 
-              label="Atualizar" 
-              @click="() => refreshData()" 
-              :loading="dashboardStore.isLoading"
+             outline 
+             color="primary" 
+             icon="refresh" 
+             label="Atualizar" 
+             @click="() => refreshData()" 
+             :loading="dashboardStore.isLoading || vehicleStore.isLoading"
            />
            <q-btn-dropdown 
-              color="primary" 
-              icon="add" 
-              label="Nova Ação" 
-              unelevated 
-              class="shadow-2"
-              content-class="rounded-borders"
+             color="primary" 
+             icon="add" 
+             label="Ações Rápidas" 
+             unelevated 
+             class="shadow-2"
+             content-class="rounded-borders"
            >
             <q-list dense style="min-width: 220px">
-              <q-item clickable v-close-popup @click="router.push('/vehicles')">
+              <q-item clickable v-close-popup @click="() => router.push('/vehicles')">
                 <q-item-section avatar><q-icon name="precision_manufacturing" color="primary"/></q-item-section>
                 <q-item-section>
-                   <q-item-label>Cadastrar Equipamento</q-item-label>
-                   <q-item-label caption>Novo ativo na planta</q-item-label>
+                   <q-item-label>Cadastrar Máquina</q-item-label>
+                   <q-item-label caption>Novo ativo industrial</q-item-label>
                 </q-item-section>
               </q-item>
               
-              <q-item clickable v-close-popup @click="router.push('/journeys')">
-                <q-item-section avatar><q-icon name="fact_check" color="secondary"/></q-item-section>
+              <q-item clickable v-close-popup @click="() => router.push('/machine-kiosk')">
+                <q-item-section avatar><q-icon name="monitor" color="secondary"/></q-item-section>
                 <q-item-section>
-                   <q-item-label>Ordem de Produção</q-item-label>
-                   <q-item-label caption>Iniciar turno</q-item-label>
+                   <q-item-label>Ir para Kiosk</q-item-label>
+                   <q-item-label caption>Tela do Operador</q-item-label>
                 </q-item-section>
               </q-item>
               
@@ -55,7 +55,7 @@
                 <q-item-section avatar><q-icon name="build_circle" color="negative"/></q-item-section>
                 <q-item-section>
                    <q-item-label>Solicitar Manutenção</q-item-label>
-                   <q-item-label caption>Abrir OS Corretiva</q-item-label>
+                   <q-item-label caption>Ordem de Serviço</q-item-label>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <div v-if="dashboardStore.isLoading" class="row q-col-gutter-md">
+    <div v-if="dashboardStore.isLoading && !realTimeStats" class="row q-col-gutter-md">
        <div class="col-12 col-md-3" v-for="n in 4" :key="n">
           <q-card flat bordered class="rounded-borders">
              <q-card-section><q-skeleton type="rect" height="80px" /></q-card-section>
@@ -77,8 +77,8 @@
       <div class="row q-col-gutter-md q-mb-lg">
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <StatCard 
-            label="Ativos Totais" 
-            :value="kpis?.total_vehicles ?? 0" 
+            label="Máquinas Totais" 
+            :value="realTimeStats.total" 
             icon="domain" 
             color="primary" 
             :loading="dashboardStore.isLoading"
@@ -89,29 +89,29 @@
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <StatCard 
             label="Em Produção" 
-            :value="kpis?.in_use_vehicles ?? 0" 
-            icon="settings_motion" 
+            :value="realTimeStats.running" 
+            icon="settings_suggest" 
             color="positive" 
             :loading="dashboardStore.isLoading"
-            to="/vehicles?status=IN_USE" 
+            to="/vehicles?status=Em uso" 
             class="full-height shadow-1 hover-lift" 
           />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <StatCard 
-            label="Disponível / Parada" 
-            :value="kpis?.available_vehicles ?? 0" 
-            icon="pause_circle_outline" 
+            label="Parada / Disponível" 
+            :value="realTimeStats.idle" 
+            icon="hourglass_empty" 
             color="warning" 
             :loading="dashboardStore.isLoading"
-            to="/vehicles?status=AVAILABLE" 
+            to="/vehicles?status=Disponível" 
             class="full-height shadow-1 hover-lift" 
           />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <StatCard 
-            label="Em Manutenção" 
-            :value="kpis?.maintenance_vehicles ?? 0" 
+            label="Em Manutenção / Setup" 
+            :value="realTimeStats.stopped" 
             icon="build" 
             color="negative" 
             :loading="dashboardStore.isLoading"
@@ -124,23 +124,23 @@
       <div class="row q-col-gutter-md q-mb-lg">
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
-             title="Custo Médio Operacional" 
+             title="Custo Hora Máquina" 
              :value="efficiencyKpis?.cost_per_km ?? 0" 
              unit="R$/h" 
              icon="attach_money" 
              color="deep-purple" 
-             tooltip="Custo médio por hora de máquina ligada (baseado em apontamentos reais)"
+             tooltip="Custo médio calculado base nos últimos 30 dias"
            />
          </div>
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
-             title="Eficiência Energética" 
+             title="Eficiência Global" 
              :value="efficiencyKpis?.fleet_avg_efficiency ?? 0" 
-             unit="un/h" 
+             unit="%" 
              icon="bolt" 
              color="blue-8" 
-             tooltip="Consumo médio de energia/insumos por hora"
-             :formatter="(v) => v.toFixed(1)" 
+             tooltip="Performance média vs meta"
+             :formatter="(v: number) => v.toFixed(1)" 
            />
          </div>
          <div class="col-12 col-sm-6 col-lg-3">
@@ -150,27 +150,25 @@
              unit="R$" 
              icon="account_balance_wallet" 
              color="orange-9" 
-             :formatter="(v) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`" 
+             :formatter="(v: number) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`" 
            />
          </div>
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
              title="Disponibilidade (OEE)" 
-             :value="efficiencyKpis?.utilization_rate ?? 0" 
+             :value="realTimeStats.utilizationRate" 
              unit="%" 
              icon="pie_chart" 
              color="teal" 
-             :formatter="(v) => `${v.toFixed(1)}%`" 
+             :formatter="(v: number) => `${v.toFixed(1)}%`" 
            />
          </div>
       </div>
 
       <div class="row q-col-gutter-lg">
-        
         <div class="col-12 col-lg-8 column q-gutter-y-lg">
-          
           <div>
-            <PremiumWidget title="Análise de Custos (30 dias)" icon="analytics" description="Distribuição de gastos reais por categoria.">
+            <PremiumWidget title="Análise de Custos Industriais" icon="analytics" description="Gastos por categoria">
               <ApexChart 
                 v-if="(costAnalysisChart.series[0]?.data.length || 0) > 0" 
                 type="bar" 
@@ -180,7 +178,7 @@
               />
               <div v-else class="text-center text-grey q-pa-xl column flex-center" style="height: 320px">
                  <q-icon name="bar_chart" size="4em" color="grey-3" />
-                 <div class="q-mt-sm">Nenhum custo lançado no período.</div>
+                 <div class="q-mt-sm">Ainda sem dados de custos lançados.</div>
                  <q-btn flat color="primary" label="Lançar Custos" to="/vehicle-costs" size="sm" />
               </div>
             </PremiumWidget>
@@ -193,56 +191,33 @@
                     <q-icon name="calendar_month" class="q-mr-sm text-primary"/> 
                     Próximas Preventivas
                  </div>
-                 <q-btn flat dense color="primary" label="Ver Plano Completo" to="/costs" size="sm" />
+                 <q-btn flat dense color="primary" label="Ver Plano Completo" to="/maintenance" size="sm" />
               </q-card-section>
               
               <q-list separator>
-                  <q-item 
-                    v-for="item in mergedMaintenanceList" 
-                    :key="item.id" 
-                    class="q-py-md hover-bg"
-                    :class="{'bg-red-1': item.is_overdue}"
-                  >
+                  <q-item v-for="item in mergedMaintenanceList" :key="item.id" class="q-py-md hover-bg" :class="{'bg-red-1': item.is_overdue}">
                     <q-item-section avatar>
-                       <q-avatar 
-                          :color="item.is_overdue ? 'negative' : 'grey-2'" 
-                          :text-color="item.is_overdue ? 'white' : 'primary'" 
-                          :icon="item.is_overdue ? 'warning' : 'engineering'" 
-                        />
+                       <q-avatar :color="item.is_overdue ? 'negative' : 'grey-2'" :text-color="item.is_overdue ? 'white' : 'primary'" :icon="item.is_overdue ? 'warning' : 'engineering'" />
                     </q-item-section>
-                    
                     <q-item-section>
                       <q-item-label class="text-weight-bold text-subtitle1">{{ item.info }}</q-item-label>
                       <q-item-label caption>
-                         <q-badge v-if="item.is_overdue" color="negative" label="VENCIDA" class="q-mr-xs" />
-                         <span v-else class="text-grey-7">Vence em: </span>
-                         
-                         <span class="text-weight-medium" :class="item.is_overdue ? 'text-negative' : 'text-grey-9'">
-                            {{ item.is_overdue ? `Passou do limite há ${item.overdue_diff}h` : item.due_label }}
-                         </span>
+                          <q-badge v-if="item.is_overdue" color="negative" label="VENCIDA" class="q-mr-xs" />
+                          <span v-else class="text-grey-7">Vence em: </span>
+                          <span class="text-weight-medium" :class="item.is_overdue ? 'text-negative' : 'text-grey-9'">
+                             {{ item.is_overdue ? `Passou do limite há ${item.overdue_diff}h` : item.due_label }}
+                          </span>
                       </q-item-label>
                     </q-item-section>
-                    
                     <q-item-section side>
-                       <q-btn 
-                          :outline="!item.is_overdue"
-                          :unelevated="item.is_overdue"
-                          dense 
-                          size="sm" 
-                          :color="item.is_overdue ? 'negative' : 'primary'" 
-                          :label="item.is_overdue ? 'Abrir OM Urgente' : 'Abrir OS'" 
-                          :icon="item.is_overdue ? 'add_alert' : undefined"
-                          @click="scheduleMaintenance(item.id)" 
-                        />
+                       <q-btn :outline="!item.is_overdue" :unelevated="item.is_overdue" dense size="sm" :color="item.is_overdue ? 'negative' : 'primary'" :label="item.is_overdue ? 'Abrir Urgente' : 'Abrir OS'" @click="scheduleMaintenance(item.id)" />
                     </q-item-section>
                   </q-item>
-                  
                   <q-item v-if="!mergedMaintenanceList.length" class="q-pa-lg">
-                     <q-item-section class="text-center text-grey-6">
-                        <q-icon name="check_circle_outline" size="3em" class="q-mb-sm text-positive" />
-                        <div>Nenhuma manutenção preventiva próxima.</div>
-                        <div class="text-caption">Configure os planos de manutenção no cadastro das máquinas.</div>
-                     </q-item-section>
+                      <q-item-section class="text-center text-grey-6">
+                         <q-icon name="check_circle_outline" size="3em" class="q-mb-sm text-positive" />
+                         <div>Nenhuma manutenção preventiva próxima.</div>
+                      </q-item-section>
                   </q-item>
               </q-list>
             </q-card>
@@ -250,12 +225,11 @@
         </div>
 
         <div class="col-12 col-lg-4 column q-gutter-y-lg">
-          
           <div>
-            <PremiumWidget title="Disponibilidade da Planta" icon="donut_large" description="Ativos x Parados">
+            <PremiumWidget title="Disponibilidade Real" icon="donut_large" description="Ativos x Parados">
               <div class="flex flex-center relative-position" style="min-height: 280px">
                 <ApexChart 
-                    v-if="fleetStatusChart.series.length > 0 && fleetStatusChart.series.some(v => v > 0)" 
+                    v-if="fleetStatusChart.series.some((v: number) => v > 0)" 
                     type="donut" 
                     height="260" 
                     :options="fleetStatusChart.options" 
@@ -277,26 +251,19 @@
                   Alertas Críticos
                 </div>
               </q-card-section>
-              
               <q-scroll-area style="height: 350px;">
                 <q-list separator>
                   <q-item v-for="alert in processedAlerts" :key="alert.id" class="q-py-md bg-white">
-                    <q-item-section avatar>
-                      <q-avatar icon="priority_high" color="negative" text-color="white" size="md" font-size="20px" />
-                    </q-item-section>
+                    <q-item-section avatar><q-avatar icon="priority_high" color="negative" text-color="white" size="md" font-size="20px" /></q-item-section>
                     <q-item-section>
                       <q-item-label class="text-weight-bold">{{ alert.title }}</q-item-label>
                       <q-item-label caption class="text-grey-8">{{ alert.subtitle }}</q-item-label>
                     </q-item-section>
-                    <q-item-section side top>
-                        <q-badge color="grey-3" text-color="grey-8" label="Hoje" />
-                    </q-item-section>
+                    <q-item-section side top><q-badge color="grey-3" text-color="grey-8" label="Hoje" /></q-item-section>
                   </q-item>
-                  
                   <div v-if="processedAlerts.length === 0" class="text-center q-pa-md text-grey-7 column flex-center full-height">
                       <q-icon name="verified_user" size="3em" color="positive" class="q-mb-xs" />
-                      <div>Nenhum alerta crítico ativo.</div>
-                      <div class="text-caption">Sua planta está operando normalmente.</div>
+                      <div>Nenhum chamado Andon aberto.</div>
                   </div>
                 </q-list>
               </q-scroll-area>
@@ -333,7 +300,6 @@ interface ICostItem {
     total_amount: number;
 }
 
-// Interface para tipagem das preventivas
 interface UpcomingMaintenance {
     vehicle_id: number;
     vehicle_info: string;
@@ -341,7 +307,6 @@ interface UpcomingMaintenance {
     due_km?: number;
 }
 
-// NOVO: Interface para itens unificados da lista
 interface UnifiedMaintenanceItem {
     id: number;
     info: string;
@@ -360,16 +325,42 @@ const selectedVehicleIdForMaintenance = ref<number | null>(null);
 const createDialogType = ref<'PREVENTIVA' | 'CORRETIVA'>('CORRETIVA');
 
 const managerData = computed(() => dashboardStore.managerDashboard);
-const kpis = computed(() => managerData.value?.kpis);
 const efficiencyKpis = computed(() => managerData.value?.efficiency_kpis);
 const upcomingMaintenances = computed(() => managerData.value?.upcoming_maintenances as UpcomingMaintenance[] || []);
-const recentAlerts = computed(() => managerData.value?.recent_alerts);
+const recentAlerts = computed(() => managerData.value?.recent_alerts || []);
 
-const processedAlerts = computed(() => {
-    return recentAlerts.value || [];
+const processedAlerts = computed(() => recentAlerts.value);
+
+// --- CORREÇÃO: LÓGICA DE STATUS NO DASHBOARD ---
+const realTimeStats = computed(() => {
+  const allMachines = vehicleStore.vehicles;
+  
+  // Mapeia tanto os valores do Backend ("Em uso") quanto os do Código ("IN_USE", "RUNNING")
+  // para garantir a contagem correta.
+  
+  const running = allMachines.filter(m => 
+    ['Em uso', 'IN_USE', 'RUNNING'].includes(String(m.status))
+  ).length;
+
+  const stopped = allMachines.filter(m => 
+    ['Em manutenção', 'MAINTENANCE', 'SETUP'].includes(String(m.status))
+  ).length;
+
+  const idle = allMachines.filter(m => 
+    ['Disponível', 'AVAILABLE', 'IDLE', 'STOPPED'].includes(String(m.status))
+  ).length;
+
+  const total = allMachines.length;
+
+  return {
+    total,
+    running,
+    stopped,
+    idle,
+    utilizationRate: total > 0 ? (running / total) * 100 : 0
+  };
 });
 
-// [NOVO] Veículos Vencidos
 const overdueVehicles = computed(() => {
    return vehicleStore.vehicles.filter(v => {
       if (v.next_maintenance_km && v.current_engine_hours) {
@@ -379,12 +370,10 @@ const overdueVehicles = computed(() => {
    });
 });
 
-// [NOVO] Lista Unificada para o Card (CORRIGIDA TIPAGEM)
 const mergedMaintenanceList = computed(() => {
-    const list: UnifiedMaintenanceItem[] = []; // TIPAGEM EXPLÍCITA
+    const list: UnifiedMaintenanceItem[] = [];
     const addedIds = new Set<number>();
 
-    // 1. Adiciona as Vencidas (Alta Prioridade)
     overdueVehicles.value.forEach(v => {
         const diff = (v.current_engine_hours || 0) - (v.next_maintenance_km || 0);
         list.push({
@@ -397,7 +386,6 @@ const mergedMaintenanceList = computed(() => {
         addedIds.add(v.id);
     });
 
-    // 2. Adiciona as Próximas (Vindas do Dashboard)
     upcomingMaintenances.value.forEach(m => {
         if (!addedIds.has(m.vehicle_id)) {
             list.push({
@@ -413,27 +401,19 @@ const mergedMaintenanceList = computed(() => {
     return list;
 });
 
-// Calcula custo variável total
 const variableCostTotal = computed(() => {
   const costs: ICostItem[] = managerData.value?.costs_by_category || [];
   const items = costs.filter(c => 
-    ['combustível', 'energia', 'insumos', 'fluídos'].some(term => 
+    ['energia', 'insumos', 'manutenção', 'peças'].some(term => 
       c.cost_type.toLowerCase().includes(term)
     )
   );
   return items.reduce((acc, curr) => acc + curr.total_amount, 0);
 });
 
-// --- Configuração dos Gráficos ---
 const costAnalysisChart = computed(() => {
   const data: ICostItem[] = managerData.value?.costs_by_category || [];
-  const categories = data.map(item => {
-      const type = item.cost_type;
-      if (type === 'Combustível') return 'Energia/Insumos';
-      if (type === 'Manutenção') return 'Peças Reposição';
-      return type;
-  });
-  
+  const categories = data.map(item => item.cost_type);
   const series = [{ name: 'Custo (R$)', data: data.map(item => item.total_amount) }];
   return { 
       series, 
@@ -449,16 +429,12 @@ const costAnalysisChart = computed(() => {
 });
 
 const fleetStatusChart = computed(() => {
-    if (!kpis.value) return { series: [], options: {} };
-    const series = [
-        kpis.value.available_vehicles || 0, 
-        kpis.value.in_use_vehicles || 0, 
-        kpis.value.maintenance_vehicles || 0
-    ];
+    const s = realTimeStats.value;
+    const series = [s.idle, s.running, s.stopped];
     return {
         series,
         options: {
-            labels: ['Paradas (Disp.)', 'Produzindo', 'Manutenção'],
+            labels: ['Aguardando', 'Produzindo', 'Manutenção'],
             colors: ['#F2C037', '#21BA45', '#C10015'], 
             chart: { type: 'donut' },
             legend: { position: 'bottom' },
@@ -469,10 +445,10 @@ const fleetStatusChart = computed(() => {
 });
 
 async function refreshData() {
-    // Carrega dashboard
-    await dashboardStore.fetchManagerDashboard('last_30_days');
-    // Carrega veículos para calcular os alertas de preventivas
-    await vehicleStore.fetchAllVehicles({ page: 1, rowsPerPage: 100 });
+    await Promise.all([
+        dashboardStore.fetchManagerDashboard('last_30_days'),
+        vehicleStore.fetchAllVehicles({ page: 1, rowsPerPage: 100 })
+    ]);
 }
 
 function scheduleMaintenance(vehicleId: number) {
@@ -489,61 +465,21 @@ function scheduleMaintenanceGeneral() {
 
 onMounted(() => {
     if (authStore.isManager) {
-        void refreshData(); // void para ignorar a promise flutuante (ESLint)
+        void refreshData();
     }
 });
 </script>
 
 <style scoped lang="scss">
-.dashboard-bg {
-  background-color: #f8fafc; /* Slate-50 */
-}
-
-.dashboard-card {
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-}
-
-.letter-spacing-1 {
-    letter-spacing: 1px;
-}
-
-.hover-lift {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    &:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-    }
-}
-
-.hover-bg:hover {
-    background-color: #f8fafc;
-}
-
-.border-bottom-light {
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.border-bottom-light-red {
-    border-bottom: 1px solid rgba(255,0,0,0.1);
-}
-
-.fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-
-.animate-fade-down {
-    animation: fadeDown 0.6s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+.dashboard-bg { background-color: #f8fafc; }
+.dashboard-card { border-radius: 12px; border: 1px solid #e2e8f0; background: white; }
+.letter-spacing-1 { letter-spacing: 1px; }
+.hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; &:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; } }
+.hover-bg:hover { background-color: #f8fafc; }
+.border-bottom-light { border-bottom: 1px solid #f1f5f9; }
+.border-bottom-light-red { border-bottom: 1px solid rgba(255,0,0,0.1); }
+.fade-in { animation: fadeIn 0.5s ease-out forwards; }
+.animate-fade-down { animation: fadeDown 0.6s ease-out forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
