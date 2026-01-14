@@ -28,7 +28,7 @@ from app.models.maintenance_model import MaintenanceServiceItem
 from app.models.vehicle_cost_model import VehicleCost, CostType 
 from app.models.notification_model import NotificationType
 
-# --- IMPORT IMPORTANTE: Vehicle e Status ---
+# Import do Vehicle para mudar status
 try:
     from app.models.vehicle_model import Vehicle, VehicleStatus
 except ImportError:
@@ -62,11 +62,10 @@ def send_email_background_task(manager_emails: List[str], request_id: int, repor
         print(f"Erro ao enviar email: {e}")
 
 # ============================================================================
-# ROTAS (HÍBRIDAS: Aceitam /requests e /raiz para compatibilidade)
+# ROTAS (HÍBRIDAS: Aceitam /requests e /raiz)
 # ============================================================================
 
 # 1. CRIAR CHAMADO
-# Quando cria a O.M., a máquina VAI para MANUTENÇÃO.
 @router.post("/requests", response_model=MaintenanceRequestPublic, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=MaintenanceRequestPublic, status_code=status.HTTP_201_CREATED)
 async def create_maintenance_request(
@@ -98,7 +97,7 @@ async def create_maintenance_request(
         # --- BLOQUEIA A MÁQUINA (STATUS: EM MANUTENÇÃO) ---
         vehicle = await db.get(Vehicle, request_in.vehicle_id)
         if vehicle:
-            print(f"[DEBUG] O.M. Aberta. Bloqueando veículo {vehicle.id} para MAINTENANCE.")
+            print(f"[DEBUG] O.M. Aberta. Bloqueando veículo {vehicle.id} para {VehicleStatus.MAINTENANCE.value}.")
             vehicle.status = VehicleStatus.MAINTENANCE.value
             db.add(vehicle)
         # --------------------------------------------------
@@ -171,7 +170,7 @@ async def delete_maintenance_request(
     await crud.maintenance.delete_request(db=db, request_to_delete=req)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-# 4. ATUALIZAR STATUS (AQUI OCORRE A LIBERAÇÃO AUTOMÁTICA)
+# 4. ATUALIZAR STATUS (CORREÇÃO DA LIBERAÇÃO)
 @router.put("/requests/{request_id}/status", response_model=MaintenanceRequestPublic)
 @router.put("/{request_id}/status", response_model=MaintenanceRequestPublic)
 async def update_request_status(
@@ -187,25 +186,24 @@ async def update_request_status(
     
     updated = await crud.maintenance.update_request_status(db=db, db_obj=db_obj, update_data=update_data, manager_id=current_user.id)
     
-    # --- LÓGICA DE LIBERAÇÃO DA MÁQUINA ---
-    # Verifica se o novo status significa que a O.M. foi encerrada
+    # --- LÓGICA ROBUSTA DE LIBERAÇÃO DA MÁQUINA ---
+    # Converte o status para string MAIÚSCULA para evitar erro de Enum
     new_status_val = str(updated.status.value if hasattr(updated.status, 'value') else updated.status).upper()
     
-    # Lista de status que liberam a máquina
-    finished_statuses = ["COMPLETED", "CONCLUIDO", "CLOSED", "FECHADO", "CANCELED", "CANCELADO", "REJECTED"]
+    print(f"[DEBUG] Status da O.M. #{request_id} alterado para: {new_status_val}")
+
+    # Lista de palavras que indicam fim
+    finished_keywords = ["COMPLETED", "CONCLUIDO", "CONCLUIDA","CONCLUÍDA", "CLOSED", "FECHADO", "CANCELED", "CANCELADO", "REJECTED"]
     
-    if any(s in new_status_val for s in finished_statuses):
+    # Se o novo status está na lista de finalizados
+    if any(k in new_status_val for k in finished_keywords):
         vehicle = await db.get(Vehicle, db_obj.vehicle_id)
         if vehicle:
-            # Verifica se o status atual da máquina é manutenção/quebrada
-            v_status = str(vehicle.status.value if hasattr(vehicle.status, 'value') else vehicle.status).upper()
-            
-            if "MANUTEN" in v_status or "MAINTENANCE" in v_status:
-                print(f"[DEBUG] O.M. #{request_id} Finalizada ({new_status_val}). Liberando máquina {vehicle.id} para AVAILABLE.")
-                # LIBERA A MÁQUINA
-                vehicle.status = VehicleStatus.AVAILABLE.value
-                db.add(vehicle)
-    # --------------------------------------
+            print(f"[DEBUG] O.M. Finalizada. Forçando veículo {vehicle.id} para {VehicleStatus.AVAILABLE.value}")
+            # FORÇA PARA DISPONÍVEL (Sem checar o status anterior)
+            vehicle.status = VehicleStatus.AVAILABLE.value
+            db.add(vehicle)
+    # ----------------------------------------------
 
     response = MaintenanceRequestPublic.model_validate(updated)
     
