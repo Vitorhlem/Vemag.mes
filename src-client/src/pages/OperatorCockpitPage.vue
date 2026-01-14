@@ -1,39 +1,44 @@
 <template>
-  <q-layout view="hHh lpR fFf" class="bg-blue-grey-1 text-dark font-inter" style="overflow: hidden;">
+  <q-layout view="hHh lpR fFf" class="bg-grey-1 text-dark font-inter" style="overflow: hidden;">
     
-    <q-header bordered class="bg-white text-dark q-py-xs shadow-2" style="height: 60px;">
+    <q-header bordered class="q-py-xs shadow-2 text-white" style="height: 60px; background-color: #008C7A;">
       <q-toolbar class="full-height q-px-md">
         <div class="row items-center q-mr-lg">
-          <img :src="logoPath" alt="Logo" style="height: 40px; max-width: 160px; object-fit: contain;" />
+          <img :src="logoPath" alt="Logo" style="height: 40px; max-width: 160px; object-fit: contain; filter: brightness(0) invert(1);" />
         </div>
-        <q-separator vertical inset class="q-mx-sm mobile-hide bg-grey-3" />
+        
+        <q-separator vertical inset class="q-mx-sm mobile-hide bg-white opacity-50" />
+        
         <q-toolbar-title class="column justify-center q-ml-sm">
-          <div class="text-caption text-uppercase text-grey-7 letter-spacing-1 lh-small" style="font-size: 0.7rem;">
+          <div class="text-caption text-uppercase text-grey-3 letter-spacing-1 lh-small" style="font-size: 0.7rem;">
             {{ productionStore.machineSector }}
           </div>
-          <div class="text-subtitle1 text-weight-bolder lh-small row items-center text-primary">
+          <div class="text-subtitle1 text-weight-bolder lh-small row items-center text-white">
             {{ productionStore.machineName }}
-            <q-badge rounded :color="statusColor" class="q-ml-sm shadow-1">
+            <q-badge rounded :class="statusBgClass" class="q-ml-sm shadow-1 text-white q-py-xs q-px-sm">
               <q-icon :name="statusIcon" color="white" class="q-mr-xs" size="10px" />
               {{ productionStore.activeOrder?.status || 'OFFLINE' }}
             </q-badge>
           </div>
         </q-toolbar-title>
+        
         <q-space />
-        <div class="row items-center q-gutter-x-sm bg-grey-2 q-py-xs q-px-sm rounded-borders shadow-1">
-          <q-avatar size="32px" class="shadow-1" icon="person" color="grey-4" text-color="grey-8" />
+        
+        <div class="row items-center q-gutter-x-sm bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-1">
+          <q-avatar size="32px" class="shadow-1 vemag-bg-primary text-white" icon="person" />
           <div class="column items-start mobile-hide lh-small">
-            <div class="text-weight-bold text-caption">Operador</div>
+            <div class="text-weight-bold text-caption vemag-text-primary">Operador</div>
             <div class="text-caption text-grey-7" style="font-size: 0.65rem;">
               {{ productionStore.currentOperatorBadge || '---' }}
             </div>
           </div>
           <q-separator vertical inset class="q-mx-xs bg-grey-4" />
-          <div class="text-h6 font-monospace text-dark text-weight-bold">{{ timeDisplay }}</div>
+          <div class="text-h6 font-monospace vemag-text-primary text-weight-bold">{{ timeDisplay }}</div>
         </div>
-        <q-btn flat round icon="logout" color="grey-8" size="md" class="q-ml-sm" @click="handleLogout" />
+        
+        <q-btn flat round icon="logout" class="q-ml-sm text-white" size="md" @click="handleLogout" />
       </q-toolbar>
-      <q-linear-progress :value="1" :color="statusColor" size="3px" />
+      <q-linear-progress :value="1" color="orange-4" class="q-mt-none" size="3px" />
     </q-header>
 
     <q-page-container>
@@ -41,21 +46,29 @@
         
         <div v-if="!productionStore.activeOrder" class="col flex flex-center column">
           <q-card class="q-pa-lg text-center shadow-8 bg-white" style="border-radius: 16px; max-width: 400px;">
-            <div class="bg-blue-grey-1 q-pa-md rounded-borders inline-block q-mb-md">
-               <q-icon name="qr_code_scanner" size="60px" color="primary" />
+            <div class="vemag-bg-light q-pa-md rounded-borders inline-block q-mb-md">
+               <q-icon name="qr_code_scanner" size="60px" class="vemag-text-primary" />
             </div>
-            <div class="text-h5 text-weight-bolder text-dark q-mb-xs">Aguardando O.P.</div>
+            <div class="text-h5 text-weight-bolder vemag-text-primary q-mb-xs">Aguardando O.P.</div>
             <div class="text-caption text-grey-7 q-mb-lg">A máquina está parada. Escaneie a O.S. para iniciar.</div>
-            <q-btn push rounded color="primary" size="lg" icon="photo_camera" label="Ler QR Code" class="full-width" @click="simulateOpScan" />
+            <q-btn push rounded class="vemag-bg-primary text-white full-width" size="lg" icon="photo_camera" label="Ler QR Code" @click="simulateOpScan" />
           </q-card>
         </div>
 
         <div v-else class="row q-col-gutter-sm col full-height items-stretch content-stretch">
           
           <div class="col-12 col-md-8 column q-gutter-y-sm">
-            <q-card class="relative-position overflow-hidden shadow-4 bg-dark" style="border-radius: 16px; height: 150px; min-height: 150px;">
-              <q-img :src="productionStore.activeOrder.part_image_url" class="absolute-full opacity-60" fit="cover" />
-              <div class="absolute-full" style="background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.1));"></div>
+            
+            <q-card class="relative-position overflow-hidden shadow-4 vemag-bg-primary" style="border-radius: 16px; height: 150px; min-height: 150px;">
+              <q-img 
+                :src="customOsBackgroundImage" 
+                class="absolute-full opacity-60" 
+                fit="cover" 
+                error-src="https://placehold.co/600x150/008C7A/ffffff?text=Sem+Imagem"
+              />
+              
+              <div class="absolute-full" style="background: linear-gradient(to right, rgba(0,140,122,0.95) 0%, rgba(0,140,122,0.7) 50%, rgba(0,140,122,0.3));"></div>
+              
               <div class="absolute-full q-pa-md row items-center justify-between text-white">
                 <div>
                     <div class="row items-center q-gutter-x-sm q-mb-xs">
@@ -63,29 +76,29 @@
                         <q-badge outline color="white" :label="productionStore.activeOrder.code" />
                     </div>
                     <div class="text-h4 text-weight-bolder">{{ productionStore.activeOrder.part_name }}</div>
-                    <div class="text-subtitle2 text-grey-4">Meta: {{ productionStore.activeOrder.target_quantity }} un</div>
+                    <div class="text-subtitle2 text-grey-3">Meta: {{ productionStore.activeOrder.target_quantity }} un</div>
                 </div>
               </div>
             </q-card>
 
-            <q-card class="col-grow shadow-3 column bg-white" style="border-radius: 12px; border-left: 6px solid var(--q-primary);">
+            <q-card class="col-grow shadow-3 column bg-white" style="border-radius: 12px; border-left: 6px solid #008C7A;">
               
               <q-card-section class="row items-center justify-between border-bottom-light">
                  <div>
-                    <div class="text-subtitle1 text-weight-bold text-uppercase text-grey-8 letter-spacing-1">
+                    <div class="text-subtitle1 text-weight-bold text-uppercase vemag-text-primary letter-spacing-1">
                        <q-icon name="list_alt" class="q-mr-sm" />Roteiro de Operação
                     </div>
-                    <div class="text-caption text-grey-6">Instruções de processo</div>
+                    <div class="text-caption text-grey-7">Instruções de processo</div>
                  </div>
                  <div class="text-right">
-                    <div class="text-h4 text-weight-bolder text-primary">
+                    <div class="text-h4 text-weight-bolder vemag-text-primary">
                        {{ productionStore.activeOrder.produced_quantity }} <span class="text-h6 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }}</span>
                     </div>
                     <div class="text-caption text-grey-7">Peças Produzidas</div>
                  </div>
               </q-card-section>
               
-              <q-linear-progress :value="productionStore.activeOrder.produced_quantity / productionStore.activeOrder.target_quantity" color="primary" size="6px" />
+              <q-linear-progress :value="productionStore.activeOrder.produced_quantity / productionStore.activeOrder.target_quantity" class="vemag-text-primary" size="6px" />
 
               <q-card-section class="col scroll q-pa-none">
                  <q-list separator>
@@ -103,14 +116,16 @@
                           <q-item-label caption>Garantir alinhamento de 0.5mm conforme desenho técnico.</q-item-label>
                        </q-item-section>
                     </q-item>
-                    <q-item class="bg-blue-1">
-                       <q-item-section avatar><q-spinner-dots color="primary" /></q-item-section>
+                    
+                    <q-item class="vemag-bg-light">
+                       <q-item-section avatar><q-spinner-dots class="vemag-text-primary" size="24px" /></q-item-section>
                        <q-item-section>
-                          <q-item-label class="text-weight-bold text-primary">3. Operação de Corte e Dobra</q-item-label>
+                          <q-item-label class="text-weight-bold vemag-text-primary">3. Operação de Corte e Dobra</q-item-label>
                           <q-item-label caption class="text-dark">Acompanhar ciclo automático. Verificar rebarbas a cada 50 peças.</q-item-label>
                        </q-item-section>
-                       <q-item-section side><q-badge color="primary">EM ANDAMENTO</q-badge></q-item-section>
+                       <q-item-section side><q-badge class="vemag-bg-primary text-white">EM ANDAMENTO</q-badge></q-item-section>
                     </q-item>
+                    
                     <q-item>
                        <q-item-section avatar><q-icon name="radio_button_unchecked" color="grey-5" /></q-item-section>
                        <q-item-section>
@@ -143,18 +158,18 @@
             
             <q-card class="bg-white text-center q-py-sm relative-position shadow-2" style="border-radius: 12px;">
                <div class="row items-center justify-center q-gutter-x-sm">
-                  <q-icon name="timer" color="grey-7" size="sm" />
-                  <div class="text-subtitle1 text-grey-9">
+                  <q-icon name="timer" class="vemag-text-secondary" size="sm" />
+                  <div class="text-subtitle1 vemag-text-primary">
                     Tempo no Estado: <span class="text-weight-bold font-monospace">{{ elapsedTime }}</span>
                   </div>
                </div>
-               <q-linear-progress stripe query :color="statusColor" size="4px" class="q-mt-xs absolute-bottom" />
+               <q-linear-progress stripe query :class="statusTextClass" size="4px" class="q-mt-xs absolute-bottom" />
             </q-card>
 
             <div class="col-grow relative-position">
                <q-btn 
                   v-if="['SETUP', 'RUNNING', 'PAUSED', 'PENDING', 'IDLE', 'STOPPED'].includes(productionStore.activeOrder.status)"
-                  :color="productionStore.activeOrder.status === 'RUNNING' ? 'positive' : 'blue-grey-9'" 
+                  :class="productionStore.activeOrder.status === 'RUNNING' ? 'vemag-bg-primary text-white' : 'bg-blue-grey-9 text-white'" 
                   class="fit shadow-4 hover-scale-producing" 
                   push 
                   :loading="isLoadingAction"
@@ -189,9 +204,7 @@
                </q-btn>
 
                <q-btn 
-                  class="col shadow-3 hover-scale"
-                  color="purple-9" 
-                  text-color="white"
+                  class="col shadow-3 hover-scale vemag-bg-secondary text-white"
                   push
                   style="border-radius: 16px;"
                   @click="isAndonDialogOpen = true"
@@ -259,8 +272,7 @@
 
     <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
       <q-card style="width: 700px; max-width: 90vw; border-radius: 16px;">
-        
-        <q-card-section class="bg-primary text-white row items-center justify-between">
+        <q-card-section class="vemag-bg-primary text-white row items-center justify-between">
           <div class="text-h6 text-weight-bold row items-center">
             <q-icon name="campaign" size="md" class="q-mr-sm" />
             Central de Ajuda (Andon)
@@ -269,15 +281,13 @@
         </q-card-section>
 
         <q-card-section class="q-pa-lg">
-          <div class="text-subtitle1 q-mb-md text-grey-8">Selecione o setor responsável:</div>
-          
+          <div class="text-subtitle1 q-mb-md vemag-text-primary">Selecione o setor responsável:</div>
           <div class="row q-col-gutter-md">
             <div v-for="opt in andonOptions" :key="opt.label" class="col-6 col-md-4">
               <q-btn 
                 push 
                 class="full-width full-height column flex-center q-pa-md shadow-2 transition-hover"
-                :color="opt.color" 
-                text-color="white"
+                :class="`bg-${opt.color} text-white`"
                 style="border-radius: 12px; min-height: 110px;"
                 @click="triggerAndon(opt.label)"
               >
@@ -286,7 +296,6 @@
               </q-btn>
             </div>
           </div>
-
           <div class="q-mt-lg">
             <q-input 
               v-model="andonNote" 
@@ -296,7 +305,7 @@
               dense
               bg-color="grey-1"
             >
-              <template v-slot:prepend><q-icon name="edit_note" /></template>
+              <template v-slot:prepend><q-icon name="edit_note" class="vemag-text-primary" /></template>
             </q-input>
           </div>
         </q-card-section>
@@ -317,8 +326,16 @@ const router = useRouter();
 const $q = useQuasar();
 const productionStore = useProductionStore();
 
-const logoPath = ref('https://cdn.quasar.dev/logo-v2/svg/logo-dark.svg');
+const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
+
+// --- PERSONALIZAÇÃO IMAGEM O.S. ---
+// Altere este valor para mudar a imagem de fundo do carro
+const customOsBackgroundImage = ref('/a.jpg');
+
+// watch(() => productionStore.activeOrder, (newVal) => {
+//     if (newVal?.part_image_url) customOsBackgroundImage.value = newVal.part_image_url;
+// }, { immediate: true });
 
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
@@ -327,12 +344,12 @@ const statusStartTime = ref(new Date());
 const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
 
-// --- ANDON (AJUDA) CONFIG ---
+// Andon Config
 const andonNote = ref('');
 const andonOptions = [
-  { label: 'Mecânica', icon: 'build', color: 'blue-9' },
+  { label: 'Mecânica', icon: 'build', color: 'blue-grey-9' },
   { label: 'Elétrica', icon: 'bolt', color: 'orange-9' },
-  { label: 'Logística', icon: 'forklift', color: 'brown-6' }, // ou local_shipping se não tiver forklift
+  { label: 'Logística', icon: 'forklift', color: 'brown-6' },
   { label: 'Qualidade', icon: 'verified', color: 'purple-8' },
   { label: 'Processo', icon: 'engineering', color: 'teal-7' },
   { label: 'Segurança', icon: 'health_and_safety', color: 'red-9' }
@@ -348,12 +365,20 @@ const elapsedTime = computed(() => {
 
 const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
-const statusColor = computed(() => {
+const statusBgClass = computed(() => {
   const status = productionStore.activeOrder?.status;
-  if (status === 'RUNNING') return 'positive';
-  if (status === 'SETUP') return 'warning';
-  if (status === 'PAUSED' || status === 'STOPPED') return 'negative';
-  return 'grey-5';
+  if (status === 'RUNNING') return 'bg-positive'; // Ou 'vemag-bg-primary' se quiser tudo verde
+  if (status === 'SETUP') return 'bg-warning';
+  if (status === 'PAUSED' || status === 'STOPPED') return 'bg-negative';
+  return 'bg-grey-5';
+});
+
+const statusTextClass = computed(() => {
+    const status = productionStore.activeOrder?.status;
+    if (status === 'RUNNING') return 'vemag-text-primary';
+    if (status === 'SETUP') return 'text-warning';
+    if (status === 'PAUSED' || status === 'STOPPED') return 'text-negative';
+    return 'text-grey-5';
 });
 
 const statusIcon = computed(() => {
@@ -419,7 +444,6 @@ function confirmFinishOp() {
     persistent: true,
     ok: { label: 'Finalizar', color: 'negative', push: true }
   }).onOk(() => {
-     // Correção: Void para promessa
      void (async () => {
         await productionStore.finishSession();
         resetTimer();
@@ -436,16 +460,9 @@ function handleLogout() {
   });
 }
 
-function triggerAndon(sector: string) {
-  productionStore.triggerAndon(sector, andonNote.value);
-  
-  $q.notify({
-    type: 'info',
-    icon: 'check_circle',
-    message: `Chamado aberto para: ${sector}`,
-    caption: 'A equipe foi notificada.'
-  });
-
+function triggerAndon(sector: string, note?: string) {
+  productionStore.triggerAndon(sector, note);
+  $q.notify({ type: 'info', icon: 'check_circle', message: `Chamado para: ${sector}` });
   andonNote.value = '';
   isAndonDialogOpen.value = false;
 }
@@ -462,14 +479,44 @@ onMounted(() => {
 onUnmounted(() => { clearInterval(timerInterval); });
 </script>
 
+<style>
+/* ESTILOS GLOBAIS NÃO ESCOPADOS PARA GARANTIR OVERRIDE 
+   Cores baseadas na VEMAG
+*/
+.vemag-bg-primary {
+  background-color: #008C7A !important;
+}
+.vemag-text-primary {
+  color: #008C7A !important;
+}
+
+.vemag-bg-secondary {
+  background-color: #66B8B0 !important;
+}
+.vemag-text-secondary {
+  color: #66B8B0 !important;
+}
+
+.vemag-bg-light {
+  background-color: #E0F2F1 !important;
+}
+.vemag-bg-light-accent {
+  background-color: #B2DFDB !important;
+}
+</style>
+
 <style scoped>
 .font-inter { font-family: 'Roboto', sans-serif; }
 .font-monospace { font-family: 'Courier New', monospace; letter-spacing: -1px; }
 .lh-small { line-height: 1.1; }
 .col-grow { flex-grow: 1; }
 .opacity-60 { opacity: 0.6; }
+.opacity-50 { opacity: 0.5; }
+.opacity-80 { opacity: 0.8; }
+
 .hover-scale-producing { transition: all 0.3s ease-in-out; }
-.hover-scale-producing:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(33, 186, 69, 0.3); }
+.hover-scale-producing:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0, 140, 122, 0.4); }
+
 .border-bottom-light { border-bottom: 1px solid #e0e0e0; }
 .transition-hover:hover { filter: brightness(1.1); transform: translateY(-2px); }
 </style>

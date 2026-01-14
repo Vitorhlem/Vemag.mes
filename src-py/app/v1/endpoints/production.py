@@ -214,7 +214,7 @@ async def get_production_order(code: str, db: AsyncSession = Depends(deps.get_db
             part_name="OS-12391-20",
             target_quantity=500,
             status="PENDING",
-            part_image_url="https://images.unsplash.com/photo-1616422285623-13ff0162193c?auto=format&fit=crop&w=1000&q=80"
+            part_image_url=""
         )
         db.add(order)
         await db.commit()
