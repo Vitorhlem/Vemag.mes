@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { Notify, Loading } from 'quasar';
@@ -8,7 +9,7 @@ export interface Machine {
   brand: string;
   model: string;
   license_plate?: string;
-  status?: string;
+  status?: string; 
   category?: string;
   current_driver_id?: number;
 }
@@ -51,8 +52,36 @@ export const useProductionStore = defineStore('production', () => {
   // --- GETTERS ---
   const isKioskConfigured = computed(() => !!machineId.value);
   const isShiftActive = computed(() => !!currentOperatorBadge.value);
-
+  
+  // === CORREÇÃO CRÍTICA DO GETTER ===
+  // O banco retorna "Em manutenção". O código busca por "manutenção" ou "maintenance".
+const isMachineBroken = computed(() => {
+      // 1. Pega o status atual do objeto da máquina
+      const rawStatus = currentMachine.value?.status || '';
+      
+      // 2. Normaliza para minúsculo e remove acentos para evitar erros (ex: "manutenção" vira "manutencao")
+      // Isso é vital para funcionar em qualquer navegador/banco
+      const status = String(rawStatus)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      
+      // 3. Verifica as palavras-chave (Inglês e Português)
+      // O banco manda "Em manutenção", que virou "em manutencao".
+      // A verificação abaixo vai encontrar "manutencao" e retornar TRUE.
+      return status.includes('maintenance') || 
+             status.includes('broken') || 
+             status.includes('manutencao') || 
+             status.includes('manutenção');
+  });
   // --- ACTIONS ---
+
+  function _setMachineData(data: Machine) {
+    currentMachine.value = data;
+    machineId.value = data.id;
+    machineName.value = `${data.brand} ${data.model}`;
+    machineSector.value = data.category || 'Geral';
+  }
 
   async function loadKioskConfig() {
     const savedId = localStorage.getItem('TRU_MACHINE_ID');
@@ -69,10 +98,10 @@ export const useProductionStore = defineStore('production', () => {
 
   async function fetchAvailableMachines() {
     try {
-      const { data } = await api.get<Machine[]>('/production/machines', { params: { limit: 100 } });
+      const { data } = await api.get<Machine[]>('/machines', { params: { limit: 100 } });
       machinesList.value = data;
     } catch {
-      Notify.create({ type: 'negative', message: 'Erro ao buscar máquinas.' });
+      Notify.create({ type: 'negative', message: 'Erro ao buscar lista de máquinas.' });
     }
   }
 
@@ -81,20 +110,30 @@ export const useProductionStore = defineStore('production', () => {
       const { data } = await api.get<Machine>(`/vehicles/${id}`);
       _setMachineData(data);
       localStorage.setItem('TRU_MACHINE_ID', String(data.id));
-      Notify.create({ type: 'positive', message: 'Terminal Vinculado!' });
+      Notify.create({ type: 'positive', message: 'Terminal Configurado!' });
     } catch {
-      Notify.create({ type: 'negative', message: 'Erro ao configurar.' });
+      Notify.create({ type: 'negative', message: 'Erro ao configurar terminal.' });
     }
   }
 
-  function _setMachineData(data: Machine) {
-    currentMachine.value = data;
-    machineId.value = data.id;
-    machineName.value = `${data.brand} ${data.model}`;
-    machineSector.value = data.category || 'Geral';
+  // Define Status Manualmente (ex: Quebra)
+  // Envia "MAINTENANCE" (Inglês) para API -> API converte para "Em manutenção"
+  async function setMachineStatus(status: string) {
+    // ATUALIZAÇÃO OTIMISTA: Muda na hora para garantir a UI
+    if (currentMachine.value) {
+        if (status === 'MAINTENANCE') currentMachine.value.status = "Em manutenção"; 
+        else if (status === 'AVAILABLE') currentMachine.value.status = "Disponível";
+        else currentMachine.value.status = status;
+    }
+    
+    try {
+       await api.post('/production/machine/status', {
+           machine_id: machineId.value,
+           status: status
+       });
+    } catch (error) { console.error('Erro ao salvar status', error); }
   }
 
-  // CORREÇÃO AQUI: Tipagem explícita para aceitar undefined/null no event_type
   async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string | null | undefined } = {}) {
     try {
       const q = new URLSearchParams();
@@ -123,7 +162,11 @@ export const useProductionStore = defineStore('production', () => {
         reason: 'Início de Turno'
       });
       currentOperatorBadge.value = badge;
-      if (currentMachine.value) currentMachine.value.status = 'IDLE';
+      
+      // Se não estiver quebrada, vai para Disponível.
+      if (!isMachineBroken.value && currentMachine.value) {
+          currentMachine.value.status = 'Disponível';
+      }
       Notify.create({ type: 'positive', message: 'Login Efetuado' });
     } catch {
       Notify.create({ type: 'negative', message: 'Crachá Inválido' });
@@ -133,16 +176,34 @@ export const useProductionStore = defineStore('production', () => {
     }
   }
 
-  async function logoutOperator() {
+  // --- LOGOUT INTELIGENTE ---
+  // Envia "MAINTENANCE" para API se a máquina estiver quebrada
+  async function logoutOperator(overrideStatus?: string) {
     if (!machineId.value || !currentOperatorBadge.value) return;
+    
+    let statusToSend = 'AVAILABLE';
+    let visualStatus = 'Disponível'; // Para UI imediata
+
+    // Se forçado ou já estiver quebrada, manda MAINTENANCE
+    if (overrideStatus === 'MAINTENANCE' || isMachineBroken.value) {
+        statusToSend = 'MAINTENANCE';
+        visualStatus = 'Em manutenção';
+    }
+
     try {
       await api.post('/production/event', {
         machine_id: machineId.value,
         operator_badge: currentOperatorBadge.value,
         event_type: 'LOGOUT',
-        new_status: 'AVAILABLE',
+        new_status: statusToSend, 
         reason: 'Logoff'
       });
+      
+      // Atualiza localmente
+      if (currentMachine.value) {
+          currentMachine.value.status = visualStatus;
+      }
+      
     } catch (error) {
        console.error('Erro ao deslogar:', error);
     }
@@ -151,6 +212,11 @@ export const useProductionStore = defineStore('production', () => {
   }
 
   async function loadOrderFromQr(qrCode: string) {
+    if (isMachineBroken.value) {
+        Notify.create({ type: 'negative', message: 'Máquina em manutenção. Necessário liberar.' });
+        return;
+    }
+
     try {
       Loading.show();
       const { data } = await api.get<ProductionOrder>(`/production/orders/${qrCode}`);
@@ -163,11 +229,9 @@ export const useProductionStore = defineStore('production', () => {
             order_code: data.code
          });
       }
-
       Notify.create({ type: 'positive', message: 'O.P. Iniciada com Sucesso' });
-    } catch (e) {
-      Notify.create({ type: 'negative', message: 'O.S. não encontrada ou erro ao iniciar sessão.' });
-      console.error(e);
+    } catch { 
+      Notify.create({ type: 'negative', message: 'O.S. não encontrada.' });
     } finally {
       Loading.hide();
     }
@@ -183,15 +247,68 @@ export const useProductionStore = defineStore('production', () => {
       });
       Notify.create({ type: 'positive', message: 'O.P. Finalizada! Dados salvos.' });
       activeOrder.value = null;
-      if (currentMachine.value) currentMachine.value.status = 'AVAILABLE';
-    } catch (e) {
+    } catch { 
       Notify.create({ type: 'negative', message: 'Erro ao finalizar O.P.' });
-      console.error(e);
     } finally {
       Loading.hide();
     }
   }
 
+  async function createMaintenanceOrder(notes: string) {
+      if (!machineId.value) return;
+      try {
+          Loading.show();
+          
+          // --- CORREÇÃO BASEADA NO SEU SCHEMA ---
+          const payload = {
+              vehicle_id: machineId.value,
+              
+              // Campo obrigatório conforme seu schema
+              problem_description: `Abertura via Kiosk: ${notes}`,
+              
+              // Campo obrigatório (Enum). 
+              // Tente 'MECANICA', 'ELETRICA' ou 'OUTROS' (deve ser maiúsculo)
+              category: 'Mecânica', 
+              
+              // Opcional, mas vamos garantir
+              maintenance_type: 'CORRETIVA'
+          };
+
+          // Não enviamos mais 'priority' nem 'status', pois seu Schema não aceita na criação.
+          
+          await api.post('/maintenance/requests', payload);
+          
+          // Atualiza visualmente para 'Em manutenção'
+          if(currentMachine.value) currentMachine.value.status = 'Em manutenção';
+          
+          Notify.create({ 
+              type: 'positive', 
+              icon: 'build_circle',
+              message: 'Ordem de Manutenção Aberta!',
+              caption: 'A equipe de manutenção foi notificada.' 
+          });
+      } catch (error: any) { 
+          console.error('Erro ao criar O.M.:', error.response?.data);
+          
+          // Tratamento de erro detalhado para você saber o que houve
+          const detail = error.response?.data?.detail;
+          let msg = 'Erro ao processar dados.';
+          
+          if (Array.isArray(detail)) {
+              // Pega o primeiro erro da lista
+              msg = `Campo inválido: ${detail[0]?.loc?.[1]} - ${detail[0]?.msg}`;
+              
+              // Dica específica para erro de categoria
+              if (detail[0]?.loc?.[1] === 'category') {
+                  msg += ' (Verifique se a categoria MECANICA existe no backend)';
+              }
+          }
+          
+          Notify.create({ type: 'negative', message: msg });
+      } finally {
+          Loading.hide();
+      }
+  }
   async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
     if (!machineId.value || !currentOperatorBadge.value) return;
     try {
@@ -202,14 +319,11 @@ export const useProductionStore = defineStore('production', () => {
         event_type: type,
         ...payload
       });
-      
-      if (payload.new_status && typeof payload.new_status === 'string') {
-         if (activeOrder.value) activeOrder.value.status = payload.new_status as ProductionOrder['status'];
-         if (currentMachine.value) currentMachine.value.status = payload.new_status;
+      // Atualiza visualmente para garantir
+      if (payload.new_status === 'RUNNING' && currentMachine.value) {
+         currentMachine.value.status = 'Em uso';
       }
-    } catch (e) {
-      console.error('Falha de sync', e);
-    }
+    } catch (e) { console.error('Falha de sync', e); }
   }
 
   function triggerAndon(sector: string, notes = '') {
@@ -223,29 +337,24 @@ export const useProductionStore = defineStore('production', () => {
     Notify.create({ type: 'warning', icon: 'campaign', message: `Chamado para ${sector}` });
   }
 
-  async function startProduction() { 
-    await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
-  }
-  
-  async function pauseProduction(reason: string) { 
-    await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
-  }
+  async function startProduction() { await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); }
+  async function pauseProduction(reason: string) { await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); }
   
   function addProduction(qty: number, isScrap = false) {
     if (!activeOrder.value) return;
     if (isScrap) activeOrder.value.scrap_quantity += qty;
     else activeOrder.value.produced_quantity += qty;
-    
     void sendEvent('COUNT', { quantity_good: isScrap ? 0 : qty, quantity_scrap: isScrap ? qty : 0 });
   }
 
   return {
     machinesList, machineId, currentMachine, machineName, machineSector,
     currentOperatorBadge, activeOrder, machineHistory,
-    isKioskConfigured, isShiftActive,
-    loadKioskConfig, fetchAvailableMachines, configureKiosk, fetchMachineHistory,
+    isKioskConfigured, isShiftActive, isMachineBroken,
+    loadKioskConfig, _setMachineData, setMachineStatus,
+    fetchAvailableMachines, configureKiosk, fetchMachineHistory,
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
-    startProduction, pauseProduction, addProduction,
+    startProduction, pauseProduction, addProduction, createMaintenanceOrder,
     sendEvent, triggerAndon 
   };
 });

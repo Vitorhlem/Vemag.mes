@@ -58,7 +58,6 @@
         <div v-else class="row q-col-gutter-sm col full-height items-stretch content-stretch">
           
           <div class="col-12 col-md-8 column q-gutter-y-sm">
-            
             <q-card class="relative-position overflow-hidden shadow-4 vemag-bg-primary" style="border-radius: 16px; height: 150px; min-height: 150px;">
               <q-img 
                 :src="customOsBackgroundImage" 
@@ -66,9 +65,7 @@
                 fit="cover" 
                 error-src="https://placehold.co/600x150/008C7A/ffffff?text=Sem+Imagem"
               />
-              
               <div class="absolute-full" style="background: linear-gradient(to right, rgba(0,140,122,0.95) 0%, rgba(0,140,122,0.7) 50%, rgba(0,140,122,0.3));"></div>
-              
               <div class="absolute-full q-pa-md row items-center justify-between text-white">
                 <div>
                     <div class="row items-center q-gutter-x-sm q-mb-xs">
@@ -82,7 +79,6 @@
             </q-card>
 
             <q-card class="col-grow shadow-3 column bg-white" style="border-radius: 12px; border-left: 6px solid #008C7A;">
-              
               <q-card-section class="row items-center justify-between border-bottom-light">
                  <div>
                     <div class="text-subtitle1 text-weight-bold text-uppercase vemag-text-primary letter-spacing-1">
@@ -105,47 +101,27 @@
                     <q-item>
                        <q-item-section avatar><q-icon name="check_circle" color="positive" /></q-item-section>
                        <q-item-section>
-                          <q-item-label class="text-weight-bold">1. Preparação de Matéria Prima</q-item-label>
-                          <q-item-label caption>Verificar lote da bobina e posicionar no desbobinador.</q-item-label>
+                          <q-item-label class="text-weight-bold">1. Preparação</q-item-label>
+                          <q-item-label caption>Verificar lote e posicionar material.</q-item-label>
                        </q-item-section>
                     </q-item>
-                    <q-item>
-                       <q-item-section avatar><q-icon name="check_circle" color="positive" /></q-item-section>
-                       <q-item-section>
-                          <q-item-label class="text-weight-bold">2. Ajuste de Ferramenta (Setup)</q-item-label>
-                          <q-item-label caption>Garantir alinhamento de 0.5mm conforme desenho técnico.</q-item-label>
-                       </q-item-section>
-                    </q-item>
-                    
                     <q-item class="vemag-bg-light">
                        <q-item-section avatar><q-spinner-dots class="vemag-text-primary" size="24px" /></q-item-section>
                        <q-item-section>
-                          <q-item-label class="text-weight-bold vemag-text-primary">3. Operação de Corte e Dobra</q-item-label>
-                          <q-item-label caption class="text-dark">Acompanhar ciclo automático. Verificar rebarbas a cada 50 peças.</q-item-label>
+                          <q-item-label class="text-weight-bold vemag-text-primary">2. Execução</q-item-label>
+                          <q-item-label caption class="text-dark">Acompanhar ciclo.</q-item-label>
                        </q-item-section>
                        <q-item-section side><q-badge class="vemag-bg-primary text-white">EM ANDAMENTO</q-badge></q-item-section>
-                    </q-item>
-                    
-                    <q-item>
-                       <q-item-section avatar><q-icon name="radio_button_unchecked" color="grey-5" /></q-item-section>
-                       <q-item-section>
-                          <q-item-label class="text-grey-7">4. Paletização</q-item-label>
-                          <q-item-label caption>Acomodar em caixas padrão KLT (20 un/caixa).</q-item-label>
-                       </q-item-section>
                     </q-item>
                  </q-list>
               </q-card-section>
 
               <q-separator />
-
               <q-card-actions align="right" class="q-pa-md bg-grey-1">
                  <div class="row items-center q-gutter-md">
-                    <span class="text-caption text-grey-7 text-italic mobile-hide">Contagem de peças boas é automática via sensor.</span>
                     <q-btn 
-                       outline 
-                       color="negative" 
-                       icon="delete_outline" 
-                       label="Apontar Refugo / Peça Defeituosa" 
+                       outline color="negative" icon="delete_outline" 
+                       label="Apontar Refugo" 
                        class="q-px-lg shadow-1 bg-white"
                        @click="productionStore.addProduction(1, true)"
                     />
@@ -171,8 +147,7 @@
                   v-if="['SETUP', 'RUNNING', 'PAUSED', 'PENDING', 'IDLE', 'STOPPED'].includes(productionStore.activeOrder.status)"
                   :class="productionStore.activeOrder.status === 'RUNNING' ? 'vemag-bg-primary text-white' : 'bg-blue-grey-9 text-white'" 
                   class="fit shadow-4 hover-scale-producing" 
-                  push 
-                  :loading="isLoadingAction"
+                  push :loading="isLoadingAction"
                   style="border-radius: 16px;"
                   @click="toggleProduction"
                >
@@ -193,8 +168,7 @@
                   class="col shadow-3 hover-scale"
                   :color="productionStore.activeOrder.status === 'SETUP' ? 'warning' : 'blue-grey-2'"
                   :text-color="productionStore.activeOrder.status === 'SETUP' ? 'dark' : 'blue-grey-9'"
-                  push style="border-radius: 16px;"
-                  :loading="isLoadingAction"
+                  push style="border-radius: 16px;" :loading="isLoadingAction"
                   @click="toggleSetup"
                >
                   <div class="column items-center">
@@ -205,8 +179,7 @@
 
                <q-btn 
                   class="col shadow-3 hover-scale vemag-bg-secondary text-white"
-                  push
-                  style="border-radius: 16px;"
+                  push style="border-radius: 16px;"
                   @click="isAndonDialogOpen = true"
                >
                   <div class="column items-center">
@@ -218,13 +191,8 @@
 
             <div>
                <q-btn 
-                  class="full-width shadow-3"
-                  color="red-10" 
-                  text-color="white"
-                  push
-                  size="lg"
-                  icon="stop_circle"
-                  label="FINALIZAR O.P."
+                  class="full-width shadow-3" color="red-10" text-color="white"
+                  push size="lg" icon="stop_circle" label="FINALIZAR O.P."
                   style="border-radius: 16px;"
                   @click="confirmFinishOp"
                   :disable="productionStore.activeOrder.status === 'RUNNING'"
@@ -234,7 +202,6 @@
                   </q-tooltip>
                </q-btn>
             </div>
-
           </div>
         </div>
       </q-page>
@@ -255,19 +222,76 @@
         <q-card-section class="q-px-xl scroll" style="height: calc(100vh - 200px);">
            <div class="row q-col-gutter-md">
               <div v-for="(reason, idx) in filteredStopReasons" :key="idx" class="col-12 col-md-4 col-lg-3">
-                 <q-btn color="white" text-color="dark" class="full-width full-height shadow-2" padding="lg" align="left" no-caps @click="confirmStop(reason.label)">
+                 <q-btn 
+                    color="white" 
+                    text-color="dark" 
+                    class="full-width full-height shadow-2" 
+                    padding="lg" 
+                    align="left" 
+                    no-caps 
+                    @click="handleReasonSelect(reason.label)"
+                 >
                     <div class="row items-center no-wrap full-width">
                        <q-avatar :color="getCategoryColor(reason.category)" text-color="white" icon="priority_high" size="md" class="q-mr-md" />
                        <div class="column">
                           <div class="text-subtitle1 text-weight-bold">{{ reason.label }}</div>
                           <div class="text-caption text-grey">{{ reason.category }}</div>
                        </div>
+                       <q-space />
+                       <q-icon v-if="reason.requiresMaintenance" name="build_circle" color="red" size="sm" />
                     </div>
                  </q-btn>
               </div>
            </div>
         </q-card-section>
       </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="isMaintenanceConfirmOpen" persistent>
+       <q-card class="bg-red-9 text-white" style="width: 600px; max-width: 90vw;">
+          <q-card-section class="row items-center">
+             <q-avatar icon="warning" color="white" text-color="red-9" size="lg" font-size="32px" />
+             <div class="text-h5 q-ml-md text-weight-bold">Atenção: Parada Crítica</div>
+          </q-card-section>
+
+          <q-card-section class="q-py-lg">
+             <p class="text-h6">
+               Você selecionou: <span class="text-weight-bolder text-yellow-3">"{{ pendingReason }}"</span>.
+             </p>
+             <p class="text-body1">
+               Este motivo geralmente requer intervenção técnica. O que deseja fazer?
+             </p>
+          </q-card-section>
+
+          <q-card-actions align="center" class="q-pa-md q-gutter-md">
+             <q-btn 
+                push 
+                color="white" 
+                text-color="red-9" 
+                size="lg"
+                class="col-grow"
+                icon="handyman"
+                label="EU VOU AJUSTAR"
+                @click="executeStop(false)" 
+             >
+                <q-tooltip class="bg-dark text-body2">Apenas pausa a produção. Máquina continua sob sua responsabilidade.</q-tooltip>
+             </q-btn>
+
+             <q-btn 
+                push 
+                color="red-10" 
+                text-color="white" 
+                size="lg"
+                class="col-grow"
+                style="border: 2px solid white"
+                icon="assignment_turned_in"
+                label="ENCERRAR O.P. & ABRIR O.M."
+                @click="executeStop(true)"
+             >
+                <q-tooltip class="bg-dark text-body2">Finaliza a produção atual e abre chamado para manutenção.</q-tooltip>
+             </q-btn>
+          </q-card-actions>
+       </q-card>
     </q-dialog>
 
     <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
@@ -279,14 +303,12 @@
           </div>
           <q-btn icon="close" flat round dense v-close-popup />
         </q-card-section>
-
         <q-card-section class="q-pa-lg">
           <div class="text-subtitle1 q-mb-md vemag-text-primary">Selecione o setor responsável:</div>
           <div class="row q-col-gutter-md">
             <div v-for="opt in andonOptions" :key="opt.label" class="col-6 col-md-4">
               <q-btn 
-                push 
-                class="full-width full-height column flex-center q-pa-md shadow-2 transition-hover"
+                push class="full-width full-height column flex-center q-pa-md shadow-2 transition-hover"
                 :class="`bg-${opt.color} text-white`"
                 style="border-radius: 12px; min-height: 110px;"
                 @click="triggerAndon(opt.label)"
@@ -298,12 +320,7 @@
           </div>
           <div class="q-mt-lg">
             <q-input 
-              v-model="andonNote" 
-              outlined 
-              label="Observação (Opcional)" 
-              placeholder="Descreva brevemente o problema..." 
-              dense
-              bg-color="grey-1"
+              v-model="andonNote" outlined label="Observação (Opcional)" placeholder="Descreva..." dense bg-color="grey-1"
             >
               <template v-slot:prepend><q-icon name="edit_note" class="vemag-text-primary" /></template>
             </q-input>
@@ -328,24 +345,20 @@ const productionStore = useProductionStore();
 
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
-
-// --- PERSONALIZAÇÃO IMAGEM O.S. ---
-// Altere este valor para mudar a imagem de fundo do carro
 const customOsBackgroundImage = ref('/a.jpg');
-
-// watch(() => productionStore.activeOrder, (newVal) => {
-//     if (newVal?.part_image_url) customOsBackgroundImage.value = newVal.part_image_url;
-// }, { immediate: true });
 
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
+const isMaintenanceConfirmOpen = ref(false);
+const pendingReason = ref('');
+
 const stopSearch = ref('');
 const statusStartTime = ref(new Date());
 const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
-
-// Andon Config
 const andonNote = ref('');
+
+// (Mantidos seus arrays e computeds de sempre...)
 const andonOptions = [
   { label: 'Mecânica', icon: 'build', color: 'blue-grey-9' },
   { label: 'Elétrica', icon: 'bolt', color: 'orange-9' },
@@ -362,17 +375,15 @@ const elapsedTime = computed(() => {
    const s = (diff % 60).toString().padStart(2, '0');
    return `${h}:${m}:${s}`;
 });
-
 const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
 const statusBgClass = computed(() => {
   const status = productionStore.activeOrder?.status;
-  if (status === 'RUNNING') return 'bg-positive'; // Ou 'vemag-bg-primary' se quiser tudo verde
+  if (status === 'RUNNING') return 'bg-positive'; 
   if (status === 'SETUP') return 'bg-warning';
   if (status === 'PAUSED' || status === 'STOPPED') return 'bg-negative';
   return 'bg-grey-5';
 });
-
 const statusTextClass = computed(() => {
     const status = productionStore.activeOrder?.status;
     if (status === 'RUNNING') return 'vemag-text-primary';
@@ -380,7 +391,6 @@ const statusTextClass = computed(() => {
     if (status === 'PAUSED' || status === 'STOPPED') return 'text-negative';
     return 'text-grey-5';
 });
-
 const statusIcon = computed(() => {
     const status = productionStore.activeOrder?.status;
     if (status === 'RUNNING') return 'autorenew';
@@ -388,22 +398,17 @@ const statusIcon = computed(() => {
     if (status === 'PAUSED' || status === 'STOPPED') return 'error_outline';
     return 'power_off';
 });
-
 const filteredStopReasons = computed(() => {
    if (!stopSearch.value) return STOP_REASONS;
    const needle = stopSearch.value.toLowerCase();
    return STOP_REASONS.filter(r => r.label.toLowerCase().includes(needle) || r.category.toLowerCase().includes(needle));
 });
-
 function getCategoryColor(cat: string) {
    if (cat === 'Mecânica') return 'grey-9';
    if (cat === 'Elétrica') return 'orange-9';
    return 'blue-grey';
 }
-
-function resetTimer() {
-   statusStartTime.value = new Date();
-}
+function resetTimer() { statusStartTime.value = new Date(); }
 
 async function toggleSetup() {
   isLoadingAction.value = true;
@@ -428,18 +433,74 @@ async function toggleProduction() {
   isLoadingAction.value = false;
 }
 
-async function confirmStop(reason: string) {
-  isLoadingAction.value = true;
-  await productionStore.pauseProduction(reason);
-  isStopDialogOpen.value = false;
-  resetTimer();
-  isLoadingAction.value = false;
+function handleReasonSelect(reasonLabel: string) {
+    const reasonObj = STOP_REASONS.find(r => r.label === reasonLabel);
+    
+    if (reasonObj?.requiresMaintenance) {
+        pendingReason.value = reasonLabel;
+        isStopDialogOpen.value = false; 
+        isMaintenanceConfirmOpen.value = true; 
+    } else {
+        pendingReason.value = reasonLabel;
+        isStopDialogOpen.value = false;
+        void executeStop(false); 
+    }
+}
+
+// --- FUNÇÃO CRÍTICA ATUALIZADA ---
+async function executeStop(isCriticalMaintenance: boolean) {
+    isLoadingAction.value = true;
+    isMaintenanceConfirmOpen.value = false; 
+
+    // 1. Registra a parada (Log no banco)
+    await productionStore.pauseProduction(pendingReason.value);
+
+    if (isCriticalMaintenance) {
+        // FLUXO DE QUEBRA
+        $q.loading.show({ 
+            message: 'Registrando Quebra e Finalizando...',
+            backgroundColor: 'red-10'
+        });
+
+        // 2. Define Status da Máquina para MAINTENANCE
+        // (Atualiza o estado local da Store e tenta avisar o backend)
+        await productionStore.setMachineStatus('MAINTENANCE');
+
+        // 3. Finaliza a Sessão
+        await productionStore.finishSession();
+
+        // 4. Desloga FORÇANDO O STATUS 'MAINTENANCE'
+        // IMPORTANTE: Passamos a string 'MAINTENANCE' aqui!
+        await productionStore.logoutOperator('MAINTENANCE');
+
+        $q.loading.hide();
+
+        void router.push({ name: 'machine-kiosk' });
+
+        $q.notify({
+            type: 'negative',
+            icon: 'build',
+            message: `Máquina parada. Abra a O.M. na tela inicial.`,
+            timeout: 5000
+        });
+
+    } else {
+        // FLUXO DE PAUSA NORMAL
+        resetTimer();
+        $q.notify({
+            type: 'warning',
+            icon: 'pause',
+            message: `Pausado: ${pendingReason.value}`
+        });
+    }
+
+    isLoadingAction.value = false;
 }
 
 function confirmFinishOp() {
   $q.dialog({
     title: 'Finalizar O.P.',
-    message: 'Tem certeza que deseja encerrar a Ordem de Produção? Isso salvará o tempo total e liberará a máquina.',
+    message: 'Tem certeza que deseja encerrar a Ordem de Produção?',
     cancel: true,
     persistent: true,
     ok: { label: 'Finalizar', color: 'negative', push: true }
@@ -454,7 +515,7 @@ function confirmFinishOp() {
 function handleLogout() {
   $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true }).onOk(() => {
     void (async () => {
-        await productionStore.logoutOperator();
+        await productionStore.logoutOperator(); // Logout normal = AVAILABLE
         await router.push({ name: 'machine-kiosk' });
     })();
   });
@@ -478,31 +539,13 @@ onMounted(() => {
 });
 onUnmounted(() => { clearInterval(timerInterval); });
 </script>
-
 <style>
-/* ESTILOS GLOBAIS NÃO ESCOPADOS PARA GARANTIR OVERRIDE 
-   Cores baseadas na VEMAG
-*/
-.vemag-bg-primary {
-  background-color: #008C7A !important;
-}
-.vemag-text-primary {
-  color: #008C7A !important;
-}
-
-.vemag-bg-secondary {
-  background-color: #66B8B0 !important;
-}
-.vemag-text-secondary {
-  color: #66B8B0 !important;
-}
-
-.vemag-bg-light {
-  background-color: #E0F2F1 !important;
-}
-.vemag-bg-light-accent {
-  background-color: #B2DFDB !important;
-}
+.vemag-bg-primary { background-color: #008C7A !important; }
+.vemag-text-primary { color: #008C7A !important; }
+.vemag-bg-secondary { background-color: #66B8B0 !important; }
+.vemag-text-secondary { color: #66B8B0 !important; }
+.vemag-bg-light { background-color: #E0F2F1 !important; }
+.vemag-bg-light-accent { background-color: #B2DFDB !important; }
 </style>
 
 <style scoped>
@@ -513,10 +556,8 @@ onUnmounted(() => { clearInterval(timerInterval); });
 .opacity-60 { opacity: 0.6; }
 .opacity-50 { opacity: 0.5; }
 .opacity-80 { opacity: 0.8; }
-
 .hover-scale-producing { transition: all 0.3s ease-in-out; }
 .hover-scale-producing:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0, 140, 122, 0.4); }
-
 .border-bottom-light { border-bottom: 1px solid #e0e0e0; }
 .transition-hover:hover { filter: brightness(1.1); transform: translateY(-2px); }
 </style>
