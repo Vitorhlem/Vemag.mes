@@ -98,9 +98,13 @@ const isMachineBroken = computed(() => {
 
   async function fetchAvailableMachines() {
     try {
-      const { data } = await api.get<Machine[]>('/machines', { params: { limit: 100 } });
+      // CORREÇÃO: O endpoint correto fica dentro do prefixo /production
+      const { data } = await api.get<Machine[]>('/production/machines', { 
+          params: { limit: 100 } 
+      });
       machinesList.value = data;
-    } catch {
+    } catch (error) {
+      console.error(error);
       Notify.create({ type: 'negative', message: 'Erro ao buscar lista de máquinas.' });
     }
   }
