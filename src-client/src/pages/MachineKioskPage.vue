@@ -1,136 +1,212 @@
 <template>
-  <q-layout view="lHh Lpr fff" class="bg-grey-10 text-white">
+  <q-layout view="lHh Lpr fff" class="bg-dark text-white overflow-hidden">
     <q-page-container>
-      <q-page class="flex flex-center column relative-position overflow-hidden">
+      <q-page class="flex flex-center column relative-position fullscreen-bg">
         
-        <div class="absolute-full" :style="`background: radial-gradient(circle at center, transparent 30%, #000000 100%), url('${backgroundPath}') ${backgroundPosition} / ${backgroundSize} no-repeat; filter: brightness(0.6); z-index: 0;`"></div>
+        <div class="absolute-full bg-industrial-gradient"></div>
+        
+        <div class="absolute-top text-center q-pt-xl z-top">
+           <img src="/Logo-Oficial.png" style="height: 60px; filter: brightness(0) invert(1) opacity(0.8);" />
+        </div>
 
-        <q-card class="bg-grey-9 shadow-24 fade-in-up relative-position" style="width: 500px; max-width: 90vw; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; z-index: 1;">
-          <q-card-section class="text-center q-pa-xl">
+        <q-card 
+          class="kiosk-card shadow-24 fade-in-up relative-position column" 
+          :class="{'border-red': productionStore.isMachineBroken, 'border-vemag': !productionStore.isMachineBroken}"
+        >
+          <div class="absolute-top-right q-pa-md">
+             <q-badge 
+                rounded 
+                :color="productionStore.isMachineBroken ? 'red-10' : 'positive'" 
+                class="q-py-sm q-px-md text-subtitle1 shadow-2"
+             >
+                <q-icon :name="productionStore.isMachineBroken ? 'build_circle' : 'wifi'" class="q-mr-sm" />
+                {{ productionStore.isMachineBroken ? 'MANUTENÇÃO' : 'ONLINE' }}
+             </q-badge>
+          </div>
+
+          <q-card-section class="col flex flex-center column q-pa-xl text-center">
             
-            <q-avatar v-if="!productionStore.isMachineBroken" size="100px" font-size="52px" color="primary" text-color="white" icon="precision_manufacturing" class="shadow-10 q-mb-md" />
-            <q-avatar v-else size="100px" font-size="52px" color="red-10" text-color="white" icon="build_circle" class="shadow-10 q-mb-md animate-bounce" />
+            <div class="status-avatar-container q-mb-lg">
+                <q-avatar 
+                    size="140px" 
+                    font-size="80px" 
+                    :color="productionStore.isMachineBroken ? 'red-10' : 'white'" 
+                    :text-color="productionStore.isMachineBroken ? 'white' : 'teal-9'" 
+                    :icon="productionStore.isMachineBroken ? 'report_problem' : 'precision_manufacturing'" 
+                    class="shadow-10 relative-position"
+                    :class="{'animate-pulse-red': productionStore.isMachineBroken}"
+                >
+                   <div v-if="!productionStore.isMachineBroken" class="absolute-full ring-pulse"></div>
+                </q-avatar>
+            </div>
             
-            <div class="text-h4 text-weight-bold q-mb-xs text-white">
+            <div class="text-h3 text-weight-bolder q-mb-sm text-white letter-spacing-1">
               {{ productionStore.machineName }}
             </div>
-            <div class="text-subtitle1 text-grey-5 text-uppercase letter-spacing-2">
+            <div class="text-h5 text-grey-4 text-uppercase letter-spacing-2 q-mb-xl">
               {{ productionStore.machineSector }}
             </div>
             
-            <q-separator color="grey-8" class="q-my-lg" />
+            <q-separator color="grey-8" class="full-width q-mb-xl" />
 
-            <div v-if="isLoading" class="column items-center q-gutter-y-md">
-              <q-spinner-orbit color="primary" size="4em" />
-              <div class="text-body1 animate-blink text-primary">Validando Acesso...</div>
+            <div v-if="isLoading" class="column items-center q-gutter-y-lg">
+              <q-spinner-orbit color="vemag-green" size="6em" />
+              <div class="text-h5 animate-blink text-vemag-green">Validando Acesso...</div>
             </div>
 
-            <div v-else-if="productionStore.isMachineBroken" class="column q-gutter-y-md animate-fade-in">
-                <div class="text-h5 text-weight-bold text-red-5">EQUIPAMENTO PARADO</div>
-                <div class="text-body1 text-grey-4">
-                   Reportado falha/quebra. Necessário abrir O.M.
+            <div v-else-if="productionStore.isMachineBroken" class="column q-gutter-y-lg full-width animate-fade-in">
+                <div class="bg-red-9 q-pa-md rounded-borders shadow-2">
+                    <div class="text-h4 text-weight-bold text-white">EQUIPAMENTO PARADO</div>
+                    <div class="text-h6 text-red-2 q-mt-sm">Reportado falha/quebra. Necessário abrir O.M.</div>
                 </div>
 
                 <q-btn 
-                  push color="red-10" size="lg" icon="assignment_late" 
+                  push color="white" text-color="red-10" 
+                  size="24px" padding="lg"
+                  icon="assignment_late" 
                   label="ABRIR ORDEM DE MANUTENÇÃO" 
-                  class="full-width q-py-md shadow-5 hover-scale"
+                  class="full-width shadow-10 hover-scale"
+                  style="border-radius: 16px;"
                   @click="openMaintenanceDialog"
                 />
 
-                <q-btn flat color="grey-6" icon="lock_open" label="Liberar (Supervisor)" size="sm" class="q-mt-sm" @click="unlockMachine" />
+                <q-btn flat color="grey-5" icon="lock_open" label="Liberar (Supervisor)" size="lg" class="q-mt-md" @click="unlockMachine" />
             </div>
 
-            <div v-else class="column q-gutter-y-md animate-fade-in">
-              <div v-if="!productionStore.isKioskConfigured" class="text-negative text-weight-bold q-mb-md bg-red-1 q-pa-sm rounded-borders">
-                ⚠ TERMINAL NÃO VINCULADO
+            <div v-else class="column q-gutter-y-lg full-width animate-fade-in items-center">
+              <div v-if="!productionStore.isKioskConfigured" class="bg-red-10 text-white q-pa-md rounded-borders text-h6 text-weight-bold full-width">
+                <q-icon name="warning" class="q-mr-sm" /> TERMINAL NÃO VINCULADO
               </div>
 
-              <p class="text-h6 text-weight-regular text-grey-3">Aguardando Operador</p>
+              <div class="text-h5 text-grey-4">Toque abaixo para iniciar o turno</div>
               
               <q-btn 
-                push color="primary" size="xl" icon="qr_code_scanner" 
-                label="Escanear Crachá" 
-                class="full-width q-py-md shadow-5 hover-scale"
+                push 
+                class="full-width vemag-btn-primary shadow-10 hover-scale relative-position overflow-hidden" 
+                size="32px" 
+                padding="30px"
                 @click="openBadgeScanner"
                 :disable="!productionStore.isKioskConfigured"
-              />
+                style="border-radius: 20px;"
+              >
+                <div class="row items-center no-wrap">
+                    <q-icon name="qr_code_scanner" size="50px" class="q-mr-md" />
+                    <div class="text-weight-bold">ESCANEAR CRACHÁ</div>
+                </div>
+                <div class="shine-effect"></div>
+              </q-btn>
               
-              <q-btn flat color="grey-6" label="Configuração / Supervisor" size="sm" class="q-mt-sm" @click="openConfigDialog" />
+              <q-btn flat color="grey-6" label="Configuração / Supervisor" size="md" class="q-mt-lg opacity-50 hover-opacity-100" @click="openConfigDialog" />
             </div>
           </q-card-section>
           
-          <q-card-section class="bg-black text-center q-py-sm">
-            <div class="text-caption text-grey-7">
-               ID: {{ productionStore.machineId || '--' }} • 
-               <span v-if="productionStore.isMachineBroken" class="text-red-5">● Manutenção</span>
-               <span v-else class="text-green-5">● Online</span>
+          <q-card-section class="bg-black-transparent text-center q-py-md">
+            <div class="text-subtitle1 text-grey-6 font-monospace">
+               ID TERMINAL: <span class="text-white">{{ productionStore.machineId || '--' }}</span>
             </div>
           </q-card-section>
         </q-card>
       </q-page>
     </q-page-container>
 
-    <q-dialog v-model="isConfigOpen" backdrop-filter="blur(4px)">
-      <q-card style="width: 450px" class="shadow-24">
-        <q-card-section class="bg-primary text-white">
-          <div class="text-h6">Vincular Terminal</div>
+    <q-dialog v-model="isConfigOpen" backdrop-filter="blur(8px)">
+      <q-card style="width: 500px; border-radius: 16px;" class="shadow-24">
+        <q-card-section class="bg-vemag-green text-white">
+          <div class="text-h5 text-weight-bold">Vincular Terminal</div>
         </q-card-section>
-        <q-card-section class="q-pt-md q-gutter-y-md">
-          <div class="text-body2 text-grey-8">Selecione qual equipamento este tablet irá controlar.</div>
-          <q-select outlined v-model="selectedMachineOption" :options="machineOptions" label="Máquinas Disponíveis" option-label="label" option-value="value" emit-value map-options bg-color="white" :loading="isLoadingList" />
-          <q-input outlined v-model="adminPassword" type="password" label="Senha de Supervisor" dense />
+        <q-card-section class="q-pt-lg q-gutter-y-lg">
+          <div class="text-body1 text-grey-8">Selecione qual equipamento este tablet irá controlar.</div>
+          <q-select 
+            outlined 
+            v-model="selectedMachineOption" 
+            :options="machineOptions" 
+            label="Máquinas Disponíveis" 
+            option-label="label" 
+            option-value="value" 
+            emit-value map-options 
+            bg-color="grey-1"
+            color="teal"
+            class="text-h6"
+            :loading="isLoadingList" 
+          />
+          <q-input 
+            outlined 
+            v-model="adminPassword" 
+            type="password" 
+            label="Senha de Supervisor" 
+            class="text-h6"
+            bg-color="grey-1"
+            color="teal"
+          />
         </q-card-section>
-        <q-card-actions align="right" class="bg-grey-1">
-          <q-btn flat label="Cancelar" color="grey" v-close-popup />
-          <q-btn unelevated label="Salvar Vínculo" color="primary" @click="saveConfig" :disable="adminPassword !== 'admin123' || !selectedMachineOption" />
+        <q-card-actions align="right" class="bg-grey-1 q-pa-md">
+          <q-btn flat label="Cancelar" color="grey-8" size="lg" v-close-popup />
+          <q-btn unelevated label="Salvar Vínculo" color="teal-9" size="lg" @click="saveConfig" :disable="adminPassword !== 'admin123' || !selectedMachineOption" />
         </q-card-actions>
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isMaintenanceDialogOpen" persistent>
-       <q-card style="width: 600px; max-width: 90vw;">
-          <q-card-section class="bg-red-10 text-white row items-center">
-             <q-icon name="report_problem" size="md" class="q-mr-sm" />
-             <div class="text-h6">Abertura de O.M. - Corretiva</div>
+    <q-dialog v-model="isMaintenanceDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
+       <q-card class="bg-red-50 text-dark">
+          <q-toolbar class="bg-red-10 text-white q-py-md">
+             <q-icon name="report_problem" size="40px" class="q-mr-md" />
+             <q-toolbar-title class="text-h4 text-weight-bold">Abertura de O.M. - Corretiva</q-toolbar-title>
+             <q-btn flat round icon="close" size="xl" v-close-popup />
+          </q-toolbar>
+          
+          <q-card-section class="q-pa-xl column flex-center h-100">
+             <div class="full-width" style="max-width: 800px;">
+                 <div class="text-h5 text-grey-8 q-mb-sm">Equipamento</div>
+                 <div class="text-h3 text-weight-bold text-dark q-mb-xl">{{ productionStore.machineName }}</div>
+                 
+                 <div class="text-h5 text-grey-8 q-mb-sm">Descrição do Problema</div>
+                 <q-input 
+                    v-model="omDescription" 
+                    type="textarea" 
+                    outlined 
+                    rows="6" 
+                    placeholder="Descreva o detalhe da quebra aqui..." 
+                    class="text-h5 bg-white shadow-1"
+                    autofocus 
+                 />
+                 
+                 <div class="row q-mt-xl q-gutter-lg">
+                     <q-btn flat label="Cancelar" color="grey-8" size="xl" class="col" v-close-popup />
+                     <q-btn push color="red-10" label="CONFIRMAR ABERTURA" icon="send" size="xl" class="col shadow-5" :loading="isLoading" @click="submitMaintenance" :disable="!omDescription" />
+                 </div>
+             </div>
           </q-card-section>
-          <q-card-section class="q-pa-md">
-             <div class="text-subtitle2 q-mb-xs text-grey-8">Equipamento</div>
-             <div class="text-h6 text-dark q-mb-md">{{ productionStore.machineName }}</div>
-             <div class="text-subtitle2 q-mb-xs text-grey-8">Descrição do Problema</div>
-             <q-input v-model="omDescription" type="textarea" outlined rows="5" placeholder="Descreva o detalhe da quebra..." autofocus />
-          </q-card-section>
-          <q-card-actions align="right" class="bg-grey-1 q-pa-md">
-             <q-btn flat label="Cancelar" color="grey-8" v-close-popup />
-             <q-btn push color="red-10" label="CONFIRMAR ABERTURA" icon="send" :loading="isLoading" @click="submitMaintenance" :disable="!omDescription" />
-          </q-card-actions>
        </q-card>
     </q-dialog>
 
     <q-dialog v-model="showScanner" maximized transition-show="slide-up" transition-hide="slide-down">
       <q-card class="bg-black text-white column">
-        <q-bar class="bg-grey-9 q-pa-md">
-          <q-icon name="qr_code_scanner" size="sm" />
-          <div class="text-h6 q-ml-sm">Leitor de Crachá</div>
+        <q-bar class="bg-vemag-green q-pa-md" style="height: 80px;">
+          <q-icon name="qr_code_scanner" size="40px" />
+          <div class="text-h4 q-ml-md text-weight-bold">Leitor de Crachá</div>
           <q-space />
-          <q-btn dense flat icon="close" size="lg" v-close-popup @click="stopScanner">
+          <q-btn dense flat icon="close" size="30px" v-close-popup @click="stopScanner">
             <q-tooltip>Fechar Câmera</q-tooltip>
           </q-btn>
         </q-bar>
 
-        <q-card-section class="col flex flex-center column">
-          <div id="reader" style="width: 100%; max-width: 600px; border-radius: 12px; overflow: hidden; background: #000;"></div>
+        <q-card-section class="col flex flex-center column relative-position">
           
-          <div class="text-h6 q-mt-lg text-grey-5 text-center">
-             Posicione o Código de Barras na Horizontal<br>
-             <span class="text-caption text-grey-6">(Code 128, EAN, 3 of 9)</span>
+          <div class="scanner-frame relative-position">
+              <div id="reader" style="width: 100%; height: 100%; background: #000;"></div>
+              <div class="scan-line"></div>
           </div>
           
-          <div v-if="lastScannedCode" class="q-mt-md bg-white text-black q-pa-sm rounded-borders text-h6 text-weight-bold animate-blink">
+          <div class="text-h4 q-mt-xl text-grey-4 text-center text-weight-bold">
+             Posicione o Código de Barras
+          </div>
+          <div class="text-h6 text-vemag-green q-mt-sm">Matrícula ou Crachá</div>
+          
+          <div v-if="lastScannedCode" class="q-mt-lg bg-white text-black q-pa-md rounded-borders text-h4 text-weight-bold animate-blink shadow-10">
              LIDO: {{ lastScannedCode }}
           </div>
 
-          <q-btn flat color="white" icon="cameraswitch" label="Trocar Câmera" class="q-mt-md" @click="switchCamera" />
+          <q-btn flat color="white" icon="cameraswitch" label="Trocar Câmera" size="lg" class="q-mt-xl" @click="switchCamera" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -156,10 +232,6 @@ const isConfigOpen = ref(false);
 const adminPassword = ref('');
 const selectedMachineOption = ref<number | null>(null);
 
-const backgroundPath = ref('/vemag.png');
-const backgroundSize = ref('contain'); 
-const backgroundPosition = ref('center'); 
-
 const isMaintenanceDialogOpen = ref(false);
 const omDescription = ref('');
 let pollingTimer: ReturnType<typeof setInterval>;
@@ -168,7 +240,7 @@ let pollingTimer: ReturnType<typeof setInterval>;
 const showScanner = ref(false);
 const lastScannedCode = ref('');
 let html5QrCode: Html5Qrcode | null = null;
-const facingMode = ref<"user" | "environment">("environment"); // Começa com traseira
+const facingMode = ref<"user" | "environment">("environment");
 
 // --- Computed ---
 const machineOptions = computed(() => {
@@ -179,7 +251,7 @@ const machineOptions = computed(() => {
 });
 
 // --- Ciclo de Vida ---
-onMounted(() => { // Removido o 'async' desnecessário
+onMounted(() => {
   void productionStore.loadKioskConfig();
   if (productionStore.machineId) {
     selectedMachineOption.value = productionStore.machineId;
@@ -199,7 +271,7 @@ onUnmounted(() => {
 
 // --- LÓGICA DO SCANNER ---
 
-function openBadgeScanner() { // Removido o 'async' desnecessário
+function openBadgeScanner() {
   if (!productionStore.isKioskConfigured) {
     $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
     return;
@@ -220,10 +292,9 @@ async function startScanner() {
 
         html5QrCode = new Html5Qrcode("reader");
         
-        // CONFIGURAÇÃO FOCADA EM CÓDIGO DE BARRAS HORIZONTAL
         const config = { 
             fps: 10, 
-            qrbox: { width: 300, height: 100 }, // Box retangular horizontal
+            qrbox: { width: 400, height: 150 }, // Box mais largo para código de barras
             aspectRatio: 1.0,
             formatsToSupport: [
                 Html5QrcodeSupportedFormats.CODE_128,
@@ -238,7 +309,7 @@ async function startScanner() {
             { facingMode: facingMode.value },
             config,
             (decodedText) => { void onScanSuccess(decodedText) }, 
-            undefined // Ignora erros de frame vazio
+            undefined 
         );
     } catch (err) {
         console.error("Erro ao iniciar câmera:", err);
@@ -262,21 +333,19 @@ async function stopScanner() {
 }
 
 async function onScanSuccess(decodedText: string) {
-    // Feedback visual imediato
     console.log("CÓDIGO LIDO:", decodedText);
     lastScannedCode.value = decodedText;
-    $q.notify({ type: 'info', message: `Lido: ${decodedText}`, timeout: 800 });
+    
+    // Feedback sonoro (opcional) e visual
+    // const audio = new Audio('/beep.mp3'); audio.play();
 
-    // Para o scanner
     await stopScanner();
     showScanner.value = false;
     
-    // Inicia processo de login
     isLoading.value = true;
     try {
         await productionStore.loginOperator(decodedText);
         
-        // Se a Store confirmou o login, redireciona
         if (productionStore.isShiftActive) {
              void router.push({ 
                 name: 'operator-cockpit', 
@@ -337,7 +406,8 @@ function unlockMachine() {
         title: 'Desbloqueio Supervisão',
         message: 'Senha de supervisor para liberar:',
         prompt: { model: '', type: 'password' },
-        cancel: true
+        cancel: true,
+        ok: { label: 'LIBERAR', color: 'positive', size: 'lg' }
     }).onOk((data: string) => {
         void (async () => {
             if(data === '1234') { 
@@ -352,17 +422,97 @@ function unlockMachine() {
 </script>
 
 <style scoped>
-.opacity-20 { opacity: 0.2; }
-.letter-spacing-2 { letter-spacing: 2px; }
+/* CORES VEMAG */
+.text-vemag-green { color: #008C7A !important; }
+.bg-vemag-green { background-color: #008C7A !important; }
+.bg-industrial-gradient {
+    background: radial-gradient(circle at top right, #2a2a2a 0%, #121212 100%);
+    background-image: url('/vemag.png'); /* Certifique-se que existe ou remova */
+    background-size: cover;
+    background-blend-mode: overlay;
+    opacity: 0.6;
+}
+
+/* BOTÃO PRINCIPAL */
+.vemag-btn-primary {
+    background: linear-gradient(135deg, #008C7A 0%, #00695C 100%);
+    transition: all 0.3s ease;
+}
+.vemag-btn-primary:active { transform: scale(0.98); filter: brightness(0.9); }
+
+/* CARD ESTILIZADO */
+.kiosk-card {
+    width: 650px;
+    max-width: 95vw;
+    border-radius: 30px;
+    background: #1e1e1e; /* Dark Card */
+    border: 1px solid rgba(255,255,255,0.1);
+    z-index: 10;
+}
+.border-vemag { border-top: 8px solid #008C7A; }
+.border-red { border-top: 8px solid #b71c1c; box-shadow: 0 0 30px rgba(183, 28, 28, 0.4); }
+
+.bg-black-transparent { background: rgba(0,0,0,0.4); }
+
+/* ANIMAÇÕES */
 .hover-scale { transition: transform 0.2s; }
 .hover-scale:hover { transform: scale(1.02); }
-.animate-blink { animation: blink 1.5s infinite; }
-.fade-in-up { animation: fadeInUp 1s ease-out; }
-.animate-bounce { animation: bounce 2s infinite; }
+
+.hover-opacity-100 { transition: opacity 0.3s; }
+.hover-opacity-100:hover { opacity: 1; }
+
+.animate-blink { animation: blink 2s infinite; }
+.animate-pulse-red { animation: pulseRed 2s infinite; }
+.fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .animate-fade-in { animation: fadeIn 0.5s ease-in; }
 
-@keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.ring-pulse {
+    border: 2px solid #008C7A;
+    border-radius: 50%;
+    animation: ringPulse 2s infinite;
+}
+
+/* SCANNER OVERLAY */
+.scanner-frame {
+    width: 600px;
+    height: 300px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 0 0 1000px rgba(0,0,0,0.7); /* Escurece em volta */
+}
+.scan-line {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: #008C7A;
+    box-shadow: 0 0 10px #008C7A;
+    animation: scanMove 2s infinite linear;
+}
+
+/* SHINE EFFECT NO BOTÃO */
+.shine-effect {
+    position: absolute;
+    top: 0; left: -100%;
+    width: 50%; height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-20deg);
+    animation: shine 3s infinite;
+}
+
+/* KEYFRAMES */
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(255, 0, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); } }
+@keyframes ringPulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
+@keyframes scanMove { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+@keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
+
+.opacity-50 { opacity: 0.5; }
+.letter-spacing-1 { letter-spacing: 1px; }
+.letter-spacing-2 { letter-spacing: 2px; }
+.font-monospace { font-family: monospace; }
+.fullscreen-bg { width: 100vw; height: 100vh; overflow: hidden; }
 </style>
