@@ -17,7 +17,7 @@
             {{ productionStore.machineName }}
             <q-badge rounded :class="statusBgClass" class="q-ml-sm shadow-1 text-white q-py-xs q-px-sm">
               <q-icon :name="statusIcon" color="white" class="q-mr-xs" size="10px" />
-              {{ productionStore.activeOrder?.status || 'OFFLINE' }}
+              {{ normalizedStatus }}
             </q-badge>
           </div>
         </q-toolbar-title>
@@ -84,54 +84,69 @@
                     <div class="text-subtitle1 text-weight-bold text-uppercase vemag-text-primary letter-spacing-1">
                        <q-icon name="list_alt" class="q-mr-sm" />Roteiro de Operação
                     </div>
-                    <div class="text-caption text-grey-7">Instruções de processo</div>
+                    <div class="text-caption text-grey-7">Passo {{ viewedStepIndex + 1 }} de {{ productionStore.activeOrder.steps?.length || 0 }}</div>
                  </div>
-                 <div class="text-right">
-                    <div class="text-h4 text-weight-bolder vemag-text-primary">
-                       {{ productionStore.activeOrder.produced_quantity }} <span class="text-h6 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }}</span>
+                 
+                 <div class="row items-center q-gutter-md">
+                    <q-btn flat dense color="primary" icon="image" label="Ver Desenho Técnico" @click="isDrawingDialogOpen = true" />
+                    
+                    <div class="text-right">
+                        <div class="text-h4 text-weight-bolder vemag-text-primary">
+                           {{ productionStore.activeOrder.produced_quantity }} <span class="text-h6 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }}</span>
+                        </div>
+                        <div class="text-caption text-grey-7">Peças Produzidas</div>
                     </div>
-                    <div class="text-caption text-grey-7">Peças Produzidas</div>
                  </div>
               </q-card-section>
               
-              <q-linear-progress :value="productionStore.activeOrder.produced_quantity / productionStore.activeOrder.target_quantity" class="vemag-text-primary" size="6px" />
+              <q-linear-progress :value="(productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)" class="vemag-text-primary" size="6px" />
 
-              <q-card-section class="col scroll q-pa-none">
-                 <q-list separator>
-                    <q-item>
-                       <q-item-section avatar><q-icon name="check_circle" color="positive" /></q-item-section>
-                       <q-item-section>
-                          <q-item-label class="text-weight-bold">1. Preparação</q-item-label>
-                          <q-item-label caption>Verificar lote e posicionar material.</q-item-label>
-                       </q-item-section>
-                    </q-item>
-                    <q-item class="vemag-bg-light">
-                       <q-item-section avatar><q-spinner-dots class="vemag-text-primary" size="24px" /></q-item-section>
-                       <q-item-section>
-                          <q-item-label class="text-weight-bold vemag-text-primary">2. Execução</q-item-label>
-                          <q-item-label caption class="text-dark">Acompanhar ciclo.</q-item-label>
-                       </q-item-section>
-                       <q-item-section side><q-badge class="vemag-bg-primary text-white">EM ANDAMENTO</q-badge></q-item-section>
-                    </q-item>
-                 </q-list>
+              <q-card-section class="col scroll q-pa-lg">
+                 <div v-if="currentViewedStep" class="column q-gutter-y-md">
+                    <div class="row items-center justify-between">
+                        <div class="text-h5 text-weight-bold text-dark">
+                            <span class="text-grey-5 q-mr-sm">{{ currentViewedStep.seq }} | </span> 
+                            {{ currentViewedStep.name }}
+                        </div>
+                        <q-badge color="grey-8" class="text-subtitle2 q-py-xs">
+                            Recurso: {{ currentViewedStep.resource }}
+                        </q-badge>
+                    </div>
+                    
+                    <div class="bg-grey-1 q-pa-md rounded-borders text-body1" style="white-space: pre-line; border-left: 4px solid #008C7A;">
+                        {{ currentViewedStep.description }}
+                    </div>
+
+                    <div class="row justify-end text-grey-7">
+                        <q-icon name="schedule" class="q-mr-xs" />
+                        Tempo Estimado: <strong>{{ currentViewedStep.timeEst }}h</strong>
+                    </div>
+                 </div>
+                 
+                 <div v-else class="text-center text-grey-5 q-pa-xl">
+                    <q-icon name="sentiment_dissatisfied" size="4em" />
+                    <div>Nenhum passo encontrado.</div>
+                 </div>
               </q-card-section>
 
               <q-separator />
-              <q-card-actions align="right" class="q-pa-md bg-grey-1">
-                 <div class="row items-center q-gutter-md">
-                    <q-btn 
-                       outline color="negative" icon="delete_outline" 
-                       label="Apontar Refugo" 
-                       class="q-px-lg shadow-1 bg-white"
-                       @click="productionStore.addProduction(1, true)"
-                    />
+              
+              <q-card-actions align="between" class="q-pa-md bg-grey-1">
+                 <div class="row q-gutter-x-sm">
+                    <q-btn outline color="primary" icon="arrow_back" label="Anterior" @click="prevStepView" :disable="viewedStepIndex === 0" />
+                    <q-btn unelevated color="primary" icon-right="arrow_forward" label="Próximo" @click="nextStepView" :disable="!productionStore.activeOrder.steps || viewedStepIndex === productionStore.activeOrder.steps.length - 1" />
                  </div>
+
+                 <q-btn 
+                    outline color="negative" icon="delete_outline" 
+                    label="Apontar Refugo" 
+                    @click="productionStore.addProduction(1, true)"
+                 />
               </q-card-actions>
             </q-card>
           </div>
 
           <div class="col-12 col-md-4 column q-gutter-y-sm">
-            
             <q-card class="bg-white text-center q-py-sm relative-position shadow-2" style="border-radius: 12px;">
                <div class="row items-center justify-center q-gutter-x-sm">
                   <q-icon name="timer" class="vemag-text-secondary" size="sm" />
@@ -144,20 +159,19 @@
 
             <div class="col-grow relative-position">
                <q-btn 
-                  v-if="['SETUP', 'RUNNING', 'PAUSED', 'PENDING', 'IDLE', 'STOPPED'].includes(productionStore.activeOrder.status)"
-                  :class="productionStore.activeOrder.status === 'RUNNING' ? 'vemag-bg-primary text-white' : 'bg-blue-grey-9 text-white'" 
                   class="fit shadow-4 hover-scale-producing" 
+                  :class="normalizedStatus === 'RUNNING' ? 'vemag-bg-primary text-white' : 'bg-blue-grey-9 text-white'" 
                   push :loading="isLoadingAction"
                   style="border-radius: 16px;"
                   @click="toggleProduction"
                >
                   <div class="column items-center">
-                    <q-icon size="60px" :name="productionStore.activeOrder.status === 'RUNNING' ? 'pause_circle' : 'play_circle_filled'" />
+                    <q-icon size="60px" :name="normalizedStatus === 'RUNNING' ? 'pause_circle' : 'play_circle_filled'" />
                     <div class="text-h4 text-weight-bolder q-mt-sm">
-                       {{ productionStore.activeOrder.status === 'RUNNING' ? 'PAUSAR' : 'INICIAR' }}
+                       {{ normalizedStatus === 'RUNNING' ? 'PAUSAR' : 'INICIAR' }}
                     </div>
                     <div class="text-subtitle2 text-uppercase letter-spacing-1 opacity-80">
-                       {{ productionStore.activeOrder.status === 'RUNNING' ? 'Máquina Rodando' : 'Iniciar Produção' }}
+                       {{ normalizedStatus === 'RUNNING' ? 'Máquina Rodando' : 'Iniciar Produção' }}
                     </div>
                   </div>
                </q-btn>
@@ -166,8 +180,8 @@
             <div class="row q-gutter-x-sm" style="height: 80px;">
                <q-btn 
                   class="col shadow-3 hover-scale"
-                  :color="productionStore.activeOrder.status === 'SETUP' ? 'warning' : 'blue-grey-2'"
-                  :text-color="productionStore.activeOrder.status === 'SETUP' ? 'dark' : 'blue-grey-9'"
+                  :color="normalizedStatus === 'SETUP' ? 'warning' : 'blue-grey-2'"
+                  :text-color="normalizedStatus === 'SETUP' ? 'dark' : 'blue-grey-9'"
                   push style="border-radius: 16px;" :loading="isLoadingAction"
                   @click="toggleSetup"
                >
@@ -195,9 +209,9 @@
                   push size="lg" icon="stop_circle" label="FINALIZAR O.P."
                   style="border-radius: 16px;"
                   @click="confirmFinishOp"
-                  :disable="productionStore.activeOrder.status === 'RUNNING'"
+                  :disable="normalizedStatus === 'RUNNING'"
                >
-                  <q-tooltip v-if="productionStore.activeOrder.status === 'RUNNING'" class="bg-negative text-body2">
+                  <q-tooltip v-if="normalizedStatus === 'RUNNING'" class="bg-negative text-body2">
                      Pause a máquina antes de finalizar!
                   </q-tooltip>
                </q-btn>
@@ -206,6 +220,24 @@
         </div>
       </q-page>
     </q-page-container>
+
+    <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
+        <q-card class="bg-black text-white">
+            <q-bar class="bg-grey-9">
+                <q-icon name="image" />
+                <div class="text-h6 q-ml-sm">Desenho Técnico</div>
+                <q-space />
+                <q-btn dense flat icon="close" v-close-popup />
+            </q-bar>
+            <q-card-section class="flex flex-center full-height">
+                <q-img 
+                    :src="productionStore.activeOrder?.technical_drawing_url || '/desenho.jpg'"
+                    style="max-width: 100%; max-height: 90vh;"
+                    fit="contain"
+                />
+            </q-card-section>
+        </q-card>
+    </q-dialog>
 
     <q-dialog v-model="isStopDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
       <q-card class="bg-grey-2">
@@ -265,31 +297,15 @@
 
           <q-card-actions align="center" class="q-pa-md q-gutter-md">
              <q-btn 
-                push 
-                color="white" 
-                text-color="red-9" 
-                size="lg"
-                class="col-grow"
-                icon="handyman"
-                label="EU VOU AJUSTAR"
+                push color="white" text-color="red-9" size="lg" class="col-grow"
+                icon="handyman" label="EU VOU AJUSTAR"
                 @click="executeStop(false)" 
-             >
-                <q-tooltip class="bg-dark text-body2">Apenas pausa a produção. Máquina continua sob sua responsabilidade.</q-tooltip>
-             </q-btn>
-
+             />
              <q-btn 
-                push 
-                color="red-10" 
-                text-color="white" 
-                size="lg"
-                class="col-grow"
-                style="border: 2px solid white"
-                icon="assignment_turned_in"
-                label="ENCERRAR O.P. & ABRIR O.M."
+                push color="red-10" text-color="white" size="lg" class="col-grow" style="border: 2px solid white"
+                icon="assignment_turned_in" label="ENCERRAR O.P. & ABRIR O.M."
                 @click="executeStop(true)"
-             >
-                <q-tooltip class="bg-dark text-body2">Finaliza a produção atual e abre chamado para manutenção.</q-tooltip>
-             </q-btn>
+             />
           </q-card-actions>
        </q-card>
     </q-dialog>
@@ -319,9 +335,7 @@
             </div>
           </div>
           <div class="q-mt-lg">
-            <q-input 
-              v-model="andonNote" outlined label="Observação (Opcional)" placeholder="Descreva..." dense bg-color="grey-1"
-            >
+            <q-input v-model="andonNote" outlined label="Observação (Opcional)" placeholder="Descreva..." dense bg-color="grey-1">
               <template v-slot:prepend><q-icon name="edit_note" class="vemag-text-primary" /></template>
             </q-input>
           </div>
@@ -337,28 +351,53 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
+import { storeToRefs } from 'pinia';
 import { STOP_REASONS } from 'src/data/stop-reasons';
 
 const router = useRouter();
 const $q = useQuasar();
 const productionStore = useProductionStore();
+const { activeOrder } = storeToRefs(productionStore); 
 
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
 const customOsBackgroundImage = ref('/a.jpg');
 
+// --- Estados de Dialog ---
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isMaintenanceConfirmOpen = ref(false);
-const pendingReason = ref('');
+const isDrawingDialogOpen = ref(false); // <--- NOVO: Estado do modal de desenho
 
+const pendingReason = ref('');
 const stopSearch = ref('');
 const statusStartTime = ref(new Date());
 const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
 const andonNote = ref('');
 
-// (Mantidos seus arrays e computeds de sempre...)
+// --- Navegação do Passo a Passo ---
+const viewedStepIndex = ref(0);
+
+// Computed para pegar o passo atual que está sendo visualizado
+const currentViewedStep = computed(() => {
+    if (!activeOrder.value?.steps) return null;
+    return activeOrder.value.steps[viewedStepIndex.value];
+});
+
+function nextStepView() {
+    if (activeOrder.value?.steps && viewedStepIndex.value < activeOrder.value.steps.length - 1) {
+        viewedStepIndex.value++;
+    }
+}
+
+function prevStepView() {
+    if (viewedStepIndex.value > 0) {
+        viewedStepIndex.value--;
+    }
+}
+
+// --- Outras Computeds ---
 const andonOptions = [
   { label: 'Mecânica', icon: 'build', color: 'blue-grey-9' },
   { label: 'Elétrica', icon: 'bolt', color: 'orange-9' },
@@ -377,27 +416,31 @@ const elapsedTime = computed(() => {
 });
 const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
+const normalizedStatus = computed(() => {
+    const raw = activeOrder.value?.status || '';
+    const s = String(raw).trim().toUpperCase();
+    if (['RUNNING', 'EM USO', 'EM PRODUÇÃO', 'IN_USE', 'PRODUZINDO'].includes(s)) return 'RUNNING';
+    if (['SETUP', 'EM SETUP', 'PREPARAÇÃO'].includes(s)) return 'SETUP';
+    if (['PAUSED', 'STOPPED', 'PARADA', 'EM PAUSA', 'IDLE', 'AVAILABLE', 'DISPONÍVEL'].includes(s)) return 'PAUSED';
+    return 'PAUSED'; 
+});
+
 const statusBgClass = computed(() => {
-  const status = productionStore.activeOrder?.status;
-  if (status === 'RUNNING') return 'bg-positive'; 
-  if (status === 'SETUP') return 'bg-warning';
-  if (status === 'PAUSED' || status === 'STOPPED') return 'bg-negative';
-  return 'bg-grey-5';
+  if (normalizedStatus.value === 'RUNNING') return 'bg-positive'; 
+  if (normalizedStatus.value === 'SETUP') return 'bg-warning';
+  return 'bg-negative';
 });
 const statusTextClass = computed(() => {
-    const status = productionStore.activeOrder?.status;
-    if (status === 'RUNNING') return 'vemag-text-primary';
-    if (status === 'SETUP') return 'text-warning';
-    if (status === 'PAUSED' || status === 'STOPPED') return 'text-negative';
-    return 'text-grey-5';
+    if (normalizedStatus.value === 'RUNNING') return 'vemag-text-primary';
+    if (normalizedStatus.value === 'SETUP') return 'text-warning';
+    return 'text-negative';
 });
 const statusIcon = computed(() => {
-    const status = productionStore.activeOrder?.status;
-    if (status === 'RUNNING') return 'autorenew';
-    if (status === 'SETUP') return 'handyman';
-    if (status === 'PAUSED' || status === 'STOPPED') return 'error_outline';
-    return 'power_off';
+    if (normalizedStatus.value === 'RUNNING') return 'autorenew';
+    if (normalizedStatus.value === 'SETUP') return 'handyman';
+    return 'error_outline';
 });
+
 const filteredStopReasons = computed(() => {
    if (!stopSearch.value) return STOP_REASONS;
    const needle = stopSearch.value.toLowerCase();
@@ -412,10 +455,10 @@ function resetTimer() { statusStartTime.value = new Date(); }
 
 async function toggleSetup() {
   isLoadingAction.value = true;
-  if (productionStore.activeOrder?.status === 'SETUP') {
+  if (normalizedStatus.value === 'SETUP') {
     await productionStore.pauseProduction('Fim de Setup'); 
   } else {
-    await productionStore.sendEvent('STATUS_CHANGE', { new_status: 'SETUP', reason: 'Setup Iniciado' });
+    await productionStore.enterSetup(); 
   }
   resetTimer();
   isLoadingAction.value = false;
@@ -423,7 +466,7 @@ async function toggleSetup() {
 
 async function toggleProduction() {
   isLoadingAction.value = true;
-  if (productionStore.activeOrder?.status === 'RUNNING') {
+  if (normalizedStatus.value === 'RUNNING') {
     isStopDialogOpen.value = true;
     stopSearch.value = '';
   } else {
@@ -435,7 +478,6 @@ async function toggleProduction() {
 
 function handleReasonSelect(reasonLabel: string) {
     const reasonObj = STOP_REASONS.find(r => r.label === reasonLabel);
-    
     if (reasonObj?.requiresMaintenance) {
         pendingReason.value = reasonLabel;
         isStopDialogOpen.value = false; 
@@ -447,60 +489,31 @@ function handleReasonSelect(reasonLabel: string) {
     }
 }
 
-// --- FUNÇÃO CRÍTICA ATUALIZADA ---
 async function executeStop(isCriticalMaintenance: boolean) {
     isLoadingAction.value = true;
     isMaintenanceConfirmOpen.value = false; 
 
-    // 1. Registra a parada (Log no banco)
     await productionStore.pauseProduction(pendingReason.value);
 
     if (isCriticalMaintenance) {
-        // FLUXO DE QUEBRA
-        $q.loading.show({ 
-            message: 'Registrando Quebra e Finalizando...',
-            backgroundColor: 'red-10'
-        });
-
-        // 2. Define Status da Máquina para MAINTENANCE
-        // (Atualiza o estado local da Store e tenta avisar o backend)
+        $q.loading.show({ message: 'Registrando Quebra...', backgroundColor: 'red-10' });
         await productionStore.setMachineStatus('MAINTENANCE');
-
-        // 3. Finaliza a Sessão
         await productionStore.finishSession();
-
-        // 4. Desloga FORÇANDO O STATUS 'MAINTENANCE'
-        // IMPORTANTE: Passamos a string 'MAINTENANCE' aqui!
         await productionStore.logoutOperator('MAINTENANCE');
-
         $q.loading.hide();
-
         void router.push({ name: 'machine-kiosk' });
-
-        $q.notify({
-            type: 'negative',
-            icon: 'build',
-            message: `Máquina parada. Abra a O.M. na tela inicial.`,
-            timeout: 5000
-        });
-
+        $q.notify({ type: 'negative', icon: 'build', message: `Máquina parada. Abra a O.M.`, timeout: 5000 });
     } else {
-        // FLUXO DE PAUSA NORMAL
         resetTimer();
-        $q.notify({
-            type: 'warning',
-            icon: 'pause',
-            message: `Pausado: ${pendingReason.value}`
-        });
+        $q.notify({ type: 'warning', icon: 'pause', message: `Pausado: ${pendingReason.value}` });
     }
-
     isLoadingAction.value = false;
 }
 
 function confirmFinishOp() {
   $q.dialog({
     title: 'Finalizar O.P.',
-    message: 'Tem certeza que deseja encerrar a Ordem de Produção?',
+    message: 'Encerrar ordem?',
     cancel: true,
     persistent: true,
     ok: { label: 'Finalizar', color: 'negative', push: true }
@@ -515,7 +528,7 @@ function confirmFinishOp() {
 function handleLogout() {
   $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true }).onOk(() => {
     void (async () => {
-        await productionStore.logoutOperator(); // Logout normal = AVAILABLE
+        await productionStore.logoutOperator();
         await router.push({ name: 'machine-kiosk' });
     })();
   });
