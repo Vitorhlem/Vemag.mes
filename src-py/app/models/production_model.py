@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Text, Enum as SAEnum
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Text, Boolean, Enum as SAEnum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 from typing import Optional, List
@@ -23,9 +23,11 @@ class ProductionOrder(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relacionamentos
-    # O erro ocorria porque 'ProductionLog' não tinha o 'order' para fechar esse back_populates
     logs: Mapped[List["ProductionLog"]] = relationship("ProductionLog", back_populates="order")
     sessions: Mapped[List["ProductionSession"]] = relationship("ProductionSession", back_populates="order")
+    
+    # NOVO: Relacionamento com Fatias de Tempo (Para cálculo exato de custo por O.P.)
+    time_slices: Mapped[List["ProductionTimeSlice"]] = relationship("ProductionTimeSlice", back_populates="order")
 
 class ProductionSession(Base):
     __tablename__ = "production_sessions"
@@ -42,7 +44,7 @@ class ProductionSession(Base):
     total_produced: Mapped[int] = mapped_column(Integer, default=0)
     total_scrap: Mapped[int] = mapped_column(Integer, default=0)
     
-    # Tempos Calculados (em segundos)
+    # Tempos Calculados (em segundos) - Mantidos para retrocompatibilidade rápida
     duration_seconds: Mapped[int] = mapped_column(Integer, default=0)      
     productive_seconds: Mapped[int] = mapped_column(Integer, default=0)    
     unproductive_seconds: Mapped[int] = mapped_column(Integer, default=0)  
@@ -50,11 +52,44 @@ class ProductionSession(Base):
     # Relacionamentos
     vehicle = relationship("Vehicle")
     user = relationship("User")
-    
-    # Correção: Adicionado back_populates para ProductionOrder
     order: Mapped["ProductionOrder"] = relationship("ProductionOrder", back_populates="sessions")
     
     logs: Mapped[List["ProductionLog"]] = relationship("ProductionLog", back_populates="session")
+    
+    # NOVO: Relacionamento com Fatias de Tempo da Sessão
+    time_slices: Mapped[List["ProductionTimeSlice"]] = relationship("ProductionTimeSlice", back_populates="session")
+
+class ProductionTimeSlice(Base):
+    """
+    Tabela MES Central: Armazena intervalos de tempo contínuos em um determinado estado.
+    Ex: 
+    - 08:00 as 08:30 -> PRODUCING (30 min)
+    - 08:30 as 08:45 -> STOPPED (Reason: Troca Ferramenta) (15 min)
+    """
+    __tablename__ = "production_time_slices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    session_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_sessions.id"), nullable=True)
+    order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_orders.id"), nullable=True)
+    
+    start_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Categorias Macro: PRODUCING, PLANNED_STOP (Setup, Almoço), UNPLANNED_STOP (Quebra), IDLE
+    category: Mapped[str] = mapped_column(String(50), nullable=False) 
+    
+    # Motivo Detalhado: "Ajuste de Máquina", "Falta de Material", etc.
+    reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    # Flag auxiliar para cálculo rápido de OEE (Se True, conta para Disponibilidade)
+    is_productive: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Relacionamentos
+    vehicle = relationship("Vehicle")
+    session = relationship("ProductionSession", back_populates="time_slices")
+    order = relationship("ProductionOrder", back_populates="time_slices")
 
 class ProductionLog(Base):
     __tablename__ = "production_logs"
@@ -77,8 +112,6 @@ class ProductionLog(Base):
 
     # Relacionamentos
     session: Mapped["ProductionSession"] = relationship("ProductionSession", back_populates="logs")
-    
-    # CORREÇÃO DO ERRO: Adicionada a propriedade 'order' que faltava
     order: Mapped["ProductionOrder"] = relationship("ProductionOrder", back_populates="logs")
 
 class AndonAlert(Base):

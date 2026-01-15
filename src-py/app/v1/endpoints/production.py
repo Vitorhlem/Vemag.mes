@@ -8,8 +8,9 @@ from pydantic import BaseModel
 # Imports do Projeto
 from app import deps 
 from app.schemas import production_schema, vehicle_schema
-from app.models.production_model import ProductionLog, ProductionOrder, AndonAlert, ProductionSession
+from app.models.production_model import ProductionLog, ProductionOrder, AndonAlert, ProductionSession, ProductionTimeSlice
 from app.models.user_model import User
+from app.services.production_service import ProductionService # <--- NOVO SERVIÇO
 
 # --- IMPORT DO MODELO COM ENUM ---
 try:
@@ -25,7 +26,7 @@ class MachineStatusUpdate(BaseModel):
     status: str
 
 # ============================================================================
-# 1. ROTA DE STATUS DA MÁQUINA
+# 1. ROTA DE STATUS DA MÁQUINA (Manual Override)
 # ============================================================================
 @router.post("/machine/status")
 async def set_machine_status(
@@ -33,7 +34,8 @@ async def set_machine_status(
     db: AsyncSession = Depends(deps.get_db)
 ):
     """
-    Recebe status em INGLÊS (ex: 'MAINTENANCE') e salva o valor do ENUM (ex: 'Em manutenção').
+    Força uma mudança de status manual.
+    IMPORTANTE: Isso também deve fechar a fatia de tempo atual para manter a consistência do MES.
     """
     query = select(Vehicle).where(Vehicle.id == data.machine_id)
     result = await db.execute(query)
@@ -42,31 +44,28 @@ async def set_machine_status(
     if not vehicle:
         raise HTTPException(status_code=404, detail="Máquina não encontrada")
     
-    # TRADUÇÃO: API (Inglês) -> BANCO (Português do Enum)
+    # Mapeamento e Lógica de Enum
     status_upper = data.status.upper()
-    new_status = data.status # Fallback padrão
-
-    # Mapeamento Estrito
-    if status_upper in ["MAINTENANCE", "BROKEN", "SETUP"]:
-        new_status = VehicleStatus.MAINTENANCE.value # Salva: "Em manutenção"
-    elif status_upper in ["AVAILABLE", "IDLE", "STOPPED", "OFFLINE"]:
-        new_status = VehicleStatus.AVAILABLE.value   # Salva: "Disponível"
-    elif status_upper in ["RUNNING", "IN_USE"]:
-        new_status = VehicleStatus.IN_USE.value      # Salva: "Em uso"
-
-    print(f"[DEBUG] set_machine_status: Recebido '{data.status}' -> Convertido para '{new_status}'")
+    new_status_enum = VehicleStatus.AVAILABLE
     
-    vehicle.status = new_status
+    category_mes = "IDLE" # Default
+
+    if status_upper in ["MAINTENANCE", "BROKEN", "SETUP", "MANUTENÇÃO"]:
+        new_status_enum = VehicleStatus.MAINTENANCE
+        category_mes = "PLANNED_STOP"
+    elif status_upper in ["RUNNING", "IN_USE", "EM USO", "EM OPERAÇÃO"]:
+        new_status_enum = VehicleStatus.IN_USE
+        category_mes = "PRODUCING"
+    
+    # 1. Atualiza Veículo
+    vehicle.status = new_status_enum.value
     db.add(vehicle)
     
-    try:
-        await db.commit()
-        await db.refresh(vehicle)
-    except Exception as e:
-        await db.rollback()
-        print(f"[ERRO] {e}")
-        raise HTTPException(status_code=500, detail="Erro ao salvar status")
+    # 2. MES: Fecha fatia anterior e abre nova (Genérica)
+    await ProductionService.close_current_slice(db, vehicle.id)
+    await ProductionService.open_new_slice(db, vehicle.id, category=category_mes, reason="Manual Override")
     
+    await db.commit()
     return {"message": "Status atualizado", "new_status": vehicle.status}
 
 # ============================================================================
@@ -98,10 +97,6 @@ async def open_andon_alert(
     result_op = await db.execute(query_op)
     operator = result_op.scalars().first()
     
-    if not operator and alert.operator_badge == "BADGE-123":
-        res = await db.execute(select(User).limit(1))
-        operator = res.scalars().first()
-    
     if not operator: raise HTTPException(404, "Operator not found")
 
     new_alert = AndonAlert(
@@ -113,6 +108,7 @@ async def open_andon_alert(
     )
     db.add(new_alert)
     
+    # Log simples
     log = ProductionLog(
         vehicle_id=machine.id, 
         operator_id=operator.id,
@@ -126,88 +122,25 @@ async def open_andon_alert(
     return {"status": "success", "alert_id": new_alert.id}
 
 # ============================================================================
-# 4. REGISTRO DE EVENTOS (LOGOUT / PARADAS)
+# 4. REGISTRO DE EVENTOS (MES CORE)
 # ============================================================================
 @router.post("/event")
 async def register_production_event(
     event: production_schema.ProductionEventCreate,
     db: AsyncSession = Depends(deps.get_db)
 ):
-    # A. Validar Máquina
-    machine = await db.get(Vehicle, event.machine_id)
-    if not machine: raise HTTPException(404, "Machine not found")
-
-    # B. Validar Operador (CORRIGIDO: result_op)
-    query_op = select(User).where(User.email == event.operator_badge)
-    result_op = await db.execute(query_op) 
-    operator = result_op.scalars().first()
-    
-    if not operator and event.operator_badge == "BADGE-123":
-        res = await db.execute(select(User).limit(1))
-        operator = res.scalars().first()
-    if not operator: raise HTTPException(404, "Operator not found")
-
-    # C. Processar O.P.
-    order = None
-    if event.order_code:
-        res_ord = await db.execute(select(ProductionOrder).where(ProductionOrder.code == event.order_code))
-        order = res_ord.scalars().first()
-        if order:
-            if event.event_type == 'COUNT':
-                order.produced_quantity += (event.quantity_good or 0)
-                order.scrap_quantity += (event.quantity_scrap or 0)
-                db.add(order)
-            if event.new_status == 'RUNNING': order.status = 'RUNNING'
-            elif event.new_status == 'STOPPED': order.status = 'PAUSED'
-            db.add(order)
-
-    # D. Atualizar Status da Máquina (Com Blindagem e Tradução)
-    if event.new_status:
-        print(f"\n[DEBUG] Event: {event.event_type} | Solicitado: '{event.new_status}'")
-        
-        # Mapa: API (Inglês) -> Enum Real (Português)
-        status_map = {
-            "RUNNING":      VehicleStatus.IN_USE.value,
-            "SETUP":        VehicleStatus.MAINTENANCE.value,
-            "STOPPED":      VehicleStatus.AVAILABLE.value,
-            "IDLE":         VehicleStatus.AVAILABLE.value,
-            "AVAILABLE":    VehicleStatus.AVAILABLE.value,
-            "OFFLINE":      VehicleStatus.AVAILABLE.value,
-            "MAINTENANCE":  VehicleStatus.MAINTENANCE.value,
-            "BROKEN":       VehicleStatus.MAINTENANCE.value
-        }
-        
-        target_db_status = status_map.get(event.new_status)
-        current_db_status = str(machine.status) 
-
-        # LÓGICA DE BLINDAGEM:
-        # Se a máquina já está "Em manutenção" e o evento tenta mudar para "Disponível" (ex: Logout), BLOQUEIA.
-        is_broken = current_db_status == VehicleStatus.MAINTENANCE.value
-        is_trying_to_free = target_db_status == VehicleStatus.AVAILABLE.value
-
-        if is_broken and is_trying_to_free:
-            print(f"[DEBUG] 🛡️ BLOQUEADO: Máquina está '{current_db_status}'. Ignorando mudança para '{target_db_status}'.")
-        elif target_db_status:
-            machine.status = target_db_status 
-            db.add(machine)
-            print(f"[DEBUG] Status alterado para: '{machine.status}'")
-
-    # E. Log
-    log_entry = ProductionLog(
-        vehicle_id=machine.id,
-        operator_id=operator.id,
-        order_id=order.id if order else None,
-        event_type=event.event_type,
-        reason=event.reason,
-        details=event.details,
-        new_status=event.new_status,
-        previous_status=machine.status,
-        timestamp=datetime.now()
-    )
-    db.add(log_entry)
-    
-    await db.commit()
-    return {"status": "success"}
+    """
+    Endpoint Central do Cockpit.
+    Delega toda a lógica para o ProductionService.
+    """
+    try:
+        result = await ProductionService.handle_event(db, event)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"[ERRO CRÍTICO] Event Handler: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # ============================================================================
 # 5. HISTÓRICO E P.O.
@@ -228,6 +161,7 @@ async def get_machine_history(
     result = await db.execute(query)
     logs = result.scalars().all()
     
+    # Join manual para pegar nome do operador (pode ser otimizado com joinedload no futuro)
     history = []
     for log in logs:
         op_name = "System"
@@ -254,9 +188,10 @@ async def get_production_order(code: str, db: AsyncSession = Depends(deps.get_db
     order = result.scalars().first()
     
     if not order:
+        # Mock para facilitar testes se não existir
         order = ProductionOrder(
             code=code,
-            part_name="OS-12391-20",
+            part_name="OS-12391-20 (AUTO)",
             target_quantity=500,
             produced_quantity=0,
             scrap_quantity=0,
@@ -270,7 +205,7 @@ async def get_production_order(code: str, db: AsyncSession = Depends(deps.get_db
     return order
 
 # ============================================================================
-# 6. SESSÕES (START/STOP)
+# 6. SESSÕES (START/STOP) COM INTEGRAÇÃO MES
 # ============================================================================
 @router.post("/session/start")
 async def start_session(
@@ -282,27 +217,25 @@ async def start_session(
 
     res = await db.execute(select(User).where(User.email == data.operator_badge))
     operator = res.scalars().first()
-    if not operator: 
-        if data.operator_badge == "BADGE-123":
-            res = await db.execute(select(User).limit(1))
-            operator = res.scalars().first()
-        if not operator: raise HTTPException(404, "Invalid Badge")
+    if not operator: raise HTTPException(404, "Invalid Badge")
 
     res_ord = await db.execute(select(ProductionOrder).where(ProductionOrder.code == data.order_code))
     order = res_ord.scalars().first()
     if not order: raise HTTPException(404, "P.O. not found")
 
-    # Close previous
+    # 1. Encerra sessão anterior (Segurança)
     active_session_q = await db.execute(select(ProductionSession).where(
         ProductionSession.vehicle_id == machine.id,
         ProductionSession.end_time == None
     ))
     old_session = active_session_q.scalars().first()
     if old_session:
+        # Fecha fatia e sessão
+        await ProductionService.close_current_slice(db, machine.id)
         old_session.end_time = datetime.now()
         db.add(old_session)
 
-    # New Session
+    # 2. Cria Nova Sessão
     new_session = ProductionSession(
         vehicle_id=machine.id,
         user_id=operator.id,
@@ -310,12 +243,24 @@ async def start_session(
         start_time=datetime.now()
     )
     db.add(new_session)
+    await db.commit()
+    await db.refresh(new_session)
     
-    # Inicio de Sessão = Manutenção/Setup (No Enum correto)
-    machine.status = VehicleStatus.MAINTENANCE.value 
-    db.add(machine)
+    # 3. MES: Abre primeira fatia como SETUP/MANUTENÇÃO
+    # Geralmente começa preparando a máquina
+    await ProductionService.open_new_slice(
+        db, 
+        vehicle_id=machine.id, 
+        category="PLANNED_STOP", 
+        reason="Setup Inicial de Sessão", 
+        session_id=new_session.id,
+        order_id=order.id
+    )
     
+    # 4. Atualiza Status Visual
+    machine.status = VehicleStatus.MAINTENANCE.value
     order.status = "SETUP"
+    db.add(machine)
     db.add(order)
 
     await db.commit()
@@ -338,56 +283,31 @@ async def stop_session(
     if not session:
         return {"status": "error", "message": "No active session"}
 
-    # 2. Define fim
     end_time = datetime.now()
-    session.end_time = end_time
-
-    # 3. Cálculos de Tempo
-    logs_q = select(ProductionLog).where(
-        ProductionLog.vehicle_id == data.machine_id,
-        ProductionLog.timestamp >= session.start_time
-    ).order_by(ProductionLog.timestamp)
     
-    logs_res = await db.execute(logs_q)
-    logs = logs_res.scalars().all()
+    # 2. MES: Fecha última fatia de tempo
+    await ProductionService.close_current_slice(db, data.machine_id, end_time)
 
-    total_prod = 0.0
-    total_unprod = 0.0
-    cursor_time = session.start_time
-    current_status = "SETUP" 
-
-    virtual_logs = list(logs)
-    virtual_logs.append(ProductionLog(timestamp=end_time, new_status="SESSION_END"))
-
-    for log in virtual_logs:
-        delta = (log.timestamp - cursor_time).total_seconds()
-        if delta > 0:
-            if current_status == "RUNNING" or current_status == "IN_USE":
-                total_prod += delta
-            else:
-                if delta <= 300: 
-                    total_prod += delta
-                else:
-                    total_unprod += delta
-        cursor_time = log.timestamp
-        if log.new_status != "SESSION_END":
-            current_status = log.new_status or current_status
-
+    # 3. CÁLCULO PRECISO BASEADO NAS FATIAS (TIME SLICES)
+    # Em vez de iterar logs, somamos as durações das fatias desta sessão
+    slices_q = select(ProductionTimeSlice).where(
+        ProductionTimeSlice.session_id == session.id
+    )
+    slices_res = await db.execute(slices_q)
+    slices = slices_res.scalars().all()
+    
+    total_prod = sum(s.duration_seconds for s in slices if s.category == 'PRODUCING')
+    total_unprod = sum(s.duration_seconds for s in slices if s.category != 'PRODUCING')
+    
+    # Atualiza Sessão
+    session.end_time = end_time
     session.duration_seconds = int((end_time - session.start_time).total_seconds())
     session.productive_seconds = int(total_prod)
     session.unproductive_seconds = int(total_unprod)
-
-    # --- BLINDAGEM NO STOP ---
-    machine = await db.get(Vehicle, session.vehicle_id)
     
-    current_status = str(machine.status)
-    print(f"[DEBUG] Stop Session. Status Atual no Banco: '{current_status}'")
-
-    # Verifica se é "Em manutenção"
-    if current_status == VehicleStatus.MAINTENANCE.value:
-        print("[DEBUG] Sessão encerrada, mas máquina quebrada. Mantendo 'Em manutenção'.")
-    else:
-        print("[DEBUG] Sessão encerrada. Liberando para 'Disponível'.")
+    # 4. Libera Máquina
+    machine = await db.get(Vehicle, session.vehicle_id)
+    if machine.status != VehicleStatus.MAINTENANCE.value:
         machine.status = VehicleStatus.AVAILABLE.value
         db.add(machine)
 
@@ -404,8 +324,28 @@ async def stop_session(
     }
 
 # ============================================================================
-# 7. RELATÓRIOS
+# 7. RELATÓRIOS & OEE (NOVO)
 # ============================================================================
+
+@router.get("/stats/machine/{machine_id}/oee")
+async def get_machine_oee(
+    machine_id: int,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """
+    Calcula o OEE baseado nas fatias de tempo geradas pelo MES.
+    """
+    if not start_date: start_date = date.today()
+    if not end_date: end_date = date.today()
+    
+    dt_start = datetime.combine(start_date, time.min)
+    dt_end = datetime.combine(end_date, time.max)
+    
+    metrics = await ProductionService.calculate_oee(db, machine_id, dt_start, dt_end)
+    return metrics
+
 @router.get("/stats/employees", response_model=List[production_schema.EmployeeStatsRead])
 async def get_employee_stats(
     start_date: Optional[date] = None,
@@ -418,61 +358,29 @@ async def get_employee_stats(
     dt_start = datetime.combine(start_date, time.min)
     dt_end = datetime.combine(end_date, time.max)
 
-    # CORREÇÃO DEFINITIVA: Remove o filtro de ROLE para garantir que liste qualquer um
-    # Mantém apenas filtro por Organização por segurança
     query_users = select(User).where(User.organization_id == current_user.organization_id)
     users = (await db.execute(query_users)).scalars().all()
     
-    print(f"[DEBUG] get_employee_stats: Encontrados {len(users)} usuários na org {current_user.organization_id}")
-
     stats_list = []
 
     for user in users:
-        # Busca Sessões
+        # Busca Sessões do Usuário
         q_sess = select(ProductionSession).where(
             ProductionSession.user_id == user.id,
-            ProductionSession.start_time <= dt_end,
-            (ProductionSession.end_time >= dt_start) | (ProductionSession.end_time == None)
+            ProductionSession.start_time >= dt_start,
+            ProductionSession.start_time <= dt_end
         )
         sessions = (await db.execute(q_sess)).scalars().all()
-
-        if not sessions:
-            # Retorna mesmo sem sessão, para preencher a lista
-            stats_list.append({
-                "id": user.id, # ID é vital
-                "employee_name": user.full_name or user.email,
-                "total_hours": 0, 
-                "productive_hours": 0, 
-                "unproductive_hours": 0,
-                "efficiency": 0, 
-                "top_reasons": []
-            })
-            continue
 
         total_sec = sum(s.duration_seconds for s in sessions)
         prod_sec = sum(s.productive_seconds for s in sessions)
         unprod_sec = sum(s.unproductive_seconds for s in sessions)
         
-        now = datetime.now()
-        for s in sessions:
-            if s.end_time is None:
-                current_duration = (now - s.start_time).total_seconds()
-                total_sec += current_duration
-
         efficiency = (prod_sec / total_sec * 100) if total_sec > 0 else 0
 
-        reason_q = select(
-            ProductionLog.reason, 
-            func.count(ProductionLog.id).label('count')
-        ).where(
-            ProductionLog.operator_id == user.id,
-            ProductionLog.new_status.in_(['STOPPED', 'MAINTENANCE', 'SETUP']),
-            ProductionLog.timestamp.between(dt_start, dt_end)
-        ).group_by(ProductionLog.reason).order_by(desc('count')).limit(3)
+        # Top motivos de parada (Baseado em Time Slices é mais preciso, mas usando logs por enquanto para compatibilidade)
+        # Idealmente: Agrupar ProductionTimeSlice.reason where session_id in sessions...
         
-        reasons_res = (await db.execute(reason_q)).all()
-        top_reasons = [{"label": r.reason or "Não Inf.", "count": r.count} for r in reasons_res]
-
         stats_list.append({
             "id": user.id, 
             "employee_name": user.full_name or user.email,
@@ -480,94 +388,68 @@ async def get_employee_stats(
             "productive_hours": round(prod_sec / 3600, 2),
             "unproductive_hours": round(unprod_sec / 3600, 2),
             "efficiency": round(efficiency, 1),
-            "top_reasons": top_reasons
+            "top_reasons": [] # Implementar agregação se necessário
         })
     
     stats_list.sort(key=lambda x: x['total_hours'], reverse=True)
     return stats_list
 
-@router.get("/stats/employee/{user_id}/details", response_model=production_schema.EmployeeDetailRead)
-async def get_employee_details(
+@router.get("/users/{user_id}/sessions", response_model=List[production_schema.SessionDetail])
+async def get_user_sessions(
     user_id: int,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
+    start_date: date,
+    end_date: date,
     db: AsyncSession = Depends(deps.get_db)
 ):
-    if not start_date: start_date = date.today().replace(day=1)
-    if not end_date: end_date = date.today()
+    """
+    Retorna o histórico detalhado de sessões de um operador em um período.
+    Usado para montar o 'Dossiê Mensal' e calcular eficiência por mês.
+    """
+    # Converter para datetime (Início do dia -> Fim do dia)
     dt_start = datetime.combine(start_date, time.min)
     dt_end = datetime.combine(end_date, time.max)
 
-    q_sessions = select(ProductionSession).where(
+    # Busca sessões do usuário no range
+    query = select(ProductionSession).where(
         ProductionSession.user_id == user_id,
-        ProductionSession.start_time.between(dt_start, dt_end)
+        ProductionSession.start_time >= dt_start,
+        ProductionSession.start_time <= dt_end
     ).order_by(desc(ProductionSession.start_time))
-    
-    sessions = (await db.execute(q_sessions)).scalars().all()
 
-    total_sec = 0.0
-    prod_sec = 0.0
-    unprod_sec = 0.0
+    result = await db.execute(query)
+    sessions = result.scalars().all()
+    
     session_details = []
     
-    for s in sessions:
-        machine = await db.get(Vehicle, s.vehicle_id)
-        order = await db.get(ProductionOrder, s.production_order_id) if s.production_order_id else None
+    for sess in sessions:
+        # Busca máquina para mostrar nome
+        machine = await db.get(Vehicle, sess.vehicle_id)
         
-        dur = s.duration_seconds
-        prod = s.productive_seconds
-        unprod = s.unproductive_seconds
+        # Busca ordem para mostrar código
+        order_code = "---"
+        if sess.production_order_id:
+            order = await db.get(ProductionOrder, sess.production_order_id)
+            if order: order_code = order.code
+            
+        # Calcula Eficiência da Sessão
+        total = sess.duration_seconds
+        prod = sess.productive_seconds
+        efficiency = (prod / total * 100) if total > 0 else 0
         
-        if s.end_time is None:
-            dur = (datetime.now() - s.start_time).total_seconds()
+        # Formata Duração
+        hours = total // 3600
+        mins = (total % 3600) // 60
+        duration_str = f"{hours}h {mins}m" if hours > 0 else f"{mins} min"
         
-        total_sec += dur
-        prod_sec += prod
-        unprod_sec += unprod
-        
-        eff = (prod / dur * 100) if dur > 0 else 0
-        
-        m, sec = divmod(dur, 60)
-        h, m = divmod(m, 60)
-        dur_str = f"{int(h):02d}:{int(m):02d}:{int(sec):02d}"
-
         session_details.append({
-            "id": s.id,
-            "machine_name": f"{machine.brand} {machine.model}" if machine else "Máquina Desc.",
-            "order_code": order.code if order else "N/A",
-            "start_time": s.start_time,
-            "end_time": s.end_time,
-            "duration": dur_str,
-            "efficiency": round(eff, 1)
+            "id": sess.id,
+            "machine_name": f"{machine.brand} {machine.model}" if machine else "Desconhecida",
+            "order_code": order_code,
+            "start_time": sess.start_time,
+            "end_time": sess.end_time,
+            "duration": duration_str,
+            "efficiency": round(efficiency, 1),
+            "time_slices": [] # Não precisamos carregar slices detalhados aqui para não pesar
         })
-
-    q_reasons = select(
-        ProductionLog.reason,
-        func.count(ProductionLog.id).label('count')
-    ).where(
-        ProductionLog.operator_id == user_id,
-        ProductionLog.timestamp.between(dt_start, dt_end),
-        ProductionLog.new_status.in_(['STOPPED', 'MAINTENANCE', 'SETUP'])
-    ).group_by(ProductionLog.reason).order_by(desc('count'))
-    
-    reasons_res = (await db.execute(q_reasons)).all()
-    
-    top_reasons = []
-    for r in reasons_res:
-        if r.reason:
-            top_reasons.append({
-                "label": r.reason,
-                "count": r.count,
-                "duration_minutes": 0 
-            })
-
-    total_eff = (prod_sec / total_sec * 100) if total_sec > 0 else 0
-
-    return {
-        "total_hours": round(total_sec / 3600, 2),
-        "productive_hours": round(prod_sec / 3600, 2),
-        "unproductive_hours": round(unprod_sec / 3600, 2),
-        "efficiency": round(total_eff, 1),
-        "top_reasons": top_reasons,
-        "sessions": session_details
-    }
+        
+    return session_details

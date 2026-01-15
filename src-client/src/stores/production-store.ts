@@ -32,11 +32,11 @@ export interface ProductionOrder {
   deliveryDate?: string;
   part_name: string;
   part_image_url: string;
-  technical_drawing_url?: string; // <--- NOVO CAMPO PARA O DESENHO
+  technical_drawing_url?: string;
   target_quantity: number;
   produced_quantity: number;
   scrap_quantity: number;
-  status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'STOPPED' | 'IDLE' | 'MAINTENANCE' | 'AVAILABLE';
+  status: string;
   steps?: OperationStep[];
   operations: Record<string, unknown>[]; 
 }
@@ -83,11 +83,7 @@ export const useProductionStore = defineStore('production', () => {
         name: 'SUPORTE TÉCNICO DA QUALIDADE', 
         timeEst: 0.5, 
         status: 'PENDING', 
-        description: `SUPORTE PARA MANGUEIRA DE DRENAGEM - DESENHO - 300232C-000-DW-5837-0002 - REV.0
-
-1. MATÉRIA-PRIMA FORNECIMENTO VEMAG.
-2. REALIZAR INSPEÇÃO DE RECEBIMENTO DA MATÉRIA-PRIMA.
-3. REGISTRAR NÚMERO DA (O.P.).` 
+        description: `SUPORTE PARA MANGUEIRA DE DRENAGEM - DESENHO - 300232C-000-DW-5837-0002 - REV.0\n\n1. MATÉRIA-PRIMA FORNECIMENTO VEMAG.\n2. REALIZAR INSPEÇÃO DE RECEBIMENTO DA MATÉRIA-PRIMA.\n3. REGISTRAR NÚMERO DA (O.P.).` 
       },
       { 
         seq: 20, 
@@ -95,8 +91,7 @@ export const useProductionStore = defineStore('production', () => {
         name: 'OXICORTE', 
         timeEst: 2.0, 
         status: 'PENDING', 
-        description: `1. OXICORTAR AS PEÇAS DE ACORDO COM AS ESPECÍFICAS ESPESSURAS DAS CHAPAS E PROGRAMA CNC.
-2. IDENTIFICAR AS PEÇAS COM O NÚMERO DA (O.P.).` 
+        description: `1. OXICORTAR AS PEÇAS DE ACORDO COM AS ESPECÍFICAS ESPESSURAS DAS CHAPAS E PROGRAMA CNC.\n2. IDENTIFICAR AS PEÇAS COM O NÚMERO DA (O.P.).` 
       },
       { 
         seq: 30, 
@@ -104,9 +99,7 @@ export const useProductionStore = defineStore('production', () => {
         name: 'REBARBAÇÃO DE CALDEIRARIA', 
         timeEst: 0.5, 
         status: 'PENDING', 
-        description: `1. REMOVER CAREPAS E REBARBAS DO OXICORTE.
-2. DAR ACABAMENTO EM TODO O CONTORNO DAS PEÇAS ATRAVÉS DE ESMERILHAMENTOS.
-3. MANTER O AUTO CONTROLE E A IDENTIFICAÇÕES DAS PEÇAS.` 
+        description: `1. REMOVER CAREPAS E REBARBAS DO OXICORTE.\n2. DAR ACABAMENTO EM TODO O CONTORNO DAS PEÇAS ATRAVÉS DE ESMERILHAMENTOS.\n3. MANTER O AUTO CONTROLE E A IDENTIFICAÇÕES DAS PEÇAS.` 
       },
       { 
         seq: 40, 
@@ -114,21 +107,7 @@ export const useProductionStore = defineStore('production', () => {
         name: 'TRAÇAGEM', 
         timeEst: 1.0, 
         status: 'PENDING', 
-        description: `(EXECUTAR AS TRAÇAGENS DAS COORDENADAS NAS CHAPAS OXICORTADAS, CONFORME OS RESPECTIVOS DESENHOS "DE")
-
-NOTAS:
-01- QUANTIDADES CONFORME DESENHO "DE"
-
-ITENS POS. 4 - CHAPA OLHAL #5/8" x 40 mm x 50 mm x R20 mm - DESENHO - DE-1481.01.001
-- (1x) TRAÇAR FURO PASSANTE (Ø15 mm)
-
-ITENS POS. 1 - CHAPA #1/2" x 100 mm x 250 mm - DESENHO - DE-1481.01.002
-- (4x) TRAÇAR FURO PASSANTE (Ø11 mm)
-
-ITENS POS. 2 - CHAPA #3/4" x 670 mm x 930 mm - DESENHO - DE-1481.01.003
-- (4x) TRAÇAR ROSCA PASSANTES (M10 x 1,5)
-
-(MANTER AS IDENTIFICAÇÕES DAS PEÇAS).` 
+        description: `(EXECUTAR AS TRAÇAGENS DAS COORDENADAS NAS CHAPAS OXICORTADAS, CONFORME OS RESPECTIVOS DESENHOS "DE")\n\nNOTAS:\n01- QUANTIDADES CONFORME DESENHO "DE"\n\nITENS POS. 4 - CHAPA OLHAL #5/8" x 40 mm x 50 mm x R20 mm - DESENHO - DE-1481.01.001\n- (1x) TRAÇAR FURO PASSANTE (Ø15 mm)\n\nITENS POS. 1 - CHAPA #1/2" x 100 mm x 250 mm - DESENHO - DE-1481.01.002\n- (4x) TRAÇAR FURO PASSANTE (Ø11 mm)\n\nITENS POS. 2 - CHAPA #3/4" x 670 mm x 930 mm - DESENHO - DE-1481.01.003\n- (4x) TRAÇAR ROSCA PASSANTES (M10 x 1,5)\n\n(MANTER AS IDENTIFICAÇÕES DAS PEÇAS).` 
       },
       { 
         seq: 50, 
@@ -136,10 +115,7 @@ ITENS POS. 2 - CHAPA #3/4" x 670 mm x 930 mm - DESENHO - DE-1481.01.003
         name: 'RADIAL P', 
         timeEst: 2.0, 
         status: 'PENDING', 
-        description: `(EXECUTAR AS FURAÇÕES DOS RESPECTIVOS ITENS ABAIXO, SEGUINDO AS MARCAÇÕES DAS TRAÇAGENS, CONFORME OS RESPECTIVOS DESENHOS "DE")
-
-NOTAS:
-01- QUANTIDADES CONFORME DESENHO "DE"` 
+        description: `(EXECUTAR AS FURAÇÕES DOS RESPECTIVOS ITENS ABAIXO, SEGUINDO AS MARCAÇÕES DAS TRAÇAGENS, CONFORME OS RESPECTIVOS DESENHOS "DE")\n\nNOTAS:\n01- QUANTIDADES CONFORME DESENHO "DE"` 
       }
   ];
 
@@ -202,6 +178,18 @@ NOTAS:
     } catch (error) { console.error(error); Notify.create({ type: 'negative', message: 'Erro ao buscar máquinas.' }); }
   }
 
+  async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string | null | undefined } = {}) {
+    try {
+      const q = new URLSearchParams();
+      if (params.skip) q.append('skip', String(params.skip));
+      if (params.limit) q.append('limit', String(params.limit));
+      if (params.event_type) q.append('event_type', params.event_type);
+      const { data } = await api.get<ProductionLog[]>(`/production/history/${id}?${q.toString()}`);
+      machineHistory.value = data;
+      return data;
+    } catch (error) { console.error('Erro history', error); return []; }
+  }
+
   async function configureKiosk(id: number) {
     try {
       const { data } = await api.get<Machine>(`/vehicles/${id}`);
@@ -217,18 +205,6 @@ NOTAS:
         currentMachine.value = { ...currentMachine.value, status: label };
     }
     try { await api.post('/production/machine/status', { machine_id: machineId.value, status: status }); } catch (error) { console.error('Erro status', error); }
-  }
-
-  async function fetchMachineHistory(id: number, params: { skip?: number, limit?: number, event_type?: string | null | undefined } = {}) {
-    try {
-      const q = new URLSearchParams();
-      if (params.skip) q.append('skip', String(params.skip));
-      if (params.limit) q.append('limit', String(params.limit));
-      if (params.event_type) q.append('event_type', params.event_type);
-      const { data } = await api.get<ProductionLog[]>(`/production/history/${id}?${q.toString()}`);
-      machineHistory.value = data;
-      return data;
-    } catch (error) { console.error('Erro history', error); return []; }
   }
 
   async function loginOperator(scannedCode: string) {
@@ -304,19 +280,17 @@ NOTAS:
     try {
       Loading.show({ message: 'Carregando O.P...' });
       
-      // TENTA BUSCAR DADOS REAIS
       let data: ProductionOrder;
       try {
           const res = await api.get<ProductionOrder>(`/production/orders/${qrCode}`);
           data = res.data;
       } catch {
-          // SE FALHAR (para teste), usa o mock local com os dados da imagem
           console.warn("API falhou, usando mock local");
           data = {
               id: 999, code: qrCode, client: 'Technip Brasil', product: 'DEWATERING HOSE',
               deliveryDate: '15/10/2025', part_name: 'Suporte', 
               part_image_url: 'https://placehold.co/600x400/png',
-              technical_drawing_url: 'https://placehold.co/800x600/008C7A/FFFFFF/png?text=DESENHO+TECNICO+VEMAG', // Mock da imagem
+              technical_drawing_url: 'https://placehold.co/800x600/008C7A/FFFFFF/png?text=DESENHO+TECNICO+VEMAG', 
               target_quantity: 50, produced_quantity: 0, scrap_quantity: 0, 
               status: 'PENDING', operations: [], steps: []
           } as ProductionOrder;
@@ -324,7 +298,6 @@ NOTAS:
       
       if (!data.status) data.status = 'PENDING';
       
-      // Carrega os steps detalhados se vier vazio
       if (!data.steps || data.steps.length === 0) {
           data.steps = JSON.parse(JSON.stringify(MOCK_OP_STEPS));
       }
@@ -336,6 +309,7 @@ NOTAS:
          await api.post('/production/session/start', {
             machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: qrCode
          });
+         activeOrder.value.status = 'SETUP';
       }
       Notify.create({ type: 'positive', message: 'O.P. Carregada!' });
     } catch { 
@@ -375,7 +349,6 @@ NOTAS:
       activeOrder.value.steps.forEach(s => { if (s.status === 'IN_PROGRESS') s.status = 'PAUSED'; });
       activeOrder.value.steps[index].status = 'IN_PROGRESS';
       currentStepIndex.value = index;
-      if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Em uso' };
       void sendEvent('STEP_START', { step: activeOrder.value.steps[index].name, new_status: 'RUNNING' });
     }
   }
@@ -385,7 +358,6 @@ NOTAS:
         const step = activeOrder.value.steps[currentStepIndex.value];
         if (step) {
             step.status = 'PAUSED';
-            if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Parada' };
             void sendEvent('STEP_PAUSE', { step: step.name, reason: reason, new_status: 'STOPPED' });
         }
     }
@@ -401,7 +373,6 @@ NOTAS:
           Notify.create({ type: 'positive', message: 'Etapa concluída!' });
       } else {
           currentStepIndex.value = -1;
-          if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Disponível' };
           Notify.create({ type: 'positive', message: 'Roteiro Finalizado!' });
       }
     }
@@ -413,7 +384,10 @@ NOTAS:
       Loading.show();
       await api.post('/production/session/stop', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value });
       activeOrder.value = null; 
-      Notify.create({ type: 'positive', message: 'Sessão Finalizada.' });
+      if (currentMachine.value && !isMachineBroken.value) {
+          currentMachine.value = { ...currentMachine.value, status: 'Disponível' };
+      }
+      Notify.create({ type: 'positive', message: 'O.P. Finalizada. Dados salvos.' });
     } catch { Notify.create({ type: 'negative', message: 'Erro ao finalizar.' }); } finally { Loading.hide(); }
   }
 
@@ -427,13 +401,13 @@ NOTAS:
           Notify.create({ type: 'positive', icon: 'build_circle', message: 'O.M. Criada!' });
       } catch (error: any) { 
           console.error(error);
-          Notify.create({ type: 'negative', message: 'Erro O.M.' }); 
+          Notify.create({ type: 'negative', message: 'Erro ao criar O.M.' }); 
       } finally { Loading.hide(); }
   }
 
   async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
     if (!machineId.value || !currentOperatorBadge.value) return;
-    try { await api.post('/production/event', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: activeOrder.value?.code, event_type: type, ...payload }); } catch (e) { console.error('Falha sync', e); }
+    try { await api.post('/production/event', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: activeOrder.value?.code, event_type: type, ...payload }); } catch (e) { console.error('Falha de sincronização MES', e); }
   }
 
   function triggerAndon(sector: string, notes = '') {

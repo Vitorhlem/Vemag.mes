@@ -1,342 +1,525 @@
 <template>
-  <q-page class="q-pa-md q-pa-lg-xl">
+  <q-page class="q-pa-md bg-grey-2">
     
-    <div v-if="isLockedForDemo" class="absolute-full flex flex-center bg-grey-2 text-center q-pa-md" style="z-index: 2000;">
-      <q-card flat class="bg-white shadow-24" style="max-width: 500px; width: 100%; border-radius: 16px;">
-        <q-card-section class="q-pt-xl q-pb-lg">
-          <div class="bg-amber-1 q-pa-lg rounded-borders inline-block q-mb-md" style="border-radius: 50%">
-             <q-icon name="workspace_premium" color="amber-9" size="64px" />
-          </div>
-          <div class="text-h5 text-weight-bold text-grey-9">Relatório Gerencial Pro</div>
-          <div class="text-body1  q-mt-md q-px-md">
-            A visualização consolidada de custos, multas e abastecimentos é exclusiva do Plano PRO.
-          </div>
-        </q-card-section>
-        <q-card-actions align="center" class="q-pb-xl q-gutter-sm">
-          <q-btn flat label="Voltar" color="grey-8" @click="router.back()" />
-          <q-btn color="primary" label="Desbloquear PRO" unelevated size="lg" icon="lock_open" @click="showUpgradeDialog" />
-        </q-card-actions>
-      </q-card>
+    <div v-if="isLoading" class="column flex-center q-pa-xl" style="height: 80vh">
+        <q-spinner-dots color="primary" size="4em" />
+        <div class="text-grey-6 q-mt-sm">Carregando dossiê do colaborador...</div>
     </div>
 
-    <div v-else>
-      <div v-if="isLoadingData" class="flex flex-center" style="height: 60vh">
-        <q-spinner-dots color="primary" size="4em" />
-      </div>
-
-      <div v-else-if="stats" class="animate-fade">
+    <div v-else class="animation-fade-in">
         
-        <div class="row items-center justify-between q-mb-lg">
-          <div class="row items-center">
-            <q-btn flat round icon="arrow_back" color="grey-7" @click="router.back()" class="q-mr-sm" />
-            <q-avatar size="72px" font-size="36px" color="primary" text-color="white" class="q-mr-md shadow-3">
-                {{ getUserInitials(userName) }}
-            </q-avatar>
-            <div>
-                <h1 class="text-h4 text-weight-bold q-my-none line-height-tight">{{ userName }}</h1>
-                <div class="text-subtitle1  flex items-center q-mt-xs">
-                   <q-badge color="grey-3" text-color="grey-8" class="q-py-xs q-px-sm">
-                      {{ userRoleLabel }}
-                   </q-badge>
-                   <span class="q-mx-sm text-grey-4">|</span>
-                   <span class="text-caption">{{ userEmail }}</span>
-                </div>
-            </div>
-          </div>
+        <q-card class="q-mb-lg shadow-3 overflow-hidden relative-position bg-white" style="border-radius: 20px;">
+            <div class="absolute-right bg-gradient-primary" style="width: 45%; height: 100%; transform: skewX(-20deg) translateX(80px);"></div>
+            
+            <q-card-section class="row items-center q-pa-lg relative-position z-top">
+                <q-btn flat round icon="arrow_back" color="grey-8" class="q-mr-md" @click="goBack">
+                    <q-tooltip>Voltar</q-tooltip>
+                </q-btn>
 
-        </div>
-
-        <div class="text-h6 q-mb-md text-weight-bold text-grey-8">Indicadores Operacionais</div>
-        
-        <div class="row q-col-gutter-md q-mb-xl">
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Distância Total</div>
-                  <div class="text-h4 text-weight-bolder text-primary">
-                    {{ formatNumber(stats.primary_metric_value) }} <span class="text-h6 text-grey-5">KM</span>
-                  </div>
+                <div class="relative-position q-mr-lg">
+                    <q-avatar size="100px" font-size="44px" class="shadow-5" style="background: linear-gradient(135deg, #263238 0%, #37474F 100%); color: white;">
+                        {{ user?.full_name?.charAt(0).toUpperCase() }}
+                    </q-avatar>
+                    <q-badge floating color="green-5" rounded style="border: 2px solid white; width: 16px; height: 16px; bottom: 5px; right: 5px; top: auto;" />
                 </div>
-                <q-avatar color="blue-1" text-color="blue-8" icon="add_road" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption ">Média de {{ formatNumber(stats.primary_metric_value / (stats.total_journeys || 1)) }} km por viagem</div>
-              </q-card-section>
-            </q-card>
-          </div>
 
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Viagens Realizadas</div>
-                  <div class="text-h4 text-weight-bolder text-grey-9">
-                    {{ stats.total_journeys }}
-                  </div>
+                <div class="col">
+                    <div class="text-h4 text-weight-bolder text-blue-grey-10">{{ user?.full_name }}</div>
+                    <div class="text-subtitle1 text-grey-7 row items-center q-mt-xs">
+                        <q-icon name="badge" size="18px" class="q-mr-xs text-primary" /> 
+                        <span class="text-weight-medium">ID: #{{ user?.id }}</span>
+                        <span class="q-mx-md text-grey-4">|</span>
+                        <q-icon name="email" size="18px" class="q-mr-xs text-primary" /> 
+                        {{ user?.email }}
+                    </div>
+                    
+                    <div class="row q-gutter-x-md q-mt-md">
+                        <q-badge color="blue-grey-1" text-color="blue-grey-9" class="q-py-sm q-px-md text-subtitle2 text-weight-bold shadow-1">
+                            <q-icon name="engineering" class="q-mr-sm" />
+                            {{ user?.role || 'OPERADOR LÍDER' }}
+                        </q-badge>
+                        <q-badge :color="getEfficiencyColor(globalStats.efficiency)" class="q-py-sm q-px-md text-subtitle2 text-weight-bold shadow-1">
+                            <q-icon name="trending_up" class="q-mr-sm" />
+                            Eficiência Histórica: {{ globalStats.efficiency }}%
+                        </q-badge>
+                    </div>
                 </div>
-                <q-avatar color="grey-2" text-color="grey-8" icon="route" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption ">Registradas no sistema</div>
-              </q-card-section>
-            </q-card>
-          </div>
 
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Abastecimentos</div>
-                  <div class="text-h4 text-weight-bolder text-indigo-8">
-                    {{ fuelLogCount }}
-                  </div>
+                <div class="col-auto row q-gutter-x-xl text-right mobile-hide q-mr-md">
+                    <div class="column items-end">
+                        <div class="text-caption text-grey-6 text-weight-bold text-uppercase letter-spacing-1">Sessões Totais</div>
+                        <div class="text-h3 text-weight-bolder text-blue-grey-9 lh-small">{{ globalStats.sessions }}</div>
+                    </div>
+                    <div class="column items-end">
+                        <div class="text-caption text-grey-6 text-weight-bold text-uppercase letter-spacing-1">Horas Apontadas</div>
+                        <div class="text-h3 text-weight-bolder text-primary lh-small">{{ globalStats.hours }}h</div>
+                    </div>
                 </div>
-                <q-avatar color="indigo-1" text-color="indigo-8" icon="local_gas_station" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption ">Eficiência média: {{ (stats.avg_km_per_liter || 0).toFixed(1) }} km/l</div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Multas Registradas</div>
-                  <div class="text-h4 text-weight-bolder" :class="fineCount > 0 ? 'text-negative' : 'text-positive'">
-                    {{ fineCount }}
-                  </div>
-                </div>
-                <q-avatar :color="fineCount > 0 ? 'red-1' : 'green-1'" :text-color="fineCount > 0 ? 'negative' : 'positive'" icon="gavel" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption " v-if="fineCount === 0">Nenhuma infração recente</div>
-                 <div class="text-caption text-negative" v-else>Atenção requerida</div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Chamados Abertos</div>
-                  <div class="text-h4 text-weight-bolder text-orange-9">
-                    {{ stats.maintenance_requests_count }}
-                  </div>
-                </div>
-                <q-avatar color="orange-1" text-color="orange-9" icon="build_circle" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption ">Solicitações de oficina</div>
-              </q-card-section>
-            </q-card>
-          </div>
-
-          <div class="col-12 col-sm-6 col-md-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div>
-                  <div class="text-caption text-grey text-uppercase">Total de Gastos</div>
-                  <div class="text-h4 text-weight-bolder text-grey-9">
-                    <span class="text-h6 text-grey-6">R$</span> {{ formatNumber(totalExpenses) }}
-                  </div>
-                </div>
-                <q-avatar color="grey-3" text-color="grey-9" icon="attach_money" size="lg" />
-              </q-card-section>
-              <q-separator />
-              <q-card-section class="q-py-sm ">
-                 <div class="text-caption ">Custo/km: R$ {{ (stats.avg_cost_per_km || 0).toFixed(2) }}</div>
-              </q-card-section>
-            </q-card>
-          </div>
-        </div>
+            </q-card-section>
+        </q-card>
 
         <div class="row q-col-gutter-lg">
-          <div class="col-12 col-lg-8">
-             <q-card flat bordered class="full-height">
-              <q-card-section class="row items-center justify-between">
-                <div class="text-h6">Utilização por Veículo</div>
-                <q-btn-toggle
-                  v-model="chartMetric"
-                  toggle-color="primary"
-                  flat dense
-                  :options="[
-                    {label: 'KM', value: 'km'},
-                    {label: 'Viagens', value: 'trips'}
-                  ]"
-                />
-              </q-card-section>
-              <q-card-section>
-                <ApexChart type="bar" height="320" :options="performanceByVehicleChart.options" :series="performanceByVehicleChart.series" />
-              </q-card-section>
-            </q-card>
-          </div>
+            
+            <div class="col-12 col-md-2">
+                <div style="position: sticky; top: 100px;">
+                    <div class="text-subtitle2 text-grey-6 q-mb-sm text-uppercase text-weight-bold q-pl-xs">Exercício</div>
+                    <q-card class="shadow-1 overflow-hidden" style="border-radius: 16px;">
+                        <q-tabs
+                            v-model="selectedYear"
+                            vertical
+                            class="text-grey-7 bg-white"
+                            active-color="white"
+                            active-bg-color="primary"
+                            indicator-color="transparent"
+                            content-class="q-py-sm"
+                        >
+                            <q-tab 
+                                v-for="year in availableYears" 
+                                :key="year" 
+                                :name="year" 
+                                class="q-my-xs q-mx-sm transition-tab"
+                                style="border-radius: 10px; min-height: 50px;"
+                            >
+                                <div class="row items-center justify-between full-width">
+                                    <span class="text-h6 text-weight-bold">{{ year }}</span>
+                                    <q-icon name="chevron_right" size="xs" :class="selectedYear === year ? 'text-white' : 'transparent'" />
+                                </div>
+                            </q-tab>
+                        </q-tabs>
+                    </q-card>
+                </div>
+            </div>
 
-          <div class="col-12 col-lg-4">
-            <q-card flat bordered class="full-height">
-              <q-card-section>
-                <div class="text-h6">Eficiência de Combustível</div>
-                <div class="text-caption text-grey">Comparativo com a média da frota</div>
-              </q-card-section>
-              <q-card-section>
-                <ApexChart type="bar" height="320" :options="efficiencyChart.options" :series="efficiencyChart.series" />
-              </q-card-section>
-            </q-card>
-          </div>
+            <div class="col-12 col-md-10">
+                
+                <q-card class="bg-white q-mb-lg shadow-1" style="border-radius: 16px;">
+                    <q-card-section class="q-pa-lg">
+                        <div class="row items-center justify-between">
+                            <div>
+                                <div class="text-h5 text-weight-bold text-blue-grey-9 row items-center">
+                                    <q-icon name="analytics" class="q-mr-md text-primary" size="32px" /> 
+                                    Performance {{ selectedYear }}
+                                </div>
+                                <div class="text-subtitle2 text-grey-7 q-mt-xs">Visão consolidada do período</div>
+                            </div>
+                            
+                            <div class="row q-gutter-x-xl">
+                                <div class="row items-center">
+                                    <q-circular-progress
+                                        show-value
+                                        font-size="12px"
+                                        :value="currentYearStats.efficiency"
+                                        size="50px"
+                                        :thickness="0.25"
+                                        :color="getEfficiencyColorName(currentYearStats.efficiency)"
+                                        track-color="grey-3"
+                                        class="q-mr-md text-weight-bold"
+                                    >
+                                        {{ currentYearStats.efficiency }}%
+                                    </q-circular-progress>
+                                    <div class="column">
+                                        <span class="text-caption text-grey-6 text-uppercase">Média Eficiência</span>
+                                        <span class="text-h6 text-weight-bold text-dark">
+                                            {{ getEfficiencyLabel(currentYearStats.efficiency) }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="row items-center">
+                                    <q-avatar color="blue-grey-1" text-color="blue-grey-8" icon="schedule" size="50px" class="q-mr-md" />
+                                    <div class="column">
+                                        <span class="text-caption text-grey-6 text-uppercase">Horas Totais</span>
+                                        <span class="text-h5 text-weight-bold text-dark">{{ currentYearStats.hours }}h</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </q-card-section>
+                </q-card>
+
+                <div class="column q-gutter-y-md">
+                    <q-card 
+                        v-for="(monthData, index) in currentYearData" 
+                        :key="index" 
+                        class="shadow-1 overflow-hidden transition-hover" 
+                        style="border-radius: 12px; border: 1px solid #f0f0f0;"
+                    >
+                        
+                        <q-expansion-item
+                            group="months"
+                            header-class="bg-white text-blue-grey-9 q-py-md"
+                            expand-icon-class="text-primary"
+                        >
+                            <template v-slot:header>
+                                <div class="row full-width items-center">
+                                    <div class="col-3 row items-center relative-position">
+                                        <div class="absolute-left bg-primary" style="width: 4px; height: 30px; border-radius: 4px;" v-if="monthData.sessions.length"></div>
+                                        <div class="q-ml-md row items-center">
+                                            <q-avatar 
+                                                :color="monthData.sessions.length ? 'blue-grey-1' : 'grey-2'" 
+                                                :text-color="monthData.sessions.length ? 'blue-grey-8' : 'grey-5'" 
+                                                :icon="monthData.sessions.length ? 'folder_open' : 'folder_off'" 
+                                                size="44px" 
+                                                class="q-mr-md font-weight-bold" 
+                                            />
+                                            <div>
+                                                <div class="text-h6 text-weight-bold line-height-1">{{ monthNames[index] }}</div>
+                                                <div class="text-caption text-grey-6" v-if="monthData.sessions.length">{{ monthData.sessions.length }} entradas</div>
+                                                <div class="text-caption text-grey-5" v-else>Sem atividade</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-9 row items-center justify-end q-gutter-x-xl q-pr-md" v-if="monthData.sessions.length > 0">
+                                        
+                                        <div class="column items-end" style="min-width: 100px;">
+                                            <span class="text-caption text-grey-6 text-uppercase text-weight-bold" style="font-size: 0.65rem;">Horas Prod.</span>
+                                            <div class="row items-baseline">
+                                                <span class="text-h6 text-weight-bolder text-dark">{{ monthData.totalHours }}</span>
+                                                <span class="text-caption text-grey-6 q-ml-xs">h</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="column items-end" style="width: 150px;">
+                                            <span class="text-caption text-grey-6 text-uppercase text-weight-bold" style="font-size: 0.65rem;">Eficiência</span>
+                                            <div class="row items-center full-width justify-end q-mt-xs">
+                                                <q-linear-progress :value="monthData.avgEfficiency / 100" 
+                                                    :color="getEfficiencyColorName(monthData.avgEfficiency)" 
+                                                    size="8px" rounded class="col q-mr-md" track-color="grey-3"
+                                                />
+                                                <span class="text-body1 text-weight-bolder" :class="getEfficiencyColorClass(monthData.avgEfficiency)">{{ monthData.avgEfficiency }}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <q-card-section class="bg-grey-1 q-pa-lg border-top-light">
+                                <div v-if="monthData.sessions.length > 0">
+                                    <div class="row q-col-gutter-lg">
+                                        
+                                        <div class="col-12 col-md-4">
+                                            <q-card flat bordered class="full-height bg-white">
+                                                <q-card-section>
+                                                    <div class="text-subtitle2 text-uppercase text-grey-7 q-mb-lg row items-center">
+                                                        <q-icon name="pie_chart" class="q-mr-sm" /> Distribuição de Tempo
+                                                    </div>
+                                                    <div v-for="(usage, mName) in monthData.machineStats" :key="mName" class="q-mb-md">
+                                                        <div class="row justify-between text-caption q-mb-xs">
+                                                            <div class="row items-center">
+                                                                <q-icon name="precision_manufacturing" size="14px" class="q-mr-xs text-grey-6" />
+                                                                <span class="text-weight-bold text-dark">{{ mName }}</span>
+                                                            </div>
+                                                            <span class="text-weight-bold">{{ usage.count }} sessões ({{ (usage.percent * 100).toFixed(0) }}%)</span>
+                                                        </div>
+                                                        <q-linear-progress :value="usage.percent" color="secondary" size="10px" rounded track-color="grey-2" />
+                                                    </div>
+                                                </q-card-section>
+                                            </q-card>
+                                        </div>
+
+                                        <div class="col-12 col-md-8">
+                                            <q-table
+                                                title="Registro Detalhado de Sessões"
+                                                :rows="monthData.sessions"
+                                                :columns="sessionColumns"
+                                                row-key="id"
+                                                flat bordered
+                                                class="bg-white my-sticky-header-table"
+                                                :pagination="{ rowsPerPage: 10 }"
+                                                dense
+                                            >
+                                                <template v-slot:top>
+                                                    <div class="row items-center full-width justify-between">
+                                                        <div class="text-subtitle2 text-uppercase text-grey-7 row items-center">
+                                                            <q-icon name="list_alt" class="q-mr-sm" /> Diário de Bordo
+                                                        </div>
+                                                        <q-btn flat dense round color="primary" icon="download" size="sm">
+                                                            <q-tooltip>Baixar CSV do Mês</q-tooltip>
+                                                        </q-btn>
+                                                    </div>
+                                                </template>
+                                                
+                                                <template v-slot:body-cell-efficiency="props">
+                                                    <q-td :props="props">
+                                                        <q-badge :color="getEfficiencyColorName(props.value)" class="q-px-sm text-weight-bold shadow-1">
+                                                            {{ props.value }}%
+                                                        </q-badge>
+                                                    </q-td>
+                                                </template>
+                                                
+                                                <template v-slot:body-cell-start_time="props">
+                                                    <q-td :props="props">
+                                                        <div class="row items-center">
+                                                            <div class="bg-blue-grey-1 text-blue-grey-9 q-pa-xs rounded-borders q-mr-sm text-weight-bold" style="font-size: 0.75rem;">
+                                                                {{ new Date(props.value).getDate().toString().padStart(2, '0') }}
+                                                            </div>
+                                                            {{ new Date(props.value).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) }}
+                                                        </div>
+                                                    </q-td>
+                                                </template>
+
+                                                <template v-slot:body-cell-order_code="props">
+                                                    <q-td :props="props">
+                                                        <q-badge outline color="blue-grey" :label="props.value" class="text-weight-medium" />
+                                                    </q-td>
+                                                </template>
+                                            </q-table>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div v-else class="column flex-center q-pa-xl text-grey-5">
+                                    <q-icon name="folder_off" size="60px" class="q-mb-md opacity-50" />
+                                    <div class="text-h6">Nenhuma atividade registrada.</div>
+                                    <div>O colaborador não realizou apontamentos neste mês.</div>
+                                </div>
+                            </q-card-section>
+                        </q-expansion-item>
+                    </q-card>
+                </div>
+
+            </div>
         </div>
-
-      </div>
-
-      <div v-else class="column flex-center text-center q-pa-xl " style="min-height: 50vh">
-        <q-icon name="cloud_off" size="5em" color="grey-4" />
-        <div class="text-h6 q-mt-md">Dados indisponíveis</div>
-        <q-btn outline color="primary" label="Recarregar" @click="fetchData" class="q-mt-sm" />
-      </div>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
-import ApexChart from 'vue3-apexcharts';
-
-// Stores
-import { useUserStore } from 'stores/user-store';
-import { useAuthStore } from 'stores/auth-store';
-// Removidos stores não utilizados (fineStore, fuelLogStore, terminologyStore)
-
-// Models
-import type { UserStats } from 'src/models/user-models';
+import { useMesStore } from 'stores/mes-store';
+import type { SessionDetail } from 'stores/mes-store';
+import type { QTableColumn } from 'quasar';
 
 const route = useRoute();
 const router = useRouter();
-const userStore = useUserStore();
-const $q = useQuasar();
-const authStore = useAuthStore();
+const mesStore = useMesStore();
 
-const isLoadingData = ref(true);
-const chartMetric = ref('km');
+const userId = Number(route.params.id);
 
-// Contadores Adicionais
-const fineCount = ref(0);
-const fuelLogCount = ref(0);
-const totalExpenses = ref(0);
+interface UserProfile {
+    id: number;
+    full_name: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+}
+const user = ref<UserProfile | null>(null);
+const isLoading = ref(true);
 
-const isLockedForDemo = computed(() => authStore.isDemo && authStore.isManager);
+const currentSysYear = new Date().getFullYear();
+const selectedYear = ref(currentSysYear);
 
-function showUpgradeDialog() {
-  $q.dialog({
-    title: 'Upgrade para TruCar PRO',
-    message: 'Tenha acesso a relatórios financeiros detalhados por condutor.',
-    ok: { label: 'Falar com Consultor', color: 'primary', unelevated: true },
-    cancel: true
-  });
+const monthNames = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+
+const sessionColumns: QTableColumn[] = [
+  { name: 'start_time', label: 'Dia / Hora', field: 'start_time', align: 'left', sortable: true },
+  { name: 'machine_name', label: 'Equipamento', field: 'machine_name', align: 'left' },
+  { name: 'order_code', label: 'O.P.', field: 'order_code', align: 'center' },
+  { name: 'duration', label: 'Duração', field: 'duration', align: 'center' },
+  { name: 'efficiency', label: 'Eficiência', field: 'efficiency', align: 'center', sortable: true }
+];
+
+function goBack() {
+    router.go(-1);
 }
 
-const stats = computed(() => userStore.selectedUserStats as UserStats);
-
-// User Info
-const userName = computed(() => authStore.isDriver ? authStore.user?.full_name : userStore.selectedUser?.full_name);
-const userEmail = computed(() => authStore.isDriver ? authStore.user?.email : userStore.selectedUser?.email);
-
-const userRoleLabel = computed(() => {
-    // CORREÇÃO: Casting para string para evitar erro de sobreposição de tipos
-    const role = (authStore.isDriver ? authStore.user?.role : userStore.selectedUser?.role) as string;
-    return role === 'driver' ? 'Motorista' : role === 'manager' ? 'Gestor' : 'Usuário';
-});
-
-function getUserInitials(name: string | undefined) {
-    if (!name) return 'U';
-    return name.slice(0, 2).toUpperCase();
-}
-
-function formatNumber(val: number | undefined) {
-    if (val === undefined || val === null) return '0';
-    return val.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-}
-
-// --- Configuração dos Gráficos ---
-const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--q-primary').trim() || '#1976D2';
-
-const efficiencyChart = computed(() => {
-    const s = stats.value || {};
-    return {
-      series: [{ name: 'KM/L', data: [(s.avg_km_per_liter || 0), (s.fleet_avg_km_per_liter || 0)] }],
-      options: {
-        chart: { type: 'bar', toolbar: { show: false }, background: 'transparent' },
-        theme: { mode: $q.dark.isActive ? 'dark' : 'light' },
-        colors: [primaryColor, '#9e9e9e'],
-        plotOptions: { bar: { borderRadius: 6, columnWidth: '45%', distributed: true } },
-        xaxis: { categories: ['Motorista', 'Média Frota'], labels: { style: { fontSize: '12px' } } },
-        legend: { show: false },
-        grid: { borderColor: $q.dark.isActive ? '#333' : '#e0e0e0' }
-      }
+function generateMockData() {
+    user.value = {
+        id: userId,
+        full_name: 'Carlos Eduardo Silva',
+        email: 'carlos.silva@vemag.com.br',
+        role: 'OPERADOR LÍDER',
+        is_active: true
     };
+
+    const sessions: SessionDetail[] = [];
+    const machines = ['CNC Mazak #01', 'CNC Mazak #02', 'Torno Romi GL', 'Centro Usinagem', 'Prensa Hidráulica 50T'];
+    const opCodes = ['OP-4590', 'OP-4610', 'OP-4700', 'OP-4820', 'OP-5001'];
+
+    [2023, 2024].forEach(year => {
+        for (let month = 0; month < 12; month++) {
+            if (year === 2024 && month > new Date().getMonth()) break;
+            if (year === 2023 && month === 6) continue;
+
+            const numSessions = Math.floor(Math.random() * 10) + 15;
+
+            for (let i = 0; i < numSessions; i++) {
+                const day = Math.floor(Math.random() * 28) + 1;
+                const hour = Math.floor(Math.random() * 8) + 8;
+                const durationMin = Math.floor(Math.random() * 180) + 60;
+                
+                let eff = Math.floor(Math.random() * 30) + 70;
+                if (Math.random() > 0.8) eff = Math.floor(Math.random() * 20) + 50;
+
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:00:00`;
+
+                // Validações para evitar undefined
+                const machine = machines[Math.floor(Math.random() * machines.length)] || 'Desconhecido';
+                const opCode = opCodes[Math.floor(Math.random() * opCodes.length)] || 'N/A';
+
+                sessions.push({
+                    id: Math.floor(Math.random() * 10000),
+                    machine_name: machine,
+                    order_code: opCode,
+                    start_time: dateStr,
+                    end_time: null,
+                    duration: `${Math.floor(durationMin/60)}h ${durationMin%60}m`,
+                    efficiency: eff
+                });
+            }
+        }
+    });
+
+    mesStore.userSessions = sessions;
+}
+
+// --- LOGICA COMPUTADA ---
+
+const availableYears = computed(() => {
+    if (!mesStore.userSessions.length) return [currentSysYear];
+    const years = new Set<number>();
+    mesStore.userSessions.forEach(s => years.add(new Date(s.start_time).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a); 
 });
 
-const performanceByVehicleChart = computed(() => {
-    const s = stats.value || {};
-    const data = [...(s.performance_by_vehicle || [])].sort((a, b) => a.value - b.value);
+const currentYearData = computed(() => {
+    const year = selectedYear.value;
     
-    return {
-      series: [{ name: s.primary_metric_unit, data: data.map(i => i.value.toFixed(1)) }],
-      options: {
-        chart: { type: 'bar', toolbar: { show: false }, background: 'transparent' },
-        theme: { mode: $q.dark.isActive ? 'dark' : 'light' },
-        colors: [primaryColor],
-        plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: '60%' } },
-        dataLabels: { enabled: true, textAnchor: 'start', style: { colors: ['#fff'] }, offsetX: 0 },
-        xaxis: { categories: data.map(i => i.vehicle_info), labels: { show: false } },
-        yaxis: { labels: { show: false } }, 
-        grid: { show: false }
-      }
-    };
+    // Inicialização correta de array com objetos complexos
+    const months = Array.from({ length: 12 }, () => ({
+        sessions: [] as SessionDetail[],
+        totalHours: 0,
+        avgEfficiency: 0,
+        machineStats: {} as Record<string, { count: number, percent: number }>
+    }));
+
+    const yearSessions = mesStore.userSessions.filter(s => 
+        new Date(s.start_time).getFullYear() === year
+    );
+
+    yearSessions.forEach(session => {
+        const date = new Date(session.start_time);
+        const targetMonth = months[date.getMonth()];
+        if (targetMonth) {
+            targetMonth.sessions.push(session);
+        }
+    });
+
+    months.forEach(m => {
+        if (m.sessions.length === 0) return;
+        
+        m.sessions.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+
+        const totalEff = m.sessions.reduce((sum, s) => sum + s.efficiency, 0);
+        m.avgEfficiency = Math.round(totalEff / m.sessions.length);
+
+        const totalHours = m.sessions.reduce((sum, s) => {
+            // CORREÇÃO: Verificação segura antes do parseInt
+            const matches = (s.duration || '').match(/(\d+)h/);
+            const hourPart = matches ? matches[1] : null;
+            return sum + (hourPart ? parseInt(hourPart) : 1);
+        }, 0);
+        m.totalHours = totalHours;
+
+        const machineCounts: Record<string, number> = {};
+        m.sessions.forEach(s => {
+            const name = s.machine_name || 'Outro';
+            machineCounts[name] = (machineCounts[name] || 0) + 1;
+        });
+        
+        const totalSess = m.sessions.length;
+        Object.keys(machineCounts).forEach(key => {
+            const count = machineCounts[key] || 0;
+            m.machineStats[key] = {
+                count: count,
+                percent: totalSess > 0 ? count / totalSess : 0
+            };
+        });
+    });
+
+    return months;
 });
 
-async function fetchData() {
-  isLoadingData.value = true;
-  const userId = Number(route.params.id);
-  
-  if (userId) {
-    try {
-        // CORREÇÃO: Tipagem correta para Promise<void>
-        const promises: Promise<void>[] = [userStore.fetchUserStats(userId)];
-        if (authStore.isManager) promises.push(userStore.fetchUserById(userId));
-        
-        await Promise.all(promises);
-        
-        // CORREÇÃO: Supressão explícita do erro de 'any'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const s = userStore.selectedUserStats as any;
-        fineCount.value = s?.total_fines || 0; 
-        fuelLogCount.value = s?.total_fuel_logs || 0;
-        totalExpenses.value = s?.total_costs || 0;
+const currentYearStats = computed(() => {
+    const data = currentYearData.value;
+    const totalHours = data.reduce((acc, m) => acc + m.totalHours, 0);
+    const activeMonths = data.filter(m => m.sessions.length > 0);
+    const avgEff = activeMonths.length 
+        ? Math.round(activeMonths.reduce((acc, m) => acc + m.avgEfficiency, 0) / activeMonths.length)
+        : 0;
+    return { hours: totalHours, efficiency: avgEff };
+});
 
-    } catch (e) {
-        console.error(e);
-    }
-  }
-  isLoadingData.value = false;
+const globalStats = computed(() => {
+    const all = mesStore.userSessions;
+    const count = all.length;
+    const eff = count ? Math.round(all.reduce((acc, s) => acc + s.efficiency, 0) / count) : 0;
+    const hours = Math.round(count * 2.5); 
+    return { hours, efficiency: eff, sessions: count };
+});
+
+// --- HELPERS VISUAIS ---
+function getEfficiencyColorName(val: number) {
+    if (val >= 90) return 'positive';
+    if (val >= 70) return 'warning';
+    return 'negative';
+}
+function getEfficiencyColor(val: number) {
+    if (val >= 90) return '#21BA45'; 
+    if (val >= 70) return '#F2C037'; 
+    return '#C10015'; 
+}
+function getEfficiencyColorClass(val: number) {
+    if (val >= 90) return 'text-positive';
+    if (val >= 70) return 'text-warning';
+    return 'text-negative';
+}
+function getEfficiencyLabel(val: number) {
+    if (val >= 90) return 'Excelente';
+    if (val >= 70) return 'Regular';
+    return 'Abaixo da Meta';
 }
 
+// --- INIT ---
 onMounted(() => {
-  // CORREÇÃO: 'void' para marcar a promise flutuante como intencional
-  void fetchData();
+    // Simula delay de rede para loading
+    setTimeout(() => {
+        generateMockData();
+        isLoading.value = false;
+    }, 800);
 });
 </script>
 
-<style scoped lang="scss">
-.line-height-tight { line-height: 1.1; }
-.animate-fade { animation: fadeIn 0.4s ease-in-out; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+<style scoped>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, rgba(0,140,122,0) 0%, rgba(0,140,122,0.15) 100%);
+}
+.border-top-light {
+    border-top: 1px solid #e0e0e0;
+}
+.transition-tab {
+    transition: all 0.3s ease;
+}
+.transition-hover:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+}
+.z-top {
+    z-index: 10;
+}
+.letter-spacing-1 {
+    letter-spacing: 1px;
+}
+.line-height-1 {
+    line-height: 1.1;
+}
+.lh-small {
+    line-height: 1;
+}
 </style>
