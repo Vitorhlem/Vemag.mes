@@ -270,7 +270,7 @@
             
             <q-card-section class="col flex flex-center relative-position" style="overflow: hidden;">
                 <q-img 
-                    :src="productionStore.activeOrder?.technical_drawing_url || 'https://placehold.co/1280x800?text=Sem+Desenho+Disponível'"
+                    :src="productionStore.activeOrder?.technical_drawing_url || '/desenho.jpg'"
                     style="max-width: 100%; max-height: 100%;"
                     fit="contain"
                 />
