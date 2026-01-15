@@ -41,7 +41,7 @@
                 </q-item-section>
               </q-item>
               
-              <q-item clickable v-close-popup @click="() => router.push('/machine-kiosk')">
+              <q-item clickable v-close-popup @click="() => router.push('/factory/kiosk')">
                 <q-item-section avatar><q-icon name="monitor" color="secondary"/></q-item-section>
                 <q-item-section>
                    <q-item-label>Ir para Kiosk</q-item-label>

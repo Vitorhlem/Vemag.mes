@@ -194,4 +194,4 @@ const routes: RouteRecordRaw[] = [
   },
 ];
 
-export default routes;  
+export default routes;

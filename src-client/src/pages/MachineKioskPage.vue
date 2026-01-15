@@ -1,4 +1,3 @@
-<!-- eslint-disable @typescript-eslint/no-misused-promises -->
 <template>
   <q-layout view="lHh Lpr fff" class="bg-grey-10 text-white">
     <q-page-container>
@@ -23,7 +22,7 @@
 
             <div v-if="isLoading" class="column items-center q-gutter-y-md">
               <q-spinner-orbit color="primary" size="4em" />
-              <div class="text-body1 animate-blink text-primary">Conectando ao MES...</div>
+              <div class="text-body1 animate-blink text-primary">Validando Acesso...</div>
             </div>
 
             <div v-else-if="productionStore.isMachineBroken" class="column q-gutter-y-md animate-fade-in">
@@ -53,7 +52,7 @@
                 push color="primary" size="xl" icon="qr_code_scanner" 
                 label="Escanear Crachá" 
                 class="full-width q-py-md shadow-5 hover-scale"
-                @click="simulateScan"
+                @click="openBadgeScanner"
                 :disable="!productionStore.isKioskConfigured"
               />
               
@@ -108,6 +107,34 @@
        </q-card>
     </q-dialog>
 
+    <q-dialog v-model="showScanner" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card class="bg-black text-white column">
+        <q-bar class="bg-grey-9 q-pa-md">
+          <q-icon name="qr_code_scanner" size="sm" />
+          <div class="text-h6 q-ml-sm">Leitor de Crachá</div>
+          <q-space />
+          <q-btn dense flat icon="close" size="lg" v-close-popup @click="stopScanner">
+            <q-tooltip>Fechar Câmera</q-tooltip>
+          </q-btn>
+        </q-bar>
+
+        <q-card-section class="col flex flex-center column">
+          <div id="reader" style="width: 100%; max-width: 600px; border-radius: 12px; overflow: hidden; background: #000;"></div>
+          
+          <div class="text-h6 q-mt-lg text-grey-5 text-center">
+             Posicione o Código de Barras na Horizontal<br>
+             <span class="text-caption text-grey-6">(Code 128, EAN, 3 of 9)</span>
+          </div>
+          
+          <div v-if="lastScannedCode" class="q-mt-md bg-white text-black q-pa-sm rounded-borders text-h6 text-weight-bold animate-blink">
+             LIDO: {{ lastScannedCode }}
+          </div>
+
+          <q-btn flat color="white" icon="cameraswitch" label="Trocar Câmera" class="q-mt-md" @click="switchCamera" />
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
   </q-layout>
 </template>
 
@@ -116,11 +143,13 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProductionStore } from 'stores/production-store';
 import { useQuasar } from 'quasar';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 const router = useRouter();
 const productionStore = useProductionStore();
 const $q = useQuasar();
 
+// --- Estados da Página ---
 const isLoading = ref(false);
 const isLoadingList = ref(false);
 const isConfigOpen = ref(false);
@@ -135,6 +164,13 @@ const isMaintenanceDialogOpen = ref(false);
 const omDescription = ref('');
 let pollingTimer: ReturnType<typeof setInterval>;
 
+// --- Estados do Scanner ---
+const showScanner = ref(false);
+const lastScannedCode = ref('');
+let html5QrCode: Html5Qrcode | null = null;
+const facingMode = ref<"user" | "environment">("environment"); // Começa com traseira
+
+// --- Computed ---
 const machineOptions = computed(() => {
   return productionStore.machinesList.map(m => ({
     label: `${m.brand} ${m.model} (${m.license_plate || 'ID:' + m.id})`,
@@ -142,24 +178,124 @@ const machineOptions = computed(() => {
   }));
 });
 
-onMounted(async () => {
-  await productionStore.loadKioskConfig();
+// --- Ciclo de Vida ---
+onMounted(() => { // Removido o 'async' desnecessário
+  void productionStore.loadKioskConfig();
   if (productionStore.machineId) {
     selectedMachineOption.value = productionStore.machineId;
   }
   
-  // Polling a cada 5 segundos
   pollingTimer = setInterval(() => {
       if(productionStore.machineId) {
-          // 'void' diz ao linter que não vamos aguardar a promise aqui
           void productionStore.loadKioskConfig();
       }
   }, 5000);
 });
 
 onUnmounted(() => {
-    clearInterval(pollingTimer);
+   clearInterval(pollingTimer);
+   void stopScanner();
 });
+
+// --- LÓGICA DO SCANNER ---
+
+function openBadgeScanner() { // Removido o 'async' desnecessário
+  if (!productionStore.isKioskConfigured) {
+    $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
+    return;
+  }
+  showScanner.value = true;
+  lastScannedCode.value = '';
+  
+  setTimeout(() => {
+     void startScanner();
+  }, 500);
+}
+
+async function startScanner() {
+    try {
+        if (html5QrCode) {
+            await stopScanner();
+        }
+
+        html5QrCode = new Html5Qrcode("reader");
+        
+        // CONFIGURAÇÃO FOCADA EM CÓDIGO DE BARRAS HORIZONTAL
+        const config = { 
+            fps: 10, 
+            qrbox: { width: 300, height: 100 }, // Box retangular horizontal
+            aspectRatio: 1.0,
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.ITF
+            ]
+        };
+        
+        await html5QrCode.start(
+            { facingMode: facingMode.value },
+            config,
+            (decodedText) => { void onScanSuccess(decodedText) }, 
+            undefined // Ignora erros de frame vazio
+        );
+    } catch (err) {
+        console.error("Erro ao iniciar câmera:", err);
+        $q.notify({ type: 'negative', message: 'Não foi possível acessar a câmera.' });
+        showScanner.value = false;
+    }
+}
+
+async function stopScanner() {
+    if (html5QrCode) {
+        try {
+            if (html5QrCode.isScanning) {
+                await html5QrCode.stop();
+            }
+            html5QrCode.clear();
+        } catch (err) {
+            console.error("Erro ao parar scanner:", err);
+        }
+        html5QrCode = null;
+    }
+}
+
+async function onScanSuccess(decodedText: string) {
+    // Feedback visual imediato
+    console.log("CÓDIGO LIDO:", decodedText);
+    lastScannedCode.value = decodedText;
+    $q.notify({ type: 'info', message: `Lido: ${decodedText}`, timeout: 800 });
+
+    // Para o scanner
+    await stopScanner();
+    showScanner.value = false;
+    
+    // Inicia processo de login
+    isLoading.value = true;
+    try {
+        await productionStore.loginOperator(decodedText);
+        
+        // Se a Store confirmou o login, redireciona
+        if (productionStore.isShiftActive) {
+             void router.push({ 
+                name: 'operator-cockpit', 
+                params: { machineId: productionStore.machineId } 
+             });
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+async function switchCamera() {
+    facingMode.value = facingMode.value === "environment" ? "user" : "environment";
+    await startScanner();
+}
+
+// --- CONFIGURAÇÃO E MANUTENÇÃO ---
 
 async function openConfigDialog() {
   adminPassword.value = '';
@@ -212,26 +348,6 @@ function unlockMachine() {
             }
         })();
     });
-}
-
-async function simulateScan() {
-  if (!productionStore.isKioskConfigured) {
-    $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
-    return;
-  }
-  isLoading.value = true;
-  try {
-    await productionStore.loginOperator('BADGE-123');
-    void router.push({ 
-      name: 'operator-cockpit', 
-      params: { machineId: productionStore.machineId } 
-    });
-  } catch (e) { 
-    // Ignora erros de login ou loga no console
-    console.error(e); 
-  } finally {
-    isLoading.value = false;
-  }
 }
 </script>
 

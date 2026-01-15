@@ -4,6 +4,7 @@ import { ref, computed } from 'vue';
 import { Notify, Loading } from 'quasar';
 import { api } from 'boot/axios';
 
+// --- INTERFACES ---
 export interface Machine {
   id: number;
   brand: string;
@@ -14,15 +15,28 @@ export interface Machine {
   current_driver_id?: number;
 }
 
+export interface OperationStep {
+  seq: number;
+  resource: string;
+  name: string;
+  description: string;
+  timeEst: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED';
+}
+
 export interface ProductionOrder {
   id: number;
   code: string;
+  client?: string;
+  product?: string;
+  deliveryDate?: string;
   part_name: string;
   part_image_url: string;
   target_quantity: number;
   produced_quantity: number;
   scrap_quantity: number;
   status: 'PENDING' | 'SETUP' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'STOPPED' | 'IDLE' | 'MAINTENANCE' | 'AVAILABLE';
+  steps?: OperationStep[];
   operations: Record<string, unknown>[]; 
 }
 
@@ -36,44 +50,68 @@ export interface ProductionLog {
   operator_name?: string;
 }
 
+// Interface para o Operador
+export interface Operator {
+  id: number;
+  full_name: string;
+  email: string;
+  employee_id?: string; // <--- CAMPO IMPORTANTE DO CRACHÁ
+  role?: string;
+}
+
 export const useProductionStore = defineStore('production', () => {
   
   // --- ESTADO ---
   const machinesList = ref<Machine[]>([]);
   const machineId = ref<number | null>(null);
   const currentMachine = ref<Machine | null>(null);
+  
   const machineName = ref<string>('Não Configurado');
   const machineSector = ref<string>('-');
 
+  const currentOperator = ref<Operator | null>(null);
   const currentOperatorBadge = ref<string | null>(null);
+  
   const activeOrder = ref<ProductionOrder | null>(null);
+  const currentStepIndex = ref<number>(-1);
   const machineHistory = ref<ProductionLog[]>([]);
+
+  // --- DADOS MOCKADOS ---
+  const MOCK_OP_STEPS: OperationStep[] = [
+      { seq: 10, resource: '2.13', name: 'SUPORTE TÉCNICO', timeEst: 0.5, status: 'PENDING', description: 'Inspeção de recebimento.' },
+      { seq: 20, resource: '3.01', name: 'OXICORTE', timeEst: 2.0, status: 'PENDING', description: 'Corte conforme programa CNC.' },
+      { seq: 30, resource: '3.05', name: 'CALDEIRARIA', timeEst: 0.5, status: 'PENDING', description: 'Acabamento.' },
+      { seq: 40, resource: '4.10', name: 'TRAÇAGEM', timeEst: 1.0, status: 'PENDING', description: 'Traçagem de coordenadas.' },
+      { seq: 50, resource: '4.06', name: 'FURAÇÃO RADIAL', timeEst: 2.0, status: 'PENDING', description: 'Execução de furos.' }
+  ];
 
   // --- GETTERS ---
   const isKioskConfigured = computed(() => !!machineId.value);
   const isShiftActive = computed(() => !!currentOperatorBadge.value);
+  const hasActiveOrder = computed(() => !!activeOrder.value);
   
-  // === CORREÇÃO CRÍTICA DO GETTER ===
-  // O banco retorna "Em manutenção". O código busca por "manutenção" ou "maintenance".
-const isMachineBroken = computed(() => {
-      // 1. Pega o status atual do objeto da máquina
+  const isRunning = computed(() => {
+    return activeOrder.value?.steps?.some(s => s.status === 'IN_PROGRESS') ?? false;
+  });
+
+  const currentActiveStep = computed(() => {
+    if (!activeOrder.value?.steps || currentStepIndex.value === -1) return null;
+    return activeOrder.value.steps[currentStepIndex.value];
+  });
+  
+  const isMachineBroken = computed(() => {
       const rawStatus = currentMachine.value?.status || '';
-      
-      // 2. Normaliza para minúsculo e remove acentos para evitar erros (ex: "manutenção" vira "manutencao")
-      // Isso é vital para funcionar em qualquer navegador/banco
       const status = String(rawStatus)
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
       
-      // 3. Verifica as palavras-chave (Inglês e Português)
-      // O banco manda "Em manutenção", que virou "em manutencao".
-      // A verificação abaixo vai encontrar "manutencao" e retornar TRUE.
       return status.includes('maintenance') || 
              status.includes('broken') || 
              status.includes('manutencao') || 
              status.includes('manutenção');
   });
+
   // --- ACTIONS ---
 
   function _setMachineData(data: Machine) {
@@ -90,15 +128,31 @@ const isMachineBroken = computed(() => {
       try {
         const { data } = await api.get<Machine>(`/vehicles/${savedId}`);
         _setMachineData(data);
+        // Tenta restaurar sessão do operador se houver
+        checkActiveSession();
       } catch {
         console.warn('Máquina salva offline ou removida.');
       }
     }
   }
 
+  // Restaura sessão do localStorage
+  function checkActiveSession() {
+      const savedOp = localStorage.getItem('TRU_CURRENT_OPERATOR');
+      if (savedOp) {
+          try {
+              const op = JSON.parse(savedOp);
+              currentOperator.value = op;
+              currentOperatorBadge.value = op.email;
+              console.log('Sessão restaurada:', op.full_name);
+          } catch {
+              localStorage.removeItem('TRU_CURRENT_OPERATOR');
+          }
+      }
+  }
+
   async function fetchAvailableMachines() {
     try {
-      // CORREÇÃO: O endpoint correto fica dentro do prefixo /production
       const { data } = await api.get<Machine[]>('/production/machines', { 
           params: { limit: 100 } 
       });
@@ -120,10 +174,7 @@ const isMachineBroken = computed(() => {
     }
   }
 
-  // Define Status Manualmente (ex: Quebra)
-  // Envia "MAINTENANCE" (Inglês) para API -> API converte para "Em manutenção"
   async function setMachineStatus(status: string) {
-    // ATUALIZAÇÃO OTIMISTA: Muda na hora para garantir a UI
     if (currentMachine.value) {
         if (status === 'MAINTENANCE') currentMachine.value.status = "Em manutenção"; 
         else if (status === 'AVAILABLE') currentMachine.value.status = "Disponível";
@@ -154,41 +205,82 @@ const isMachineBroken = computed(() => {
     }
   }
 
-  async function loginOperator(badge: string) {
+  // --- LOGIN DO OPERADOR (CORRIGIDO PARA LER O CAMPO employee_id) ---
+  async function loginOperator(scannedCode: string) {
     if (!machineId.value) return;
+    
+    Loading.show({ message: 'Validando Operador...' });
     try {
-      Loading.show();
+      const { data: users } = await api.get('/users/', { params: { limit: 1000 } });
+      
+      const cleanCode = scannedCode.trim();
+      const cleanCodeNoZeros = cleanCode.replace(/^0+/, ''); // Remove zeros à esquerda (ex: "0010" -> "10")
+      
+      console.log(`[LOGIN] Buscando crachá: "${cleanCode}"`);
+      
+      const operator = users.find((u: any) => {
+        // 1. Verifica pelo campo employee_id (Matrícula/Crachá) - Prioridade Máxima
+        if (u.employee_id && String(u.employee_id).trim() === cleanCode) {
+            return true;
+        }
+        
+        // 2. Fallback: Verifica pelo ID numérico do banco
+        if (String(u.id) === cleanCode || String(u.id) === cleanCodeNoZeros) {
+            return true;
+        }
+        
+        // 3. Fallback: Verifica por email
+        if (u.email && u.email.toLowerCase() === cleanCode.toLowerCase()) return true;
+        
+        return false;
+      });
+
+      if (!operator) {
+        Notify.create({ 
+            type: 'negative', 
+            message: `Crachá ${cleanCode} não encontrado.`,
+            caption: 'Verifique se a matrícula (employee_id) está cadastrada.'
+        });
+        return;
+      }
+
       await api.post('/production/event', {
         machine_id: machineId.value,
-        operator_badge: badge,
+        operator_badge: operator.email, // Backend usa email para identificar
         event_type: 'LOGIN',
         new_status: 'IDLE',
         reason: 'Início de Turno'
       });
-      currentOperatorBadge.value = badge;
+
+      currentOperator.value = operator;
+      currentOperatorBadge.value = operator.email;
       
-      // Se não estiver quebrada, vai para Disponível.
+      // Persiste sessão
+      localStorage.setItem('TRU_CURRENT_OPERATOR', JSON.stringify(operator));
+      
       if (!isMachineBroken.value && currentMachine.value) {
           currentMachine.value.status = 'Disponível';
       }
-      Notify.create({ type: 'positive', message: 'Login Efetuado' });
-    } catch {
-      Notify.create({ type: 'negative', message: 'Crachá Inválido' });
-      throw new Error('Login falhou');
+      
+      Notify.create({ 
+        type: 'positive', 
+        message: `Bem-vindo, ${operator.full_name.split(' ')[0]}!` 
+      });
+
+    } catch (error) {
+      console.error(error);
+      Notify.create({ type: 'negative', message: 'Erro de conexão no login.' });
     } finally {
       Loading.hide();
     }
   }
 
-  // --- LOGOUT INTELIGENTE ---
-  // Envia "MAINTENANCE" para API se a máquina estiver quebrada
   async function logoutOperator(overrideStatus?: string) {
     if (!machineId.value || !currentOperatorBadge.value) return;
     
     let statusToSend = 'AVAILABLE';
-    let visualStatus = 'Disponível'; // Para UI imediata
+    let visualStatus = 'Disponível';
 
-    // Se forçado ou já estiver quebrada, manda MAINTENANCE
     if (overrideStatus === 'MAINTENANCE' || isMachineBroken.value) {
         statusToSend = 'MAINTENANCE';
         visualStatus = 'Em manutenção';
@@ -203,16 +295,17 @@ const isMachineBroken = computed(() => {
         reason: 'Logoff'
       });
       
-      // Atualiza localmente
       if (currentMachine.value) {
           currentMachine.value.status = visualStatus;
       }
       
-    } catch (error) {
-       console.error('Erro ao deslogar:', error);
-    }
+    } catch (error) { console.error('Erro ao deslogar:', error); }
+    
+    currentOperator.value = null;
     currentOperatorBadge.value = null;
     activeOrder.value = null;
+    currentStepIndex.value = -1;
+    localStorage.removeItem('TRU_CURRENT_OPERATOR'); // Limpa persistência
   }
 
   async function loadOrderFromQr(qrCode: string) {
@@ -222,22 +315,93 @@ const isMachineBroken = computed(() => {
     }
 
     try {
-      Loading.show();
-      const { data } = await api.get<ProductionOrder>(`/production/orders/${qrCode}`);
-      activeOrder.value = data;
+      Loading.show({ message: 'Carregando O.P...' });
+      
+      const mockData: ProductionOrder = {
+          id: 999,
+          code: qrCode,
+          client: 'Technip Brasil Engenharia',
+          product: 'DEWATERING HOSE SUPPORT',
+          deliveryDate: '15/10/2025',
+          part_name: 'Suporte',
+          part_image_url: '',
+          target_quantity: 50,
+          produced_quantity: 0,
+          scrap_quantity: 0,
+          status: 'PENDING',
+          operations: [],
+          steps: JSON.parse(JSON.stringify(MOCK_OP_STEPS))
+      };
+
+      activeOrder.value = mockData;
+      currentStepIndex.value = 0;
       
       if (currentOperatorBadge.value && machineId.value) {
          await api.post('/production/session/start', {
             machine_id: machineId.value,
             operator_badge: currentOperatorBadge.value,
-            order_code: data.code
+            order_code: qrCode
          });
       }
-      Notify.create({ type: 'positive', message: 'O.P. Iniciada com Sucesso' });
+      Notify.create({ type: 'positive', message: 'O.P. Carregada com Roteiro!' });
     } catch { 
-      Notify.create({ type: 'negative', message: 'O.S. não encontrada.' });
+      Notify.create({ type: 'negative', message: 'Erro ao carregar O.P.' });
     } finally {
       Loading.hide();
+    }
+  }
+
+  function startStep(index: number) {
+    if (activeOrder.value?.steps && activeOrder.value.steps[index]) {
+      activeOrder.value.steps.forEach(s => {
+        if (s.status === 'IN_PROGRESS') s.status = 'PAUSED';
+      });
+      
+      activeOrder.value.steps[index].status = 'IN_PROGRESS';
+      currentStepIndex.value = index;
+      
+      if (currentMachine.value) currentMachine.value.status = 'Em uso';
+      
+      void sendEvent('STEP_START', { step: activeOrder.value.steps[index].name, new_status: 'RUNNING' });
+    }
+  }
+
+  function pauseStep(reason: string) {
+    // Verificação robusta para garantir que activeOrder e steps existem
+    if (activeOrder.value?.steps && currentStepIndex.value > -1) {
+      const step = activeOrder.value.steps[currentStepIndex.value];
+      
+      if (step) {
+        step.status = 'PAUSED';
+        if (currentMachine.value) currentMachine.value.status = 'Parada';
+        
+        // Logs para Debug
+        console.log(`[STORE] Passo pausado: ${step.name}. Motivo: ${reason}`);
+        
+        void sendEvent('STEP_PAUSE', { 
+            step: step.name, 
+            reason: reason, 
+            new_status: 'STOPPED' 
+        });
+      }
+    }
+  }
+
+  function finishStep(index: number) {
+    if (activeOrder.value?.steps && activeOrder.value.steps[index]) {
+      activeOrder.value.steps[index].status = 'COMPLETED';
+      void sendEvent('STEP_COMPLETE', { step: activeOrder.value.steps[index].name });
+
+      const nextIndex = activeOrder.value.steps.findIndex(s => s.status === 'PENDING');
+      
+      if (nextIndex !== -1) {
+          currentStepIndex.value = nextIndex;
+          Notify.create({ type: 'positive', message: 'Etapa concluída! Próxima liberada.' });
+      } else {
+          currentStepIndex.value = -1;
+          if (currentMachine.value) currentMachine.value.status = 'Disponível';
+          Notify.create({ type: 'positive', message: 'Roteiro de Produção Finalizado!' });
+      }
     }
   }
 
@@ -249,10 +413,10 @@ const isMachineBroken = computed(() => {
         machine_id: machineId.value,
         operator_badge: currentOperatorBadge.value
       });
-      Notify.create({ type: 'positive', message: 'O.P. Finalizada! Dados salvos.' });
+      Notify.create({ type: 'positive', message: 'Sessão Finalizada.' });
       activeOrder.value = null;
     } catch { 
-      Notify.create({ type: 'negative', message: 'Erro ao finalizar O.P.' });
+      Notify.create({ type: 'negative', message: 'Erro ao finalizar.' });
     } finally {
       Loading.hide();
     }
@@ -262,57 +426,36 @@ const isMachineBroken = computed(() => {
       if (!machineId.value) return;
       try {
           Loading.show();
-          
-          // --- CORREÇÃO BASEADA NO SEU SCHEMA ---
           const payload = {
               vehicle_id: machineId.value,
-              
-              // Campo obrigatório conforme seu schema
               problem_description: `Abertura via Kiosk: ${notes}`,
-              
-              // Campo obrigatório (Enum). 
-              // Tente 'MECANICA', 'ELETRICA' ou 'OUTROS' (deve ser maiúsculo)
               category: 'Mecânica', 
-              
-              // Opcional, mas vamos garantir
               maintenance_type: 'CORRETIVA'
           };
-
-          // Não enviamos mais 'priority' nem 'status', pois seu Schema não aceita na criação.
           
           await api.post('/maintenance/requests', payload);
           
-          // Atualiza visualmente para 'Em manutenção'
           if(currentMachine.value) currentMachine.value.status = 'Em manutenção';
           
           Notify.create({ 
               type: 'positive', 
               icon: 'build_circle',
-              message: 'Ordem de Manutenção Aberta!',
-              caption: 'A equipe de manutenção foi notificada.' 
+              message: 'Ordem de Manutenção Criada!',
+              caption: 'A equipe foi notificada.' 
           });
       } catch (error: any) { 
           console.error('Erro ao criar O.M.:', error.response?.data);
-          
-          // Tratamento de erro detalhado para você saber o que houve
-          const detail = error.response?.data?.detail;
           let msg = 'Erro ao processar dados.';
-          
+          const detail = error.response?.data?.detail;
           if (Array.isArray(detail)) {
-              // Pega o primeiro erro da lista
               msg = `Campo inválido: ${detail[0]?.loc?.[1]} - ${detail[0]?.msg}`;
-              
-              // Dica específica para erro de categoria
-              if (detail[0]?.loc?.[1] === 'category') {
-                  msg += ' (Verifique se a categoria MECANICA existe no backend)';
-              }
           }
-          
           Notify.create({ type: 'negative', message: msg });
       } finally {
           Loading.hide();
       }
   }
+
   async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
     if (!machineId.value || !currentOperatorBadge.value) return;
     try {
@@ -323,10 +466,6 @@ const isMachineBroken = computed(() => {
         event_type: type,
         ...payload
       });
-      // Atualiza visualmente para garantir
-      if (payload.new_status === 'RUNNING' && currentMachine.value) {
-         currentMachine.value.status = 'Em uso';
-      }
     } catch (e) { console.error('Falha de sync', e); }
   }
 
@@ -353,12 +492,14 @@ const isMachineBroken = computed(() => {
 
   return {
     machinesList, machineId, currentMachine, machineName, machineSector,
-    currentOperatorBadge, activeOrder, machineHistory,
-    isKioskConfigured, isShiftActive, isMachineBroken,
+    currentOperator, currentOperatorBadge, activeOrder, machineHistory,
+    currentStepIndex, currentActiveStep,
+    isKioskConfigured, isShiftActive, isMachineBroken, isRunning, hasActiveOrder,
     loadKioskConfig, _setMachineData, setMachineStatus,
     fetchAvailableMachines, configureKiosk, fetchMachineHistory,
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
-    startProduction, pauseProduction, addProduction, createMaintenanceOrder,
-    sendEvent, triggerAndon 
+    startStep, pauseStep, finishStep, createMaintenanceOrder,
+    sendEvent, triggerAndon,
+    startProduction, pauseProduction, addProduction
   };
 });
