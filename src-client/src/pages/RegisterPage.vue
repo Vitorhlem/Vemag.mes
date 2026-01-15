@@ -13,12 +13,16 @@
           <q-card-section class="text-center q-pb-none">
             <img 
               src="~assets/trucar-logo-white.png" 
-              alt="TruCar Logo" 
+              alt="VEMAG Logo" 
               class="animated-form-element"
               style="height: 40px; margin-bottom: 1rem; animation-delay: 0.1s;"
             >
-            <div class="text-h5 text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">Crie a sua Conta Gratuita</div>
-            <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">Comece a otimizar a sua frota hoje mesmo.</div>
+            <div class="text-h5 text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">
+              Nova Planta Industrial
+            </div>
+            <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">
+              Configure o ambiente da sua fábrica.
+            </div>
           </q-card-section>
           
           <q-stepper
@@ -34,15 +38,15 @@
           >
             <q-step
               :name="1"
-              title="Sua Empresa"
-              icon="business"
+              title="A Empresa"
+              icon="factory"
               :done="step > 1"
             >
               <q-input 
                 dark
                 standout="bg-grey-10"
                 v-model="formData.organization_name" 
-                label="Nome da Empresa *" 
+                label="Nome da Indústria *" 
                 :rules="[val => !!val || 'Campo obrigatório']"
                 class="q-mb-md"
               >
@@ -54,7 +58,7 @@
                 standout="bg-grey-10"
                 v-model="formData.sector"
                 :options="sectorOptions"
-                label="Setor da Empresa *"
+                label="Ramo de Atividade *"
                 emit-value
                 map-options
                 :rules="[val => !!val || 'Selecione um setor']"
@@ -71,16 +75,16 @@
 
             <q-step
               :name="2"
-              title="Seus Dados"
-              icon="account_circle"
+              title="Administrador"
+              icon="admin_panel_settings"
             >
-              <q-input dark standout="bg-grey-10" v-model="formData.full_name" label="Seu Nome Completo *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
+              <q-input dark standout="bg-grey-10" v-model="formData.full_name" label="Nome do Gestor *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
                   <template v-slot:prepend><q-icon name="person" /></template>
               </q-input>
-              <q-input dark standout="bg-grey-10" v-model="formData.email" type="email" label="Seu E-mail *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
+              <q-input dark standout="bg-grey-10" v-model="formData.email" type="email" label="E-mail Corporativo *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
                   <template v-slot:prepend><q-icon name="alternate_email" /></template>
               </q-input>
-              <q-input dark standout="bg-grey-10" v-model="formData.password" type="password" label="Sua Senha *" :rules="[val => !!val || 'Campo obrigatório']">
+              <q-input dark standout="bg-grey-10" v-model="formData.password" type="password" label="Definir Senha *" :rules="[val => !!val || 'Campo obrigatório']">
                   <template v-slot:prepend><q-icon name="lock" /></template>
               </q-input>
               
@@ -97,7 +101,7 @@
                       :loading="isLoading"
                     >
                       <transition name="fade" mode="out-in">
-                        <span v-if="!isLoading && registerStatus === 'idle'">Criar Minha Conta</span>
+                        <span v-if="!isLoading && registerStatus === 'idle'">Inicializar Sistema</span>
                         <q-icon v-else-if="!isLoading && registerStatus === 'success'" name="check" />
                         <q-icon v-else-if="!isLoading && registerStatus === 'error'" name="close" />
                       </transition>
@@ -108,23 +112,23 @@
           </q-stepper>
           
             <div class="text-center q-mt-md animated-form-element" style="animation-delay: 0.5s;">
-               <span>Já tem uma conta? <q-btn to="/auth/login" label="Faça o login" flat no-caps dense class="text-primary text-weight-bold"/></span>
+               <span>Empresa já cadastrada? <q-btn to="/auth/login" label="Acessar" flat no-caps dense class="text-primary text-weight-bold"/></span>
             </div>
 
             <q-separator dark class="q-my-lg animated-form-element" style="animation-delay: 0.6s;" />
 
             <div class="security-seals text-center animated-form-element" style="animation-delay: 0.7s;">
               <div class="seal-item">
-                <q-icon name="verified_user" color="positive" />
-                <span>SSL Criptografado</span>
+                <q-icon name="cloud_done" color="positive" />
+                <span>Cloud Native</span>
               </div>
               <div class="seal-item">
                 <q-icon name="lock" color="positive" />
-                <span>LGPD Compliant</span>
+                <span>Indústria 4.0</span>
               </div>
               <div class="seal-item">
                 <q-icon name="shield" color="positive" />
-                <span>Dados Seguros</span>
+                <span>Enterprise</span>
               </div>
             </div>
 
@@ -137,27 +141,27 @@
         <div class="image-strip" :style="{ backgroundImage: `url(${visual3})` }"></div>
         <div class="image-strip" :style="{ backgroundImage: `url(${visual4})` }"></div>
         <div class="visual-content text-white">
-            <h2 class="text-h2 text-weight-bolder">TruCar</h2>
-            <h5 class="text-h5 text-weight-light q-mb-xl">A solução completa para a sua frota, seja qual for o seu setor.</h5>
+            <h2 class="text-h2 text-weight-bolder">VEMAG</h2>
+            <h5 class="text-h5 text-weight-light q-mb-xl">Gestão inteligente para o chão de fábrica.</h5>
 
             <q-list dark separator class="benefits-list">
               <q-item>
                 <q-item-section avatar>
-                  <q-icon color="white" name="check_circle" />
+                  <q-icon color="white" name="settings_suggest" />
                 </q-item-section>
-                <q-item-section>Reduza custos com combustível e manutenção.</q-item-section>
+                <q-item-section>Controle total de Ordens de Produção (O.P.).</q-item-section>
               </q-item>
               <q-item>
                 <q-item-section avatar>
-                  <q-icon color="white" name="check_circle" />
+                  <q-icon color="white" name="build_circle" />
                 </q-item-section>
-                <q-item-section>Aumente a produtividade da sua equipa em campo.</q-item-section>
+                <q-item-section>Gestão de Manutenção Corretiva e Preventiva.</q-item-section>
               </q-item>
               <q-item>
                 <q-item-section avatar>
-                  <q-icon color="white" name="check_circle" />
+                  <q-icon color="white" name="insights" />
                 </q-item-section>
-                <q-item-section>Tome decisões mais inteligentes com dados em tempo real.</q-item-section>
+                <q-item-section>Monitore OEE e eficiência em tempo real.</q-item-section>
               </q-item>
             </q-list>
         </div>
@@ -174,13 +178,13 @@ import { api } from 'boot/axios';
 import axios from 'axios';
 import type { UserRegister, UserSector } from 'src/models/auth-models';
 
+// Assets visuais (mantenha os nomes, só mudamos o contexto do texto)
 import visual1 from 'assets/register-visual-1.jpg';
 import visual2 from 'assets/register-visual-2.jpg';
 import visual3 from 'assets/register-visual-3.jpg';
 import visual4 from 'assets/register-visual-4.jpg';
 
 const formPanel = ref<HTMLElement | null>(null);
-// CORREÇÃO 1: Tipo 'any' para acomodar o componente QCard
 const registerCard = ref<ComponentPublicInstance | null>(null);
 const router = useRouter();
 const $q = useQuasar();
@@ -192,7 +196,7 @@ const stepper = ref<QStepper | null>(null);
 
 const formData = ref<UserRegister>({
   organization_name: '',
-  sector: null,
+  sector: 'servicos', // Default já setado para o novo setor
   full_name: '',
   email: '',
   password: '',
@@ -204,21 +208,15 @@ const getButtonColor = computed(() => {
   return 'primary';
 });
 
+// AQUI ESTÁ A MUDANÇA PRINCIPAL:
+// Apenas "Indústria Metalúrgica" aparece, mas o valor enviado é 'servicos'
+// para compatibilidade com o Enum do Backend.
 const sectorOptions: { label: string, value: UserSector }[] = [
-  { label: 'Agronegócio', value: 'agronegocio' },
-  { label: 'Construção Civil', value: 'construcao_civil' },
-  { label: 'Prestadores de Serviço', value: 'servicos' },
-  { label: 'Fretes', value: 'frete' },
+  { label: 'Indústria Metalúrgica', value: 'servicos' }, 
 ];
 
 const sectorIcon = computed(() => {
-  switch (formData.value.sector) {
-    case 'agronegocio': return 'agriculture';
-    case 'construcao_civil': return 'engineering';
-    case 'servicos': return 'people';
-    case 'frete': return 'local_shipping';
-    default: return 'category';
-  }
+  return 'precision_manufacturing'; // Ícone fixo de indústria
 });
 
 async function onSubmit() {
@@ -233,7 +231,7 @@ async function onSubmit() {
     
     $q.notify({
       type: 'positive',
-      message: 'Conta criada com sucesso! Redirecionando para o login...',
+      message: 'Ambiente industrial configurado! Redirecionando...',
     });
     
     setTimeout(() => {
@@ -255,14 +253,12 @@ async function onSubmit() {
 }
 
 function handleMouseMove(event: MouseEvent) {
-  // CORREÇÃO 2: Verificamos registerCard.value.$el
   if (registerCard.value && registerCard.value.$el) {
     const cardEl = registerCard.value.$el as HTMLElement;
     const rect = cardEl.getBoundingClientRect();
     const shineX = event.clientX - rect.left;
     const shineY = event.clientY - rect.top;
     
-    // Usamos cardEl.style em vez de registerCard.value.style
     cardEl.style.setProperty('--shine-x', `${shineX}px`);
     cardEl.style.setProperty('--shine-y', `${shineY}px`);
     cardEl.style.setProperty('--shine-opacity', '1');
@@ -270,7 +266,6 @@ function handleMouseMove(event: MouseEvent) {
 }
 
 function handleMouseLeave() {
-  // CORREÇÃO 3: Acesso correto ao estilo
   if (registerCard.value && registerCard.value.$el) {
     const cardEl = registerCard.value.$el as HTMLElement;
     cardEl.style.setProperty('--shine-opacity', '0');
@@ -286,7 +281,7 @@ function handleMouseLeave() {
 .register-card {
   width: 500px;
   max-width: 90vw;
-  background: rgba(18, 23, 38, 0.5);
+  background: rgba(18, 23, 38, 0.6);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
@@ -350,7 +345,7 @@ function handleMouseLeave() {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.6); /* Mais escuro para contraste */
     z-index: 2;
     transition: background-color 0.4s ease;
   }
@@ -366,7 +361,7 @@ function handleMouseLeave() {
   background-size: cover;
   background-position: center;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  filter: grayscale(50%);
+  filter: grayscale(60%);
 }
 
 .register-visual-container:hover .image-strip {
@@ -400,7 +395,7 @@ function handleMouseLeave() {
 .security-seals {
   display: flex;
   justify-content: space-around;
-  color: $positive;
+  color: #21BA45; /* $positive no SCSS do Quasar */
   font-size: 0.8rem;
   font-weight: 500;
   opacity: 0.9;

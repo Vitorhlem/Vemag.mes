@@ -16,12 +16,16 @@
         <q-card-section class="text-center q-pb-none">
           <img
             src="~assets/trucar-logo-white.png"
-            alt="TruCar Logo"
+            alt="VEMAG Logo"
             class="animated-form-element"
             style="width: 120px; height: auto; margin-bottom: 16px; animation-delay: 0.1s;"
           >
-          <div class="text-h5 q-mt-sm text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">Bem-vindo ao Controlo</div>
-          <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">Acesse a sua central de operações.</div>
+          <div class="text-h5 q-mt-sm text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">
+            TruMachine
+          </div>
+          <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">
+            Acesse o controlo de produção.
+          </div>
         </q-card-section>
 
         <q-card-section class="q-pt-lg">
@@ -30,12 +34,12 @@
               dark
               standout="bg-grey-10 text-white"
               v-model="email"
-              label="E-mail ou ID de Utilizador"
+              label="E-mail ou ID de Operador"
               :rules="[val => !!val || 'Campo obrigatório']"
               class="animated-form-element"
               style="animation-delay: 0.4s;"
             >
-              <template v-slot:prepend><q-icon name="alternate_email" /></template>
+              <template v-slot:prepend><q-icon name="precision_manufacturing" /></template>
             </q-input>
 
             <q-input
@@ -59,9 +63,9 @@
             </q-input>
 
             <div class="row items-center justify-between text-grey-5 animated-form-element" style="animation-delay: 0.6s;">
-              <q-checkbox v-model="rememberMe" label="Lembrar-me" size="sm" dark />
+              <q-checkbox v-model="rememberMe" label="Manter conectado" size="sm" dark />
               <q-btn
-                label="Esqueceu a senha?"
+                label="Suporte TI"
                 flat
                 no-caps
                 size="sm"
@@ -80,7 +84,7 @@
                 size="lg"
               >
                 <transition name="fade" mode="out-in">
-                  <span v-if="!isLoading && loginStatus === 'idle'">Acessar Plataforma</span>
+                  <span v-if="!isLoading && loginStatus === 'idle'">Entrar no Sistema</span>
                   <q-icon v-else-if="!isLoading && loginStatus === 'success'" name="check" />
                   <q-icon v-else-if="!isLoading && loginStatus === 'error'" name="close" />
                 </transition>
@@ -91,7 +95,7 @@
         
         <q-card-section class="text-center animated-form-element" style="animation-delay: 0.8s;">
            <q-separator dark class="q-mb-md" />
-           <span>Não tem uma conta? <q-btn to="/auth/register" label="Registre-se" flat no-caps dense class="text-primary text-weight-bold"/></span>
+           <span>Novo na fábrica? <q-btn to="/auth/register" label="Cadastrar Empresa" flat no-caps dense class="text-primary text-weight-bold"/></span>
         </q-card-section>
       </q-card>
     </div>
@@ -138,7 +142,7 @@ async function handleLogin() {
   } catch {
     loginStatus.value = 'error';
     isLoading.value = false;
-    $q.notify({ color: 'negative', icon: 'error', message: 'E-mail ou senha inválidos.' });
+    $q.notify({ color: 'negative', icon: 'error', message: 'Credenciais inválidas.' });
     setTimeout(() => {
       loginStatus.value = 'idle';
     }, 2000);
@@ -167,8 +171,6 @@ function handleMouseMove(event: MouseEvent) {
     cardEl.style.setProperty('--shine-y', `${shineY}px`);
     cardEl.style.setProperty('--shine-opacity', '1');
   }
-  
-  // REMOVIDO: Lógica que movia o backgroundVideo
 }
 
 function handleMouseLeave() {
@@ -177,7 +179,6 @@ function handleMouseLeave() {
     cardEl.style.transform = 'rotateX(0deg) rotateY(0deg)';
     cardEl.style.setProperty('--shine-opacity', '0');
   }
-  // REMOVIDO: Lógica que resetava o backgroundVideo
 }
 </script>
 
@@ -199,7 +200,6 @@ function handleMouseLeave() {
   width: auto;
   height: auto;
   z-index: 1;
-  /* CSS garante a centralização. Não mexemos mais nisso via JS */
   transform: translateX(-50%) translateY(-50%) scale(1.1);
   transition: transform 0.3s ease-out;
 }
@@ -222,7 +222,7 @@ function handleMouseLeave() {
 .login-card {
   width: 420px;
   max-width: 90vw;
-  background: rgba(18, 23, 38, 0.5);
+  background: rgba(18, 23, 38, 0.6); /* Um pouco mais escuro para indústria */
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;

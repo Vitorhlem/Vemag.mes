@@ -58,6 +58,7 @@ class SessionStopSchema(BaseModel):
     operator_badge: str
 
 class EmployeeStatsRead(BaseModel):
+    id: int
     employee_name: str
     total_hours: float
     productive_hours: float

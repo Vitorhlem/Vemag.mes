@@ -263,56 +263,7 @@
               </q-form>
             </q-tab-panel>
 
-            <q-tab-panel name="integrations" class="q-pa-lg" v-if="authStore.isManager">
-              <div class="text-h6 q-mb-xs">Integrações</div>
-              <p class="text-grey-6 q-mb-lg">Conecte o TruCar a serviços externos.</p>
-
-              <div class="row q-col-gutter-lg">
-                <div class="col-12 col-md-6">
-                  <q-card flat bordered class="full-height">
-                    <q-card-section>
-                      <div class="row items-center no-wrap">
-                        <q-avatar color="deep-orange-1" text-color="deep-orange" icon="local_gas_station" />
-                        <div class="q-ml-md">
-                          <div class="text-subtitle1 text-weight-bold">Cartão de Combustível</div>
-                          <div class="text-caption text-grey">Ticket Log, Alelo, Sodexo</div>
-                        </div>
-                      </div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                      <q-form @submit.prevent="handleUpdateIntegration" class="q-gutter-y-sm">
-                        <q-select outlined dense v-model="integrationForm.fuel_provider_name" :options="['Ticket Log', 'Alelo Frota', 'Sodexo Wizeo']" label="Provedor" />
-                        <q-input outlined dense v-model="integrationForm.fuel_provider_api_key" label="API Key" type="password" />
-                        <q-input outlined dense v-model="integrationForm.fuel_provider_api_secret" label="API Secret" type="password" />
-                        <q-btn type="submit" label="Conectar" color="deep-orange" unelevated class="full-width q-mt-sm" :loading="settingsStore.isLoadingFuelSettings" />
-                      </q-form>
-                    </q-card-section>
-                  </q-card>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <q-card flat bordered class="full-height ">
-                    <q-card-section>
-                      <div class="row items-center no-wrap">
-                        <q-avatar color="grey-3" text-color="grey-6" icon="satellite_alt" />
-                        <div class="q-ml-md">
-                          <div class="text-subtitle1 text-weight-bold text-grey-7">Rastreadores & GPS</div>
-                          <div class="text-caption text-grey">Omnilink, Sascar, Cobli</div>
-                        </div>
-                        <q-space />
-                        <q-chip dense color="grey-4" label="Em Breve" />
-                      </div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section class="text-center q-py-lg">
-                      <p class="text-grey-6 text-caption">Importação automática de odômetro e rotas via API de telemetria.</p>
-                      <q-btn label="Tenho Interesse" outline color="grey-6" size="sm" />
-                    </q-card-section>
-                  </q-card>
-                </div>
-              </div>
-            </q-tab-panel>
+           
 
           </q-tab-panels>
         </q-card>
@@ -544,10 +495,6 @@ watch(() => settingsStore.fuelIntegrationSettings, (newSettings) => {
   }
 }, { immediate: true });
 
-async function handleUpdateIntegration() {
-  await settingsStore.updateFuelIntegrationSettings(integrationForm.value);
-}
-
 // --- TABS ---
 const visibleTabs = computed(() => {
   const tabs = [
@@ -558,7 +505,6 @@ const visibleTabs = computed(() => {
   if (authStore.isManager) {
     tabs.push(
       { name: 'organization', label: 'Organização', caption: 'Dados e Plano', icon: 'business' },
-      { name: 'integrations', label: 'Integrações', caption: 'Combustível e GPS', icon: 'hub' }
     );
   }
   return tabs;

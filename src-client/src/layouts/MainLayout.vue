@@ -1,60 +1,56 @@
 <template>
-  <q-layout view="lHh LpR lFf" class="main-layout-container">
+  <q-layout view="lHh LpR lFf" class="main-layout-container font-inter">
     
     <q-drawer
       v-model="leftDrawerOpen"
       show-if-above
       bordered
-      class="app-sidebar"
       :width="260"
       :breakpoint="700"
+      class="bg-surface border-r-light"
     >
       <q-scroll-area class="fit">
-        <div class="q-pa-md row items-center justify-center sidebar-header" style="height: 80px;">
-          <img src="~assets/trucar-logo-dark.png" class="logo-light-theme" style="height: 32px; max-width: 100%;" alt="Logo">
-          <img src="~assets/trucar-logo-white.png" class="logo-dark-theme" style="height: 32px; max-width: 100%;" alt="Logo">
+        <div class="q-pa-md row items-center justify-center" style="height: 80px;">
+          <img src="~assets/trucar-logo-dark.png" class="logo-light" style="height: 55px; max-width: 100%; transition: all 0.3s;" alt="Vemag Logo">
+          <img src="~assets/trucar-logo-white.png" class="logo-dark" style="height: 50px; max-width: 100%; display: none; transition: all 0.3s;" alt="Vemag Logo">
         </div>
         
-        <q-separator class="q-mb-md q-mx-md" />
+        <q-separator class="q-mx-md q-mb-md opacity-20" />
 
-        <q-list padding class="q-px-sm">
+        <q-list padding class="text-grey-8">
           <template v-for="category in menuStructure" :key="category.label">
             
-            <q-expansion-item
-              v-if="category.children.length > 0"
-              :icon="category.icon"
-              :label="category.label"
-              expand-separator
-              default-opened
-              header-class="text-weight-medium text-grey-8 nav-header"
-              class="q-mb-sm overflow-hidden rounded-borders"
-            >
-              <q-item
-                v-for="link in category.children"
-                :key="link.title"
-                clickable
-                :to="link.to"
-                exact
-                v-ripple
-                class="nav-link"
-                active-class="nav-link--active"
-              >
-                <q-item-section avatar style="min-width: 40px;">
-                  <q-icon :name="link.icon" size="20px" />
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label>{{ link.title }}</q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-expansion-item>
+            <q-item-label header class="text-weight-bold text-uppercase text-caption text-grey-6 q-pt-md">
+              {{ category.label }}
+            </q-item-label>
 
+            <q-item
+              v-for="link in category.children"
+              :key="link.title"
+              clickable
+              :to="link.to"
+              exact
+              v-ripple
+              class="q-mx-sm q-mb-xs rounded-borders navigation-item"
+              active-class="active-item shadow-1"
+            >
+              <q-item-section avatar style="min-width: 40px;">
+                <q-icon :name="link.icon" size="22px" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-medium">{{ link.title }}</q-item-label>
+              </q-item-section>
+            </q-item>
+
+            <q-separator v-if="category.separator" class="q-my-sm q-mx-lg opacity-20" />
           </template>
 
-          <div v-if="authStore.isSuperuser">
-            <q-separator class="q-my-md" />
-            <div class="text-caption text-grey-6 q-px-md q-mb-sm text-uppercase text-weight-bold">Sistema</div>
-            <q-item clickable to="/admin" exact v-ripple class="nav-link" active-class="nav-link--active">
-              <q-item-section avatar><q-icon name="admin_panel_settings" /></q-item-section>
+          <div v-if="authStore.isSuperuser" class="q-mt-md">
+            <q-item-label header class="text-weight-bold text-uppercase text-caption text-negative">
+              Zona de Perigo
+            </q-item-label>
+            <q-item clickable to="/admin" exact v-ripple class="q-mx-sm rounded-borders navigation-item">
+              <q-item-section avatar><q-icon name="admin_panel_settings" color="negative" /></q-item-section>
               <q-item-section>
                 <q-item-label>Painel Admin</q-item-label>
                 <q-item-label caption>Configuração SAP</q-item-label>
@@ -65,85 +61,102 @@
       </q-scroll-area>
     </q-drawer>
 
-    <q-header bordered class="main-header">
+    <q-header bordered class="bg-surface text-primary-text header-blur">
       <q-toolbar style="height: 64px;">
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" class="lt-md text-grey-8" />
         
-        <q-toolbar-title class="lt-md text-grey-8 text-weight-bold">
-          Gestão Manutenção
-        </q-toolbar-title>
+        <div class="row items-center q-ml-sm">
+          <q-icon name="factory" class="text-primary q-mr-sm" size="24px" />
+          <q-toolbar-title class="text-weight-bold text-grey-9 gt-xs" style="font-size: 1.1rem; letter-spacing: -0.5px;">
+            VEMAG <span class="text-weight-regular text-grey-6">Smart Factory</span>
+          </q-toolbar-title>
+        </div>
 
         <q-space />
 
         <div class="row q-gutter-sm items-center">
-          <q-btn flat round dense icon="settings" to="/settings" class="text-grey-7">
-            <q-tooltip>Configurações</q-tooltip>
-          </q-btn>
           
-          <q-btn v-if="authStore.isManager" flat round dense icon="notifications" class="text-grey-7 q-mr-sm">
-            <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded>{{ notificationStore.unreadCount }}</q-badge>
-            <q-menu @show="notificationStore.fetchNotifications()" fit anchor="bottom left" self="top right" :offset="[0, 10]" style="width: 350px; max-width: 90vw;">
-              <div class="row no-wrap items-center q-pa-md  bb-1">
-                <div class="text-subtitle1 text-weight-bold">Alertas da Fábrica</div>
+          <q-btn v-if="authStore.isManager" flat round dense icon="notifications_none" class="text-grey-7 relative-position">
+            <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini />
+            <q-menu @show="notificationStore.fetchNotifications()" fit anchor="bottom right" self="top right" :offset="[0, 10]" style="width: 350px; max-width: 90vw;">
+              <div class="row no-wrap items-center q-pa-md bg-grey-1 border-bottom">
+                <div class="text-subtitle2 text-weight-bold">Alertas da Fábrica</div>
                 <q-space />
-                <q-spinner v-if="notificationStore.isLoading" color="primary" size="1.2em" />
+                <q-spinner v-if="notificationStore.isLoading" color="primary" size="1em" />
               </div>
               <q-scroll-area style="height: 300px;">
-                 <q-list separator class="q-pa-none">
-                    <q-item v-for="notification in notificationStore.notifications" :key="notification.id" clickable v-ripple class="q-py-md" @click="handleNotificationClick(notification)">
+                 <q-list separator>
+                    <q-item v-for="notification in notificationStore.notifications" :key="notification.id" clickable v-ripple @click="handleNotificationClick(notification)">
                       <q-item-section avatar>
-                        <q-avatar icon="warning" color="warning" text-color="white" size="md" />
+                        <q-avatar icon="priority_high" color="orange-1" text-color="orange-9" size="md" />
                       </q-item-section>
                       <q-item-section>
-                        <q-item-label class="text-body2">{{ notification.message }}</q-item-label>
-                        <q-item-label caption class="q-mt-xs text-grey-6">{{ formatNotificationDate(notification.created_at) }}</q-item-label>
+                        <q-item-label class="text-caption text-weight-medium">{{ notification.message }}</q-item-label>
+                        <q-item-label caption class="text-grey-5" style="font-size: 0.7rem;">{{ formatNotificationDate(notification.created_at) }}</q-item-label>
                       </q-item-section>
                     </q-item>
+                    <div v-if="notificationStore.notifications.length === 0" class="text-center q-pa-lg text-grey-5">
+                      <q-icon name="check_circle" size="md" class="q-mb-sm" />
+                      <div>Tudo operando normalmente.</div>
+                    </div>
                  </q-list>
               </q-scroll-area>
             </q-menu>
           </q-btn>
 
-          <q-btn-dropdown flat no-caps class="text-grey-8 profile-btn" content-class="profile-menu">
-          <template v-slot:label>
-            <div class="row items-center no-wrap">
-              <q-avatar size="36px" class="shadow-1">
-                <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
-              </q-avatar>
-              <div class="text-left gt-xs q-ml-sm">
-                <div class="text-weight-bold" style="line-height: 1.1;">{{ firstName(authStore.user?.full_name) }}</div>
-                <div class="text-caption text-grey-6" style="line-height: 1;">{{ roleLabel }}</div>
+          <q-btn-dropdown flat no-caps class="text-grey-8 profile-btn q-ml-sm" content-class="profile-menu shadow-10">
+            <template v-slot:label>
+              <div class="row items-center no-wrap">
+                <q-avatar size="36px" class="shadow-2 border-primary">
+                  <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
+                </q-avatar>
+                <div class="text-left gt-xs q-ml-sm">
+                  <div class="text-weight-bold text-body2" style="line-height: 1.1;">{{ firstName(authStore.user?.full_name) }}</div>
+                  <div class="text-caption text-primary" style="line-height: 1; font-size: 0.7rem;">{{ roleLabel }}</div>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-            <div class="row no-wrap q-pa-md">
-              <div class="column">
-                <div class="text-h6 q-mb-xs">Perfil</div>
+            <div class="row no-wrap q-pa-md" style="min-width: 280px;">
+              
+              <div class="column q-mr-md" style="flex: 1;">
+                <div class="text-overline text-grey-6 q-mb-xs">Personalização</div>
+                
+                <div class="q-mb-md">
+                  <div class="text-caption text-grey-8 q-mb-sm">Cor do Tema:</div>
+                  <div class="row q-gutter-xs">
+                    <q-btn round size="xs" color="blue-10" @click="changeTheme('#154ec1')" /> <q-btn round size="xs" color="grey-9" @click="changeTheme('#263238')" /> <q-btn round size="xs" color="red-9" @click="changeTheme('#c62828')" /> <q-btn round size="xs" color="teal-9" @click="changeTheme('#00695c')" /> <q-btn round size="xs" icon="colorize" flat class="text-grey-6">
+                      <q-popup-proxy>
+<q-color v-model="customColor" @update:model-value="(val) => val && changeTheme(val)" no-header no-footer default-view="palette" />                      </q-popup-proxy>
+                    </q-btn>
+                  </div>
+                </div>
+
+                <q-separator class="q-mb-md" />
+                
                 <q-list dense>
                   <q-item clickable v-close-popup to="/settings">
-                    <q-item-section avatar style="min-width: 30px;"><q-icon name="settings" size="xs" /></q-item-section>
-                    <q-item-section>Configurações</q-item-section>
+                    <q-item-section avatar style="min-width: 20px;"><q-icon name="settings" size="xs" /></q-item-section>
+                    <q-item-section>Ajustes do Sistema</q-item-section>
                   </q-item>
                 </q-list>
               </div>
 
-              <q-separator vertical inset class="q-mx-lg" />
+              <q-separator vertical inset />
 
-              <div class="column items-center justify-center">
-              <q-avatar size="72px" class="q-mb-sm">
-                  <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
-              </q-avatar>
-              <div class="text-subtitle1 q-mt-sm text-center">{{ authStore.user?.full_name }}</div>
-              <q-btn color="primary" label="Sair" push size="sm" v-close-popup @click="handleLogout" />
+              <div class="column items-center justify-center q-ml-md" style="width: 100px;">
+                <q-avatar size="64px" class="q-mb-sm shadow-2">
+                    <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
+                </q-avatar>
+                <q-btn outline color="primary" label="Sair" size="sm" class="full-width" v-close-popup @click="handleLogout" />
+              </div>
             </div>
-          </div>
-        </q-btn-dropdown>
-      </div>
-    </q-toolbar>
+          </q-btn-dropdown>
+        </div>
+      </q-toolbar>
     </q-header>
 
-    <q-page-container class="app-page-container">
+    <q-page-container class="app-page-container bg-grey-1">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -156,18 +169,26 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { setCssVar } from 'quasar';
 import { useAuthStore } from 'stores/auth-store';
 import { useNotificationStore } from 'stores/notification-store';
-import { useTerminologyStore } from 'stores/terminology-store';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import defaultAvatar from 'assets/default-avatar.png';
 
 const leftDrawerOpen = ref(false);
+const customColor = ref('#154ec1'); // Cor Inicial (Azul Vemag)
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
-const terminologyStore = useTerminologyStore();
+
+// --- Lógica de Tema ---
+function changeTheme(color: string) {
+  customColor.value = color;
+  setCssVar('primary', color);
+  // Ajusta cor secundária para uma variação mais clara
+  setCssVar('secondary', color); 
+}
 
 function toggleLeftDrawer() { leftDrawerOpen.value = !leftDrawerOpen.value; }
 
@@ -189,8 +210,8 @@ function firstName(name: string | undefined) {
 }
 
 const roleLabel = computed(() => {
-    if (authStore.isManager) return 'Gerente de Planta';
-    if (authStore.isDriver) return 'Operador/Técnico';
+    if (authStore.isManager) return 'Gestor Industrial';
+    if (authStore.isDriver) return 'Técnico Operacional';
     if (authStore.isSuperuser) return 'Engenheiro Chefe';
     return 'Colaborador';
 });
@@ -205,31 +226,31 @@ async function handleNotificationClick(notification: any) {
   void router.push('/maintenance'); 
 }
 
-// --- Definição do Menu Industrial ---
+// --- Definição do Menu Industrial (Vemag) ---
+interface MenuItem { title: string; icon: string; to: string; }
+interface MenuCategory { label: string; icon?: string; children: MenuItem[]; separator?: boolean; }
+
 const menuStructure = computed(() => {
     if (authStore.isManager) return getManagerMenu();
     if (authStore.isDriver) return getOperatorMenu();
     return [];
 });
 
-interface MenuItem { title: string; icon: string; to: string; }
-interface MenuCategory { label: string; icon: string; children: MenuItem[]; }
-
 function getOperatorMenu(): MenuCategory[] {
     return [
         {
-            label: 'Chão de Fábrica', icon: 'factory',
+            label: 'Operacional',
             children: [
-                { title: 'Painel do Operador', icon: 'precision_manufacturing', to: '/dashboard' },
-                { title: 'Minhas Ordens', icon: 'assignment', to: '/journeys' },
-                { title: 'Apontar Horas', icon: 'timer', to: '/driver-cockpit' }
+                { title: 'Chão de Fábrica', icon: 'precision_manufacturing', to: '/dashboard' },
+                { title: 'Minhas O.P.s', icon: 'assignment', to: '/journeys' },
+                { title: 'Apontamento', icon: 'timer', to: '/driver-cockpit' }
             ]
         },
         {
-            label: 'Manutenção', icon: 'build',
+            label: 'Suporte',
             children: [
-                { title: 'Solicitar Reparo', icon: 'report_problem', to: '/maintenance' },
-                { title: 'Histórico', icon: 'history', to: '/vehicles' }
+                { title: 'Abrir Chamado', icon: 'build', to: '/maintenance' },
+                { title: 'Minhas Máquinas', icon: 'dns', to: '/vehicles' }
             ]
         }
     ];
@@ -240,41 +261,40 @@ function getManagerMenu(): MenuCategory[] {
 
   // 1. Visão Geral
   menu.push({
-    label: 'Supervisão', icon: 'monitor_heart',
+    label: 'Visão Geral', 
     children: [
-      { title: 'Dashboard Geral', icon: 'analytics', to: '/dashboard' },
-      { title: 'Colaboradores', icon: 'people', to: '/employees' }, 
+      { title: 'Dashboard da Planta', icon: 'analytics', to: '/dashboard' },
+      { title: 'Equipe Técnica', icon: 'groups', to: '/employees' }, 
     ]
   });
 
   // 2. Gestão de Ativos
   menu.push({ 
-      label: 'Ativos Industriais', icon: 'precision_manufacturing', 
+      label: 'Ativos & Recursos', 
       children: [
-
-        { title: terminologyStore.vehiclePageTitle, icon: 'settings_suggest', to: '/vehicles' },
-        { title: 'Inventário de Peças', icon: 'inventory', to: '/parts' },
-        { title: 'Ferramentas', icon: 'handyman', to: '/implements' }
+        { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/vehicles' },
+        { title: 'Almoxarifado (Peças)', icon: 'inventory_2', to: '/parts' },
+        { title: 'Ferramental', icon: 'handyman', to: '/implements' }
       ] 
   });
 
   // 3. Manutenção e Ordens
   menu.push({
-      label: 'Planejamento (PCP)', icon: 'calendar_month',
+      label: 'PCP & Manutenção', 
       children: [
-          { title: 'Ordens de Manutenção', icon: 'build_circle', to: '/maintenance' },
-          { title: 'Ordens de Produção', icon: 'fact_check', to: '/journeys' },
+          { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
+          { title: 'Roteiros de Produção', icon: 'fact_check', to: '/journeys' },
       ]
   });
 
-  // 4. Custos e Pessoas
+  // 4. Gestão
   menu.push({
-      label: 'Gestão', icon: 'manage_accounts',
+      label: 'Gestão Financeira',
       children: [
-          { title: 'Rastreabilidade', icon: 'arrow_upward', to: '/inventory-items' },
-          { title: 'Custos de Manutenção', icon: 'attach_money', to: '/costs' },
-          { title: 'Técnicos/Operadores', icon: 'engineering', to: '/users' },
-          { title: 'Integração SAP', icon: 'sync_alt', to: '/audit-logs' } 
+          { title: 'Custos Operacionais', icon: 'monetization_on', to: '/costs' },
+          { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' },
+          { title: 'Usuários do Sistema', icon: 'manage_accounts', to: '/users' },
+          { title: 'Auditoria SAP', icon: 'history_edu', to: '/audit-logs' } 
       ]
   });
 
@@ -282,6 +302,9 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 onMounted(() => {
+  // Define cor inicial padrão (Vemag Blue)
+  setCssVar('primary', '#154ec1');
+  
   if (authStore.isManager) {
     void notificationStore.fetchUnreadCount();
   }
@@ -289,18 +312,65 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.main-layout-container {
-  background-color: #f8fafc;
-  .body--dark & { background-color: #0f172a; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
 }
-.app-sidebar {
-  background-color: white;
-  .nav-link {
-    color: #475569; margin: 4px 8px; border-radius: 8px;
-    &--active { background-color: #eff6ff; color: $primary; font-weight: 600; }
-    &:hover:not(.nav-link--active) { background-color: #f1f5f9; }
+
+/* Background suave */
+.bg-surface { background-color: #ffffff; }
+.bg-grey-1 { background-color: #f8fafc; }
+
+/* Dark Mode Automático para componentes */
+.body--dark {
+  .bg-surface { background-color: #1e293b; border-color: #334155; }
+  .text-primary-text { color: #f1f5f9; }
+  .logo-light { display: none; }
+  .logo-dark { display: block !important; }
+  .bg-grey-1 { background-color: #0f172a; }
+  
+  .navigation-item {
+    color: #94a3b8;
+    &:hover { background-color: rgba(255,255,255,0.05); color: #f1f5f9; }
+  }
+  .active-item { background-color: rgba(var(--q-primary), 0.2); color: var(--q-primary); }
+}
+
+/* Sidebar Styling */
+.navigation-item {
+  color: #475569;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: #f1f5f9;
+    color: #1e293b;
   }
 }
-.body--dark .app-sidebar { background-color: #1e293b; color: #cbd5e1; }
-.main-header { background-color: white; border-bottom: 1px solid #e2e8f0; }
+
+.active-item {
+  background-color: #eff6ff; /* Azul bem claro */
+  color: var(--q-primary);
+  font-weight: 600;
+  
+  .q-icon {
+    color: var(--q-primary);
+  }
+}
+
+/* Header Styling */
+.header-blur {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.border-primary {
+  border: 2px solid var(--q-primary);
+}
+
+/* Transições */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

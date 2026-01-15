@@ -410,29 +410,42 @@ async def stop_session(
 async def get_employee_stats(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    db: AsyncSession = Depends(deps.get_db)
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
 ):
     if not start_date: start_date = date.today().replace(day=1)
     if not end_date: end_date = date.today()
     dt_start = datetime.combine(start_date, time.min)
     dt_end = datetime.combine(end_date, time.max)
 
-    users = (await db.execute(select(User))).scalars().all()
+    # CORREÇÃO DEFINITIVA: Remove o filtro de ROLE para garantir que liste qualquer um
+    # Mantém apenas filtro por Organização por segurança
+    query_users = select(User).where(User.organization_id == current_user.organization_id)
+    users = (await db.execute(query_users)).scalars().all()
+    
+    print(f"[DEBUG] get_employee_stats: Encontrados {len(users)} usuários na org {current_user.organization_id}")
+
     stats_list = []
 
     for user in users:
-        query = select(ProductionSession).where(
+        # Busca Sessões
+        q_sess = select(ProductionSession).where(
             ProductionSession.user_id == user.id,
             ProductionSession.start_time <= dt_end,
             (ProductionSession.end_time >= dt_start) | (ProductionSession.end_time == None)
         )
-        sessions = (await db.execute(query)).scalars().all()
+        sessions = (await db.execute(q_sess)).scalars().all()
 
         if not sessions:
+            # Retorna mesmo sem sessão, para preencher a lista
             stats_list.append({
+                "id": user.id, # ID é vital
                 "employee_name": user.full_name or user.email,
-                "total_hours": 0, "productive_hours": 0, "unproductive_hours": 0,
-                "efficiency": 0, "top_reasons": []
+                "total_hours": 0, 
+                "productive_hours": 0, 
+                "unproductive_hours": 0,
+                "efficiency": 0, 
+                "top_reasons": []
             })
             continue
 
@@ -451,8 +464,8 @@ async def get_employee_stats(
         reason_q = select(
             ProductionLog.reason, 
             func.count(ProductionLog.id).label('count')
-        ).join(ProductionSession).where(
-            ProductionSession.user_id == user.id,
+        ).where(
+            ProductionLog.operator_id == user.id,
             ProductionLog.new_status.in_(['STOPPED', 'MAINTENANCE', 'SETUP']),
             ProductionLog.timestamp.between(dt_start, dt_end)
         ).group_by(ProductionLog.reason).order_by(desc('count')).limit(3)
@@ -461,6 +474,7 @@ async def get_employee_stats(
         top_reasons = [{"label": r.reason or "Não Inf.", "count": r.count} for r in reasons_res]
 
         stats_list.append({
+            "id": user.id, 
             "employee_name": user.full_name or user.email,
             "total_hours": round(total_sec / 3600, 2),
             "productive_hours": round(prod_sec / 3600, 2),
