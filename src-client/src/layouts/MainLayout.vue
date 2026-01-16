@@ -265,6 +265,7 @@ function getManagerMenu(): MenuCategory[] {
     children: [
       { title: 'Dashboard da Planta', icon: 'analytics', to: '/dashboard' },
       { title: 'Equipe Técnica', icon: 'groups', to: '/employees' }, 
+      { title: 'Relatórios', icon: 'summarize', to: '/reports' },
     ]
   });
 

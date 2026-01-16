@@ -121,7 +121,7 @@ async def get_fleet_management_data(
 
         vehicle_metrics.append({
             "id": vehicle.id,
-            "identifier": vehicle.license_plate or vehicle.identifier,
+            "identifier": vehicle.license_plate or vehicle.identifier or f"Maq {vehicle.id}",
             "total_cost": total_cost,
             "cost_per_km": cost_per_km,
             "avg_consumption": avg_consumption
@@ -198,7 +198,6 @@ async def get_costs_by_category_last_30_days(db: AsyncSession, *, organization_i
     return [CostByCategory(cost_type=row.cost_type.value, total_amount=float(row.total_amount or 0)) for row in result.all()]
 
 async def get_podium_drivers(db: AsyncSession, *, organization_id: int) -> List[DashboardPodiumDriver]:
-    # Importação interna para evitar erro circular
     from app import crud
     leaderboard_data = await crud.user.get_leaderboard_data(db, organization_id=organization_id)
     top_drivers_raw = leaderboard_data.get("leaderboard", [])[:3]
@@ -275,41 +274,32 @@ async def get_upcoming_maintenances(db: AsyncSession, *, organization_id: int) -
 # --- DASHBOARD AVANÇADO ---
 
 async def get_efficiency_kpis(db: AsyncSession, *, organization_id: int, start_date: date) -> KpiEfficiency:
-    # 1. Calcular Custos Totais (Para Custo por KM)
     costs_stmt = select(func.sum(VehicleCost.amount)).where(
         VehicleCost.organization_id == organization_id,
         VehicleCost.date >= start_date
     )
     total_costs = (await db.execute(costs_stmt)).scalar_one_or_none() or 0
 
-    # 2. Calcular Distância Total (Denominador comum)
-    # Reutiliza a função interna, passando os parâmetros necessários
     km_data = await get_km_per_day_last_30_days(db, organization_id=organization_id, start_date=start_date)
     total_distance = sum(item.total_km for item in km_data)
     
-    # 3. Calcular Litros Totais (Para Eficiência de Combustível)
     fuel_stmt = select(func.sum(FuelLog.liters)).where(
         FuelLog.organization_id == organization_id,
         FuelLog.timestamp >= start_date
     )
     total_liters = (await db.execute(fuel_stmt)).scalar_one_or_none() or 0.0
 
-    # --- MÉTRICA 1: Custo Financeiro (R$/km) ---
     cost_per_km = (total_costs / total_distance) if total_distance > 0 else 0
 
-    # --- MÉTRICA 2: Eficiência Operacional (km/l ou l/h) ---
     org = await db.get(Organization, organization_id)
     is_agro = org.sector == 'agronegocio' if org else False
     
     fleet_efficiency = 0.0
     if is_agro:
-        # Agro: Litros por Hora (Consumo - quanto menor, melhor)
         fleet_efficiency = (total_liters / total_distance) if total_distance > 0 else 0
     else:
-        # Transporte: KM por Litro (Rendimento - quanto maior, melhor)
         fleet_efficiency = (total_distance / total_liters) if total_liters > 0 else 0
 
-    # --- MÉTRICA 3: Taxa de Utilização ---
     total_vehicles_stmt = select(func.count(Vehicle.id)).where(Vehicle.organization_id == organization_id)
     total_vehicles = (await db.execute(total_vehicles_stmt)).scalar_one()
 
@@ -330,9 +320,6 @@ async def get_efficiency_kpis(db: AsyncSession, *, organization_id: int, start_d
 async def get_recent_alerts(
     db: AsyncSession, organization_id: int, limit: int = 5
 ) -> List[AlertSummary]:
-    """
-    Busca os últimos alertas e os formata para exibição no Dashboard.
-    """
     query = (
         select(Alert)
         .join(Vehicle, Alert.vehicle_id == Vehicle.id)
@@ -351,18 +338,12 @@ async def get_recent_alerts(
 
     formatted_alerts = []
     for alert in alerts:
-        # 1. Definição de Ícones e Cores
         icon = "notifications"
         color = "grey"
         
-        # CORREÇÃO: Usamos 'level' (do modelo) e convertemos para string uppercase
-        # O Enum pode vir como objeto ou string, garantimos a string aqui
         lvl = str(alert.level.value).upper() if hasattr(alert.level, 'value') else str(alert.level).upper()
-        
-        # Como não temos campo 'type', analisamos a mensagem para escolher o ícone
         msg_upper = alert.message.upper()
 
-        # Lógica de Cores baseada no Nível
         if lvl in ["CRITICAL", "HIGH"]:
             color = "negative"
             icon = "warning"
@@ -373,24 +354,20 @@ async def get_recent_alerts(
             color = "info"
             icon = "info"
 
-        # Lógica de Ícones baseada na Mensagem
         if "VELOCIDADE" in msg_upper or "SPEED" in msg_upper:
             icon = "speed"
         elif "COMBUSTIVEL" in msg_upper or "FUEL" in msg_upper or "ABASTECIMENTO" in msg_upper:
             icon = "local_gas_station"
             if color == "grey": color = "deep-orange"
         elif "MOTOR" in msg_upper or "ENGINE" in msg_upper:
-            # 'engine_problem' é específico do material icons, fallback para 'build' se não renderizar
             icon = "car_crash" 
         elif "GEOFENCE" in msg_upper or "ZONA" in msg_upper or "AREA" in msg_upper:
             icon = "wrong_location"
         elif "MANUTEN" in msg_upper or "OLEO" in msg_upper:
             icon = "build"
         
-        # 2. Formatação do Tempo Relativo
         time_str = _calculate_relative_time(alert.timestamp)
 
-        # 3. Construção do Subtítulo
         vehicle_name = f"{alert.vehicle.brand} {alert.vehicle.model}" if alert.vehicle else "Veículo Removido"
         driver_name = alert.driver.full_name if alert.driver else "Sem motorista"
         
@@ -456,17 +433,14 @@ async def get_vehicle_consolidated_data(
     organization_id: int
 ) -> VehicleConsolidatedReport:
     
-    # 1. Buscar Veículo
     vehicle = await db.get(Vehicle, vehicle_id)
     if not vehicle or vehicle.organization_id != organization_id:
         raise ValueError("Veículo não encontrado ou não pertence à organização.")
 
-    # 2. Buscar Organização para lógica de setor
     org = await db.get(Organization, organization_id)
     if not org:
         raise ValueError("Organização não encontrada.")
 
-    # 3. Buscar Dados Condicionais
     costs_data = []
     if sections.costs_detailed or sections.financial_summary:
         costs_stmt = select(VehicleCost).where(
@@ -539,7 +513,7 @@ async def get_vehicle_consolidated_data(
         )
         tires_data = (await db.execute(tires_stmt)).scalars().all()
 
-    # --- 4. CALCULAR MÉTRICAS ---
+    # --- MÉTRICAS ---
     
     period_total_activity = 0.0
     vehicle_total_activity = 0.0
@@ -558,7 +532,7 @@ async def get_vehicle_consolidated_data(
             if j.end_mileage and j.start_mileage and j.end_mileage > j.start_mileage:
                 period_total_activity += (j.end_mileage - j.start_mileage)
 
-    # --- 5. ATUALIZAR SUMÁRIOS ---
+    # --- SUMÁRIOS ---
     
     performance_summary = None
     if sections.performance_summary:
@@ -594,10 +568,10 @@ async def get_vehicle_consolidated_data(
             costs_by_category=costs_by_category
         )
 
-    # --- 6. MONTAGEM FINAL ---
+    # --- CORREÇÃO AQUI: VALOR PADRÃO SE IDENTIFICADOR FOR NONE ---
     return VehicleConsolidatedReport(
         vehicle_id=vehicle.id,
-        vehicle_identifier=vehicle.license_plate or vehicle.identifier,
+        vehicle_identifier=vehicle.license_plate or vehicle.identifier or f"Maq {vehicle.id}",
         vehicle_model=f"{vehicle.brand} {vehicle.model}",
         report_period_start=start_date,
         report_period_end=end_date,
@@ -618,10 +592,6 @@ async def get_vehicle_consolidated_data(
 async def get_driver_performance_data(
     db: AsyncSession, *, start_date: date, end_date: date, organization_id: int
 ) -> DriverPerformanceReport:
-    """
-    Busca e agrega dados de desempenho para todos os motoristas de uma organização
-    em um período específico.
-    """
     drivers_stmt = select(User).where(
         User.organization_id == organization_id, 
         User.role == 'driver'
@@ -684,7 +654,6 @@ async def get_driver_performance_data(
     return report_data
 
 async def get_driver_activity_data(db: AsyncSession, driver_id: int, organization_id: int, date_from: date, date_to: date) -> Dict[str, Any]:
-    # Import interno para evitar erro circular
     from app import crud
     driver = await crud.user.get(db, id=driver_id)
     if not driver or driver.organization_id != organization_id:

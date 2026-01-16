@@ -3,8 +3,8 @@
     <q-card-section class="bg-primary text-white">
       <div class="flex items-center justify-between">
         <div>
-          <div class="text-h6">Relatório Gerencial da Frota</div>
-          <div class="text-subtitle2">Análise macro de custos e performance</div>
+          <div class="text-h6">Relatório Gerencial de Produção</div>
+          <div class="text-subtitle2">Visão macro de custos e eficiência do parque fabril</div>
         </div>
         <div class="q-gutter-sm">
           <q-btn @click="exportToPDF" icon="picture_as_pdf" label="PDF" dense unelevated color="white" text-color="primary" />
@@ -18,20 +18,35 @@
 
     <q-card-section>
       <div class="row q-col-gutter-md q-mb-lg">
-        <div class="col-4">
-          <q-card flat bordered><q-card-section><div class="text-caption text-grey">Custo Total da Frota</div><div class="text-h6 text-weight-bold">{{ formatCurrency(report.summary.total_cost) }}</div></q-card-section></q-card>
+        <div class="col-12 col-md-4">
+          <q-card flat bordered class="bg-grey-1">
+            <q-card-section>
+                <div class="text-caption text-grey-8 text-uppercase">Custo Total da Fábrica</div>
+                <div class="text-h5 text-weight-bold text-primary">{{ formatCurrency(report.summary.total_cost) }}</div>
+            </q-card-section>
+          </q-card>
         </div>
-        <div class="col-4">
-          <q-card flat bordered><q-card-section><div class="text-caption text-grey">Distância Total (km)</div><div class="text-h6 text-weight-bold">{{ report.summary.total_distance_km.toFixed(2) }}</div></q-card-section></q-card>
+        <div class="col-12 col-md-4">
+          <q-card flat bordered class="bg-grey-1">
+            <q-card-section>
+                <div class="text-caption text-grey-8 text-uppercase">Atividade Total (Horas/Km)</div>
+                <div class="text-h5 text-weight-bold text-primary">{{ report.summary.total_distance_km.toFixed(2) }}</div>
+            </q-card-section>
+          </q-card>
         </div>
-        <div class="col-4">
-          <q-card flat bordered><q-card-section><div class="text-caption text-grey">Custo Médio (R$/km)</div><div class="text-h6 text-weight-bold">{{ report.summary.overall_cost_per_km.toFixed(2) }}</div></q-card-section></q-card>
+        <div class="col-12 col-md-4">
+          <q-card flat bordered class="bg-grey-1">
+            <q-card-section>
+                <div class="text-caption text-grey-8 text-uppercase">Custo Médio Unitário</div>
+                <div class="text-h5 text-weight-bold text-primary">{{ report.summary.overall_cost_per_km.toFixed(2) }}</div>
+            </q-card-section>
+          </q-card>
         </div>
       </div>
 
       <div class="row q-col-gutter-lg">
         <div class="col-12 col-md-5">
-          <q-card flat bordered>
+          <q-card flat bordered class="full-height">
             <q-card-section>
               <div class="text-h6">Distribuição de Custos</div>
             </q-card-section>
@@ -42,20 +57,23 @@
             </q-card-section>
           </q-card>
         </div>
+
         <div class="col-12 col-md-7">
-          <q-card flat bordered>
+          <q-card flat bordered class="full-height">
             <q-card-section>
-              <div class="text-h6">Rankings de Veículos</div>
+              <div class="text-h6">Rankings de Máquinas</div>
             </q-card-section>
             <q-separator />
             <q-list separator>
-              <q-expansion-item icon="trending_up" label="Top 5 Maiores Custos Totais" header-class="text-negative" default-opened>
+              <q-expansion-item icon="trending_down" label="Top 5 Maiores Custos" header-class="text-negative text-weight-bold" default-opened>
                 <RankingTable :data="report.top_5_most_expensive_vehicles" />
               </q-expansion-item>
-              <q-expansion-item icon="local_gas_station" label="Top 5 Mais Eficientes (km/l)" header-class="text-positive">
+              
+              <q-expansion-item icon="precision_manufacturing" label="Top 5 Mais Eficientes" header-class="text-positive text-weight-bold">
                 <RankingTable :data="report.top_5_most_efficient_vehicles" />
               </q-expansion-item>
-               <q-expansion-item icon="warning" label="Top 5 Maiores Custos por KM" header-class="text-orange">
+              
+               <q-expansion-item icon="warning" label="Top 5 Maior Custo Unitário" header-class="text-orange text-weight-bold">
                 <RankingTable :data="report.top_5_highest_cost_per_km_vehicles" />
               </q-expansion-item>
             </q-list>
@@ -76,13 +94,10 @@ import type { FleetManagementReport, VehicleRankingEntry } from 'src/models/repo
 import CostsPieChart from 'components/CostsPieChart.vue';
 import RankingTable from 'components/reports/RankingTable.vue';
 
-// --- INÍCIO DA CORREÇÃO ---
-// 1. Criamos uma interface que descreve o objeto jsPDF APÓS
-//    o plugin autoTable ter sido executado, adicionando a propriedade 'lastAutoTable'.
+// Interface para TypeScript reconhecer plugin
 interface jsPDFWithPlugin extends jsPDF {
   lastAutoTable: { finalY: number };
 }
-// --- FIM DA CORREÇÃO ---
 
 const props = defineProps({
   report: {
@@ -104,50 +119,49 @@ const costsForChart = computed(() => {
 });
 
 function exportToPDF() {
-  const doc = new jsPDF();
+  const doc = new jsPDF() as jsPDFWithPlugin;
   const report = props.report;
-  const title = 'Relatório Gerencial da Frota';
-  const period = `Período: ${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`;
-
+  
   doc.setFontSize(18);
-  doc.text(title, 14, 22);
+  doc.text('Relatório Gerencial de Produção', 14, 22);
   doc.setFontSize(11);
   doc.setTextColor(100);
-  doc.text(period, 14, 30);
+  doc.text(`Período: ${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`, 14, 30);
 
   const summaryBody = [
-    ['Custo Total da Frota', formatCurrency(report.summary.total_cost)],
-    ['Distância Total', `${report.summary.total_distance_km.toFixed(2)} km`],
-    ['Custo Médio Geral', `${formatCurrency(report.summary.overall_cost_per_km)} / km`],
+    ['Custo Total da Fábrica', formatCurrency(report.summary.total_cost)],
+    ['Atividade Total (h/km)', `${report.summary.total_distance_km.toFixed(2)}`],
+    ['Custo Médio Unitário', `${formatCurrency(report.summary.overall_cost_per_km)}`],
   ];
   autoTable(doc, { startY: 40, head: [['Métrica', 'Valor']], body: summaryBody });
 
   const createRankingBody = (data: VehicleRankingEntry[]) => data.map(item => [item.vehicle_identifier, `${item.value.toFixed(2)} ${item.unit}`]);
 
-  // 2. Após a primeira tabela, fazemos o "casting" do tipo para a nossa interface.
-  //    Agora o TypeScript sabe que 'doc' tem a propriedade 'lastAutoTable'.
+  // Tabela 1
   autoTable(doc, {
-    startY: (doc as jsPDFWithPlugin).lastAutoTable.finalY + 10,
+    startY: doc.lastAutoTable.finalY + 10,
     head: [['Top 5 - Maiores Custos (R$)']],
     body: createRankingBody(report.top_5_most_expensive_vehicles),
     theme: 'grid', headStyles: { fillColor: '#c0392b' }
   });
 
+  // Tabela 2
   autoTable(doc, {
-    startY: (doc as jsPDFWithPlugin).lastAutoTable.finalY + 1,
-    head: [['Top 5 - Maiores Custos por KM (R$/km)']],
+    startY: doc.lastAutoTable.finalY + 5,
+    head: [['Top 5 - Maior Custo Unitário']],
     body: createRankingBody(report.top_5_highest_cost_per_km_vehicles),
     theme: 'grid', headStyles: { fillColor: '#f39c12' }
   });
 
+  // Tabela 3
   autoTable(doc, {
-    startY: (doc as jsPDFWithPlugin).lastAutoTable.finalY + 1,
-    head: [['Top 5 - Mais Eficientes (km/l)']],
+    startY: doc.lastAutoTable.finalY + 5,
+    head: [['Top 5 - Mais Eficientes']],
     body: createRankingBody(report.top_5_most_efficient_vehicles),
     theme: 'grid', headStyles: { fillColor: '#27ae60' }
   });
 
-  doc.save('relatorio_gerencial_frota.pdf');
+  doc.save('relatorio_gerencial_producao.pdf');
 }
 
 function exportToXLSX() {
@@ -155,24 +169,24 @@ function exportToXLSX() {
   const wb = XLSX.utils.book_new();
 
   const summaryData = [
-    ["Relatório Gerencial da Frota"], [],
+    ["Relatório Gerencial de Produção"], [],
     ["Período", `${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`], [],
     ["Resumo Geral"],
     ["Custo Total (R$)", report.summary.total_cost],
-    ["Distância Total (km)", report.summary.total_distance_km],
-    ["Custo Médio (R$/km)", report.summary.overall_cost_per_km],
+    ["Atividade Total", report.summary.total_distance_km],
+    ["Custo Médio Unitário", report.summary.overall_cost_per_km],
   ];
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
   
   const rankingsData = [
-    ...report.top_5_most_expensive_vehicles.map(v => ({ Ranking: "Maiores Custos (R$)", Veículo: v.vehicle_identifier, Valor: v.value })),
-    ...report.top_5_highest_cost_per_km_vehicles.map(v => ({ Ranking: "Maiores Custos por KM (R$/km)", Veículo: v.vehicle_identifier, Valor: v.value })),
-    ...report.top_5_most_efficient_vehicles.map(v => ({ Ranking: "Mais Eficientes (km/l)", Veículo: v.vehicle_identifier, Valor: v.value })),
+    ...report.top_5_most_expensive_vehicles.map(v => ({ Ranking: "Maiores Custos (R$)", Máquina: v.vehicle_identifier, Valor: v.value })),
+    ...report.top_5_highest_cost_per_km_vehicles.map(v => ({ Ranking: "Maior Custo Unitário", Máquina: v.vehicle_identifier, Valor: v.value })),
+    ...report.top_5_most_efficient_vehicles.map(v => ({ Ranking: "Mais Eficientes", Máquina: v.vehicle_identifier, Valor: v.value })),
   ];
   const wsRankings = XLSX.utils.json_to_sheet(rankingsData);
   XLSX.utils.book_append_sheet(wb, wsRankings, "Rankings");
 
-  XLSX.writeFile(wb, "relatorio_gerencial_frota.xlsx");
+  XLSX.writeFile(wb, "relatorio_gerencial_producao.xlsx");
 }
 </script>
