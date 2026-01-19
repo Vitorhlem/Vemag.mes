@@ -3,6 +3,8 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { Notify, Loading } from 'quasar';
 import { api } from 'boot/axios';
+import {AndonService} from 'src/services/andon-service'; // Importe o novo serviço
+import type { AndonCallCreate } from 'src/services/andon-service';
 
 // --- INTERFACES ---
 export interface Machine {
@@ -330,6 +332,8 @@ export const useProductionStore = defineStore('production', () => {
       await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
   }
 
+  
+
   async function enterSetup() {
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'SETUP' };
       if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Em manutenção' };
@@ -410,10 +414,43 @@ export const useProductionStore = defineStore('production', () => {
     try { await api.post('/production/event', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: activeOrder.value?.code, event_type: type, ...payload }); } catch (e) { console.error('Falha de sincronização MES', e); }
   }
 
-  function triggerAndon(sector: string, notes = '') {
-    if (!machineId.value || !currentOperatorBadge.value) return;
-    void api.post('/production/andon', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, sector: sector, notes: notes });
-    Notify.create({ type: 'warning', icon: 'campaign', message: `Chamado: ${sector}` });
+  async function triggerAndon(sector: string, note?: string) {
+    if (!machineId.value) {
+        Notify.create({ type: 'warning', message: 'Máquina não identificada para o chamado.' });
+        return;
+    }
+
+    try {
+        // Feedback visual imediato
+        Loading.show({ 
+            message: `Chamando equipe de ${sector}...`,
+            backgroundColor: 'red-10',
+            customClass: 'text-weight-bold'
+        });
+        
+        const payload: AndonCallCreate = {
+            machine_id: machineId.value,
+            sector: sector,
+            reason: note || 'Solicitação via Tablet',
+            description: `Operador: ${currentOperator.value?.full_name || 'Anônimo'}`
+        };
+
+        await AndonService.createCall(payload);
+        
+        Notify.create({ 
+            type: 'positive', 
+            icon: 'campaign',
+            message: `Chamado enviado para ${sector}! A equipe foi notificada.`,
+            timeout: 5000,
+            position: 'top'
+        });
+
+    } catch (error) {
+        console.error("Erro ao abrir Andon:", error);
+        Notify.create({ type: 'negative', message: 'Erro de conexão ao enviar chamado.' });
+    } finally {
+        Loading.hide();
+    }
   }
 
   return {
@@ -426,6 +463,6 @@ export const useProductionStore = defineStore('production', () => {
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, 
-    startProduction, pauseProduction, enterSetup, addProduction 
+    startProduction, pauseProduction, enterSetup, addProduction
   };
 });

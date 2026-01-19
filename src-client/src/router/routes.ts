@@ -17,6 +17,8 @@ const routes: RouteRecordRaw[] = [
         name: 'dashboard', 
         component: () => import('pages/DashboardPage.vue') 
       },
+
+      
       
       // --- Módulos de Gestão ---
       { 
@@ -149,6 +151,17 @@ const routes: RouteRecordRaw[] = [
         name: 'machine-kiosk', 
         component: () => import('pages/MachineKioskPage.vue') 
       },
+      {
+    path: '/andon-board',
+    component: () => import('layouts/BlankLayout.vue'),
+    children: [
+      { 
+        path: '', 
+        name: 'andon-board', 
+        component: () => import('pages/AndonBoardPage.vue') 
+      }
+    ]
+  },
       
       // Painel de Trabalho do Operador (O Cockpit)
       { 

@@ -12,6 +12,7 @@ export interface UserCreate {
   employee_id?: string;
   avatar_url?: string; // <-- ADICIONADO
   phone?: string; // <-- ADICIONADO
+  job_title?: string; // <--- ADICIONE AQUI
 }
 
 // Usado ao atualizar um utilizador existente. Todos os campos são opcionais.
@@ -24,6 +25,7 @@ export interface UserUpdate {
   employee_id?: string;
   avatar_url?: string; // <-- ADICIONADO
   phone?: string; // <-- ADICIONADO
+  job_title?: string; // <--- ADICIONE AQUI
 }
 
 // --- NOVA INTERFACE ADICIONADA ---
@@ -74,4 +76,5 @@ export interface User {
   organization_id: number;
   employee_id: string;
   phone?: string | null; // <-- ADICIONADO
+  job_title?: string;
 }

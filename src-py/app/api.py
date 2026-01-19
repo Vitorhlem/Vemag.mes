@@ -35,7 +35,8 @@ from app.v1.endpoints import (
     weather,
     routes,
     alerts,
-    production
+    production,
+    andon
 )
 
 api_router = APIRouter()
@@ -75,6 +76,5 @@ api_router.include_router(weather.router, prefix="/weather", tags=["weather"])
 api_router.include_router(routes.router, prefix="/routes", tags=["routes"])
 api_router.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(production.router, prefix="/production", tags=["production"])
-# --- CORREÇÃO: Rota direta para corrigir o 404 ---
-# Adiciona o endpoint de upload diretamente na raiz da API v1 (/api/v1/upload-photo)
+api_router.include_router(andon.router, prefix="/andon", tags=["Andon System"])
 api_router.add_api_route("/upload-photo", utils.upload_photo, methods=["POST"], tags=["Utilities"])

@@ -19,7 +19,7 @@ class UserBase(BaseModel):
     is_active: bool = True
     avatar_url: Optional[str] = None
     phone: Optional[str] = None
-
+    job_title: Optional[str] = None
 class UserCreate(UserBase):
     password: str
     role: Optional[UserRole] = None

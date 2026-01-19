@@ -1,15 +1,15 @@
 <template>
-  <q-page padding class="">
+  <q-page padding class="bg-grey-1">
     <div class="row items-center justify-between q-mb-lg">
       <div>
         <h1 class="text-h4 text-weight-bold text-primary q-my-none">Configurações</h1>
-        <div class="text-caption text-grey-7">Gerencie suas preferências e dados do sistema</div>
+        <div class="text-caption text-grey-7">Gerencie suas preferências, segurança e integrações industriais.</div>
       </div>
     </div>
 
     <div class="row q-col-gutter-lg">
       <div class="col-12 col-md-3">
-        <q-card flat bordered class=" rounded-borders">
+        <q-card flat bordered class="rounded-borders bg-white">
           <q-list separator class="text-grey-8">
             <q-item
               v-for="tab in visibleTabs"
@@ -36,12 +36,12 @@
       </div>
 
       <div class="col-12 col-md-9">
-        <q-card flat bordered class="fit ">
+        <q-card flat bordered class="fit bg-white">
           <q-tab-panels v-model="currentTab" animated transition-prev="fade" transition-next="fade">
             
             <q-tab-panel name="account" class="q-pa-lg">
               <div class="text-h6 q-mb-xs">Meu Perfil</div>
-              <p class="text-grey-6 q-mb-lg">Gerencie suas informações pessoais e segurança.</p>
+              <p class="text-grey-6 q-mb-lg">Gerencie suas informações de acesso.</p>
               
               <div class="row q-col-gutter-xl">
                 <div class="col-12 col-md-5 text-center">
@@ -73,16 +73,19 @@
                   </div>
                   <div class="q-mt-md text-h6">{{ authStore.user?.full_name }}</div>
                   <div class="text-grey-6">{{ authStore.user?.role }}</div>
+                  <div class="text-caption text-grey-5 q-mt-xs" v-if="authStore.user?.employee_id">
+                    Matrícula: {{ authStore.user?.employee_id }}
+                  </div>
                 </div>
 
                 <div class="col-12 col-md-7">
                   <q-form @submit.prevent="handleUpdateProfile" class="q-gutter-y-md">
                     <q-input outlined v-model="profileForm.full_name" label="Nome Completo" dense />
-                    <q-input outlined v-model="profileForm.email" label="E-mail" dense disable hint="Para alterar o e-mail, contate o suporte." />
-                    <q-input outlined v-model="profileForm.phone" label="Telefone / WhatsApp" mask="(##) #####-####" dense />
+                    <q-input outlined v-model="profileForm.email" label="E-mail" dense disable hint="Para alterar o e-mail, contate o administrador do sistema." />
+                    <q-input outlined v-model="profileForm.phone" label="Telefone / Ramal" mask="(##) #####-####" dense />
                     
                     <div class="row justify-end">
-                      <q-btn type="submit" label="Salvar Dados" color="primary" unelevated :loading="isUpdatingProfile" />
+                      <q-btn type="submit" label="Salvar Alterações" color="primary" unelevated :loading="isUpdatingProfile" />
                     </div>
                   </q-form>
                 </div>
@@ -117,7 +120,7 @@
                     outlined 
                     v-model="passwordForm.confirm_password" 
                     type="password" 
-                    label="Confirmar Nova Senha" 
+                    label="Confirmar" 
                     dense 
                     :rules="[
                       val => !!val || 'Obrigatório',
@@ -125,28 +128,26 @@
                     ]"
                   />
                 </div>
-                <div class="col-2.5 text-right">
-                  <q-btn type="submit" label="Alterar Senha" outline color="negative" :loading="isSubmittingPassword" />
+                <div class="col-12 text-right">
+                  <q-btn type="submit" label="Atualizar Senha" outline color="negative" :loading="isSubmittingPassword" />
                 </div>
               </q-form>
             </q-tab-panel>
 
             <q-tab-panel name="interface" class="q-pa-lg">
-              <div class="text-h6 q-mb-xs">Interface & Sistema</div>
-              <p class="text-grey-6 q-mb-lg">Personalize a aparência e o vocabulário do sistema.</p>
+              <div class="text-h6 q-mb-xs">Interface do Operador</div>
+              <p class="text-grey-6 q-mb-lg">Personalize a visualização para o ambiente de fábrica.</p>
 
               <div class="row q-col-gutter-md">
-
-
-                <div class="col-12 q-mt-md">
+                <div class="col-12">
                   <q-list bordered class="rounded-borders">
                     <q-item>
                       <q-item-section avatar>
                         <q-icon name="dark_mode" color="grey-7" />
                       </q-item-section>
                       <q-item-section>
-                        <q-item-label>Tema Escuro</q-item-label>
-                        <q-item-label caption>Alternar entre modo claro e escuro.</q-item-label>
+                        <q-item-label>Modo Escuro (Chão de Fábrica)</q-item-label>
+                        <q-item-label caption>Recomendado para ambientes com pouca luz ou cabines de máquinas.</q-item-label>
                       </q-item-section>
                       <q-item-section side>
                         <q-btn-toggle
@@ -161,38 +162,21 @@
                         />
                       </q-item-section>
                     </q-item>
-                    
-                    <q-separator />
-
-                    <q-item>
-                      <q-item-section avatar>
-                        <q-icon name="language" color="grey-7" />
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label>Idioma</q-item-label>
-                        <q-item-label caption>Português (Brasil) é o padrão.</q-item-label>
-                      </q-item-section>
-                      <q-item-section side>
-                        <q-badge color="grey-4" text-color="grey-8" label="Fixo: PT-BR" />
-                      </q-item-section>
-                    </q-item>
                   </q-list>
                 </div>
               </div>
             </q-tab-panel>
 
             <q-tab-panel name="notifications" class="q-pa-lg">
-              <div class="text-h6 q-mb-xs">Notificações</div>
-              <p class="text-grey-6 q-mb-lg">Escolha como você quer ser alertado.</p>
+              <div class="text-h6 q-mb-xs">Alertas de Produção</div>
+              <p class="text-grey-6 q-mb-lg">Defina como quer receber alertas de paradas e manutenção.</p>
 
               <q-list bordered separator class="rounded-borders">
-                <q-item-label header class="">Canais Gerais</q-item-label>
-                
                 <q-item tag="label" v-ripple>
                   <q-item-section avatar><q-icon name="notifications_active" color="orange" /></q-item-section>
                   <q-item-section>
-                    <q-item-label>Alertas no Painel</q-item-label>
-                    <q-item-label caption>Receber alertas no ícone de sino dentro do sistema.</q-item-label>
+                    <q-item-label>Alertas Andon (In-App)</q-item-label>
+                    <q-item-label caption>Receber popups de alertas críticos no painel.</q-item-label>
                   </q-item-section>
                   <q-item-section side><q-toggle v-model="notificationPrefs.notify_in_app" color="primary" /></q-item-section>
                 </q-item>
@@ -200,24 +184,10 @@
                 <q-item tag="label" v-ripple>
                   <q-item-section avatar><q-icon name="mail" color="blue" /></q-item-section>
                   <q-item-section>
-                    <q-item-label>Alertas por E-mail</q-item-label>
-                    <q-item-label caption>Receber resumos e alertas críticos no seu e-mail.</q-item-label>
+                    <q-item-label>Resumo de Turno por E-mail</q-item-label>
+                    <q-item-label caption>Receber relatórios automáticos ao fim do turno.</q-item-label>
                   </q-item-section>
                   <q-item-section side><q-toggle v-model="notificationPrefs.notify_by_email" color="primary" /></q-item-section>
-                </q-item>
-
-                <q-item v-if="notificationPrefs.notify_by_email" class="">
-                  <q-item-section>
-                    <q-input
-                      v-model="notificationPrefs.notification_email"
-                      outlined dense
-                      label="E-mail alternativo para alertas"
-                      placeholder="Ex: gestao@frota.com"
-                      hint="Se vazio, usaremos seu e-mail de login."
-                    >
-                      <template v-slot:prepend><q-icon name="alternate_email" /></template>
-                    </q-input>
-                  </q-item-section>
                 </q-item>
               </q-list>
             </q-tab-panel>
@@ -225,45 +195,108 @@
             <q-tab-panel name="organization" class="q-pa-lg" v-if="authStore.isManager">
               <div class="row items-center justify-between q-mb-md">
                 <div>
-                  <div class="text-h6">Dados da Organização</div>
-                  <p class="text-grey-6">Informações fiscais e de contato da empresa.</p>
+                  <div class="text-h6">Planta Industrial</div>
+                  <p class="text-grey-6">Dados da unidade fabril.</p>
                 </div>
-                <q-btn v-if="isDemo" label="Fazer Upgrade" color="amber-9" icon="star" unelevated @click="showUpgradeDialog" />
+                <q-btn v-if="isDemo" label="Ativar Licença Full" color="amber-9" icon="star" unelevated @click="showUpgradeDialog" />
               </div>
 
               <q-form @submit.prevent="handleUpdateOrg" class="q-gutter-y-md">
                 <div class="row q-col-gutter-md">
                   <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.name" label="Razão Social / Nome Fantasia" :readonly="isDemo" />
+                    <q-input outlined v-model="orgForm.name" label="Nome da Planta / Unidade" :readonly="isDemo" />
                   </div>
                   <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.cnpj" label="CNPJ" mask="##.###.###/####-##" :readonly="isDemo" />
+                    <q-input outlined v-model="orgForm.cnpj" label="CNPJ / ID Fiscal" mask="##.###.###/####-##" :readonly="isDemo" />
                   </div>
                   <div class="col-12">
-                    <q-input outlined v-model="orgForm.address" label="Endereço Completo" :readonly="isDemo" />
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.contact_phone" label="Telefone Comercial" mask="(##) ####-####" :readonly="isDemo" />
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.website" label="Website (Opcional)" :readonly="isDemo" />
+                    <q-input outlined v-model="orgForm.address" label="Localização" :readonly="isDemo" />
                   </div>
                 </div>
                 <div class="text-right">
                   <q-btn 
                     type="submit" 
-                    label="Salvar Dados da Empresa" 
+                    label="Salvar Dados" 
                     color="primary" 
                     unelevated 
                     :loading="isSavingOrg" 
                     :disable="isDemo" 
                   />
-                  <q-tooltip v-if="isDemo">Disponível apenas no plano Ativo</q-tooltip>
                 </div>
               </q-form>
             </q-tab-panel>
 
-           
+            <q-tab-panel name="integrations" class="q-pa-lg" v-if="authStore.isManager">
+              <div class="text-h6 q-mb-xs">Integrações ERP & IoT</div>
+              <p class="text-grey-6 q-mb-lg">Conecte o TruMachine aos seus sistemas corporativos.</p>
+
+              <q-card flat bordered class="bg-blue-grey-1 q-mb-md">
+                <q-card-section>
+                  <div class="row items-center">
+                    <q-avatar rounded color="white" text-color="primary" icon="dns" size="lg" />
+                    <div class="q-ml-md col">
+                      <div class="text-subtitle1 text-weight-bold">SAP Business One (Service Layer)</div>
+                      <div class="text-caption text-grey-8">
+                        Sincronização bidirecional de Máquinas (Assets) e Operadores (Employees).
+                        <br>
+                        <span class="text-weight-medium">Status:</span> {{ lastSyncStatus || 'Aguardando sincronização' }}
+                      </div>
+                    </div>
+                    <div>
+                      <q-btn 
+                        label="Sincronizar Agora" 
+                        color="primary" 
+                        icon="sync" 
+                        :loading="isSyncingSap"
+                        @click="triggerSapSync"
+                      >
+                        <template v-slot:loading>
+                          <q-spinner-hourglass class="on-left" />
+                          Processando...
+                        </template>
+                      </q-btn>
+                    </div>
+                  </div>
+                </q-card-section>
+              </q-card>
+
+              <q-card flat bordered class="bg-grey-1 q-mb-md">
+  <q-card-section>
+    <div class="row items-center">
+      <q-avatar rounded color="blue-10" text-color="white" font-size="20px">RM</q-avatar>
+      <div class="q-ml-md col">
+        <div class="text-subtitle1 text-weight-bold">RM TOTVS (Labore)</div>
+        <div class="text-caption text-grey-8">
+          Importação de Colaboradores via Banco de Dados (PFUNC).
+        </div>
+      </div>
+      <div>
+        <q-btn 
+          label="Sincronizar RM" 
+          color="blue-10" 
+          icon="sync" 
+          :loading="isSyncingRM"
+          @click="triggerRmSync"
+        />
+      </div>
+    </div>
+  </q-card-section>
+</q-card>
+
+              <q-card flat bordered class="q-mb-md opacity-8">
+                <q-card-section>
+                  <div class="row items-center">
+                    <q-avatar rounded color="grey-3" text-color="grey-7" icon="hub" size="lg" />
+                    <div class="q-ml-md col">
+                      <div class="text-subtitle1 text-grey-8">Coletor IoT (OPC UA / MQTT)</div>
+                      <div class="text-caption text-grey-6">Conexão direta com PLCs das máquinas. Em breve.</div>
+                    </div>
+                    <q-chip label="Em Breve" color="grey-4" text-color="grey-7" />
+                  </div>
+                </q-card-section>
+              </q-card>
+
+            </q-tab-panel>
 
           </q-tab-panels>
         </q-card>
@@ -284,23 +317,24 @@ import defaultAvatar from 'assets/default-avatar.png';
 const $q = useQuasar();
 const authStore = useAuthStore();
 const settingsStore = useSettingsStore();
-
 const userStore = useUserStore();
 
 const currentTab = ref('account');
 const isDemo = computed(() => authStore.isDemo);
 
-// --- FUNÇÃO AUXILIAR PARA CORRIGIR URL DA IMAGEM ---
+// --- UTILITÁRIOS ---
 function getAvatarUrl(url: string | null | undefined): string {
-  if (!url) return defaultAvatar; // <--- AQUI ESTÁ A MÁGICA
+  if (!url) return defaultAvatar;
   if (url.startsWith('http')) return url;
-  const backendUrl = 'http://127.0.0.1:8000'; 
+  // Ajuste para desenvolvimento local se necessário, ou produção
+  const backendUrl = process.env.API_URL || 'http://127.0.0.1:8000'; 
   if (url.startsWith('/static') || url.startsWith('/')) {
     return `${backendUrl}${url}`;
   }
   return url;
 }
-// --- LÓGICA DE UPLOAD DE FOTO ---
+
+// --- UPLOAD DE FOTO ---
 const fileInput = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
 
@@ -313,7 +347,6 @@ async function handleFileUpload(event: Event) {
   if (target.files && target.files[0]) {
     const file = target.files[0];
     isUploading.value = true;
-
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -322,13 +355,11 @@ async function handleFileUpload(event: Event) {
       });
       
       const newAvatarUrl = uploadRes.data.file_url;
-
       await api.put('/users/me', { avatar_url: newAvatarUrl });
       
-      // --- CORREÇÃO CRÍTICA PARA PERSISTÊNCIA ---
+      // Atualiza localmente
       if (authStore.user) {
         authStore.user.avatar_url = newAvatarUrl;
-        // Salva manualmente no LocalStorage para garantir que o F5 não limpe
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const parsed = JSON.parse(storedUser);
@@ -336,12 +367,10 @@ async function handleFileUpload(event: Event) {
             localStorage.setItem('user', JSON.stringify(parsed));
         }
       }
-      // ------------------------------------------
-      
       $q.notify({ type: 'positive', message: 'Foto atualizada!' });
     } catch (error) {
       console.error(error);
-      $q.notify({ type: 'negative', message: 'Erro ao atualizar foto.' });
+      $q.notify({ type: 'negative', message: 'Erro ao enviar foto.' });
     } finally {
       isUploading.value = false;
     }
@@ -352,7 +381,7 @@ async function handleFileUpload(event: Event) {
 const profileForm = reactive({
   full_name: authStore.user?.full_name || '',
   email: authStore.user?.email || '',
-  phone: authStore.user?.phone || '', // Agora carrega do store se existir
+  phone: authStore.user?.phone || '',
 });
 const isUpdatingProfile = ref(false);
 
@@ -364,14 +393,10 @@ async function handleUpdateProfile() {
           full_name: profileForm.full_name,
           phone: profileForm.phone 
       });
-      
-      // Atualiza store local
       if (authStore.user) {
           authStore.user.full_name = profileForm.full_name;
-          // authStore.user.phone = profileForm.phone; (Se o tipo User tiver phone)
       }
-      
-      $q.notify({ type: 'positive', message: 'Perfil atualizado com sucesso!' });
+      $q.notify({ type: 'positive', message: 'Perfil atualizado!' });
     }
   } catch {
     $q.notify({ type: 'negative', message: 'Erro ao atualizar perfil.' });
@@ -384,9 +409,24 @@ async function handleUpdateProfile() {
 const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' });
 const isSubmittingPassword = ref(false);
 
+const isSyncingRM = ref(false);
+
+async function triggerRmSync() {
+  isSyncingRM.value = true;
+  try {
+    await api.post('/integrations/sync/rm');
+    $q.notify({ type: 'positive', message: 'Sync RM iniciado!' });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Erro ao chamar Sync RM' });
+  } finally {
+    isSyncingRM.value = false;
+  }
+}
+
 async function handleChangePassword() {
   if (passwordForm.value.new_password !== passwordForm.value.confirm_password) {
-    $q.notify({ type: 'warning', message: 'As senhas não conferem.' });
+    $q.notify({ type: 'warning', message: 'Senhas não conferem.' });
     return;
   }
   isSubmittingPassword.value = true;
@@ -395,10 +435,10 @@ async function handleChangePassword() {
       current_password: passwordForm.value.current_password,
       new_password: passwordForm.value.new_password,
     });
-    $q.notify({ type: 'positive', message: 'Senha alterada!' });
+    $q.notify({ type: 'positive', message: 'Senha alterada com sucesso!' });
     passwordForm.value = { current_password: '', new_password: '', confirm_password: '' };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) { // Mantendo any aqui conforme sua preferência para simplificar
+  } catch (error: any) {
     const msg = error.response?.data?.detail || 'Erro ao alterar senha.';
     $q.notify({ type: 'negative', message: msg });
   } finally {
@@ -407,7 +447,6 @@ async function handleChangePassword() {
 }
 
 // --- INTERFACE ---
-
 function updateDarkMode(val: boolean | 'auto') {
   settingsStore.setDarkMode(val);
 }
@@ -429,46 +468,39 @@ watch(notificationPrefs, (newVal) => {
 
 // --- ORGANIZAÇÃO ---
 const orgForm = reactive({
-  name: '', // Inicialize vazio, vamos carregar da API
+  name: '', 
   cnpj: '',
   address: '',
   contact_phone: '',
   website: ''
 });
-const isSavingOrg = ref(false); // Estado de carregamento para o botão
+const isSavingOrg = ref(false);
 
 async function fetchOrganizationData() {
   if (!authStore.isManager) return;
-  
   try {
     const { data } = await api.get('/settings/organization');
-    // Preenche o formulário com os dados vindos do backend
     orgForm.name = data.name || '';
     orgForm.cnpj = data.cnpj || '';
     orgForm.address = data.address || '';
     orgForm.contact_phone = data.contact_phone || '';
     orgForm.website = data.website || '';
   } catch (error) {
-    console.error('Erro ao buscar dados da organização:', error);
-    $q.notify({ type: 'negative', message: 'Falha ao carregar dados da empresa.' });
+    console.error('Erro ao buscar organização', error);
   }
 }
 
 async function handleUpdateOrg() {
   isSavingOrg.value = true;
   try {
-    // Envia os dados para o backend
     await api.put('/settings/organization', orgForm);
-    
-    // Atualiza o nome da organização na store local se tiver mudado
     if (authStore.user && authStore.user.organization) {
       authStore.user.organization.name = orgForm.name;
     }
-
-    $q.notify({ type: 'positive', message: 'Dados da empresa atualizados com sucesso!' });
+    $q.notify({ type: 'positive', message: 'Dados da planta atualizados!' });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
-    console.error(error);
-    $q.notify({ type: 'negative', message: 'Erro ao salvar dados da empresa.' });
+    $q.notify({ type: 'negative', message: 'Erro ao salvar dados.' });
   } finally {
     isSavingOrg.value = false;
   }
@@ -476,54 +508,71 @@ async function handleUpdateOrg() {
 
 function showUpgradeDialog() {
   $q.dialog({
-    title: 'Upgrade para Enterprise',
-    message: 'Entre em contato com vendas@trucar.com para remover os limites.',
+    title: 'Licença Enterprise',
+    message: 'Contate o suporte para remover os limites de demonstração.',
     ok: { label: 'OK', flat: true }
   });
 }
 
-// --- INTEGRAÇÕES ---
-const integrationForm = ref({
-  fuel_provider_name: '',
-  fuel_provider_api_key: '',
-  fuel_provider_api_secret: '',
-});
+// --- INTEGRAÇÃO SAP (NOVO CÓDIGO) ---
+const isSyncingSap = ref(false);
+const lastSyncStatus = ref('');
 
-watch(() => settingsStore.fuelIntegrationSettings, (newSettings) => {
-  if (newSettings) {
-    integrationForm.value.fuel_provider_name = newSettings.fuel_provider_name || '';
+async function triggerSapSync() {
+  isSyncingSap.value = true;
+  lastSyncStatus.value = 'Iniciando conexão...';
+  
+  try {
+    // Chama o endpoint que criamos no backend
+    await api.post('/integrations/sync/sap');
+    
+    $q.notify({
+      type: 'positive',
+      message: 'Sincronização iniciada em segundo plano!',
+      caption: 'As máquinas e operadores aparecerão em instantes.'
+    });
+    lastSyncStatus.value = 'Sincronização solicitada com sucesso.';
+    
+  } catch (error) {
+    console.error('Erro no SAP Sync:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Falha ao conectar com SAP Service Layer',
+      caption: 'Verifique os logs do servidor.'
+    });
+    lastSyncStatus.value = 'Erro na última tentativa.';
+  } finally {
+    isSyncingSap.value = false;
   }
-}, { immediate: true });
+}
 
-// --- TABS ---
+// --- TABS VISÍVEIS ---
 const visibleTabs = computed(() => {
   const tabs = [
     { name: 'account', label: 'Minha Conta', caption: 'Perfil e Segurança', icon: 'person' },
-    { name: 'interface', label: 'Interface', caption: 'Tema e Vocabulário', icon: 'tune' },
-    { name: 'notifications', label: 'Notificações', caption: 'Alertas e E-mails', icon: 'notifications' },
+    { name: 'interface', label: 'Interface', caption: 'Tema e Visualização', icon: 'tune' },
+    { name: 'notifications', label: 'Alertas', caption: 'Andon e Relatórios', icon: 'notifications' },
   ];
   if (authStore.isManager) {
     tabs.push(
-      { name: 'organization', label: 'Organização', caption: 'Dados e Plano', icon: 'business' },
+      { name: 'organization', label: 'Planta Fabril', caption: 'Dados da Unidade', icon: 'factory' },
+      // Adicionada aba de integrações para Gerentes
+      { name: 'integrations', label: 'Integrações', caption: 'SAP / ERP / IoT', icon: 'hub' }, 
     );
   }
   return tabs;
 });
+
 onMounted(() => {
   if (authStore.isManager) {
-    void settingsStore.fetchFuelIntegrationSettings();
-    void fetchOrganizationData(); // <--- ADICIONE ESTA CHAMADA
+    void fetchOrganizationData();
   }
 });
 </script>
 
 <style lang="scss" scoped>
-.border-blue-left {
-  border-left: 4px solid var(--q-primary);
-}
 .transition-generic {
   transition: all 0.3s ease;
 }
 .opacity-8 { opacity: 0.8; }
-.opacity-5 { opacity: 0.5; }
 </style>

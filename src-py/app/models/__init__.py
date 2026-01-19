@@ -15,3 +15,4 @@ from .inventory_transaction_model import InventoryTransaction# --> Depende de 'p
 from .part_model import Part, PartCategory
 from .audit_log_model import AuditLog # <--- ADICIONE
 from .production_model import ProductionOrder, ProductionLog
+from .andon_model import AndonCall

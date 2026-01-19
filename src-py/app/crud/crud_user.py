@@ -88,13 +88,19 @@ async def get_users_by_role(
 async def create(db: AsyncSession, *, user_in: "UserCreate", organization_id: int, role: UserRole) -> User:
     from app.schemas.user_schema import UserCreate
     hashed_password = get_password_hash(user_in.password)
+    
+    # --- CORREÇÃO AQUI ---
+    # Adicionamos o campo job_title=user_in.job_title
     db_user = User(
         full_name=user_in.full_name,
         email=user_in.email,
         hashed_password=hashed_password,
         role=role,
-        organization_id=organization_id
+        organization_id=organization_id,
+        job_title=getattr(user_in, "job_title", None) # <--- O SEGREDO
     )
+    # ---------------------
+
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user, ["organization"])

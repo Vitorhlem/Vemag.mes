@@ -1,68 +1,47 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
-from typing import Optional
-from app import crud, deps
-from app.schemas.telemetry_schema import TelemetryPayload
-
+from app import deps
+from app.services.sap_sync import SAPIntegrationService
+from app.models.user_model import User
+from app.services.rm_sync import RMIntegrationService
 router = APIRouter()
 
-@router.post("/traccar", status_code=status.HTTP_200_OK)
-@router.get("/traccar", status_code=status.HTTP_200_OK)
-async def receive_traccar_position(
+@router.post("/sync/sap")
+async def trigger_sap_sync(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(deps.get_db),
-    # Parâmetros enviados pelo App Traccar Client (Protocolo OsmAnd)
-    id: str = Query(..., description="Device Identifier (IMEI ou ID único)"),
-    lat: float = Query(..., description="Latitude"),
-    lon: float = Query(..., description="Longitude"),
-    timestamp: Optional[int] = Query(None, description="Unix Timestamp"),
-    speed: Optional[float] = Query(0.0, description="Speed in knots"),
-    bearing: Optional[float] = Query(0.0, description="Direction/Heading"),
-    altitude: Optional[float] = Query(0.0, description="Altitude"),
-    accuracy: Optional[float] = Query(0.0, description="Accuracy"),
-    batt: Optional[float] = Query(None, description="Battery Level")
+    current_user: User = Depends(deps.get_current_active_user)
 ):
     """
-    Recebe dados de GPS diretamente do app Traccar Client.
-    Suporta tanto GET quanto POST (formato OsmAnd).
+    Dispara a sincronização com o SAP em segundo plano.
     """
+    # Instancia o serviço passando o ID da organização do usuário logado
+    sap_service = SAPIntegrationService(db, organization_id=current_user.organization_id)
     
-    # 1. Tratamento do Timestamp (O app envia em segundos ou milissegundos)
-    if timestamp:
-        try:
-            # Se for muito grande (ex: 1600000000000), é milissegundos
-            if timestamp > 1000000000000:
-                dt_timestamp = datetime.fromtimestamp(timestamp / 1000.0)
-            else:
-                dt_timestamp = datetime.fromtimestamp(timestamp)
-        except:
-            dt_timestamp = datetime.utcnow()
-    else:
-        dt_timestamp = datetime.utcnow()
-
-    # 2. Conversão de Velocidade (Nós para Km/h se necessário, mas aqui salvamos cru)
-    # Opcional: Traccar envia em 'nós' (knots). 1 knot = 1.852 km/h.
-    speed_kmh = speed * 1.852 if speed else 0.0
-
-    # 3. Cria o Objeto de Telemetria do TruCar
-    telemetry_data = TelemetryPayload(
-        device_id=id,
-        timestamp=dt_timestamp,
-        latitude=lat,
-        longitude=lon,
-        engine_hours=0, # O app celular não lê horímetro
-        fuel_level=batt, # Podemos usar o nível de bateria do celular como "combustível" para monitorar
-        error_codes=[]
-    )
-
-    # 4. Atualiza o Veículo no Banco de Dados
-    # Essa função (que já existe no seu crud_vehicle.py) busca pelo 'telemetry_device_id'
-    vehicle = await crud.vehicle.update_vehicle_from_telemetry(db=db, payload=telemetry_data)
-
-    if not vehicle:
-        print(f"⚠️ [Integração Traccar] Recebido ID '{id}' mas nenhum veículo encontrado com esse Device ID.")
-    else:
-        print(f"✅ [Integração Traccar] Veículo {vehicle.license_plate} atualizado! Lat: {lat}, Lon: {lon}")
+    # Adiciona nas tarefas de fundo para não travar a API
+    background_tasks.add_task(run_sync_task, sap_service)
     
-    # Retorna sucesso para o App não ficar tentando reenviar
-    return "OK"
+    return {"message": "Sincronização com SAP iniciada em background."}
+
+async def run_sync_task(service: SAPIntegrationService):
+    try:
+        await service.sync_machines()
+        await service.sync_operators()
+    finally:
+        await service.close()
+
+@router.post("/sync/rm")
+async def trigger_rm_sync(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Sincroniza Colaboradores do RM TOTVS (Tabela PFUNC).
+    """
+    rm_service = RMIntegrationService(db, organization_id=current_user.organization_id)
+    
+    # Roda em background
+    background_tasks.add_task(rm_service.sync_employees)
+    
+    return {"message": "Sincronização com RM TOTVS iniciada."}
