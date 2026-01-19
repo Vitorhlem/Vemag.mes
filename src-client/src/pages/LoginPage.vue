@@ -1,272 +1,413 @@
 <template>
-  <q-page
-    class="window-height window-width flex flex-center main-container"
+  <div 
+    class="industrial-login-container" 
     @mousemove="handleMouseMove"
-    @mouseleave="handleMouseLeave"
   >
-    <video ref="backgroundVideo" autoplay loop muted playsinline class="background-video">
-      <source src="~assets/login-video.mp4" type="video/mp4">
-      O seu navegador não suporta o tag de vídeo.
-    </video>
-    <div class="video-overlay"></div>
+    <div class="technical-grid"></div>
 
-    <div class="login-card-container">
-      <q-card ref="loginCard" flat class="login-card q-pa-lg">
-        <div class="card-shine"></div>
-        <q-card-section class="text-center q-pb-none">
-          <img
-            src="~assets/trucar-logo-white.png"
-            alt="VEMAG Logo"
-            class="animated-form-element"
-            style="width: 120px; height: auto; margin-bottom: 16px; animation-delay: 0.1s;"
-          >
-          <div class="text-h5 q-mt-sm text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">
-            TruMachine
+    <div class="scanner-bar"></div>
+
+    <div 
+        class="axis-y" 
+        :style="{ transform: `translateX(${mouseX}px)` }"
+    >
+        <div class="axis-label top">X: {{ mouseX.toFixed(1) }}</div>
+    </div>
+
+    <div 
+        class="axis-x" 
+        :style="{ transform: `translateY(${mouseY}px)` }"
+    >
+        <div class="axis-label left">Y: {{ mouseY.toFixed(1) }}</div>
+    </div>
+
+    <div 
+        class="machine-head" 
+        :style="{ transform: `translate(${mouseX}px, ${mouseY}px)` }"
+    >
+        <div class="head-spinner"></div>
+        <div class="head-glow"></div>
+    </div>
+
+    <div class="login-content relative-position z-top">
+      
+      <q-card class="login-card shadow-24">
+        <div class="safety-stripe"></div>
+
+        <q-card-section class="text-center q-pt-lg">
+          <div class="logo-container q-mb-md">
+            <img src="/Logo-Oficial.png" class="login-logo" />
           </div>
-          <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">
-            Acesse o controlo de produção.
+          <div class="text-h5 text-weight-bolder text-white tracking-widest">
+            VEMAG<span class="text-orange-5">.MES</span>
+          </div>
+          <div class="text-caption text-grey-5 text-uppercase q-mt-xs">
+            Acesso ao Chão de Fábrica
           </div>
         </q-card-section>
 
-        <q-card-section class="q-pt-lg">
+        <q-card-section class="q-px-lg">
           <q-form @submit.prevent="handleLogin" class="q-gutter-md">
+            
             <q-input
-              dark
-              standout="bg-grey-10 text-white"
               v-model="email"
-              label="E-mail ou ID de Operador"
-              :rules="[val => !!val || 'Campo obrigatório']"
-              class="animated-form-element"
-              style="animation-delay: 0.4s;"
-            >
-              <template v-slot:prepend><q-icon name="precision_manufacturing" /></template>
-            </q-input>
-
-            <q-input
+              label="Identificação / Email"
               dark
-              standout="bg-grey-10 text-white"
-              v-model="password"
-              label="Senha"
-              :type="isPasswordVisible ? 'text' : 'password'"
-              :rules="[val => !!val || 'Campo obrigatório']"
-              class="animated-form-element"
-              style="animation-delay: 0.5s;"
+              outlined
+              dense
+              color="orange-5"
+              class="industrial-input"
+              :disable="isLoading"
             >
-              <template v-slot:prepend><q-icon name="lock" /></template>
-              <template v-slot:append>
-                <q-icon
-                  :name="isPasswordVisible ? 'visibility_off' : 'visibility'"
-                  class="cursor-pointer"
-                  @click="isPasswordVisible = !isPasswordVisible"
-                />
+              <template v-slot:prepend>
+                <q-icon name="badge" color="orange-5" />
               </template>
             </q-input>
 
-            <div class="row items-center justify-between text-grey-5 animated-form-element" style="animation-delay: 0.6s;">
-              <q-checkbox v-model="rememberMe" label="Manter conectado" size="sm" dark />
-              <q-btn
-                label="Suporte TI"
-                flat
-                no-caps
-                size="sm"
-                class="text-primary"
-                to="/auth/forgot-password"
-              />
+            <q-input
+              v-model="password"
+              label="Senha de Acesso"
+              type="password"
+              dark
+              outlined
+              dense
+              color="orange-5"
+              class="industrial-input"
+              :disable="isLoading"
+            >
+              <template v-slot:prepend>
+                <q-icon name="lock" color="orange-5" />
+              </template>
+            </q-input>
+
+            <div class="row justify-between items-center q-mt-sm">
+                <q-checkbox v-model="remember" label="Manter conectado" dark dense color="grey-6" size="sm" />
+                
+                <div 
+                    class="text-grey-5 text-caption cursor-pointer link-hover" 
+                    @click="goToForgotPassword"
+                >
+                    Esqueceu a senha?
+                </div>
             </div>
 
-            <div class="animated-form-element" style="animation-delay: 0.7s;">
-              <q-btn
-                type="submit"
-                :color="getButtonColor"
-                class="full-width text-weight-bold q-py-md login-btn"
-                unelevated
-                :loading="isLoading"
-                size="lg"
-              >
-                <transition name="fade" mode="out-in">
-                  <span v-if="!isLoading && loginStatus === 'idle'">Entrar no Sistema</span>
-                  <q-icon v-else-if="!isLoading && loginStatus === 'success'" name="check" />
-                  <q-icon v-else-if="!isLoading && loginStatus === 'error'" name="close" />
-                </transition>
-              </q-btn>
+            <q-btn
+              type="submit"
+              color="orange-9"
+              text-color="white"
+              label="INICIAR SISTEMA"
+              class="full-width q-mt-lg text-weight-bold tracking-widest industrial-btn"
+              :loading="isLoading"
+              unelevated
+            >
+                <template v-slot:loading>
+                    <q-spinner-gears class="on-left" /> Validando...
+                </template>
+            </q-btn>
+
+            <div class="text-center q-mt-md">
+                <q-btn 
+                    flat 
+                    dense
+                    no-caps
+                    size="sm"
+                    color="orange-5" 
+                    label="Não tem acesso? Solicite aqui (Registrar)" 
+                    class="opacity-80"
+                    @click="goToRegister"
+                />
             </div>
+
           </q-form>
         </q-card-section>
-        
-        <q-card-section class="text-center animated-form-element" style="animation-delay: 0.8s;">
-           <q-separator dark class="q-mb-md" />
-           <span>Novo na fábrica? <q-btn to="/auth/register" label="Cadastrar Empresa" flat no-caps dense class="text-primary text-weight-bold"/></span>
+
+        <q-card-section class="text-center q-pb-lg">
+            <div class="status-indicator row items-center justify-center q-gutter-x-sm">
+                <div class="led-light"></div>
+                <span class="text-caption text-grey-6">SISTEMA ONLINE • V.2.0</span>
+            </div>
         </q-card-section>
       </q-card>
+
     </div>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type ComponentPublicInstance } from 'vue';
-import { useQuasar } from 'quasar';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from 'stores/auth-store';
+import { useQuasar } from 'quasar';
 
-const loginCard = ref<ComponentPublicInstance | null>(null);
-const backgroundVideo = ref<HTMLVideoElement | null>(null);
-
-const $q = useQuasar();
-const email = ref('');
-const password = ref('');
-const rememberMe = ref(false);
-const isLoading = ref(false);
-const isPasswordVisible = ref(false);
-const loginStatus = ref<'idle' | 'success' | 'error'>('idle');
 const router = useRouter();
 const authStore = useAuthStore();
+const $q = useQuasar();
 
-const getButtonColor = computed(() => {
-  if (loginStatus.value === 'success') return 'positive';
-  if (loginStatus.value === 'error') return 'negative';
-  return 'primary';
-});
+const email = ref('');
+const password = ref('');
+const remember = ref(false);
+const isLoading = ref(false);
 
-async function handleLogin() {
-  if (isLoading.value) return;
-  isLoading.value = true;
-  loginStatus.value = 'idle';
-
-  try {
-    await authStore.login({ email: email.value, password: password.value });
-    loginStatus.value = 'success';
-    isLoading.value = false;
-    setTimeout(() => {
-      void router.push({ name: 'dashboard' });
-    }, 800);
-  } catch {
-    loginStatus.value = 'error';
-    isLoading.value = false;
-    $q.notify({ color: 'negative', icon: 'error', message: 'Credenciais inválidas.' });
-    setTimeout(() => {
-      loginStatus.value = 'idle';
-    }, 2000);
-  }
-}
+const mouseX = ref(0);
+const mouseY = ref(0);
 
 function handleMouseMove(event: MouseEvent) {
-  const { clientX, clientY } = event;
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+    mouseX.value = event.clientX;
+    mouseY.value = event.clientY;
+}
 
-  const mouseX = (clientX / width) * 2 - 1;
-  const mouseY = (clientY / height) * 2 - 1;
+function goToForgotPassword() {
+    void router.push('/auth/forgot-password');
+}
 
-  if (loginCard.value && loginCard.value.$el) {
-    const cardEl = loginCard.value.$el as HTMLElement;
-    
-    const rotateY = mouseX * 8;
-    const rotateX = -mouseY * 8;
-    cardEl.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+function goToRegister() {
+    void router.push('/auth/register');
+}
 
-    const rect = cardEl.getBoundingClientRect();
-    const shineX = event.clientX - rect.left;
-    const shineY = event.clientY - rect.top;
-    cardEl.style.setProperty('--shine-x', `${shineX}px`);
-    cardEl.style.setProperty('--shine-y', `${shineY}px`);
-    cardEl.style.setProperty('--shine-opacity', '1');
+async function handleLogin() {
+  if (!email.value || !password.value) {
+    $q.notify({ type: 'warning', message: 'Preencha todos os campos.' });
+    return;
+  }
+
+  isLoading.value = true;
+
+  try {
+  
+      await authStore.login({ email: email.value, password: password.value });
+
+      if (authStore.user?.role === 'admin') {
+          void router.push('/admin');
+      } else if (authStore.user?.role === 'driver') {
+          void router.push('/factory/kiosk-select');
+      } else {
+          void router.push('/dashboard');
+      }
+      
+      $q.notify({ type: 'positive', message: 'Bem-vindo ao Vemag MES!' });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+      console.error(error);
+      let msg = 'Falha no login. Verifique suas credenciais.';
+      
+      if (error.response && error.response.status === 401) {
+          msg = 'Email ou senha incorretos.';
+      } else if (error.message) {
+          msg = error.message;
+      }
+      
+      $q.notify({ type: 'negative', message: msg });
+  } finally {
+      isLoading.value = false;
   }
 }
 
-function handleMouseLeave() {
-  if (loginCard.value && loginCard.value.$el) {
-    const cardEl = loginCard.value.$el as HTMLElement;
-    cardEl.style.transform = 'rotateX(0deg) rotateY(0deg)';
-    cardEl.style.setProperty('--shine-opacity', '0');
-  }
-}
+onMounted(() => {
+    if (typeof window !== 'undefined') {
+        mouseX.value = window.innerWidth / 2;
+        mouseY.value = window.innerHeight / 2;
+    }
+});
 </script>
 
-<style lang="scss" scoped>
-.main-container {
-  background-image: url('~assets/login-background.jpg');
-  background-size: cover;
-  background-position: center;
-  overflow: hidden;
-  position: relative;
+<style scoped>
+/* --- CONTAINER E FUNDO --- */
+.industrial-login-container {
+    width: 100vw;
+    height: 100vh;
+    background-color: #121212;
+    overflow: hidden;
+    position: relative;
+    cursor: crosshair;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.background-video {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  min-width: 105%;
-  min-height: 105%;
-  width: auto;
-  height: auto;
-  z-index: 1;
-  transform: translateX(-50%) translateY(-50%) scale(1.1);
-  transition: transform 0.3s ease-out;
+.technical-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: 0;
 }
 
-.video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(ellipse at center, rgba(5, 10, 20, 0.4) 0%, rgba(5, 10, 20, 0.9) 100%);
-  z-index: 2;
+/* --- NOVO: SCANNER BAR (ANIMAÇÃO CONTÍNUA) --- */
+.scanner-bar {
+    position: absolute;
+    top: -20%;
+    left: 0;
+    width: 100%;
+    height: 40px; /* Altura do gradiente */
+    /* Gradiente laranja transparente que some nas bordas */
+    background: linear-gradient(to bottom, transparent, rgba(255, 152, 0, 0.15) 50%, transparent);
+    border-bottom: 2px solid rgba(255, 152, 0, 0.4); /* Linha mais forte embaixo */
+    z-index: 1;
+    pointer-events: none;
+    animation: scan 6s linear infinite; /* Animação infinita de 6 segundos */
+    box-shadow: 0 0 15px rgba(255, 152, 0, 0.2);
 }
 
-.login-card-container {
-  perspective: 1500px;
-  z-index: 3;
+@keyframes scan {
+    0% { top: -20%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 120%; opacity: 0; }
+}
+
+/* --- EIXOS --- */
+.axis-x, .axis-y {
+    position: absolute;
+    background-color: rgba(255, 152, 0, 0.3);
+    pointer-events: none;
+    z-index: 1;
+    box-shadow: 0 0 10px rgba(255, 152, 0, 0.1);
+}
+
+.axis-x {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    border-bottom: 1px dashed rgba(255, 152, 0, 0.5);
+}
+
+.axis-y {
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 100%;
+    border-right: 1px dashed rgba(255, 152, 0, 0.5);
+}
+
+.axis-label {
+    position: absolute;
+    background: #FF9800;
+    color: #000;
+    font-size: 10px;
+    font-family: monospace;
+    padding: 2px 4px;
+    font-weight: bold;
+}
+.axis-label.top { top: 10px; left: 5px; }
+.axis-label.left { left: 10px; top: -20px; }
+
+.machine-head {
+    position: absolute;
+    top: 0; 
+    left: 0;
+    width: 0;
+    height: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.head-spinner {
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    width: 30px;
+    height: 30px;
+    border: 2px solid #FF9800;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+.head-glow {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    width: 8px;
+    height: 8px;
+    background-color: #FF9800;
+    border-radius: 50%;
+    box-shadow: 0 0 15px 5px rgba(255, 152, 0, 0.6);
+}
+
+/* --- CARD --- */
+.login-content {
+    z-index: 10;
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
 }
 
 .login-card {
-  width: 420px;
-  max-width: 90vw;
-  background: rgba(18, 23, 38, 0.6); /* Um pouco mais escuro para indústria */
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  transition: transform 0.3s ease-out;
-  position: relative;
-  overflow: hidden;
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
 }
 
-.card-shine {
-  position: absolute;
-  top: var(--shine-y, 0);
-  left: var(--shine-x, 0);
-  transform: translate(-50%, -50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 60%);
-  opacity: var(--shine-opacity, 0);
-  transition: opacity 0.3s ease-out;
-  pointer-events: none;
+.safety-stripe {
+    height: 4px;
+    background: repeating-linear-gradient(
+        45deg,
+        #F2C037,
+        #F2C037 10px,
+        #000 10px,
+        #000 20px
+    );
+    width: 100%;
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animated-form-element {
-  opacity: 0;
-  animation: fadeInUp 0.5s ease-out forwards;
+.login-logo {
+    height: 60px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
 }
 
-:deep(.q-field--standout.q-field--focused .q-field__control) {
-  box-shadow: 0 0 10px rgba(var(--q-color-primary-rgb), 0.5);
+.tracking-widest { letter-spacing: 3px; }
+
+.industrial-input :deep(.q-field__control) {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
-:deep(.q-field--standout .q-field__control) {
-  transition: box-shadow 0.3s ease;
+.industrial-input :deep(.q-field__label) {
+    font-family: monospace;
+    text-transform: uppercase;
+    font-size: 12px;
 }
 
-.login-btn {
-  transition: background-color 0.3s ease;
+.industrial-btn {
+    border-radius: 2px;
+    border: 1px solid #FF9800;
+    transition: all 0.3s ease;
 }
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.2s ease;
+.industrial-btn:hover {
+    background-color: #F57C00 !important;
+    box-shadow: 0 0 15px rgba(255, 152, 0, 0.4);
 }
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
+
+.link-hover:hover {
+    color: #FF9800 !important;
+    text-decoration: underline;
+}
+
+.led-light {
+    width: 8px;
+    height: 8px;
+    background-color: #00E676;
+    border-radius: 50%;
+    box-shadow: 0 0 5px #00E676;
+    animation: pulse-green 2s infinite;
+}
+
+.opacity-80 { opacity: 0.8; }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes pulse-green {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
 }
 </style>

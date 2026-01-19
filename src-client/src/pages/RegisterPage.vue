@@ -1,126 +1,153 @@
 <template>
-  <q-page>
-    <div class="row window-height">
+  <div class="industrial-register-container">
+    
+    <div class="technical-grid"></div>
+
+    <div class="row full-width full-height relative-position z-top">
+      
       <div 
         ref="formPanel"
-        class="col-12 col-md-6 flex flex-center form-panel"
+        class="col-12 col-md-6 flex flex-center form-panel-industrial"
         @mousemove="handleMouseMove"
         @mouseleave="handleMouseLeave"
       >
-        <q-card ref="registerCard" flat class="register-card q-pa-md">
+        <q-card ref="registerCard" class="register-card shadow-24">
           <div class="card-shine"></div>
+          <div class="safety-stripe"></div>
           
-          <q-card-section class="text-center q-pb-none">
-            <img 
-              src="~assets/trucar-logo-white.png" 
-              alt="VEMAG Logo" 
-              class="animated-form-element"
-              style="height: 40px; margin-bottom: 1rem; animation-delay: 0.1s;"
-            >
-            <div class="text-h5 text-weight-bold text-white animated-form-element" style="animation-delay: 0.2s;">
-              Nova Planta Industrial
+          <q-card-section class="text-center q-pt-lg">
+            <div class="logo-container q-mb-md">
+              <img src="/Logo-Oficial.png" class="login-logo" />
             </div>
-            <div class="text-subtitle1 text-grey-5 animated-form-element" style="animation-delay: 0.3s;">
-              Configure o ambiente da sua fábrica.
+            <div class="text-h5 text-weight-bolder text-white tracking-widest">
+                NOVA PLANTA<span class="text-orange-5">.IND</span>
+            </div>
+            <div class="text-caption text-grey-5 text-uppercase q-mt-xs">
+              Configuração do Ambiente Fabril
             </div>
           </q-card-section>
           
           <q-stepper
             v-model="step"
             ref="stepper"
-            color="primary"
+            color="orange-9"
             animated
             flat
             dark
             header-nav
-            class="q-mt-md transparent-stepper animated-form-element"
-            style="animation-delay: 0.4s;"
+            class="bg-transparent"
           >
             <q-step
               :name="1"
-              title="A Empresa"
+              title="A INDÚSTRIA"
               icon="factory"
               :done="step > 1"
+              class="step-content"
             >
               <q-input 
-                dark
-                standout="bg-grey-10"
                 v-model="formData.organization_name" 
-                label="Nome da Indústria *" 
-                :rules="[val => !!val || 'Campo obrigatório']"
-                class="q-mb-md"
+                label="Razão Social / Nome da Planta *" 
+                dark outlined dense color="orange-5"
+                class="industrial-input q-mb-md"
+                :rules="[val => !!val || 'Obrigatório']"
               >
-                <template v-slot:prepend><q-icon name="business" /></template>
+                <template v-slot:prepend><q-icon name="business" color="orange-5" /></template>
               </q-input>
 
               <q-select
-                dark
-                standout="bg-grey-10"
                 v-model="formData.sector"
                 :options="sectorOptions"
-                label="Ramo de Atividade *"
-                emit-value
-                map-options
-                :rules="[val => !!val || 'Selecione um setor']"
+                label="Segmento Industrial *"
+                emit-value map-options
+                dark outlined dense color="orange-5"
+                class="industrial-input"
+                :rules="[val => !!val || 'Obrigatório']"
+                readonly
               >
                 <template v-slot:prepend>
-                  <q-icon :name="sectorIcon" />
+                  <q-icon name="precision_manufacturing" color="orange-5" />
                 </template>
               </q-select>
 
               <q-stepper-navigation class="q-mt-lg">
-                <q-btn @click="() => stepper?.next()" color="primary" label="Continuar" class="full-width" unelevated />
+                <q-btn @click="() => stepper?.next()" color="orange-9" label="PRÓXIMO" class="full-width industrial-btn" unelevated />
               </q-stepper-navigation>
             </q-step>
 
             <q-step
               :name="2"
-              title="Administrador"
+              title="GESTOR PCP"
               icon="admin_panel_settings"
+              class="step-content"
             >
-              <q-input dark standout="bg-grey-10" v-model="formData.full_name" label="Nome do Gestor *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
-                  <template v-slot:prepend><q-icon name="person" /></template>
-              </q-input>
-              <q-input dark standout="bg-grey-10" v-model="formData.email" type="email" label="E-mail Corporativo *" :rules="[val => !!val || 'Campo obrigatório']" class="q-mb-md">
-                  <template v-slot:prepend><q-icon name="alternate_email" /></template>
-              </q-input>
-              <q-input dark standout="bg-grey-10" v-model="formData.password" type="password" label="Definir Senha *" :rules="[val => !!val || 'Campo obrigatório']">
-                  <template v-slot:prepend><q-icon name="lock" /></template>
+              <q-input 
+                v-model="formData.full_name" 
+                label="Nome do Responsável *" 
+                dark outlined dense color="orange-5"
+                class="industrial-input q-mb-md"
+                :rules="[val => !!val || 'Obrigatório']"
+              >
+                  <template v-slot:prepend><q-icon name="person" color="orange-5" /></template>
               </q-input>
               
-              <q-stepper-navigation class="q-mt-lg row q-col-gutter-sm">
+              <q-input 
+                v-model="formData.email" 
+                type="email" 
+                label="E-mail Corporativo *" 
+                dark outlined dense color="orange-5"
+                class="industrial-input q-mb-md"
+                :rules="[val => !!val || 'Obrigatório']"
+              >
+                  <template v-slot:prepend><q-icon name="alternate_email" color="orange-5" /></template>
+              </q-input>
+              
+              <q-input 
+                v-model="formData.password" 
+                type="password" 
+                label="Senha de Acesso *" 
+                dark outlined dense color="orange-5"
+                class="industrial-input"
+                :rules="[val => !!val || 'Obrigatório']"
+              >
+                  <template v-slot:prepend><q-icon name="lock" color="orange-5" /></template>
+              </q-input>
+              
+              <q-stepper-navigation class="q-mt-lg row q-col-gutter-md">
                 <div class="col-6">
-                    <q-btn flat @click="() => stepper?.previous()" color="primary" label="Voltar" class="full-width" />
+                    <q-btn flat @click="() => stepper?.previous()" color="grey-5" label="VOLTAR" class="full-width border-grey" />
                 </div>
                   <div class="col-6">
                     <q-btn 
                       @click="onSubmit" 
-                      :color="getButtonColor" 
-                      class="full-width register-btn" 
+                      :color="registerStatus === 'success' ? 'positive' : (registerStatus === 'error' ? 'negative' : 'orange-9')" 
+                      class="full-width industrial-btn" 
                       unelevated 
                       :loading="isLoading"
                     >
-                      <transition name="fade" mode="out-in">
-                        <span v-if="!isLoading && registerStatus === 'idle'">Inicializar Sistema</span>
-                        <q-icon v-else-if="!isLoading && registerStatus === 'success'" name="check" />
-                        <q-icon v-else-if="!isLoading && registerStatus === 'error'" name="close" />
-                      </transition>
+                      <span v-if="!isLoading && registerStatus === 'idle'">FINALIZAR</span>
+                      <q-icon v-else-if="!isLoading && registerStatus === 'success'" name="check" />
+                      <q-icon v-else-if="!isLoading && registerStatus === 'error'" name="close" />
+                      <template v-slot:loading><q-spinner-gears class="on-left" /> Criando...</template>
                     </q-btn>
                   </div>
               </q-stepper-navigation>
             </q-step>
           </q-stepper>
           
-            <div class="text-center q-mt-md animated-form-element" style="animation-delay: 0.5s;">
-               <span>Empresa já cadastrada? <q-btn to="/auth/login" label="Acessar" flat no-caps dense class="text-primary text-weight-bold"/></span>
+            <div class="text-center q-mt-md">
+               <span class="text-grey-5">Já possui planta ativa? 
+                   <span class="text-orange-5 cursor-pointer text-weight-bold hover-underline" @click="goToLogin">
+                       ACESSAR PAINEL
+                   </span>
+               </span>
             </div>
 
-            <q-separator dark class="q-my-lg animated-form-element" style="animation-delay: 0.6s;" />
+            <q-separator dark class="q-my-lg opacity-20" />
 
-            <div class="security-seals text-center animated-form-element" style="animation-delay: 0.7s;">
+            <div class="security-seals text-center">
               <div class="seal-item">
                 <q-icon name="cloud_done" color="positive" />
-                <span>Cloud Native</span>
+                <span>Cloud MES</span>
               </div>
               <div class="seal-item">
                 <q-icon name="lock" color="positive" />
@@ -135,54 +162,45 @@
         </q-card>
       </div>
 
-      <div class="col-md-6 register-visual-container gt-sm">
-        <div class="image-strip" :style="{ backgroundImage: `url(${visual1})` }"></div>
-        <div class="image-strip" :style="{ backgroundImage: `url(${visual2})` }"></div>
-        <div class="image-strip" :style="{ backgroundImage: `url(${visual3})` }"></div>
-        <div class="image-strip" :style="{ backgroundImage: `url(${visual4})` }"></div>
-        <div class="visual-content text-white">
-            <h2 class="text-h2 text-weight-bolder">VEMAG</h2>
-            <h5 class="text-h5 text-weight-light q-mb-xl">Gestão inteligente para o chão de fábrica.</h5>
+      <div class="col-md-6 gt-sm relative-position overflow-hidden flex flex-center bg-black">
+        <div class="industrial-bg"></div>
+        <div class="bg-overlay"></div>
+        
+        <div class="visual-content text-white text-center q-pa-xl">
+            <h2 class="text-h2 text-weight-bolder tracking-widest q-mb-sm">VEMAG<span class="text-orange-5">.MES</span></h2>
+            <h5 class="text-h5 text-weight-light text-grey-4 q-mb-xl">Otimização e Controle Total do Chão de Fábrica.</h5>
 
-            <q-list dark separator class="benefits-list">
-              <q-item>
-                <q-item-section avatar>
-                  <q-icon color="white" name="settings_suggest" />
-                </q-item-section>
-                <q-item-section>Controle total de Ordens de Produção (O.P.).</q-item-section>
-              </q-item>
-              <q-item>
-                <q-item-section avatar>
-                  <q-icon color="white" name="build_circle" />
-                </q-item-section>
-                <q-item-section>Gestão de Manutenção Corretiva e Preventiva.</q-item-section>
-              </q-item>
-              <q-item>
-                <q-item-section avatar>
-                  <q-icon color="white" name="insights" />
-                </q-item-section>
-                <q-item-section>Monitore OEE e eficiência em tempo real.</q-item-section>
-              </q-item>
-            </q-list>
+            <div class="features-grid">
+                 <div class="feature-item">
+                     <q-icon name="settings_suggest" size="md" color="orange-5" />
+                     <div class="text-subtitle1 text-weight-bold q-mt-sm">Controle de O.P.</div>
+                     <div class="text-caption text-grey-5">Rastreamento em tempo real de cada ordem.</div>
+                 </div>
+                 <div class="feature-item">
+                     <q-icon name="build_circle" size="md" color="orange-5" />
+                     <div class="text-subtitle1 text-weight-bold q-mt-sm">Manutenção</div>
+                     <div class="text-caption text-grey-5">Gestão preventiva e corretiva integrada.</div>
+                 </div>
+                 <div class="feature-item">
+                     <q-icon name="insights" size="md" color="orange-5" />
+                     <div class="text-subtitle1 text-weight-bold q-mt-sm">OEE & KPIs</div>
+                     <div class="text-caption text-grey-5">Métricas de eficiência instantâneas.</div>
+                 </div>
+            </div>
         </div>
       </div>
+
     </div>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type ComponentPublicInstance } from 'vue';
+import { ref, type ComponentPublicInstance } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, QStepper } from 'quasar';
 import { api } from 'boot/axios';
 import axios from 'axios';
 import type { UserRegister, UserSector } from 'src/models/auth-models';
-
-// Assets visuais (mantenha os nomes, só mudamos o contexto do texto)
-import visual1 from 'assets/register-visual-1.jpg';
-import visual2 from 'assets/register-visual-2.jpg';
-import visual3 from 'assets/register-visual-3.jpg';
-import visual4 from 'assets/register-visual-4.jpg';
 
 const formPanel = ref<HTMLElement | null>(null);
 const registerCard = ref<ComponentPublicInstance | null>(null);
@@ -196,28 +214,16 @@ const stepper = ref<QStepper | null>(null);
 
 const formData = ref<UserRegister>({
   organization_name: '',
-  sector: 'servicos', // Default já setado para o novo setor
+  sector: 'servicos', // Mantém 'servicos' para compatibilidade com backend, mas visualmente é Metalúrgica
   full_name: '',
   email: '',
   password: '',
 });
 
-const getButtonColor = computed(() => {
-  if (registerStatus.value === 'success') return 'positive';
-  if (registerStatus.value === 'error') return 'negative';
-  return 'primary';
-});
-
-// AQUI ESTÁ A MUDANÇA PRINCIPAL:
-// Apenas "Indústria Metalúrgica" aparece, mas o valor enviado é 'servicos'
-// para compatibilidade com o Enum do Backend.
+// Opção Única Fixa (O usuário vê Indústria, mas o valor é o que o backend aceita)
 const sectorOptions: { label: string, value: UserSector }[] = [
-  { label: 'Indústria Metalúrgica', value: 'servicos' }, 
+  { label: 'Indústria Metalúrgica / Manufatura', value: 'servicos' }, 
 ];
-
-const sectorIcon = computed(() => {
-  return 'precision_manufacturing'; // Ícone fixo de indústria
-});
 
 async function onSubmit() {
   if (isLoading.value) return;
@@ -227,29 +233,32 @@ async function onSubmit() {
   try {
     await api.post('/login/register', formData.value);
     registerStatus.value = 'success';
-    isLoading.value = false;
     
     $q.notify({
       type: 'positive',
-      message: 'Ambiente industrial configurado! Redirecionando...',
+      message: 'Planta registrada com sucesso! Redirecionando...',
+      timeout: 1500
     });
     
     setTimeout(() => {
-    void router.push('/auth/login');
-    }, 1200);
+        void router.push('/auth/login');
+    }, 1500);
 
   } catch (error) {
-    registerStatus.value = 'error'
-    isLoading.value = false;
-    let errorMessage = 'Erro ao criar conta. Tente novamente.';
+    registerStatus.value = 'error';
+    let errorMessage = 'Erro ao criar conta.';
     if (axios.isAxiosError(error) && error.response?.data?.detail) {
       errorMessage = error.response.data.detail as string;
     }
     $q.notify({ type: 'negative', message: errorMessage });
-    setTimeout(() => {
-      registerStatus.value = 'idle';
-    }, 2500);
+    setTimeout(() => { registerStatus.value = 'idle'; }, 2500);
+  } finally {
+      isLoading.value = false;
   }
+}
+
+function goToLogin() {
+    void router.push('/auth/login');
 }
 
 function handleMouseMove(event: MouseEvent) {
@@ -273,137 +282,149 @@ function handleMouseLeave() {
 }
 </script>
 
-<style lang="scss" scoped>
-.form-panel {
-  background-color: #050a14;
+<style scoped>
+/* --- ESTRUTURA GERAL --- */
+.industrial-register-container {
+    width: 100vw;
+    height: 100vh;
+    background-color: #121212;
+    overflow: hidden;
+    position: relative;
 }
 
+.technical-grid {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: 0;
+}
+
+/* --- CARD DE REGISTRO --- */
 .register-card {
-  width: 500px;
-  max-width: 90vw;
-  background: rgba(18, 23, 38, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  position: relative;
-  overflow: hidden;
+    width: 500px;
+    max-width: 90vw;
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px; /* Cantos retos = industrial */
+    position: relative;
+    overflow: hidden;
+}
+
+.safety-stripe {
+    height: 4px;
+    background: repeating-linear-gradient(45deg, #F2C037, #F2C037 10px, #000 10px, #000 20px);
+    width: 100%;
 }
 
 .card-shine {
-  position: absolute;
-  top: var(--shine-y, 0);
-  left: var(--shine-x, 0);
-  transform: translate(-50%, -50%);
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 60%);
-  opacity: var(--shine-opacity, 0);
-  transition: opacity 0.3s ease-out;
-  pointer-events: none;
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animated-form-element {
-  opacity: 0;
-  animation: fadeInUp 0.5s ease-out forwards;
-}
-
-.transparent-stepper {
-  background-color: transparent !important;
-}
-
-:deep(.q-field--standout.q-field--focused .q-field__control) {
-  box-shadow: 0 0 10px rgba(var(--q-color-primary-rgb), 0.5);
-}
-:deep(.q-field--standout .q-field__control) {
-  transition: box-shadow 0.3s ease;
-}
-
-.register-btn {
-  transition: background-color 0.3s ease;
-}
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-
-// Estilos para o painel visual direito
-.register-visual-container {
-  position: relative;
-  display: flex;
-  overflow: hidden;
-
-  &::before {
-    content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6); /* Mais escuro para contraste */
-    z-index: 2;
-    transition: background-color 0.4s ease;
-  }
-
-  &:hover::before {
-    background-color: rgba(0, 0, 0, 0.7);
-  }
+    top: var(--shine-y, 0); left: var(--shine-x, 0);
+    transform: translate(-50%, -50%);
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0) 60%); /* Shine laranja */
+    opacity: var(--shine-opacity, 0);
+    transition: opacity 0.3s ease-out;
+    pointer-events: none;
+    z-index: 1;
 }
 
-.image-strip {
-  flex: 1;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-  filter: grayscale(60%);
+.login-logo {
+    height: 50px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
 }
 
-.register-visual-container:hover .image-strip {
-  filter: grayscale(100%);
+.tracking-widest { letter-spacing: 3px; }
+
+/* INPUTS */
+.industrial-input :deep(.q-field__control) {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.industrial-input :deep(.q-field__label) {
+    font-family: monospace;
+    text-transform: uppercase;
+    font-size: 11px;
 }
 
-.image-strip:hover {
-  flex: 2;
-  filter: grayscale(0%);
+/* BOTÕES */
+.industrial-btn {
+    border-radius: 2px;
+    border: 1px solid #E65100; /* Laranja Escuro */
+    font-weight: bold;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+.industrial-btn:hover {
+    background-color: #EF6C00 !important;
+    box-shadow: 0 0 15px rgba(239, 108, 0, 0.4);
+}
+.border-grey {
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.hover-underline:hover { text-decoration: underline; }
+
+/* --- LADO DIREITO (VISUAL) --- */
+.industrial-bg {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url('~assets/register-visual-1.jpg'); /* Use uma imagem de fábrica escura */
+    background-size: cover;
+    background-position: center;
+    filter: grayscale(100%);
+    opacity: 0.4;
+}
+
+.bg-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at center, transparent 0%, #000 90%);
 }
 
 .visual-content {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 90%;
-  max-width: 500px;
-  z-index: 3;
-  text-align: center;
+    z-index: 2;
+    position: relative;
 }
 
-.benefits-list {
-  background-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(5px);
-  border-radius: 8px;
-  margin-top: 3rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 40px;
 }
 
+.feature-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 4px;
+    transition: transform 0.3s;
+}
+.feature-item:hover {
+    transform: translateY(-5px);
+    border-color: #F57C00;
+}
+
+/* SELOS */
 .security-seals {
-  display: flex;
-  justify-content: space-around;
-  color: #21BA45; /* $positive no SCSS do Quasar */
-  font-size: 0.8rem;
-  font-weight: 500;
-  opacity: 0.9;
-  padding: 0 1rem;
+    display: flex;
+    justify-content: space-around;
+    color: #21BA45;
+    font-size: 0.75rem;
+    font-family: monospace;
+    opacity: 0.8;
+    padding: 0 1rem;
 }
 .seal-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
+.opacity-20 { opacity: 0.2; }
 </style>
