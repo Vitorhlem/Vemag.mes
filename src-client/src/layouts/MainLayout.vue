@@ -9,8 +9,7 @@
       :breakpoint="800"
       class="bg-surface drawer-style"
     >
-      <q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: 0.5 }">
-        
+<q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: '0.5' }">        
         <div class="q-pa-md row items-center justify-center relative-position" style="height: 110px;">
           <img src="~assets/trucar-logo-dark.png" class="logo-light animate-fade" style="height: 55px; max-width: 90%; transition: all 0.3s;" alt="Vemag Logo">
           <img src="~assets/trucar-logo-white.png" class="logo-dark animate-fade" style="height: 55px; max-width: 90%; display: none; transition: all 0.3s;" alt="Vemag Logo">
@@ -92,7 +91,9 @@
               <div class="row no-wrap items-center q-pa-md bg-white border-bottom">
                 <div class="text-subtitle1 text-weight-bold text-grey-9">Alertas da Fábrica</div>
                 <q-space />
-                <q-btn round flat icon="done_all" size="sm" color="primary" @click="notificationStore.markAllRead"><q-tooltip>Marcar tudo como lido</q-tooltip></q-btn>
+                <q-btn round flat icon="done_all" size="sm" color="primary" @click="markAllRead">
+  <q-tooltip>Marcar tudo como lido</q-tooltip>
+</q-btn>
               </div>
               <q-scroll-area style="height: 300px;" class="bg-grey-1">
                   <q-list separator>
@@ -268,6 +269,18 @@ function getOperatorMenu(): MenuCategory[] {
             ]
         }
     ];
+}
+async function markAllRead() {
+  // Filtra apenas as não lidas
+  const unreadNotifications = notificationStore.notifications.filter(n => !n.is_read);
+  
+  // Marca uma por uma (já que a store não tem o método em massa)
+  for (const notification of unreadNotifications) {
+    await notificationStore.markAsRead(notification.id);
+  }
+  
+  // Atualiza a contagem
+  await notificationStore.fetchUnreadCount();
 }
 
 function getManagerMenu(): MenuCategory[] {
