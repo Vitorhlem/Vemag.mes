@@ -88,3 +88,4 @@ geopy
 pytest
 pytest-asyncio
 a2wsgi
+pyodbc
