@@ -8,8 +8,28 @@ from app.schemas.user_schema import UserCreate, UserUpdate, UserPublic, UserStat
 from app.core.security import verify_password
 from app import deps
 from app.models.user_model import User, UserRole
-
+from sqlalchemy import select
 router = APIRouter()
+
+@router.get("/by-badge/{badge}", response_model=UserPublic)
+async def get_user_by_badge(
+    badge: str,
+    db: AsyncSession = Depends(deps.get_db),
+    # current_user: User = Depends(deps.get_current_active_user) # Opcional: exige que o Kiosk esteja logado
+):
+    """
+    Identifica um usuário pelo crachá (sem fazer login).
+    Usado para trocar o operador da máquina dinamicamente.
+    """
+    # Busca exata pelo campo employee_id
+    query = select(User).where(User.employee_id == badge)
+    result = await db.execute(query)
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Crachá não encontrado")
+        
+    return user
 
 
 @router.get("/", response_model=List[UserPublic])

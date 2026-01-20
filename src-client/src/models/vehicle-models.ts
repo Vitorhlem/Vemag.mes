@@ -14,6 +14,7 @@ export interface Vehicle {
   photo_url?: string | null;
   license_plate?: string | null;
   identifier?: string | null;
+  sap_resource_code?: string | null; // <--- Adicione | null para flexibilidade
   telemetry_device_id?: string | null;
   current_km: number;
   current_engine_hours?: number | null;
@@ -31,6 +32,7 @@ export interface VehicleCreate {
   year: number;
   license_plate?: string | null;
   identifier?: string | null;
+  sap_resource_code?: string; // Ex: 4.02.01
   status: VehicleStatus;
   current_km: number;
   current_engine_hours?: number | null;
@@ -43,6 +45,7 @@ export interface VehicleUpdate {
   year?: number;
   license_plate?: string | null;
   identifier?: string | null;
+  sap_resource_code?: string; // <--- Adicione
   status?: VehicleStatus;
   current_km?: number;
   current_engine_hours?: number | null;

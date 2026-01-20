@@ -26,6 +26,7 @@
     <div v-else-if="!hasVehicles" class="text-center q-pa-xl text-grey-6"><q-icon name="precision_manufacturing" size="4em" /><div class="text-h6 q-mt-md">Nenhuma máquina encontrada</div></div>
 
     <div v-else>
+      
       <div v-if="viewMode === 'folders'" class="q-gutter-y-md animate-fade">
         <q-expansion-item v-for="(machines, brandName) in groupedVehicles" :key="brandName" class="shadow-1 overflow-hidden bg-white rounded-borders" header-class="bg-grey-2 text-primary text-weight-bold" expand-icon-class="text-primary" :default-opened="!!searchTerm">
           <template v-slot:header>
@@ -49,9 +50,12 @@
                         <q-badge outline color="primary" size="sm">{{ vehicle.year }}</q-badge>
                     </div>
                     <q-item-label caption class="row items-center q-gutter-x-xs q-mt-xs">
-                      <q-icon name="qr_code" size="xs" /><span>{{ vehicle.license_plate || vehicle.identifier || 'S/N' }}</span>
+                      <q-icon name="qr_code" size="xs" /><span>{{ vehicle.identifier || 'S/N' }}</span>
                       <span class="text-grey-4">|</span>
                       <q-icon name="speed" size="xs" /><span>{{ (vehicle.current_engine_hours || 0).toFixed(1) }} h</span>
+                      <span v-if="vehicle.sap_resource_code" class="text-primary text-weight-bold q-ml-sm">
+                         [SAP: {{ vehicle.sap_resource_code }}]
+                      </span>
                     </q-item-label>
                     
                     <div class="q-mt-xs" style="max-width: 180px">
@@ -67,7 +71,7 @@
                   <q-item-section side>
                     <div class="row items-center q-gutter-x-sm">
                         <q-chip dense :color="getStatusColor(vehicle.status)" text-color="white" class="text-caption text-weight-bold">{{ translateStatusShort(vehicle.status) }}</q-chip>
-                        <q-btn flat round dense icon="qr_code_2" color="grey-7" @click.stop="openQrDialog(vehicle)"><q-tooltip>Ver QR Code</q-tooltip></q-btn>
+                        <q-btn flat round dense icon="edit" color="grey-7" @click.stop="openEditDialog(vehicle)" />
                     </div>
                   </q-item-section>
                 </q-item>
@@ -84,7 +88,7 @@
               <q-img :src="getImageUrl(vehicle.photo_url) ?? undefined" height="180px" fit="cover" class="bg-grey-3">
                 <template v-slot:error><div class="absolute-full flex flex-center bg-grey-3 text-grey-5"><q-icon name="precision_manufacturing" size="56px" /></div></template>
                 <div class="absolute-bottom text-subtitle2 text-white p-2" style="background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);">
-                    <div class="text-weight-bold">{{ vehicle.license_plate || 'Sem Tag' }}</div>
+                    <div class="text-weight-bold">{{ vehicle.identifier || 'Sem ID' }}</div>
                 </div>
               </q-img>
               <q-badge :color="getStatusColor(vehicle.status)" class="absolute-top-right q-ma-sm shadow-2">{{ translateStatus(vehicle.status) }}</q-badge>
@@ -95,6 +99,9 @@
                   <div>
                       <div class="text-overline text-grey-7">{{ vehicle.brand }}</div>
                       <div class="text-h6 text-weight-bold ellipsis">{{ vehicle.model }}</div>
+                      <div v-if="vehicle.sap_resource_code" class="text-caption text-primary text-weight-bold">
+                        SAP: {{ vehicle.sap_resource_code }}
+                      </div>
                   </div>
                   <q-btn round flat icon="qr_code_2" size="sm" color="primary" @click.stop="openQrDialog(vehicle)" />
               </div>
@@ -154,25 +161,54 @@
 
           <q-form @submit.prevent="onFormSubmit">
             <q-card-section class="q-gutter-y-md q-pt-lg">
+              
               <div class="row justify-center q-mb-md">
-                 <div class="column items-center q-gutter-y-sm full-width">
-                    <q-avatar size="100px" rounded class="shadow-1 bg-grey-3">
-                       <img v-if="formData.photo_url" :src="getImageUrl(formData.photo_url)!" style="object-fit: cover">
-                       <q-icon v-else name="add_a_photo" color="grey-6" size="40px" />
-                       <div v-if="isUploading" class="absolute-full flex flex-center bg-white" style="opacity: 0.8"><q-spinner color="primary" size="2em" /></div>
-                    </q-avatar>
-                    <div class="row items-center q-gutter-x-sm">
-                      <q-file v-model="photoFile" label="Alterar Foto" outlined dense accept=".jpg, .png" class="bg-white" style="min-width: 200px" @update:model-value="handlePhotoUpload" :loading="isUploading">
-                        <template v-slot:prepend><q-icon name="cloud_upload" /></template>
-                      </q-file>
-                    </div>
-                 </div>
+                  <div class="column items-center q-gutter-y-sm full-width">
+                     <q-avatar size="100px" rounded class="shadow-1 bg-grey-3">
+                        <img v-if="formData.photo_url" :src="getImageUrl(formData.photo_url)!" style="object-fit: cover">
+                        <q-icon v-else name="add_a_photo" color="grey-6" size="40px" />
+                        <div v-if="isUploading" class="absolute-full flex flex-center bg-white" style="opacity: 0.8"><q-spinner color="primary" size="2em" /></div>
+                     </q-avatar>
+                     <div class="row items-center q-gutter-x-sm">
+                       <q-file v-model="photoFile" label="Alterar Foto" outlined dense accept=".jpg, .png" class="bg-white" style="min-width: 200px" @update:model-value="handlePhotoUpload" :loading="isUploading">
+                         <template v-slot:prepend><q-icon name="cloud_upload" /></template>
+                       </q-file>
+                     </div>
+                  </div>
               </div>
 
               <div class="row q-col-gutter-md">
                   <div class="col-6"><q-input outlined v-model="formData.brand" label="Fabricante *" :rules="[val => !!val || 'Obrigatório']" dense /></div>
                   <div class="col-6"><q-input outlined v-model="formData.model" label="Modelo *" :rules="[val => !!val || 'Obrigatório']" dense /></div>
               </div>
+
+              <div class="row q-col-gutter-md">
+                <div class="col-12 col-md-6">
+                  <q-input 
+                    outlined 
+                    v-model="formData.identifier" 
+                    label="Código do Ativo (AT...)" 
+                    :rules="[val => !!val || 'Obrigatório']" 
+                    dense 
+                  />
+                </div>
+                
+                <div class="col-12 col-md-6">
+                  <q-input 
+                    outlined 
+                    v-model="formData.sap_resource_code" 
+                    label="Recurso SAP (Ex: 4.02.01)" 
+                    hint="Usado para apontamento de produção"
+                    dense 
+                    bg-color="yellow-1"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="precision_manufacturing" color="orange-8" />
+                    </template>
+                  </q-input>
+                </div>
+              </div>
+
               <q-input outlined v-model="formData.license_plate" label="TAG / Patrimônio" dense />
               
               <div class="row q-col-gutter-md">
@@ -254,7 +290,8 @@
                 <img v-if="selectedVehicleForQr" :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${getQrData(selectedVehicleForQr)}`" style="width: 200px; height: 200px" class="shadow-2">
             </q-card-section>
             <q-card-section class="text-center text-grey-8">
-                <div class="text-weight-bold">{{ selectedVehicleForQr?.license_plate }}</div>
+                <div class="text-weight-bold">{{ selectedVehicleForQr?.identifier }}</div>
+                <div class="text-caption" v-if="selectedVehicleForQr?.sap_resource_code">SAP: {{ selectedVehicleForQr?.sap_resource_code }}</div>
             </q-card-section>
             <q-card-actions align="center" class="q-pb-md"><q-btn label="Fechar" flat v-close-popup /></q-card-actions>
         </q-card>
@@ -302,6 +339,7 @@ interface MachineFormData {
     status: VehicleStatus;
     license_plate: string | null;
     identifier: string | null;
+    sap_resource_code: string | null; // <--- NOVO CAMPO
     current_engine_hours: number;
     current_km: number;
     next_maintenance_km: number | null;
@@ -316,6 +354,7 @@ const formData = ref<MachineFormData>({
     status: VehicleStatus.AVAILABLE,
     license_plate: '',
     identifier: '',
+    sap_resource_code: '', // <--- Inicializa
     current_engine_hours: 0,
     current_km: 0,
     next_maintenance_km: null,
@@ -323,7 +362,7 @@ const formData = ref<MachineFormData>({
     photo_url: null
 });
 
-// --- NOVO CAMPO: Intervalo Local ---
+// --- Intervalo Local para cálculo de manutenção ---
 const maintenanceInterval = ref<number>(0);
 
 // --- FILTROS ---
@@ -334,7 +373,8 @@ const filteredList = computed(() => {
   return all.filter(v => 
     (v.model && v.model.toLowerCase().includes(lower)) ||
     (v.brand && v.brand.toLowerCase().includes(lower)) ||
-    (v.license_plate && v.license_plate.toLowerCase().includes(lower))
+    (v.identifier && v.identifier.toLowerCase().includes(lower)) ||
+    (v.sap_resource_code && v.sap_resource_code.toLowerCase().includes(lower))
   );
 });
 
@@ -436,6 +476,7 @@ function openCreateDialog() {
         current_km: 0, 
         license_plate: '',
         identifier: '',
+        sap_resource_code: '', // <--- Limpa
         next_maintenance_km: 500,
         next_maintenance_date: null,
         photo_url: null
@@ -454,7 +495,6 @@ function openEditDialog(vehicle: Vehicle) {
         ? format(new Date(vehicle.next_maintenance_date), 'dd/MM/yyyy') 
         : null;
         
-    // Atribuição tipada explícita
     formData.value = { 
         brand: vehicle.brand,
         model: vehicle.model,
@@ -462,6 +502,7 @@ function openEditDialog(vehicle: Vehicle) {
         status: vehicle.status,
         license_plate: vehicle.license_plate ?? '',
         identifier: vehicle.identifier ?? '',
+        sap_resource_code: vehicle.sap_resource_code ?? '', // <--- Carrega do banco
         current_engine_hours: vehicle.current_engine_hours ?? 0,
         current_km: vehicle.current_km,
         next_maintenance_km: vehicle.next_maintenance_km ?? null,
@@ -490,29 +531,28 @@ async function onFormSubmit() {
     try {
         const rawData = formData.value;
         
-        // Payload comum tipado parcialmente, extendemos conforme necessário
         const commonPayload = {
             brand: rawData.brand,
             model: rawData.model,
             year: Number(rawData.year),
             status: rawData.status,
-            license_plate: rawData.license_plate || null,
-            identifier: rawData.identifier || null,
+            // Use undefined se estiver vazio
+            license_plate: rawData.license_plate || undefined,
+            identifier: rawData.identifier || undefined,
+            sap_resource_code: rawData.sap_resource_code || undefined, // <--- CORREÇÃO AQUI
             current_engine_hours: Number(rawData.current_engine_hours || 0),
-            next_maintenance_km: rawData.next_maintenance_km ? Number(rawData.next_maintenance_km) : null,
-            next_maintenance_date: convertDateForBackend(rawData.next_maintenance_date),
-            photo_url: rawData.photo_url || null
+            next_maintenance_km: rawData.next_maintenance_km ? Number(rawData.next_maintenance_km) : undefined,
+            next_maintenance_date: convertDateForBackend(rawData.next_maintenance_date) || undefined,
+            photo_url: rawData.photo_url || undefined
         };
 
         if (isEditing.value && editingVehicleId.value) {
-            // TypeScript agora sabe que isso corresponde a VehicleUpdate
             const updatePayload: VehicleUpdate = { ...commonPayload };
             await vehicleStore.updateVehicle(editingVehicleId.value, updatePayload, currentParams);
         } else {
-            // TypeScript agora sabe que isso corresponde a VehicleCreate
             const createPayload: VehicleCreate = { 
                 ...commonPayload, 
-                current_km: 0 // Novo veículo começa com 0 se não especificado
+                current_km: 0 
             };
             await vehicleStore.addNewVehicle(createPayload, currentParams);
         }
@@ -550,7 +590,7 @@ async function handlePhotoUpload(file: File | null) {
     data.append('file', file); 
     try { 
         const res = await api.post('/upload-photo', data); 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-type-assertion
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-explicit-any
         formData.value.photo_url = (res.data as any).file_url; 
     } catch(e) { 
         console.error(e); 
@@ -583,4 +623,5 @@ onMounted(() => {
 .hover-bg-blue:hover { background-color: #f0f9ff; transition: background-color 0.2s; }
 .animate-fade { animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-</style>
+</style>const commonPayload = {
+            brand: ra

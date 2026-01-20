@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
-import { isAxiosError } from 'axios'; // <-- ADIÇÃO CRÍTICA PARA CORRIGIR O ERRO
+import { isAxiosError } from 'axios'; // <-- IMPORTAÇÃO ESSENCIAL
 import type { UserNotificationPrefsUpdate } from 'src/models/user-models';
 import type {
   LoginForm,
@@ -14,6 +14,7 @@ import type {
 } from 'src/models/auth-models';
 import { useTerminologyStore } from './terminology-store';
 
+// Helper para ler do LocalStorage com segurança
 function getFromLocalStorage<T>(key: string): T | null {
   const itemString = localStorage.getItem(key);
   if (!itemString || itemString === 'undefined') return null;
@@ -31,10 +32,10 @@ export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(localStorage.getItem('accessToken'));
   const user = ref<User | null>(getFromLocalStorage<User>('user'));
 
-  // --- ESTADO PARA O LOGIN SOMBRA ---
+  // --- ESTADO PARA O LOGIN SOMBRA (IMPERSONATION) ---
   const originalUser = ref<User | null>(getFromLocalStorage<User>('original_user'));
 
-  // --- PROPRIEDADES COMPUTADAS (GETTERS) ---
+  // --- GETTERS (COMPUTED) ---
   const isAuthenticated = computed(() => !!accessToken.value);
   const isManager = computed(() => ['cliente_ativo', 'cliente_demo', 'admin'].includes(user.value?.role ?? ''));
   const isDriver = computed(() => user.value?.role === 'driver');
@@ -44,21 +45,55 @@ export const useAuthStore = defineStore('auth', () => {
   const isImpersonating = computed(() => !!originalUser.value);
 
   // --- AÇÕES ---
-  async function login(loginForm: LoginForm): Promise<void> { // Mudança 1: O retorno agora é Promise<void>
+
+  // 1. Login Tradicional (Email/Senha)
+  async function login(loginForm: LoginForm): Promise<void> {
     const params = new URLSearchParams();
     params.append('username', loginForm.email);
     params.append('password', loginForm.password);
+    
     try {
+      // O endpoint /login/token geralmente retorna { access_token, user, ... }
+      // Se o seu backend retornar apenas o token, você precisará chamar getMe() depois.
       const response = await api.post<TokenData>('/login/token', params);
       _setSession(response.data.access_token, response.data.user);
-      // Mudança 2: Não há mais 'return true'
-    } catch (error) { // Mudança 3: Capturamos o erro
+    } catch (error) {
       console.error('Falha no login:', error);
-      logout(); // Fazemos o cleanup da sessão
-      throw error; // Mudança 4: Lançamos o erro para a página (LoginPage.vue)
+      logout();
+      throw error;
     }
   }
 
+  // 2. Login por Crachá (PARA O KIOSK)
+  async function loginByBadge(badge: string): Promise<void> {
+    try {
+      // 1. Obtém o token usando apenas o crachá
+      const response = await api.post('/login/badge', { badge });
+      const { access_token } = response.data;
+
+      // 2. Define o header temporariamente para buscar os dados do usuário
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+
+      // 3. Busca os dados completos do usuário (necessário para pegar o employee_id, nome, etc)
+      const userResponse = await getMe();
+
+      // 4. Salva a sessão completa
+      _setSession(access_token, userResponse);
+      
+    } catch (error) {
+      console.error('Falha no login por crachá:', error);
+      logout();
+      throw error;
+    }
+  }
+
+  // 3. Buscar dados do usuário atual
+  async function getMe(): Promise<User> {
+    const response = await api.get<User>('/users/me');
+    return response.data;
+  }
+
+  // 4. Atualizar Preferências
   async function updateMyPreferences(payload: UserNotificationPrefsUpdate) {
     try {
       const response = await api.put<User>('/users/me/preferences', payload);
@@ -71,15 +106,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 5. Logout
   function logout() {
-    console.log('Iniciando processo de logout e reset de todas as stores...');
+    console.log('Iniciando logout...');
     accessToken.value = null;
     user.value = null;
     originalUser.value = null;
+    
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     localStorage.removeItem('original_accessToken');
     localStorage.removeItem('original_user');
+    
     delete api.defaults.headers.common['Authorization'];
     console.log('Logout concluído.');
   }
@@ -87,13 +125,15 @@ export const useAuthStore = defineStore('auth', () => {
   // --- AÇÕES DO LOGIN SOMBRA ---
   function startImpersonation(newToken: string, targetUser: User) {
     if (!user.value || !accessToken.value) {
-      console.error('Não é possível iniciar a personificação sem um utilizador admin logado.');
+      console.error('Erro: Admin não logado para iniciar impersonation.');
       return;
     }
+    // Salva o admin original
     localStorage.setItem('original_accessToken', accessToken.value);
     localStorage.setItem('original_user', JSON.stringify(user.value));
     originalUser.value = user.value;
 
+    // Loga como o alvo
     _setSession(newToken, targetUser);
     window.location.href = '/dashboard';
   }
@@ -103,53 +143,56 @@ export const useAuthStore = defineStore('auth', () => {
     const originalAdminUser = getFromLocalStorage<User>('original_user');
 
     if (!originalToken || !originalAdminUser) {
-      console.error('Não foi encontrada uma sessão original para restaurar. A fazer logout completo.');
+      console.error('Sessão original não encontrada. Fazendo logout.');
       logout();
       window.location.href = '/auth/login';
       return;
     }
 
+    // Restaura o admin
     _setSession(originalToken, originalAdminUser);
+    
+    // Limpa dados temporários
     localStorage.removeItem('original_accessToken');
     localStorage.removeItem('original_user');
     originalUser.value = null;
+    
     window.location.href = '/admin';
   }
   
-  // --- AÇÕES DE RECUPERAÇÃO DE SENHA ---
+  // --- RECUPERAÇÃO DE SENHA ---
   async function requestPasswordReset(payload: PasswordRecoveryRequest): Promise<void> {
     try {
       await api.post('/login/password-recovery', payload);
       Notify.create({
         type: 'positive',
-        message: 'Se um usuário com este e-mail existir, um link para redefinição de senha será enviado.',
+        message: 'Se o e-mail existir, um link de redefinição será enviado.',
       });
     } catch (error) {
-      console.error('Erro ao solicitar redefinição de senha:', error);
-      // Por segurança, mostramos a mesma mensagem no erro para não revelar se um e-mail existe ou não.
+      console.error('Erro requestPasswordReset:', error);
+      // Mantém a mesma mensagem por segurança
       Notify.create({
         type: 'positive',
-        message: 'Se um usuário com este e-mail existir, um link para redefinição de senha será enviado.',
+        message: 'Se o e-mail existir, um link de redefinição será enviado.',
       });
     }
   }
-
-  
 
   async function resetPassword(payload: PasswordResetRequest): Promise<boolean> {
     try {
       await api.post('/login/reset-password', payload);
       Notify.create({
         type: 'positive',
-        message: 'Senha redefinida com sucesso! Você já pode fazer o login.',
+        message: 'Senha redefinida! Faça login.',
         icon: 'lock_reset'
       });
       return true;
-    } catch (error: unknown) { // <-- CORRIGIDO AQUI
-      console.error('Erro ao redefinir senha:', error);
+    } catch (error: unknown) {
+      console.error('Erro resetPassword:', error);
       
-      let detail = 'Ocorreu um erro. O token pode ser inválido ou ter expirado.';
-      // <-- CORRIGIDO AQUI
+      let detail = 'Ocorreu um erro. Token inválido ou expirado.';
+      
+      // Validação correta com isAxiosError
       if (isAxiosError(error) && error.response?.data?.detail) {
         detail = error.response.data.detail;
       }
@@ -157,63 +200,74 @@ export const useAuthStore = defineStore('auth', () => {
       Notify.create({
         type: 'negative',
         message: detail,
-        icon: 'o_error'
+        icon: 'error'
       });
       return false;
     }
   }
 
-
+  // Atualização local do usuário (sem ir ao backend)
   function updateUser(updates: Partial<User>) {
     if (user.value) {
-      // Atualiza o estado reativo
       user.value = { ...user.value, ...updates };
-      // Salva no LocalStorage para persistir no F5
       localStorage.setItem('user', JSON.stringify(user.value));
     }
   }
 
-  // --- FUNÇÕES AUXILIARES ---
+  // --- HELPERS INTERNOS ---
   function _setSession(token: string, userData: User) {
     accessToken.value = token;
     user.value = userData;
-    // --- CORRIGIDO AQUI ---
+
+    // Configura Terminologia baseada no setor
     if (userData.organization) {
       useTerminologyStore().setSector(userData.organization.sector);
     }
-    // --- FIM DA CORREÇÃO ---
+
+    // Persistência
     localStorage.setItem('accessToken', token);
     localStorage.setItem('user', JSON.stringify(userData));
+    
+    // Configura Axios
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
+  // Inicialização (Roda ao recarregar a página)
   function init() {
     const token = accessToken.value;
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
+    // Restaura terminologia se usuário existir
     useTerminologyStore().setSector(user.value?.organization?.sector ?? null);
   }
 
   init();
 
   return {
+    // State
     accessToken,
     user,
+    originalUser,
+    
+    // Getters
     isAuthenticated,
     isManager,
     isDriver,
     userSector,
     isSuperuser,
-    updateUser,
     isDemo,
-    login,
-    logout,
     isImpersonating,
-    originalUser,
+    
+    // Actions
+    login,
+    loginByBadge, // Nova ação
+    getMe,        // Nova ação
+    logout,
+    updateMyPreferences,
+    updateUser,
     startImpersonation,
     stopImpersonation,
-    updateMyPreferences,
     requestPasswordReset,
     resetPassword
   };

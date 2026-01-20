@@ -39,7 +39,7 @@ class Vehicle(Base):
     license_plate: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     identifier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     # ---------------------------------------------
-    
+    sap_resource_code = Column(String, nullable=True)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     photo_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     status: Mapped[VehicleStatus] = mapped_column(SAEnum(VehicleStatus), nullable=False, default=VehicleStatus.AVAILABLE)

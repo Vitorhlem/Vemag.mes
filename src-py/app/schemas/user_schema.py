@@ -20,6 +20,7 @@ class UserBase(BaseModel):
     avatar_url: Optional[str] = None
     phone: Optional[str] = None
     job_title: Optional[str] = None
+    employee_id: Optional[str] = None
 class UserCreate(UserBase):
     password: str
     role: Optional[UserRole] = None

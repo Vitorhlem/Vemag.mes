@@ -4,8 +4,12 @@ from sqlalchemy import select, desc, func
 from datetime import datetime, date, time
 from typing import List, Optional
 from pydantic import BaseModel
-
+from app.crud import crud_vehicle
+from app.db.session import get_db
+from app.services.sap_sync import SAPIntegrationService
+from app.schemas.production_schema import ProductionAppointmentCreate, ProductionOrderRead
 # Imports do Projeto
+from app.models.production_model import ProductionOrder as ProductionOrderModel
 from app import deps 
 from app.schemas import production_schema, vehicle_schema
 from app.models.production_model import ProductionLog, ProductionOrder, AndonAlert, ProductionSession, ProductionTimeSlice
@@ -181,28 +185,6 @@ async def get_machine_history(
         
     return history
 
-@router.get("/orders/{code}", response_model=production_schema.ProductionOrder)
-async def get_production_order(code: str, db: AsyncSession = Depends(deps.get_db)):
-    query = select(ProductionOrder).where(ProductionOrder.code == code)
-    result = await db.execute(query)
-    order = result.scalars().first()
-    
-    if not order:
-        # Mock para facilitar testes se não existir
-        order = ProductionOrder(
-            code=code,
-            part_name="OS-12391-20 (AUTO)",
-            target_quantity=500,
-            produced_quantity=0,
-            scrap_quantity=0,
-            status="PENDING",
-            part_image_url=""
-        )
-        db.add(order)
-        await db.commit()
-        await db.refresh(order)
-        
-    return order
 
 # ============================================================================
 # 6. SESSÕES (START/STOP) COM INTEGRAÇÃO MES
@@ -453,3 +435,94 @@ async def get_user_sessions(
         })
         
     return session_details
+
+@router.post("/appoint")
+async def create_appointment(
+    data: ProductionAppointmentCreate,
+    db: AsyncSession = Depends(deps.get_db)
+):
+    # Não buscamos mais vehicle_id no banco. Usamos o resource_code direto.
+    resource_code = data.resource_code
+    
+    # Garante que o operador seja limpo (remove email se vier por engano)
+    # Se vier "vitor@vemag", tentamos limpar ou usamos o que vier se for numérico
+    sap_employee_id = data.operator_id
+    if "@" in sap_employee_id:
+        # Se for email, isso é um erro de processo, mas tentamos evitar o crash
+        # Ideal: O frontend deve mandar o crachá certo.
+        print(f"⚠️ AVISO: Recebido email no operador ({sap_employee_id}).") 
+        
+    sap_service = SAPIntegrationService(db, organization_id=1)
+    
+    try:
+        appointment_dict = data.model_dump()
+    except AttributeError:
+        appointment_dict = data.dict()
+    
+    # Passamos o resource_code direto
+    success = await sap_service.create_production_appointment(
+        appointment_dict, 
+        sap_resource_code=resource_code
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Erro ao registrar no SAP")
+    
+    return {"message": "Apontamento realizado!"}
+
+@router.get("/orders/open", response_model=List[ProductionOrderRead])
+async def get_open_orders(
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """
+    Retorna a lista de OPs liberadas direto do SAP.
+    """
+    sap_service = SAPIntegrationService(db, organization_id=1)
+    
+    # Busca OPs liberadas no SAP
+    orders = await sap_service.get_released_production_orders()
+    
+    return orders
+
+# ============================================================================
+# 2. ROTA DE OP ÚNICA (DINÂMICA)
+# ============================================================================
+@router.get("/orders/{code}", response_model=ProductionOrderRead)
+async def get_production_order(
+    code: str, 
+    db: AsyncSession = Depends(deps.get_db)
+):
+    # 1. Busca Localmente (Cache) -> Usando o MODEL aqui
+    query = select(ProductionOrderModel).where(ProductionOrderModel.code == code)
+    result = await db.execute(query)
+    order = result.scalars().first()
+    
+    # 2. Se não existir, busca no SAP
+    if not order:
+        print(f"🔎 Buscando OP {code} no SAP...")
+        
+        sap_service = SAPIntegrationService(db, organization_id=1)
+        sap_data = await sap_service.get_production_order_by_code(code)
+        
+        if sap_data:
+            print(f"💾 Sincronizando OP {code} para o banco local...")
+            
+            # 3. Cria o objeto Local -> Usando o MODEL aqui
+            order = ProductionOrderModel(
+                code=str(sap_data['op_number']),
+                part_name=sap_data['part_name'],
+                part_code=sap_data['item_code'],
+                target_quantity=sap_data['quantity'],
+                status="PENDING",
+                produced_quantity=0,
+                scrap_quantity=0,
+                part_image_url="" 
+            )
+            
+            db.add(order)
+            await db.commit()
+            await db.refresh(order)
+        else:
+            raise HTTPException(status_code=404, detail="OP não encontrada no SAP")
+            
+    return order

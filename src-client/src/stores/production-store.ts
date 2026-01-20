@@ -69,7 +69,10 @@ export const useProductionStore = defineStore('production', () => {
   const currentMachine = ref<Machine | null>(null);
   const machineName = ref<string>('Não Configurado');
   const machineSector = ref<string>('-');
-
+  const activeOperator = ref({
+    name: '',
+    badge: ''
+  });
   const currentOperator = ref<Operator | null>(null);
   const currentOperatorBadge = ref<string | null>(null);
   
@@ -142,6 +145,30 @@ export const useProductionStore = defineStore('production', () => {
   });
 
   // --- ACTIONS ---
+
+  async function identifyOperator(badge: string) {
+    try {
+      // Chama a rota nova que criamos no backend
+      const response = await api.get(`/users/by-badge/${badge}`);
+      const user = response.data;
+      
+      // Salva na memória TEMPORÁRIA (não muda o login do admin)
+      activeOperator.value = {
+        name: user.full_name,
+        badge: user.employee_id
+      };
+      
+      return user; // Retorna para a tela exibir msg de boas vindas
+    } catch (error) {
+      console.error('Erro ao identificar operador:', error);
+      throw error;
+    }
+  }
+
+  // Ação para limpar (logout do operador)
+  function clearOperator() {
+    activeOperator.value = { name: '', badge: '' };
+  }
 
   function _setMachineData(data: Machine) {
     currentMachine.value = data;
@@ -463,6 +490,6 @@ export const useProductionStore = defineStore('production', () => {
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, 
-    startProduction, pauseProduction, enterSetup, addProduction
+    startProduction, pauseProduction, enterSetup, addProduction, activeOperator, identifyOperator, clearOperator
   };
 });

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
@@ -13,7 +13,11 @@ from app.schemas.token_schema import TokenData, Msg
 from app.schemas.user_schema import UserRegister, UserPublic
 from app.models.user_model import UserRole
 # Import do Celery Task
+from sqlalchemy import select
+from app.models.user_model import User
 from app.tasks.email_tasks import send_email_async
+from app.schemas.token_schema import Token
+from datetime import timedelta
 
 router = APIRouter()
 
@@ -23,6 +27,38 @@ class PasswordRecoveryRequest(BaseModel):
 class PasswordResetRequest(BaseModel):
     token: str
     new_password: str
+
+
+@router.post("/login/badge", response_model=Token)
+async def login_by_badge(
+    badge: str = Body(..., embed=True), # Recebe {"badge": "10617"}
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """
+    Login rápido via Crachá (Kiosk Mode).
+    Busca usuário pelo campo 'employee_id'.
+    """
+    # Busca o usuário que tenha essa matrícula (employee_id)
+    query = select(User).where(User.employee_id == badge)
+    result = await db.execute(query)
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Crachá não encontrado.")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Usuário inativo.")
+
+    # Gera o Token de Acesso para esse usuário
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        user.id, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 async def register_new_user(

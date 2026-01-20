@@ -135,3 +135,33 @@ class AndonCreate(BaseModel):
     operator_badge: str
     sector: str
     notes: Optional[str] = None
+
+
+class ProductionAppointmentCreate(BaseModel):
+    op_number: str
+    service_code: str          # U_Servico (ItemCode da OP)
+    
+    position: str
+    operation: str
+    
+    operator_id: str           # Crachá (Agora vamos forçar string numérica)
+    resource_code: str         # NOVO: Recebe o recurso direto (ex: "4.02.01")
+    
+    # vehicle_id: int  <-- REMOVIDO conforme solicitado
+    
+    start_time: datetime
+    end_time: datetime
+    
+    item_code: Optional[str] = "" 
+    stop_reason: Optional[str] = ""
+class ProductionOrderRead(BaseModel):
+    op_number: int          # DocNum
+    item_code: str          # ItemCode
+    part_name: str          # ProdName
+    planned_qty: float      # PlannedQty
+    uom: str                # InventoryUOM
+    type: str               # ProductionOrderType (Padrão, Especial, etc)
+    custom_ref: str         # U_LGO_DocEntryOPsFather (Nome da OP/Ref)
+    
+    class Config:
+        orm_mode = True

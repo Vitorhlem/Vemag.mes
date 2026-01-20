@@ -1,19 +1,21 @@
 import httpx
 import asyncio
-import random
+import urllib3
 from typing import List, Optional
+from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-# Importando seus Models e Schemas
-from app.crud import crud_vehicle, crud_user
+# Imports do Módulo CRUD
+from app.crud import crud_vehicle
 from app.schemas.vehicle_schema import VehicleCreate, VehicleStatus
-from app.schemas.user_schema import UserCreate
-from app.models.user_model import User, UserRole
 from app.models.vehicle_model import Vehicle
 
-# CONFIGURAÇÕES DO SAP (Deixe o link que deu 404 mesmo, o código vai tratar)
-SAP_BASE_URL = "https://sap-vemag-sl.skyinone.net/b1s/v1"
+# Desabilita avisos de SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# CONFIGURAÇÕES DO SAP
+SAP_BASE_URL = "https://sap-vemag-sl.skyinone.net:50000/b1s/v1"
 SAP_COMPANY_DB = "SBOPRODVEM_0601"
 SAP_USER = "manager"
 SAP_PASSWORD = "Lago287*"
@@ -22,154 +24,200 @@ class SAPIntegrationService:
     def __init__(self, db: AsyncSession, organization_id: int):
         self.db = db
         self.org_id = organization_id
-        # Timeout curto (5s) para não ficar esperando muito se travar
-        self.client = httpx.AsyncClient(verify=False, timeout=5.0)
+        self.client = httpx.AsyncClient(verify=False, timeout=30.0)
         self.cookies = None
-        self.mock_mode = False 
 
     async def login(self) -> bool:
-        """
-        Tenta autenticar. 
-        Se der CERTO (200) -> Usa SAP Real.
-        Se der ERRADO (404, Timeout, Erro) -> Ativa MOCK MODE e segue o baile.
-        """
         payload = {"CompanyDB": SAP_COMPANY_DB, "UserName": SAP_USER, "Password": SAP_PASSWORD}
         try:
-            print(f"🔐 [SAP] Tentando login em {SAP_BASE_URL}...")
+            print(f"🔐 [SAP] Autenticando...")
             response = await self.client.post(f"{SAP_BASE_URL}/Login", json=payload)
-            
             if response.status_code == 200:
                 self.cookies = response.cookies
-                print("✅ [SAP] Conectado ao servidor real!")
+                print("✅ [SAP] Login OK.")
                 return True
             else:
-                # AQUI ESTÁ A MUDANÇA: Se der 404 ou erro de senha, VIRA MOCK.
-                print(f"⚠️ [SAP] Login falhou (Status {response.status_code})...")
-                print("🚀 [SAP] Ativando MODO SIMULADO (Mock) para você não parar...")
-                self.mock_mode = True
-                return True 
+                print(f"⚠️ [SAP] Falha Login: {response.text}")
+                return False 
+        except Exception as e:
+            print(f"❌ [SAP] Erro Conexão: {str(e)}")
+            return False
+
+    # =========================================================================
+    # 1. SINCRONIZAÇÃO DE MÁQUINAS
+    # =========================================================================
+    async def sync_machines(self):
+        if not self.cookies:
+            if not await self.login(): return
+
+        target_code = "AT000007"
+        print(f"🎯 [SAP] Buscando item específico: {target_code}...")
+        
+        query = f"$select=ItemCode,ItemName,ItemsGroupCode,Valid&$filter=ItemCode eq '{target_code}'"
+        
+        try:
+            response = await self.client.get(f"{SAP_BASE_URL}/Items?{query}", cookies=self.cookies)
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('value', [])
+                if not items:
+                    print(f"❌ [SAP] Item {target_code} não encontrado.")
+                    return
+
+                item = items[0]
+                sap_code = item.get('ItemCode')
+                sap_desc = item.get('ItemName')
+                
+                existing = await self._find_vehicle_by_identifier(sap_code)
+                if not existing:
+                    print(f"➕ [SYNC] Cadastrando {sap_code}...")
+                    vehicle_in = VehicleCreate(
+                        brand="NARDINI", model=sap_desc, year=2024, identifier=sap_code,
+                        status=VehicleStatus.AVAILABLE, current_km=0, license_plate=sap_code, sap_resource_code=""
+                    )
+                    await crud_vehicle.create_with_owner(self.db, obj_in=vehicle_in, organization_id=self.org_id)
+                    print(f"✅ [SYNC] Sucesso!")
+                else:
+                    print(f"Info: Máquina já existe.")
+            else:
+                print(f"❌ [SAP] Erro busca máquinas: {response.text}")
 
         except Exception as e:
-            print(f"❌ [SAP] Erro de conexão: {str(e)}")
-            print("🚀 [SAP] Sem internet ou VPN? Ativando MODO SIMULADO...")
-            self.mock_mode = True
-            return True
+            print(f"❌ [SAP] Erro sync máquinas: {str(e)}")
 
-    async def sync_machines(self):
-        # Garante login (ou ativa mock)
-        if not self.cookies and not self.mock_mode:
-            if not await self.login(): return
+    # =========================================================================
+    # 2. LISTAGEM DE OPs (CORRIGIDO COM NOMES REAIS)
+    # =========================================================================
+    async def get_released_production_orders(self) -> List[dict]:
+        if not self.cookies:
+            if not await self.login(): return []
 
-        items = []
-        if not self.mock_mode:
-            try:
-                # Tenta buscar do SAP Real
-                query = "$select=ItemCode,ItemName,ItemsGroupCode&$filter=ItemsGroupCode eq 1008"
-                response = await self.client.get(f"{SAP_BASE_URL}/Items?{query}", cookies=self.cookies)
-                if response.status_code == 200:
-                    items = response.json().get('value', [])
-                else:
-                    raise Exception("Erro ao buscar itens")
-            except:
-                print("⚠️ [SAP] Falha ao buscar máquinas reais. Usando fictícias.")
-                self.mock_mode = True
-        
-        # --- DADOS MOCK (Simulação) ---
-        if self.mock_mode:
-            items = [
-                {"ItemCode": "MQ-CNC-01", "ItemName": "Torno CNC Mazak QTN"},
-                {"ItemCode": "MQ-INJ-05", "ItemName": "Injetora Romi 300T"},
-                {"ItemCode": "MQ-PRE-02", "ItemName": "Prensa Hidráulica 100T"},
-                {"ItemCode": "MQ-SOL-09", "ItemName": "Célula de Solda Robotizada"},
-                {"ItemCode": "MQ-EMP-03", "ItemName": "Empilhadeira Hyster H50"}
-            ]
-
-        count_new = 0
-        for item in items:
-            sap_code = item.get('ItemCode')
-            sap_desc = item.get('ItemName')
+        try:
+            # CORREÇÃO: Usando DocumentNumber, ItemNo, ProductDescription, PlannedQuantity
+            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,U_Desenho"
             
-            existing = await self._find_vehicle_by_identifier(sap_code)
-
-            if not existing:
-                print(f"➕ [SYNC] Importando Máquina: {sap_code}")
-                vehicle_in = VehicleCreate(
-                    brand="SAP Asset",
-                    model=sap_desc or "Genérico",
-                    year=2024,
-                    identifier=sap_code, # Código vira Placa/ID
-                    status=VehicleStatus.AVAILABLE,
-                    current_km=0,
-                    license_plate=sap_code
-                )
-                await crud_vehicle.create_with_owner(
-                    self.db, obj_in=vehicle_in, organization_id=self.org_id
-                )
-                count_new += 1
-        
-        print(f"✅ Máquinas sincronizadas: {count_new} novas inseridas.")
-
-    async def sync_operators(self):
-        if not self.cookies and not self.mock_mode:
-            if not await self.login(): return
-
-        employees = []
-        if not self.mock_mode:
-            try:
-                query = "$select=EmployeeID,FirstName,LastName,JobTitle"
-                response = await self.client.get(f"{SAP_BASE_URL}/EmployeesInfo?{query}", cookies=self.cookies)
-                if response.status_code == 200:
-                    employees = response.json().get('value', [])
-                else:
-                    raise Exception("Erro ao buscar operadores")
-            except:
-                self.mock_mode = True
-
-        # --- DADOS MOCK (Simulação) ---
-        if self.mock_mode:
-            employees = [
-                {"EmployeeID": 1001, "FirstName": "Carlos", "LastName": "Silva", "JobTitle": "Operador CNC"},
-                {"EmployeeID": 1002, "FirstName": "Ana", "LastName": "Souza", "JobTitle": "Supervisora"},
-                {"EmployeeID": 1003, "FirstName": "Roberto", "LastName": "Lima", "JobTitle": "Manutenção"},
-                {"EmployeeID": 1004, "FirstName": "Fernanda", "LastName": "Dias", "JobTitle": "Operadora Jr"}
-            ]
-
-        count_new = 0
-        for emp in employees:
-            emp_id = str(emp.get('EmployeeID'))
-            full_name = f"{emp.get('FirstName')} {emp.get('LastName')}"
-            # Gera email: ID@trumachine.local
-            generated_email = f"operador.{emp_id}@vemagmes.local"
+            # Filtro por 'boposReleased'
+            query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'"
             
-            existing_user = await crud_user.get_user_by_email(self.db, email=generated_email)
+            print("🔄 [SAP] Buscando lista de OPs Liberadas...")
+            response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
             
-            if not existing_user:
-                print(f"👤 [SYNC] Criando Operador: {full_name}")
-                user_in = UserCreate(
-                    email=generated_email,
-                    full_name=full_name,
-                    password="mudar123",
-                    role=UserRole.DRIVER,
-                    organization_id=self.org_id,
-                    phone=None
-                )
-                new_user = await crud_user.create(
-                    self.db, user_in=user_in, organization_id=self.org_id, role=UserRole.DRIVER
-                )
-                new_user.employee_id = emp_id
-                self.db.add(new_user)
-                await self.db.commit()
-                count_new += 1
+            if response.status_code == 200:
+                items = response.json().get('value', [])
+                cleaned = []
+                
+                for item in items:
+                    cleaned.append({
+                        # Mapeamento com os novos nomes
+                        "op_number": item.get('DocumentNumber'),
+                        "item_code": item.get('ItemNo'),
+                        "part_name": item.get('ProductDescription'),
+                        "planned_qty": item.get('PlannedQuantity'),
+                        "uom": item.get('InventoryUOM'),
+                        "type": "Standard",
+                        "custom_ref": item.get('U_LGO_DocEntryOPsFather') or "",
+                        "drawing": item.get('U_Desenho') or ""
+                    })
+                
+                print(f"📦 [SAP] Sucesso! {len(cleaned)} OPs liberadas encontradas.")
+                return cleaned
+            else:
+                print(f"❌ [SAP] Erro ao buscar OPs: {response.status_code} - {response.text}")
+                return []
 
-        print(f"✅ Operadores sincronizados: {count_new} novos inseridos.")
+        except Exception as e:
+            print(f"❌ [SAP] Exceção na listagem de OPs: {e}")
+            return []
 
-    async def _find_vehicle_by_identifier(self, identifier: str) -> Optional[Vehicle]:
-        stmt = select(Vehicle).where(
-            Vehicle.identifier == identifier,
-            Vehicle.organization_id == self.org_id
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
+    # =========================================================================
+    # 3. BUSCA DE OP ÚNICA (CORRIGIDO)
+    # =========================================================================
+    async def get_production_order_by_code(self, op_code: str) -> Optional[dict]:
+        if not self.cookies:
+            if not await self.login(): return None
 
-    async def close(self):
-        await self.client.aclose()
+        clean_code = str(op_code).replace("OP-", "").strip()
+        if not clean_code.isdigit(): return None
+
+        try:
+            # CORREÇÃO: Mesmos campos novos aqui também
+            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather"
+            # Nota: Filtramos por DocumentNumber agora
+            query = f"$select={fields}&$filter=DocumentNumber eq {clean_code}"
+            
+            print(f"🔄 [SAP] Buscando OP {clean_code}...")
+            response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
+            
+            if response.status_code == 200:
+                items = response.json().get('value', [])
+                if items:
+                    item = items[0]
+                    return {
+                        "op_number": item.get('DocumentNumber'),
+                        "status": item.get('ProductionOrderStatus'),
+                        "item_code": item.get('ItemNo'),
+                        "part_name": item.get('ProductDescription'),
+                        "quantity": item.get('PlannedQuantity'),
+                        "uom": item.get('InventoryUOM'),
+                        "custom_name": item.get('U_LGO_DocEntryOPsFather') or "" 
+                    }
+            return None
+        except Exception as e:
+            print(f"❌ [SAP] Erro Busca OP Única: {e}")
+            return None
+
+    # =========================================================================
+    # 4. APONTAMENTO DE PRODUÇÃO
+    # =========================================================================
+    async def create_production_appointment(self, appointment_data: dict, sap_resource_code: str) -> bool:
+        if not self.cookies:
+            if not await self.login(): return False
+
+        dt_ini = appointment_data['start_time']
+        dt_fim = appointment_data['end_time']
+
+        dt_ini_local = dt_ini - timedelta(hours=3)
+        dt_fim_local = dt_fim - timedelta(hours=3)
+
+        sap_data_ini = dt_ini_local.strftime("%Y-%m-%d")
+        sap_data_fim = dt_fim_local.strftime("%Y-%m-%d")
+        sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
+        sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
+
+        sap_operator_id = str(appointment_data['operator_id']).strip()
+        final_resource = sap_resource_code if sap_resource_code else "4.02.01"
+
+        payload = {
+            "U_NumeroDocumento": str(appointment_data['op_number']), # Ex: "3430/0"
+            
+            # --- CORREÇÃO: VAZIOS E 3 DÍGITOS ---
+            "U_Servico": "",                                    # Envia Vazio
+            "U_Operacao": "",                                   # Envia Vazio
+            "U_Posicao": str(appointment_data['position']),     # Ex: "010"
+            
+            "U_Recurso": final_resource,                        # Ex: "4.02.01"
+            "U_Operador": sap_operator_id,                      # Ex: "10617"
+            
+            "U_DataInicioAp": sap_data_ini,
+            "U_DataFimAp": sap_data_fim,
+            "U_HoraInicioAp": sap_hora_ini,
+            "U_HoraFimAp": sap_hora_fim,
+            "U_MotivoParada": appointment_data.get('stop_reason', "")
+        }
+
+        try:
+            print(f"🏭 [SAP] Enviando Apontamento... Dados: {payload}")
+            
+            target_url = f"{SAP_BASE_URL}/LGO_CAPONTAMENTO"
+            response = await self.client.post(target_url, json=payload, cookies=self.cookies)
+            
+            if response.status_code == 201:
+                print(f"✅ [SAP] Sucesso! Code: {response.json().get('Code')}")
+                return True
+            else:
+                print(f"❌ [SAP] Erro {response.status_code}: {response.text}")
+                return False
+
+        except Exception as e:
+            print(f"❌ [SAP] Erro de envio: {str(e)}")
+            return False

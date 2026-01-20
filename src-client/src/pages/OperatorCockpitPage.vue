@@ -27,7 +27,6 @@
         <q-space />
         
         <div class="row items-center q-gutter-x-md">
-          
           <div class="row items-center bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
             <q-avatar size="28px" class="shadow-1 vemag-bg-primary text-white" icon="person" font-size="18px" />
             
@@ -61,16 +60,32 @@
                <q-icon name="qr_code_scanner" size="60px" class="vemag-text-primary" />
             </div>
             <div class="text-h4 text-weight-bolder vemag-text-primary q-mb-sm">Aguardando O.P.</div>
-            <div class="text-subtitle1 text-grey-7 q-mb-lg">A máquina está parada.<br>Escaneie a Ordem de Serviço.</div>
-            <q-btn 
-                push rounded 
-                class="vemag-bg-primary text-white full-width shadow-4" 
-                size="20px" 
-                padding="md"
-                icon="photo_camera" 
-                label="LER QR CODE" 
-                @click="simulateOpScan" 
-            />
+            <div class="text-subtitle1 text-grey-7 q-mb-lg">A máquina está parada.<br>Selecione uma opção:</div>
+            
+            <div class="column q-gutter-y-md">
+                <q-btn 
+                    push rounded 
+                    color="blue-grey-9" text-color="white"
+                    class="full-width shadow-3" 
+                    size="18px" 
+                    padding="md"
+                    icon="list_alt" 
+                    label="SELECIONAR DA LISTA" 
+                    @click="openOpListDialog" 
+                />
+
+                <div class="text-caption text-grey-5">- OU -</div>
+
+                <q-btn 
+                    push rounded 
+                    class="vemag-bg-primary text-white full-width shadow-4" 
+                    size="18px" 
+                    padding="md"
+                    icon="photo_camera" 
+                    label="LER QR CODE" 
+                    @click="simulateOpScan" 
+                />
+            </div>
           </q-card>
         </div>
 
@@ -88,6 +103,7 @@
                           <div class="row items-center q-gutter-x-sm q-mb-xs">
                               <q-badge color="orange-9" label="P1" class="text-caption text-bold" />
                               <q-badge outline color="white" class="text-caption text-bold" :label="productionStore.activeOrder.code" />
+                              <q-badge v-if="productionStore.activeOrder.part_code" color="blue-grey" class="text-caption" :label="productionStore.activeOrder.part_code" />
                           </div>
                           <div class="text-h5 text-weight-bolder ellipsis">{{ productionStore.activeOrder.part_name }}</div>
                           <div class="text-caption text-grey-3">Meta: <strong>{{ productionStore.activeOrder.target_quantity }} un</strong></div>
@@ -246,13 +262,60 @@
                   push size="18px" icon="stop_circle" label="FINALIZAR O.P."
                   style="border-radius: 16px; min-height: 60px;"
                   @click="confirmFinishOp"
-                  :disable="normalizedStatus === 'EM OPERAÇÃO'"
                />
             </div>
           </div>
         </div>
       </q-page>
     </q-page-container>
+
+    <q-dialog v-model="showOpList" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card>
+        <q-bar class="vemag-bg-primary text-white">
+          <q-icon name="list" />
+          <div class="text-h6 q-ml-sm">Ordens de Produção Liberadas (SAP)</div>
+          <q-space />
+          <q-btn dense flat icon="close" v-close-popup />
+        </q-bar>
+
+        <q-card-section class="q-pa-none">
+          <q-table
+            :rows="openOps"
+            :columns="opColumns"
+            row-key="op_number"
+            :loading="loadingOps"
+            flat
+            bordered
+            separator="cell"
+          >
+            <template v-slot:body="props">
+              <q-tr @click="selectOp(props.row)" class="cursor-pointer hover-bg-grey-3">
+                <q-td key="op_number" :props="props">
+                  <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
+                  <div class="text-caption text-grey-7" v-if="props.row.custom_ref">Ref: {{ props.row.custom_ref }}</div>
+                </q-td>
+                <q-td key="part_name" :props="props">
+                  <div class="text-weight-medium">{{ props.row.part_name }}</div>
+                  <div class="text-caption text-blue-grey">{{ props.row.item_code }}</div>
+                </q-td>
+                <q-td key="planned_qty" :props="props" class="text-center text-weight-bold">
+                  {{ props.row.planned_qty }} {{ props.row.uom }}
+                </q-td>
+                <q-td key="action" :props="props" class="text-center">
+                  <q-btn round color="secondary" icon="arrow_forward" size="sm" />
+                </q-td>
+              </q-tr>
+            </template>
+            <template v-slot:no-data>
+                <div class="full-width row flex-center q-pa-md text-grey">
+                    <q-icon name="warning" size="sm" class="q-mr-sm" />
+                    Nenhuma O.P. liberada encontrada no SAP.
+                </div>
+            </template>
+          </q-table>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
     <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
         <q-card class="bg-black text-white column">
@@ -375,10 +438,13 @@ import { useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
 import { STOP_REASONS } from 'src/data/stop-reasons';
+import { ProductionService } from 'src/services/production-service';
+import { useAuthStore } from 'stores/auth-store';
 
 const router = useRouter();
 const $q = useQuasar();
 const productionStore = useProductionStore();
+const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
 
 const logoPath = ref('/Logo-Oficial.png');
@@ -390,6 +456,8 @@ const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isMaintenanceConfirmOpen = ref(false);
 const isDrawingDialogOpen = ref(false);
+const showOpList = ref(false); // NOVO
+const loadingOps = ref(false); // NOVO
 
 const pendingReason = ref('');
 const stopSearch = ref('');
@@ -398,11 +466,29 @@ const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
 const andonNote = ref('');
 
+// --- Dados para Lista de OPs ---
+const openOps = ref([]);
+const opColumns = [
+  { name: 'op_number', label: 'OP / Ref', align: 'left', field: 'op_number', sortable: true },
+  { name: 'part_name', label: 'Produto / Item', align: 'left', field: 'part_name', sortable: true },
+  { name: 'planned_qty', label: 'Qtd', align: 'center', field: 'planned_qty' },
+  { name: 'action', label: 'Selecionar', align: 'center' }
+];
+
 // --- Navigation ---
 const viewedStepIndex = ref(0);
 
 const currentViewedStep = computed(() => {
-    if (!activeOrder.value?.steps) return null;
+    // Se não tiver passos definidos no SAP, cria um passo fictício genérico "USINAGEM"
+    if (!activeOrder.value?.steps || activeOrder.value.steps.length === 0) {
+        return {
+            seq: 10,
+            name: 'USINAGEM GERAL',
+            description: 'Realizar operação conforme desenho técnico.',
+            resource: 'MÁQUINA',
+            timeEst: 0
+        };
+    }
     return activeOrder.value.steps[viewedStepIndex.value];
 });
 
@@ -484,7 +570,42 @@ function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
 
-// Função corrigida para chamar o Andon via Store -> API
+// 1. Abrir Modal de OPs
+async function openOpListDialog() {
+  showOpList.value = true;
+  loadingOps.value = true;
+  try {
+    // Certifique-se que getOpenOrders existe no ProductionService (turnos passados)
+    openOps.value = await ProductionService.getOpenOrders();
+  } catch (error) {
+    console.error(error);
+    $q.notify({ type: 'negative', message: 'Erro ao carregar OPs do SAP' });
+  } finally {
+    loadingOps.value = false;
+  }
+}
+
+// 2. Selecionar OP da Lista
+function selectOp(op: any) {
+  // Configura o activeOrder na Store manualmente com dados vindos da lista
+  productionStore.activeOrder = {
+    code: String(op.op_number),           // DocNum
+    part_name: op.part_name,      
+    part_code: op.item_code,      // ItemCode (IMPORTANTE!)
+    target_quantity: Number(op.planned_qty),
+    produced_quantity: 0,
+    scrap_quantity: 0,
+    status: 'PENDING',
+    custom_ref: op.custom_ref,
+    technical_drawing_url: '', // Se tiver URL, mapear aqui
+    steps: [] // Passos virão vazios por enquanto
+  };
+  
+  showOpList.value = false;
+  resetTimer();
+  $q.notify({ type: 'positive', message: `OP ${op.op_number} selecionada!` });
+}
+
 async function confirmAndonCall(sector: string) {
     isAndonDialogOpen.value = false;
     await productionStore.triggerAndon(sector, andonNote.value);
@@ -508,6 +629,7 @@ async function toggleProduction() {
     isStopDialogOpen.value = true;
     stopSearch.value = '';
   } else {
+    statusStartTime.value = new Date(); 
     await productionStore.startProduction();
     resetTimer();
   }
@@ -548,21 +670,95 @@ async function executeStop(isCriticalMaintenance: boolean) {
     isLoadingAction.value = false;
 }
 
+// LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP)
 function confirmFinishOp() {
+  // 1. LÓGICA DO OPERADOR (Prioridade: Matrícula "10617")
+  // Tenta pegar o que foi escaneado. Se não tiver, pega do cadastro do usuário logado (employee_id).
+  let badge = productionStore.currentOperatorBadge;
+
+  if (!badge && authStore.user?.employee_id) {
+      badge = authStore.user.employee_id; // Pega "10617" do cadastro
+  }
+
+  // Validação de Segurança: Se ainda não achou ou se veio um e-mail por engano
+  if (!badge || badge.includes('@')) {
+      $q.dialog({
+        title: 'Identificação Obrigatória',
+        message: 'Crachá não identificado automaticamente. Por favor, digite sua MATRÍCULA:',
+        prompt: {
+          model: '',
+          type: 'text', // Text para aceitar zeros à esquerda se houver
+          isValid: val => val.length > 0
+        },
+        cancel: true,
+        persistent: true
+      }).onOk(data => {
+        productionStore.currentOperatorBadge = data;
+        confirmFinishOp(); // Tenta novamente com o valor digitado
+      });
+      return;
+  }
+
+  // 2. Confirmação
   $q.dialog({
     title: 'Finalizar O.P.',
-    message: 'Encerrar ordem?',
+    message: `Encerrar ordem para o operador ${badge}?`,
     cancel: true,
     persistent: true,
     ok: { label: 'Finalizar', color: 'negative', push: true, size: 'md' }
-  }).onOk(() => {
-     void (async () => {
-        await productionStore.finishSession();
-        resetTimer();
-     })();
+  }).onOk(async () => {
+     $q.loading.show({ message: 'Enviando ao SAP...' });
+     try {
+       const endTime = new Date();
+
+       // 3. Recurso da Máquina (ex: "4.02.01")
+       const resourceSAP = productionStore.machineResource || '4.02.01';
+
+       // 4. Formatação da Etapa (3 Dígitos: 010, 020...)
+       const seqNumber = (viewedStepIndex.value + 1) * 10;
+       const stageStr = seqNumber.toString().padStart(3, '0'); 
+
+       // 5. Número da OP (Usa a Ref Pai "3430/0" se existir)
+       let opNumberToSend = activeOrder.value?.code;
+       if (activeOrder.value?.custom_ref) {
+           opNumberToSend = activeOrder.value.custom_ref; 
+       }
+
+       const payload = {
+         op_number: String(opNumberToSend), // Ex: "3430/0"
+         
+         // REGRAS DE NEGÓCIO SAP:
+         service_code: '',   // U_Servico: Vazio (conforme solicitado)
+         operation: '',      // U_Operacao: Vazio (SAP preenche auto)
+         
+         position: stageStr, // U_Posicao: "010"
+         
+         operator_id: String(badge), // U_Operador: "10617"
+         resource_code: resourceSAP, // U_Recurso: "4.02.01"
+         
+         start_time: statusStartTime.value.toISOString(),
+         end_time: endTime.toISOString(),
+         
+         // Campos auxiliares
+         item_code: activeOrder.value?.part_code || '', 
+         stop_reason: '' 
+       };
+
+       console.log("📤 Payload Final SAP:", payload);
+       
+       await ProductionService.sendAppointment(payload);
+
+       $q.notify({ type: 'positive', message: 'Apontamento Enviado!', icon: 'check_circle' });
+       await productionStore.finishSession();
+       resetTimer();
+     } catch (error) {
+       console.error("Erro SAP:", error);
+       $q.notify({ type: 'negative', message: 'Erro ao registrar no SAP.' });
+     } finally {
+       $q.loading.hide();
+     }
   });
 }
-
 function handleLogout() {
   $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true, ok: { size: 'md', label: 'SAIR' } }).onOk(() => {
     void (async () => {
@@ -577,14 +773,91 @@ async function simulateOpScan() {
   resetTimer();
 }
 
+let scanBuffer = '';
+let scanTimeout: any = null;
+
+// --- FUNÇÃO QUE PROCESSA O SCAN ---
+async function handleGlobalKeydown(event: KeyboardEvent) {
+  // Ignora digitação em campos de input normais
+  if ((event.target as HTMLElement).tagName === 'INPUT' || (event.target as HTMLElement).tagName === 'TEXTAREA') {
+      return;
+  }
+
+  if (event.key === 'Enter') {
+      if (scanBuffer.length > 2) {
+          const scannedBadge = scanBuffer.trim();
+          console.log("🔍 Crachá detectado:", scannedBadge);
+          
+          $q.loading.show({ message: `Autenticando Operador...` });
+          
+          try {
+              // 1. Tenta realizar o login silencioso com o novo crachá
+              // Isso vai atualizar o authStore.user com os dados do Adriano (exemplo)
+              await authStore.loginByBadge(scannedBadge);
+              
+              // 2. FORÇA A ATUALIZAÇÃO IMEDIATA NA TELA
+              // Verifica se o usuário logado tem a matrícula e atualiza a store de produção
+              if (authStore.user && authStore.user.employee_id) {
+                  productionStore.currentOperatorBadge = authStore.user.employee_id;
+                  
+                  // Opcional: Se tiver nome, pode exibir na notificação
+                  $q.notify({
+                      type: 'positive',
+                      message: `Operador: ${authStore.user.full_name}`,
+                      caption: 'Login realizado com sucesso',
+                      icon: 'account_circle',
+                      position: 'top'
+                  });
+              } else {
+                  // Fallback se por algum motivo o employee_id vier vazio
+                  productionStore.currentOperatorBadge = scannedBadge;
+              }
+
+          } catch (e) {
+              console.error(e);
+              $q.notify({
+                  type: 'negative',
+                  message: 'Crachá não reconhecido ou erro de conexão.',
+                  icon: 'error'
+              });
+              // Não limpamos o productionStore aqui para não "deslogar" visualmente em caso de erro de leitura, 
+              // mas você pode zerar se preferir segurança total.
+          } finally {
+              $q.loading.hide();
+              scanBuffer = '';
+          }
+      }
+      scanBuffer = ''; 
+  } else {
+      // Lógica de acumular caracteres
+      if (event.key.length === 1) {
+          scanBuffer += event.key;
+          clearTimeout(scanTimeout);
+          scanTimeout = setTimeout(() => { scanBuffer = ''; }, 2000);
+      }
+  }
+}
+
+// --- ON MOUNTED (GARANTIA INICIAL) ---
 onMounted(() => {
   if (productionStore.currentStepIndex !== -1) {
       viewedStepIndex.value = productionStore.currentStepIndex;
   }
+  
+  // Timer do relógio
   timerInterval = setInterval(() => { currentTime.value = new Date(); }, 1000);
   resetTimer();
+
+  // ATIVA ESCUTA
+  window.addEventListener('keydown', handleGlobalKeydown);
+
+  // SINCRONIZAÇÃO INICIAL:
+  // Se eu abri a página agora e já estou logado (ex: Admin ou Adriano),
+  // garanto que a store de produção pegue esse dado imediatamente.
+  if (authStore.user && authStore.user.employee_id) {
+      productionStore.currentOperatorBadge = authStore.user.employee_id;
+  }
 });
-onUnmounted(() => { clearInterval(timerInterval); });
 </script>
 
 <style>
@@ -595,6 +868,7 @@ onUnmounted(() => { clearInterval(timerInterval); });
 .vemag-bg-light { background-color: #E0F2F1 !important; }
 .bg-vemag-gradient { background: linear-gradient(135deg, #008C7A 0%, #00695C 100%); }
 .bg-black-transparent { background-color: rgba(0,0,0,0.15); }
+.hover-bg-grey-3:hover { background-color: #eeeeee; }
 </style>
 
 <style scoped>
@@ -609,5 +883,4 @@ onUnmounted(() => { clearInterval(timerInterval); });
 .hover-scale-producing { transition: all 0.2s ease-in-out; }
 .hover-scale-producing:active { transform: scale(0.98); }
 .border-bottom-light { border-bottom: 2px solid #e0e0e0; }
-.transition-hover:active { filter: brightness(0.9); }
 </style>

@@ -14,7 +14,7 @@ class VehicleBase(BaseModel):
     
     # CORREÇÃO: Status movido para a Base para ser aceito na criação (POST)
     status: Optional[VehicleStatus] = VehicleStatus.AVAILABLE
-
+    sap_resource_code: Optional[str] = None
     current_km: Optional[int] = 0
     current_engine_hours: Optional[float] = 0
     next_maintenance_date: Optional[date] = None
@@ -43,6 +43,7 @@ class VehicleUpdate(BaseModel):
     next_maintenance_km: Optional[int] = None
     maintenance_notes: Optional[str] = None
     identifier: Optional[str] = None
+    sap_resource_code: Optional[str] = None
     license_plate: Optional[LicensePlateStr] = None
     telemetry_device_id: Optional[str] = None
 
