@@ -142,6 +142,9 @@ class ProductionAppointmentCreate(BaseModel):
     service_code: str          # U_Servico
     position: str
     operation: str
+    operation_desc: str
+    part_description: Optional[str] = ""  # Vai para U_DescricaoServico
+    operator_name: Optional[str] = ""     # Vai para U_DescricaoOperador
     operator_id: str           # Crachá
     resource_code: str         # Recurso (ex: "4.02.01")
     start_time: datetime

@@ -441,6 +441,7 @@ import { STOP_REASONS } from 'src/data/stop-reasons';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
 // --- IMPORTAÇÃO CRÍTICA: MAPEAMENTO SAP ---
+import { getOperatorName } from 'src/data/operators'; // IMPORTAÇÃO DA LISTA DE NOMES
 import { getSapOperation } from 'src/data/sap-operations'; 
 
 const router = useRouter();
@@ -669,29 +670,41 @@ async function executeStop(isCriticalMaintenance: boolean) {
 
 // LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP - ATUALIZADO)
 function confirmFinishOp() {
+  
+  // 1. LÓGICA DE IDENTIFICAÇÃO (Restaura sua lógica original)
   let badge = productionStore.currentOperatorBadge;
 
-  // Usa o Admin apenas se não houver operador E o Admin não estiver logado
+  // Se não tem crachá na memória, tenta pegar do usuário logado
   if (!badge && authStore.user?.employee_id) {
-      if (authStore.user.role !== 'admin') {
+      // TRUQUE: Só usa o login automático se NÃO for o Admin ou Manager.
+      // Se for Admin, obriga a escanear para não enviar "0000" ou crachá errado.
+      const role = authStore.user.role || '';
+      if (role !== 'admin' && role !== 'manager') {
           badge = authStore.user.employee_id;
       }
   }
 
+  // Se continuou sem crachá (ou era admin e não escaneou), abre o prompt
   if (!badge || badge.includes('@')) {
       $q.dialog({
         title: 'Identificação Obrigatória',
-        message: 'Crachá não identificado. Por favor, bip seu crachá para finalizar:',
-        prompt: { model: '', type: 'text', isValid: val => val.length > 0 },
+        message: 'Crachá não identificado. Por favor, BIPE SEU CRACHÁ agora:',
+        prompt: { 
+            model: '', 
+            type: 'text', // Text permite zeros a esquerda se houver
+            isValid: val => val.length > 0 
+        },
         cancel: true,
         persistent: true
       }).onOk(data => {
+        // Salva na store e tenta de novo recursivamente
         productionStore.currentOperatorBadge = data;
         confirmFinishOp(); 
       });
-      return;
+      return; // Para a execução aqui
   }
 
+  // 2. CONFIRMAÇÃO E ENVIO
   $q.dialog({
     title: 'Finalizar O.P.',
     message: `Encerrar ordem para o operador ${badge}?`,
@@ -704,35 +717,46 @@ function confirmFinishOp() {
        const endTime = new Date();
        const resourceSAP = productionStore.machineResource || '4.02.01';
 
-       // 1. Pega a etapa (Ex: 10)
+       // A. Calcula a Etapa (Ex: 10)
+       // Se não tiver step selecionado visualmente, assume a próxima lógica
        const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
        
-       // 2. Busca os dados da Tabela usando a nova função (Ela já formata para "010")
-       const sapOperationInfo = getSapOperation(rawSeq);
-       
-       console.log(`[DEBUG] Etapa: ${rawSeq} -> Info:`, sapOperationInfo);
-
-       // 3. Gera a string de posição manualmente para envio (Ex: "010")
+       // B. Formata para 3 dígitos (Ex: "010")
        const cleanSeq = Math.floor(rawSeq / 10) * 10;
        const stageStr = cleanSeq.toString().padStart(3, '0'); 
+       const operatorName = getOperatorName(String(badge).trim());
+       // C. Busca dados automáticos no arquivo sap-operations.ts
+       // Ex: Se stageStr for "010", retorna { code: "701", description: "PPCP" }
+       const sapOperationInfo = getSapOperation(stageStr);
+       
+       console.log(`[DEBUG] Etapa: ${stageStr} -> Info:`, sapOperationInfo);
 
+       // D. Prioriza a referência da OP (3430/0)
        let opNumberToSend = activeOrder.value?.code;
        if (activeOrder.value?.custom_ref) {
            opNumberToSend = activeOrder.value.custom_ref; 
        }
 
+       // E. MONTA O PAYLOAD CORRETO
        const payload = {
          op_number: String(opNumberToSend),
          
-         // === PREENCHIMENTO AUTOMÁTICO ===
-         // Se sapOperationInfo retornou dados, usa eles.
-         service_code: sapOperationInfo.code || '',       // Ex: "701"
-         operation: sapOperationInfo.description || '',   // Ex: "PPCP"
-         // ================================
+         // REGRAS SAP DEFINIDAS:
+         service_code: '', // U_Servico: Vazio
          
-         position: stageStr, // Ex: "010"
+         position: stageStr, // U_Posicao: "010"
+         
+         // U_Operacao: Recebe o código (Ex: "701")
+         operation: sapOperationInfo.code || '', 
+         
+         // U_DescricaoOperacao: Recebe a descrição (Ex: "PPCP")
+         operation_desc: sapOperationInfo.description || '',
+         part_description: activeOrder.value?.part_name || '', // Descrição Item
+         operator_name: operatorName || '', // Se não achar nome, manda vazio (não erro)
+         // Dados de Execução
          operator_id: String(badge),
          resource_code: resourceSAP,
+         
          start_time: statusStartTime.value.toISOString(),
          end_time: endTime.toISOString(),
          item_code: activeOrder.value?.part_code || '', 
@@ -752,7 +776,7 @@ function confirmFinishOp() {
      } finally {
        $q.loading.hide();
      }
-});
+  });
 }
 
 function handleLogout() {

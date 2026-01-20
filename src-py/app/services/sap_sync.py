@@ -217,15 +217,19 @@ class SAPIntegrationService:
         final_resource = sap_resource_code if sap_resource_code else "4.02.01"
 
         payload = {
-            "U_NumeroDocumento": str(appointment_data['op_number']), # Ex: "3430/0"
+            "U_NumeroDocumento": str(appointment_data['op_number']),
+            "U_Servico": "",
+            "U_Posicao": str(appointment_data['position']),
             
-            # --- CORREÇÃO: VAZIOS E 3 DÍGITOS ---
-            "U_Servico": "",                                    # Envia Vazio
-            "U_Operacao": "",                                   # Envia Vazio
-            "U_Posicao": str(appointment_data['position']),     # Ex: "010"
+            # --- CORREÇÃO: PREENCHIMENTO DA OPERAÇÃO ---
+            "U_Operacao": str(appointment_data['operation']), # Agora recebe o código (ex: "701")
+            "U_DescricaoOperacao": appointment_data.get('operation_desc', ''), # Novo campo SAP
+            "U_DescricaoServico": appointment_data.get('part_description', ''), 
             
-            "U_Recurso": final_resource,                        # Ex: "4.02.01"
-            "U_Operador": sap_operator_id,                      # Ex: "10617"
+            # Frontend manda 'operator_name' -> SAP espera 'U_DescricaoOperador'
+            "U_DescricaoOperador": appointment_data.get('operator_name', ''),
+            "U_Recurso": final_resource,
+            "U_Operador": sap_operator_id,
             
             "U_DataInicioAp": sap_data_ini,
             "U_DataFimAp": sap_data_fim,

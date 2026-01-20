@@ -6,6 +6,11 @@ export interface ProductionAppointmentPayload {
   service_code: string;   // U_Servico (Agora recebe o ItemCode, ex: "PA-10020")
   position: string;       // U_Posicao
   operation: string;      // U_Operacao
+  operation_desc?: string;
+  
+  // --- ADICIONE ESTES ---
+  part_description?: string;
+  operator_name?: string;
   operator_id: string;    // U_Operador
   vehicle_id: number;     // ID interno da máquina
   start_time: string;     // ISO Date
