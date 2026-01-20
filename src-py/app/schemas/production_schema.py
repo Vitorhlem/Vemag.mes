@@ -43,7 +43,7 @@ class ProductionEventCreate(BaseModel):
     quantity_scrap: Optional[int] = 0
 
 # ============================================================================
-# 3. ORDENS DE PRODUÇÃO
+# 3. ORDENS DE PRODUÇÃO (Modelos Internos)
 # ============================================================================
 class ProductionOrder(BaseModel):
     id: int
@@ -54,8 +54,6 @@ class ProductionOrder(BaseModel):
     scrap_quantity: int
     status: str
     part_image_url: Optional[str] = None
-    
-    # Opcional: Trazer resumo de tempo se necessário
     
     class Config:
         from_attributes = True
@@ -136,32 +134,45 @@ class AndonCreate(BaseModel):
     sector: str
     notes: Optional[str] = None
 
-
+# ============================================================================
+# 8. INTEGRAÇÃO SAP (APONTAMENTO)
+# ============================================================================
 class ProductionAppointmentCreate(BaseModel):
     op_number: str
-    service_code: str          # U_Servico (ItemCode da OP)
-    
+    service_code: str          # U_Servico
     position: str
     operation: str
-    
-    operator_id: str           # Crachá (Agora vamos forçar string numérica)
-    resource_code: str         # NOVO: Recebe o recurso direto (ex: "4.02.01")
-    
-    # vehicle_id: int  <-- REMOVIDO conforme solicitado
-    
+    operator_id: str           # Crachá
+    resource_code: str         # Recurso (ex: "4.02.01")
     start_time: datetime
     end_time: datetime
-    
     item_code: Optional[str] = "" 
     stop_reason: Optional[str] = ""
+
+# ============================================================================
+# 9. LEITURA DE O.P. E ROTEIRO
+# ============================================================================
+
+# IMPORTANTE: Definido ANTES de ser usado em ProductionOrderRead
+class OperationStepSchema(BaseModel):
+    seq: int
+    resource: str
+    name: str
+    description: Optional[str] = ""
+    timeEst: float
+    status: str = "PENDING"
+
 class ProductionOrderRead(BaseModel):
     op_number: int          # DocNum
     item_code: str          # ItemCode
     part_name: str          # ProdName
     planned_qty: float      # PlannedQty
     uom: str                # InventoryUOM
-    type: str               # ProductionOrderType (Padrão, Especial, etc)
-    custom_ref: str         # U_LGO_DocEntryOPsFather (Nome da OP/Ref)
+    type: str = "Standard"  # ProductionOrderType
+    custom_ref: str         # U_LGO_DocEntryOPsFather
+    
+    # Campo novo para o roteiro
+    steps: List[OperationStepSchema] = [] 
     
     class Config:
-        orm_mode = True
+        from_attributes = True # Pydantic v2

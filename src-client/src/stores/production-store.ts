@@ -238,43 +238,78 @@ export const useProductionStore = defineStore('production', () => {
 
   async function loginOperator(scannedCode: string) {
     if (!machineId.value) return;
+    
+    console.log(`[DEBUG KIOSK] 1. Iniciando Login. Código Scaneado: "${scannedCode}"`); // LOG 1
+    
     Loading.show({ message: 'Validando...' });
+    
     try {
-      const { data: users } = await api.get('/users/', { params: { limit: 1000 } });
-      const cleanCode = scannedCode.trim();
-      const cleanCodeNoZeros = cleanCode.replace(/^0+/, '');
-      
-      const operator = users.find((u: any) => {
-        if (u.employee_id && String(u.employee_id).trim() === cleanCode) return true;
-        if (String(u.id) === cleanCode || String(u.id) === cleanCodeNoZeros) return true;
-        if (u.email && u.email.toLowerCase() === cleanCode.toLowerCase()) return true;
-        return false;
-      });
+      // Chama a rota específica de identificação
+      console.log(`[DEBUG KIOSK] 2. Chamando API: /production/operator/${scannedCode}`); // LOG 2
+      const { data: operator } = await api.get(`/production/operator/${scannedCode}`);
 
-      if (!operator) {
-        Notify.create({ type: 'negative', message: `Crachá ${cleanCode} não encontrado.` });
-        return;
-      }
+      console.log('[DEBUG KIOSK] 3. Operador Retornado API:', operator); // LOG 3
 
-      await api.post('/production/event', {
+      // REGISTRA O LOGIN
+      const loginPayload = {
         machine_id: machineId.value,
-        operator_badge: operator.email,
+        operator_badge: operator.employee_id, // Força uso do ID retornado
         event_type: 'LOGIN',
         new_status: 'IDLE',
         reason: 'Início de Turno'
-      });
+      };
+      
+      console.log('[DEBUG KIOSK] 4. Enviando Evento Login:', loginPayload); // LOG 4
+      await api.post('/production/event', loginPayload);
 
+      // ATUALIZA ESTADO
       currentOperator.value = operator;
-      currentOperatorBadge.value = operator.email;
+      currentOperatorBadge.value = operator.employee_id; // <--- O PULO DO GATO
+      
+      console.log('[DEBUG KIOSK] 5. Estado Atualizado. Badge Ativo:', currentOperatorBadge.value); // LOG 5
+
       localStorage.setItem('TRU_CURRENT_OPERATOR', JSON.stringify(operator));
       
       if (!isMachineBroken.value && currentMachine.value) {
           currentMachine.value = { ...currentMachine.value, status: 'Disponível' };
       }
       
-      Notify.create({ type: 'positive', message: `Olá, ${operator.full_name.split(' ')[0]}!` });
+      Notify.create({ 
+        type: 'positive', 
+        message: `Bem-vindo, ${operator.full_name.split(' ')[0]}!`,
+        caption: `Matrícula: ${operator.employee_id}`
+      });
 
-    } catch (error) { console.error(error); Notify.create({ type: 'negative', message: 'Erro login.' }); } finally { Loading.hide(); }
+    } catch (error: any) { 
+      console.error('[DEBUG KIOSK] ERRO:', error); 
+      const msg = error.response?.data?.detail || 'Crachá não identificado.';
+      Notify.create({ type: 'negative', message: msg }); 
+    } finally { 
+      Loading.hide(); 
+    }
+  }
+
+  async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
+    if (!machineId.value || !currentOperatorBadge.value) {
+        console.warn('[DEBUG KIOSK] Tentativa de evento sem operador ou máquina!');
+        return;
+    }
+    
+    const eventPayload = { 
+        machine_id: machineId.value, 
+        operator_badge: currentOperatorBadge.value, // <--- Verifica se isso é o Admin ou Operador
+        order_code: activeOrder.value?.code, 
+        event_type: type, 
+        ...payload 
+    };
+
+    console.log(`[DEBUG KIOSK] Enviando Evento (${type}):`, eventPayload); // LOG EVENTOS
+
+    try { 
+        await api.post('/production/event', eventPayload); 
+    } catch (e) { 
+        console.error('Falha de sincronização MES', e); 
+    }
   }
 
   async function logoutOperator(overrideStatus?: string) {

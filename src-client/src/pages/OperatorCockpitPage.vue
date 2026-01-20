@@ -33,7 +33,7 @@
             <div class="column items-start justify-center q-ml-sm mobile-hide" style="line-height: 1.1;">
               <div class="text-caption text-weight-bold vemag-text-primary text-uppercase" style="font-size: 0.6rem;">OP</div>
               <div class="text-caption text-grey-9 text-weight-bold">
-                {{ productionStore.currentOperatorBadge ? productionStore.currentOperatorBadge.split('@')[0] : '---' }}
+                {{ productionStore.currentOperator?.full_name || productionStore.currentOperatorBadge || '---' }}
               </div>
             </div>
             
@@ -147,7 +147,7 @@
               </div>
 
               <q-card-section class="col scroll q-pa-md">
-                 <div v-if="currentViewedStep" class="column full-height">
+                  <div v-if="currentViewedStep" class="column full-height">
                     <div class="text-dark" style="white-space: pre-line; font-size: 1.1rem; line-height: 1.4; font-weight: 500;">
                        {{ currentViewedStep.description }}
                     </div>
@@ -156,17 +156,17 @@
                        <q-icon name="schedule" size="24px" class="q-mr-sm" />
                        <span class="text-subtitle1">Est: <strong>{{ currentViewedStep.timeEst || 0 }}h</strong></span>
                     </div>
-                 </div>
-                 <div v-else class="text-center text-grey-5 q-pa-lg column flex-center h-100">
+                  </div>
+                  <div v-else class="text-center text-grey-5 q-pa-lg column flex-center h-100">
                     <q-icon name="sentiment_dissatisfied" size="4em" />
                     <div class="text-h6 q-mt-sm">Nenhum passo encontrado.</div>
-                 </div>
+                  </div>
               </q-card-section>
 
               <q-separator />
               
               <q-card-actions align="between" class="col-auto q-pa-sm bg-grey-1">
-                 <div class="row q-gutter-x-sm col-8">
+                  <div class="row q-gutter-x-sm col-8">
                     <q-btn 
                        push color="white" text-color="primary" 
                        icon="arrow_back" label="ANTERIOR" 
@@ -181,15 +181,15 @@
                        @click="nextStepView" 
                        :disable="!productionStore.activeOrder.steps || viewedStepIndex === productionStore.activeOrder.steps.length - 1" 
                     />
-                 </div>
+                  </div>
 
-                 <q-btn 
+                  <q-btn 
                     flat color="negative" icon="delete_outline" 
                     label="Refugo" 
                     size="md"
                     class="bg-red-1"
                     @click="productionStore.addProduction(1, true)"
-                 />
+                  />
               </q-card-actions>
             </q-card>
           </div>
@@ -440,6 +440,8 @@ import { storeToRefs } from 'pinia';
 import { STOP_REASONS } from 'src/data/stop-reasons';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
+// --- IMPORTAÇÃO CRÍTICA: MAPEAMENTO SAP ---
+import { getSapOperation } from 'src/data/sap-operations'; 
 
 const router = useRouter();
 const $q = useQuasar();
@@ -456,8 +458,8 @@ const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isMaintenanceConfirmOpen = ref(false);
 const isDrawingDialogOpen = ref(false);
-const showOpList = ref(false); // NOVO
-const loadingOps = ref(false); // NOVO
+const showOpList = ref(false);
+const loadingOps = ref(false);
 
 const pendingReason = ref('');
 const stopSearch = ref('');
@@ -479,7 +481,6 @@ const opColumns = [
 const viewedStepIndex = ref(0);
 
 const currentViewedStep = computed(() => {
-    // Se não tiver passos definidos no SAP, cria um passo fictício genérico "USINAGEM"
     if (!activeOrder.value?.steps || activeOrder.value.steps.length === 0) {
         return {
             seq: 10,
@@ -570,12 +571,10 @@ function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
 
-// 1. Abrir Modal de OPs
 async function openOpListDialog() {
   showOpList.value = true;
   loadingOps.value = true;
   try {
-    // Certifique-se que getOpenOrders existe no ProductionService (turnos passados)
     openOps.value = await ProductionService.getOpenOrders();
   } catch (error) {
     console.error(error);
@@ -585,20 +584,18 @@ async function openOpListDialog() {
   }
 }
 
-// 2. Selecionar OP da Lista
 function selectOp(op: any) {
-  // Configura o activeOrder na Store manualmente com dados vindos da lista
   productionStore.activeOrder = {
-    code: String(op.op_number),           // DocNum
+    code: String(op.op_number),           
     part_name: op.part_name,      
-    part_code: op.item_code,      // ItemCode (IMPORTANTE!)
+    part_code: op.item_code,      
     target_quantity: Number(op.planned_qty),
     produced_quantity: 0,
     scrap_quantity: 0,
     status: 'PENDING',
     custom_ref: op.custom_ref,
-    technical_drawing_url: '', // Se tiver URL, mapear aqui
-    steps: [] // Passos virão vazios por enquanto
+    technical_drawing_url: '', 
+    steps: [] 
   };
   
   showOpList.value = false;
@@ -670,36 +667,31 @@ async function executeStop(isCriticalMaintenance: boolean) {
     isLoadingAction.value = false;
 }
 
-// LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP)
+// LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP - ATUALIZADO)
 function confirmFinishOp() {
-  // 1. LÓGICA DO OPERADOR (Prioridade: Matrícula "10617")
-  // Tenta pegar o que foi escaneado. Se não tiver, pega do cadastro do usuário logado (employee_id).
   let badge = productionStore.currentOperatorBadge;
 
+  // Usa o Admin apenas se não houver operador E o Admin não estiver logado
   if (!badge && authStore.user?.employee_id) {
-      badge = authStore.user.employee_id; // Pega "10617" do cadastro
+      if (authStore.user.role !== 'admin') {
+          badge = authStore.user.employee_id;
+      }
   }
 
-  // Validação de Segurança: Se ainda não achou ou se veio um e-mail por engano
   if (!badge || badge.includes('@')) {
       $q.dialog({
         title: 'Identificação Obrigatória',
-        message: 'Crachá não identificado automaticamente. Por favor, digite sua MATRÍCULA:',
-        prompt: {
-          model: '',
-          type: 'text', // Text para aceitar zeros à esquerda se houver
-          isValid: val => val.length > 0
-        },
+        message: 'Crachá não identificado. Por favor, bip seu crachá para finalizar:',
+        prompt: { model: '', type: 'text', isValid: val => val.length > 0 },
         cancel: true,
         persistent: true
       }).onOk(data => {
         productionStore.currentOperatorBadge = data;
-        confirmFinishOp(); // Tenta novamente com o valor digitado
+        confirmFinishOp(); 
       });
       return;
   }
 
-  // 2. Confirmação
   $q.dialog({
     title: 'Finalizar O.P.',
     message: `Encerrar ordem para o operador ${badge}?`,
@@ -710,36 +702,39 @@ function confirmFinishOp() {
      $q.loading.show({ message: 'Enviando ao SAP...' });
      try {
        const endTime = new Date();
-
-       // 3. Recurso da Máquina (ex: "4.02.01")
        const resourceSAP = productionStore.machineResource || '4.02.01';
 
-       // 4. Formatação da Etapa (3 Dígitos: 010, 020...)
-       const seqNumber = (viewedStepIndex.value + 1) * 10;
-       const stageStr = seqNumber.toString().padStart(3, '0'); 
+       // 1. Pega a etapa (Ex: 10)
+       const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
+       
+       // 2. Busca os dados da Tabela usando a nova função (Ela já formata para "010")
+       const sapOperationInfo = getSapOperation(rawSeq);
+       
+       console.log(`[DEBUG] Etapa: ${rawSeq} -> Info:`, sapOperationInfo);
 
-       // 5. Número da OP (Usa a Ref Pai "3430/0" se existir)
+       // 3. Gera a string de posição manualmente para envio (Ex: "010")
+       const cleanSeq = Math.floor(rawSeq / 10) * 10;
+       const stageStr = cleanSeq.toString().padStart(3, '0'); 
+
        let opNumberToSend = activeOrder.value?.code;
        if (activeOrder.value?.custom_ref) {
            opNumberToSend = activeOrder.value.custom_ref; 
        }
 
        const payload = {
-         op_number: String(opNumberToSend), // Ex: "3430/0"
+         op_number: String(opNumberToSend),
          
-         // REGRAS DE NEGÓCIO SAP:
-         service_code: '',   // U_Servico: Vazio (conforme solicitado)
-         operation: '',      // U_Operacao: Vazio (SAP preenche auto)
+         // === PREENCHIMENTO AUTOMÁTICO ===
+         // Se sapOperationInfo retornou dados, usa eles.
+         service_code: sapOperationInfo.code || '',       // Ex: "701"
+         operation: sapOperationInfo.description || '',   // Ex: "PPCP"
+         // ================================
          
-         position: stageStr, // U_Posicao: "010"
-         
-         operator_id: String(badge), // U_Operador: "10617"
-         resource_code: resourceSAP, // U_Recurso: "4.02.01"
-         
+         position: stageStr, // Ex: "010"
+         operator_id: String(badge),
+         resource_code: resourceSAP,
          start_time: statusStartTime.value.toISOString(),
          end_time: endTime.toISOString(),
-         
-         // Campos auxiliares
          item_code: activeOrder.value?.part_code || '', 
          stop_reason: '' 
        };
@@ -757,8 +752,9 @@ function confirmFinishOp() {
      } finally {
        $q.loading.hide();
      }
-  });
+});
 }
+
 function handleLogout() {
   $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true, ok: { size: 'md', label: 'SAIR' } }).onOk(() => {
     void (async () => {
@@ -776,9 +772,7 @@ async function simulateOpScan() {
 let scanBuffer = '';
 let scanTimeout: any = null;
 
-// --- FUNÇÃO QUE PROCESSA O SCAN ---
 async function handleGlobalKeydown(event: KeyboardEvent) {
-  // Ignora digitação em campos de input normais
   if ((event.target as HTMLElement).tagName === 'INPUT' || (event.target as HTMLElement).tagName === 'TEXTAREA') {
       return;
   }
@@ -791,16 +785,11 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
           $q.loading.show({ message: `Autenticando Operador...` });
           
           try {
-              // 1. Tenta realizar o login silencioso com o novo crachá
-              // Isso vai atualizar o authStore.user com os dados do Adriano (exemplo)
               await authStore.loginByBadge(scannedBadge);
               
-              // 2. FORÇA A ATUALIZAÇÃO IMEDIATA NA TELA
-              // Verifica se o usuário logado tem a matrícula e atualiza a store de produção
               if (authStore.user && authStore.user.employee_id) {
                   productionStore.currentOperatorBadge = authStore.user.employee_id;
                   
-                  // Opcional: Se tiver nome, pode exibir na notificação
                   $q.notify({
                       type: 'positive',
                       message: `Operador: ${authStore.user.full_name}`,
@@ -809,7 +798,6 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
                       position: 'top'
                   });
               } else {
-                  // Fallback se por algum motivo o employee_id vier vazio
                   productionStore.currentOperatorBadge = scannedBadge;
               }
 
@@ -817,11 +805,9 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
               console.error(e);
               $q.notify({
                   type: 'negative',
-                  message: 'Crachá não reconhecido ou erro de conexão.',
+                  message: 'Crachá não reconhecido.',
                   icon: 'error'
               });
-              // Não limpamos o productionStore aqui para não "deslogar" visualmente em caso de erro de leitura, 
-              // mas você pode zerar se preferir segurança total.
           } finally {
               $q.loading.hide();
               scanBuffer = '';
@@ -829,7 +815,6 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
       }
       scanBuffer = ''; 
   } else {
-      // Lógica de acumular caracteres
       if (event.key.length === 1) {
           scanBuffer += event.key;
           clearTimeout(scanTimeout);
@@ -838,25 +823,28 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
-// --- ON MOUNTED (GARANTIA INICIAL) ---
 onMounted(() => {
   if (productionStore.currentStepIndex !== -1) {
       viewedStepIndex.value = productionStore.currentStepIndex;
   }
   
-  // Timer do relógio
   timerInterval = setInterval(() => { currentTime.value = new Date(); }, 1000);
   resetTimer();
 
-  // ATIVA ESCUTA
   window.addEventListener('keydown', handleGlobalKeydown);
 
-  // SINCRONIZAÇÃO INICIAL:
-  // Se eu abri a página agora e já estou logado (ex: Admin ou Adriano),
-  // garanto que a store de produção pegue esse dado imediatamente.
-  if (authStore.user && authStore.user.employee_id) {
-      productionStore.currentOperatorBadge = authStore.user.employee_id;
+  // --- PROTEÇÃO DO OPERADOR (NÃO SOBRESCREVE SE JÁ EXISTIR UM BIPADO) ---
+  if (!productionStore.currentOperatorBadge && authStore.user && authStore.user.employee_id) {
+      const role = authStore.user.role || '';
+      if (role !== 'admin' && role !== 'manager') {
+          productionStore.currentOperatorBadge = authStore.user.employee_id;
+      }
   }
+});
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleGlobalKeydown);
+    clearInterval(timerInterval);
 });
 </script>
 

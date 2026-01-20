@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, or_ # <--- ADICIONE or_
 from datetime import datetime, date, time
+from sqlalchemy.orm import selectinload # <--- IMPORTANTE
 from typing import List, Optional
 from pydantic import BaseModel
 from app.crud import crud_vehicle
@@ -11,7 +12,7 @@ from app.schemas.production_schema import ProductionAppointmentCreate, Productio
 # Imports do Projeto
 from app.models.production_model import ProductionOrder as ProductionOrderModel
 from app import deps 
-from app.schemas import production_schema, vehicle_schema
+from app.schemas import production_schema, vehicle_schema, user_schema # <--- ADICIONE user_schema
 from app.models.production_model import ProductionLog, ProductionOrder, AndonAlert, ProductionSession, ProductionTimeSlice
 from app.models.user_model import User
 from app.services.production_service import ProductionService # <--- NOVO SERVIÇO
@@ -32,6 +33,39 @@ class MachineStatusUpdate(BaseModel):
 # ============================================================================
 # 1. ROTA DE STATUS DA MÁQUINA (Manual Override)
 # ============================================================================
+
+@router.get("/operator/{badge}", response_model=user_schema.UserPublic)
+async def get_operator_by_badge(
+    badge: str, 
+    db: AsyncSession = Depends(deps.get_db)
+):
+    print(f"🔍 [DEBUG KIOSK] Buscando Operador. Badge recebido: '{badge}'") # LOG 1
+    
+    clean_badge = badge.strip()
+    
+    # 1. Tenta por Matrícula
+    loader_opt = selectinload(User.organization)
+    query = select(User).options(loader_opt).where(User.employee_id == clean_badge)
+    result = await db.execute(query)
+    user = result.scalars().first()
+    
+    if user:
+        print(f"✅ [DEBUG KIOSK] Encontrado por Matrícula: {user.full_name} (ID: {user.employee_id})") # LOG 2
+    
+    # 2. Tenta por Email
+    if not user:
+        query = select(User).options(loader_opt).where(func.lower(User.email) == clean_badge.lower())
+        result = await db.execute(query)
+        user = result.scalars().first()
+        if user:
+            print(f"✅ [DEBUG KIOSK] Encontrado por Email: {user.full_name}")
+
+    if not user:
+        print(f"❌ [DEBUG KIOSK] Operador não encontrado para: {clean_badge}") # LOG 3
+        raise HTTPException(status_code=404, detail="Operador não encontrado.")
+        
+    return user
+
 @router.post("/machine/status")
 async def set_machine_status(
     data: MachineStatusUpdate, 
@@ -97,11 +131,16 @@ async def open_andon_alert(
     machine = await db.get(Vehicle, alert.machine_id)
     if not machine: raise HTTPException(404, "Machine not found")
 
-    query_op = select(User).where(User.email == alert.operator_badge)
+    # --- ATUALIZADO: Busca flexível (Matrícula ou Email) ---
+    query_op = select(User).where(or_(
+        User.employee_id == alert.operator_badge,
+        User.email == alert.operator_badge
+    ))
     result_op = await db.execute(query_op)
     operator = result_op.scalars().first()
     
     if not operator: raise HTTPException(404, "Operator not found")
+    # -------------------------------------------------------
 
     new_alert = AndonAlert(
         vehicle_id=machine.id,
@@ -112,7 +151,6 @@ async def open_andon_alert(
     )
     db.add(new_alert)
     
-    # Log simples
     log = ProductionLog(
         vehicle_id=machine.id, 
         operator_id=operator.id,
@@ -194,12 +232,23 @@ async def start_session(
     data: production_schema.SessionStartSchema,
     db: AsyncSession = Depends(deps.get_db)
 ):
+    
+    print(f"🚀 [DEBUG KIOSK] Iniciando Sessão. Badge enviado pelo Front: '{data.operator_badge}'") # LOG START
     machine = await db.get(Vehicle, data.machine_id)
     if not machine: raise HTTPException(404, "Invalid Machine")
 
-    res = await db.execute(select(User).where(User.email == data.operator_badge))
+    res = await db.execute(select(User).where(or_(
+        User.employee_id == data.operator_badge,
+        User.email == data.operator_badge
+    )))
     operator = res.scalars().first()
+    if operator:
+        print(f"👤 [DEBUG KIOSK] Sessão vinculada ao usuário: {operator.full_name} (ID Banco: {operator.id})")
+    else:
+        print(f"❌ [DEBUG KIOSK] Usuário não encontrado para iniciar sessão!")
+        raise HTTPException(404, "Invalid Badge")
     if not operator: raise HTTPException(404, "Invalid Badge")
+
 
     res_ord = await db.execute(select(ProductionOrder).where(ProductionOrder.code == data.order_code))
     order = res_ord.scalars().first()
@@ -487,42 +536,21 @@ async def get_open_orders(
 # ============================================================================
 # 2. ROTA DE OP ÚNICA (DINÂMICA)
 # ============================================================================
-@router.get("/orders/{code}", response_model=ProductionOrderRead)
+@router.get("/orders/{code}", response_model=production_schema.ProductionOrderRead) # Use o schema atualizado
 async def get_production_order(
     code: str, 
     db: AsyncSession = Depends(deps.get_db)
 ):
-    # 1. Busca Localmente (Cache) -> Usando o MODEL aqui
-    query = select(ProductionOrderModel).where(ProductionOrderModel.code == code)
-    result = await db.execute(query)
-    order = result.scalars().first()
+    # 1. Busca no SAP (Prioridade para dados frescos com Roteiro)
+    # Nota: Estamos indo direto ao SAP para garantir que o roteiro venha atualizado.
+    # Se você quiser usar o cache local, precisaria criar uma tabela 'production_steps' no banco.
     
-    # 2. Se não existir, busca no SAP
-    if not order:
-        print(f"🔎 Buscando OP {code} no SAP...")
+    print(f"🔎 Buscando OP {code} no SAP...")
+    sap_service = SAPIntegrationService(db, organization_id=1)
+    sap_data = await sap_service.get_production_order_by_code(code)
+    
+    if sap_data:
+        # Retorna o dicionário direto, o Pydantic faz a validação
+        return sap_data
         
-        sap_service = SAPIntegrationService(db, organization_id=1)
-        sap_data = await sap_service.get_production_order_by_code(code)
-        
-        if sap_data:
-            print(f"💾 Sincronizando OP {code} para o banco local...")
-            
-            # 3. Cria o objeto Local -> Usando o MODEL aqui
-            order = ProductionOrderModel(
-                code=str(sap_data['op_number']),
-                part_name=sap_data['part_name'],
-                part_code=sap_data['item_code'],
-                target_quantity=sap_data['quantity'],
-                status="PENDING",
-                produced_quantity=0,
-                scrap_quantity=0,
-                part_image_url="" 
-            )
-            
-            db.add(order)
-            await db.commit()
-            await db.refresh(order)
-        else:
-            raise HTTPException(status_code=404, detail="OP não encontrada no SAP")
-            
-    return order
+    raise HTTPException(status_code=404, detail="OP não encontrada no SAP")

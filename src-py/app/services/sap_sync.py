@@ -140,18 +140,45 @@ class SAPIntegrationService:
         if not clean_code.isdigit(): return None
 
         try:
-            # CORREÇÃO: Mesmos campos novos aqui também
-            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather"
-            # Nota: Filtramos por DocumentNumber agora
+            # CORREÇÃO: Incluímos 'ProductionOrderLines' na query para pegar o roteiro
+            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,ProductionOrderLines"
+            
             query = f"$select={fields}&$filter=DocumentNumber eq {clean_code}"
             
-            print(f"🔄 [SAP] Buscando OP {clean_code}...")
+            print(f"🔄 [SAP] Buscando OP {clean_code} e Roteiro...")
             response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
             
             if response.status_code == 200:
                 items = response.json().get('value', [])
                 if items:
                     item = items[0]
+                    
+                    # --- EXTRAÇÃO DO ROTEIRO (STEPS) ---
+                    steps = []
+                    raw_lines = item.get('ProductionOrderLines', [])
+                    
+                    for line in raw_lines:
+                        # No SAP, ItemType 290 geralmente é Recurso, 4 é Item. 
+                        # Vamos pegar tudo que tiver um código válido de recurso.
+                        line_type = line.get('ItemType') 
+                        item_code = line.get('ItemCode') or ""
+                        
+                        # Formata a sequencia visual (ex: 1 -> 010)
+                        seq_num = line.get('VisualOrder', 0) * 10
+                        
+                        step = {
+                            "seq": seq_num,
+                            "resource": item_code, # O "match" será feito com este código (Ex: 4.10)
+                            "name": line.get('ItemName') or "Etapa de Produção",
+                            "description": f"Operação SAP: {item_code} - {line.get('ItemName')}",
+                            "timeEst": line.get('PlannedQuantity') or 0, # Tempo Planejado
+                            "status": "PENDING"
+                        }
+                        steps.append(step)
+                    
+                    # Ordena pelo sequencial
+                    steps.sort(key=lambda x: x['seq'])
+
                     return {
                         "op_number": item.get('DocumentNumber'),
                         "status": item.get('ProductionOrderStatus'),
@@ -159,7 +186,8 @@ class SAPIntegrationService:
                         "part_name": item.get('ProductDescription'),
                         "quantity": item.get('PlannedQuantity'),
                         "uom": item.get('InventoryUOM'),
-                        "custom_name": item.get('U_LGO_DocEntryOPsFather') or "" 
+                        "custom_name": item.get('U_LGO_DocEntryOPsFather') or "",
+                        "steps": steps # <--- Campo novo retornado
                     }
             return None
         except Exception as e:
@@ -184,7 +212,8 @@ class SAPIntegrationService:
         sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
         sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
 
-        sap_operator_id = str(appointment_data['operator_id']).strip()
+        raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
+        sap_operator_id = raw_id[:-1] if len(raw_id) > 1 else raw_id
         final_resource = sap_resource_code if sap_resource_code else "4.02.01"
 
         payload = {
