@@ -146,7 +146,8 @@ class ProductionAppointmentCreate(BaseModel):
     part_description: Optional[str] = ""  # Vai para U_DescricaoServico
     operator_name: Optional[str] = ""     # Vai para U_DescricaoOperador
     operator_id: str           # Crachá
-    resource_code: str         # Recurso (ex: "4.02.01")
+    resource_code: str
+    resource_name: Optional[str] = ""# Recurso (ex: "4.02.01")
     start_time: datetime
     end_time: datetime
     item_code: Optional[str] = "" 

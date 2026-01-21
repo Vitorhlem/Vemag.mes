@@ -671,37 +671,28 @@ async function executeStop(isCriticalMaintenance: boolean) {
 // LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP - ATUALIZADO)
 function confirmFinishOp() {
   
-  // 1. LÓGICA DE IDENTIFICAÇÃO (Restaura sua lógica original)
+  // 1. LÓGICA DE IDENTIFICAÇÃO (Mantida original)
   let badge = productionStore.currentOperatorBadge;
 
-  // Se não tem crachá na memória, tenta pegar do usuário logado
   if (!badge && authStore.user?.employee_id) {
-      // TRUQUE: Só usa o login automático se NÃO for o Admin ou Manager.
-      // Se for Admin, obriga a escanear para não enviar "0000" ou crachá errado.
       const role = authStore.user.role || '';
       if (role !== 'admin' && role !== 'manager') {
           badge = authStore.user.employee_id;
       }
   }
 
-  // Se continuou sem crachá (ou era admin e não escaneou), abre o prompt
   if (!badge || badge.includes('@')) {
       $q.dialog({
         title: 'Identificação Obrigatória',
         message: 'Crachá não identificado. Por favor, BIPE SEU CRACHÁ agora:',
-        prompt: { 
-            model: '', 
-            type: 'text', // Text permite zeros a esquerda se houver
-            isValid: val => val.length > 0 
-        },
+        prompt: { model: '', type: 'text', isValid: val => val.length > 0 },
         cancel: true,
         persistent: true
       }).onOk(data => {
-        // Salva na store e tenta de novo recursivamente
         productionStore.currentOperatorBadge = data;
         confirmFinishOp(); 
       });
-      return; // Para a execução aqui
+      return; 
   }
 
   // 2. CONFIRMAÇÃO E ENVIO
@@ -715,55 +706,54 @@ function confirmFinishOp() {
      $q.loading.show({ message: 'Enviando ao SAP...' });
      try {
        const endTime = new Date();
-       const resourceSAP = productionStore.machineResource || '4.02.01';
-
-       // A. Calcula a Etapa (Ex: 10)
-       // Se não tiver step selecionado visualmente, assume a próxima lógica
-       const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
        
-       // B. Formata para 3 dígitos (Ex: "010")
+       // A. Cálculo da Etapa
+       const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
        const cleanSeq = Math.floor(rawSeq / 10) * 10;
        const stageStr = cleanSeq.toString().padStart(3, '0'); 
-       const operatorName = getOperatorName(String(badge).trim());
-       // C. Busca dados automáticos no arquivo sap-operations.ts
-       // Ex: Se stageStr for "010", retorna { code: "701", description: "PPCP" }
-       const sapOperationInfo = getSapOperation(stageStr);
        
-       console.log(`[DEBUG] Etapa: ${stageStr} -> Info:`, sapOperationInfo);
+       const operatorName = getOperatorName(String(badge).trim());
 
-       // D. Prioriza a referência da OP (3430/0)
+       // B. BUSCA OS DADOS (Aqui está o ponto crítico)
+       // Chamamos a função uma única vez e guardamos o resultado
+       const sapData = getSapOperation(stageStr);
+       
+       // DEBUG: Vamos ver no console se o objeto sapData tem as propriedades certas
+       console.log(`[DEBUG SAP] Etapa: ${stageStr}`, sapData);
+
+       // C. Prioriza a referência da OP
        let opNumberToSend = activeOrder.value?.code;
        if (activeOrder.value?.custom_ref) {
            opNumberToSend = activeOrder.value.custom_ref; 
        }
 
-       // E. MONTA O PAYLOAD CORRETO
+       // D. MONTA O PAYLOAD (Garantindo que os nomes das propriedades batem com o sap-operations.ts)
        const payload = {
          op_number: String(opNumberToSend),
+         service_code: '', 
+         position: stageStr, 
          
-         // REGRAS SAP DEFINIDAS:
-         service_code: '', // U_Servico: Vazio
+         // Operação e Descrição
+         operation: sapData.code || '', 
+         operation_desc: sapData.description || '',
+
+         // RECURSO AUTOMÁTICO: Verifique se no sap-operations.ts é 'resourceCode' ou 'resource_code'
+         // Baseado no arquivo que criamos, deve ser exatamente assim:
+         resource_code: sapData.resourceCode || '', 
+         resource_name: sapData.resourceName || '',
          
-         position: stageStr, // U_Posicao: "010"
+         part_description: activeOrder.value?.part_name || '', 
+         operator_name: operatorName || '', 
          
-         // U_Operacao: Recebe o código (Ex: "701")
-         operation: sapOperationInfo.code || '', 
-         
-         // U_DescricaoOperacao: Recebe a descrição (Ex: "PPCP")
-         operation_desc: sapOperationInfo.description || '',
-         part_description: activeOrder.value?.part_name || '', // Descrição Item
-         operator_name: operatorName || '', // Se não achar nome, manda vazio (não erro)
-         // Dados de Execução
          operator_id: String(badge),
-         resource_code: resourceSAP,
-         
          start_time: statusStartTime.value.toISOString(),
          end_time: endTime.toISOString(),
          item_code: activeOrder.value?.part_code || '', 
-         stop_reason: '' 
+         stop_reason: '',
+         vehicle_id: productionStore.machineId || 0
        };
 
-       console.log("📤 Payload Final SAP:", payload);
+       console.log("📤 Enviando para o Backend:", payload);
        
        await ProductionService.sendAppointment(payload);
 

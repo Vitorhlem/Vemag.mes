@@ -228,7 +228,8 @@ class SAPIntegrationService:
             
             # Frontend manda 'operator_name' -> SAP espera 'U_DescricaoOperador'
             "U_DescricaoOperador": appointment_data.get('operator_name', ''),
-            "U_Recurso": final_resource,
+            "U_Recurso": str(appointment_data['resource_code']),        # Ex: 7.01.01
+            "U_DescricaoRecurso": str(appointment_data['resource_name']), # Ex: Analista de PPCP
             "U_Operador": sap_operator_id,
             
             "U_DataInicioAp": sap_data_ini,
