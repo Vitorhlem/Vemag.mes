@@ -320,31 +320,57 @@ export const useProductionStore = defineStore('production', () => {
     }
   }
 
-  async function logoutOperator(overrideStatus?: string) {
-    if (!machineId.value || !currentOperatorBadge.value) return;
+  async function logoutOperator(overrideStatus?: string, keepActiveOrder = false) {
+    if (!machineId.value) return;
+    
+    // Se não tiver badge (já saiu), ignora
+    if (!currentOperatorBadge.value) {
+        currentOperator.value = null;
+        if (!keepActiveOrder) {
+            activeOrder.value = null;
+            currentStepIndex.value = -1;
+        }
+        return;
+    }
+
     let statusToSend = 'AVAILABLE';
     let visualStatus = 'Disponível';
+
+    // Lógica de Status
     if (overrideStatus === 'MAINTENANCE' || isMachineBroken.value) {
         statusToSend = 'MAINTENANCE';
         visualStatus = 'Em manutenção';
+    } else if (keepActiveOrder && activeOrder.value?.status === 'RUNNING') {
+        // MÁQUINA CONTINUA RODANDO SEM OPERADOR
+        statusToSend = 'RUNNING'; 
+        visualStatus = 'Em Operação (Turno)';
     }
+
     try {
       await api.post('/production/event', {
         machine_id: machineId.value,
         operator_badge: currentOperatorBadge.value,
         event_type: 'LOGOUT',
         new_status: statusToSend, 
-        reason: 'Logoff'
+        reason: 'Logoff / Troca de Turno'
       });
+
       if (currentMachine.value) {
           currentMachine.value = { ...currentMachine.value, status: visualStatus };
       }
     } catch (error) { console.error('Erro ao deslogar:', error); }
+
+    // Limpeza de Estado
     currentOperator.value = null;
     currentOperatorBadge.value = null;
-    activeOrder.value = null;
-    currentStepIndex.value = -1;
     localStorage.removeItem('TRU_CURRENT_OPERATOR');
+
+    // AQUI O PULO DO GATO:
+    // Se for troca de turno rodando, NÃO limpamos a activeOrder nem o currentStep
+    if (!keepActiveOrder) {
+        activeOrder.value = null;
+        currentStepIndex.value = -1;
+    }
   }
 
   async function loadOrderFromQr(qrCode: string) {

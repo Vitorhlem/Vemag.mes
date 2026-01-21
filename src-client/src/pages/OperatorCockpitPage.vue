@@ -399,6 +399,31 @@
        </q-card>
     </q-dialog>
 
+    <q-dialog v-model="isShiftChangeDialogOpen" persistent>
+      <q-card class="q-pa-md text-center" style="width: 400px; border-radius: 16px;">
+        <q-icon name="groups" size="60px" color="primary" class="q-mb-sm" />
+        <div class="text-h5 text-weight-bold">Troca de Turno</div>
+        <div class="text-subtitle1 text-grey-8 q-my-md">A máquina vai parar ou o próximo operador assume imediatamente?</div>
+        
+        <div class="column q-gutter-y-md">
+           <q-btn 
+              push color="positive" size="lg" icon="autorenew" 
+              label="CONTINUA RODANDO" 
+              @click="executeShiftChange(true)" 
+           />
+           <div class="text-caption text-grey">O apontamento atual será fechado e a OP ficará aguardando o próximo login.</div>
+           
+           <q-separator />
+           
+           <q-btn 
+              flat color="negative" icon="pause" 
+              label="VAI PARAR A MÁQUINA" 
+              @click="executeShiftChange(false)" 
+           />
+        </div>
+      </q-card>
+    </q-dialog>
+
     <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
       <q-card style="width: 700px; max-width: 95vw; border-radius: 20px;">
         <q-card-section class="vemag-bg-primary text-white row items-center justify-between q-pa-md">
@@ -458,7 +483,8 @@ import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
 // --- IMPORTAÇÕES DE DADOS ---
 import { getOperatorName } from 'src/data/operators'; 
 import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
-import { SAP_STOP_REASONS, SapStopReason } from 'src/data/sap-stops';
+import { SAP_STOP_REASONS } from 'src/data/sap-stops';
+import type { SapStopReason } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
 
 const router = useRouter();
@@ -466,7 +492,7 @@ const $q = useQuasar();
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
-
+const isShiftChangeDialogOpen = ref(false); // NOVO
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
 const customOsBackgroundImage = ref('/a.jpg');
@@ -658,26 +684,96 @@ function handleSapPause(stopReason: SapStopReason) {
     reasonLabel: stopReason.label
   };
 
-  // VERIFICA SE O MOTIVO EXIGE MANUTENÇÃO (QUEBRA)
+  // 1. DETECÇÃO DE TROCA DE TURNO
+  if (stopReason.label.toLowerCase().includes('troca de turno') || stopReason.code === '111') {
+      isStopDialogOpen.value = false;
+      isShiftChangeDialogOpen.value = true; // Abre Dialog Pergunta
+      return;
+  }
+
+  // 2. VERIFICAÇÃO CRÍTICA (QUEBRA)
   if (stopReason.requiresMaintenance) {
       isStopDialogOpen.value = false;
-      isMaintenanceConfirmOpen.value = true; // Abre dialogo "Abrir O.M.?"
+      isMaintenanceConfirmOpen.value = true; 
   } else {
       applyNormalPause();
   }
 }
-
-function applyNormalPause() {
+async function applyNormalPause() {
     isStopDialogOpen.value = false;
     isMaintenanceConfirmOpen.value = false;
     isPaused.value = true;
     productionStore.activeOrder.status = 'PAUSED'; 
     statusStartTime.value = currentPauseObj.value!.startTime;
-    $q.notify({ type: 'warning', message: `Pausa: ${currentPauseObj.value?.reasonLabel}`, icon: 'pause' });
+    
+    // ENVIAR STATUS PARA O BACKEND (Para o Log "Pausa Operacional" funcionar)
+    const reason = currentPauseObj.value?.reasonLabel || 'Pausa Genérica';
+    await productionStore.pauseProduction(reason);
+
+    $q.notify({ type: 'warning', message: `Pausa: ${reason}`, icon: 'pause' });
 }
 
 function confirmPauseOnly() {
     applyNormalPause();
+}
+
+
+async function executeShiftChange(keepRunning: boolean) {
+    isShiftChangeDialogOpen.value = false;
+    const now = new Date();
+    
+    if (!keepRunning) {
+        // Se a máquina PARA, é pausa normal
+        applyNormalPause();
+        return;
+    }
+
+    // MÁQUINA CONTINUA RODANDO (Corte de Apontamento)
+    $q.loading.show({ message: 'Encerrando turno do operador...' });
+
+    try {
+        let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+        if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+        const operatorName = getOperatorName(String(badge).trim());
+        const machineRes = productionStore.machineResource || '4.02.01';
+        let resourceDescription = '';
+        const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
+        if (foundEntry) resourceDescription = foundEntry.description;
+
+        const payload = {
+             op_number: String(activeOrder.value?.code),
+             position: '', 
+             operation: '', operation_desc: '',
+             resource_code: machineRes,
+             resource_name: resourceDescription,
+             operator_name: operatorName || '',
+             operator_id: String(badge),
+             
+             // FECHA TEMPO DO OPERADOR ATUAL
+             start_time: statusStartTime.value.toISOString(),
+             end_time: now.toISOString(),
+             
+             // SEM MOTIVO DE PARADA (Continua rodando)
+             stop_reason: '', 
+             stop_description: '',
+             vehicle_id: productionStore.machineId || 0
+        };
+
+        console.log("📤 Fechamento de Turno (Máquina Rodando):", payload);
+        await ProductionService.sendAppointment(payload);
+
+        // LOGOUT MANTENDO A ORDEM ATIVA (true)
+        await productionStore.logoutOperator(undefined, true); 
+
+        await router.push({ name: 'machine-kiosk' });
+        $q.notify({ type: 'positive', message: 'Turno encerrado. Máquina continua em operação.' });
+
+    } catch (error) {
+        console.error(error);
+        $q.notify({ type: 'negative', message: 'Erro ao fechar turno.' });
+    } finally {
+        $q.loading.hide();
+    }
 }
 
 // --- FUNÇÃO DE QUEBRA DE MÁQUINA (ABRIR O.M.) ---

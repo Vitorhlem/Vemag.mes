@@ -1,43 +1,68 @@
+// Arquivo: src-client/src/services/production-service.ts
+
 import { api } from 'boot/axios';
 
-// Interface atualizada para incluir os campos que o SAP exige
-export interface ProductionAppointmentPayload {
-  op_number: string;      // U_NumeroDocumento (DocNum)
-  service_code: string;   // U_Servico (Agora recebe o ItemCode, ex: "PA-10020")
-  position: string;       // U_Posicao
-  stop_description?: string;
-  operation: string;      // U_Operacao
-  operation_desc?: string;
-  
-  // --- ADICIONE ESTES ---
-  part_description?: string;
-  operator_name?: string;
-  operator_id: string;    // U_Operador
-  vehicle_id: number;     // ID interno da máquina
-  start_time: string;     // ISO Date
-  end_time: string;       // ISO Date
-  item_code: string;      // ItemCode (Backup/Log)
-  stop_reason?: string;   // U_MotivoParada
+// --- INTERFACES ---
+
+export interface MachineStats {
+  date: string;
+  formatted_running_operator: string;
+  formatted_running_autonomous: string;
+  formatted_paused_operator: string;
+  formatted_maintenance: string;
+  total_running_operator_seconds: number;
+  total_running_autonomous_seconds: number;
+  total_paused_operator_seconds: number;
+  total_maintenance_seconds: number;
+  total_idle_seconds: number;
 }
 
-export const ProductionService = {
-  /**
-   * Busca a lista de OPs liberadas (boposReleased)
-   * Rota Backend: GET /api/v1/production/orders/open
-   */
-  async getOpenOrders() {
-    // Atenção: Verifique se o prefixo '/production' está correto na sua configuração do Axios
-    const response = await api.get('/production/orders/open');
-    return response.data;
-  },
+export interface AppointmentPayload {
+  op_number: string;
+  position: string;
+  operation: string;
+  operation_desc: string;
+  part_description: string;
+  item_code: string;
+  service_code: string;
+  resource_code: string;
+  resource_name: string;
+  operator_name: string;
+  operator_id: string;
+  start_time: string;
+  end_time: string;
+  stop_reason?: string;
+  stop_description?: string; // Novo campo
+  vehicle_id: number;
+}
 
-  /**
-   * Envia o apontamento de produção
-   * Rota Backend: POST /api/v1/production/appoint
-   */
-  async sendAppointment(payload: ProductionAppointmentPayload) {
-    // Atenção: Verifique se o prefixo '/production' está correto na sua configuração do Axios
+// --- CLASSE DO SERVIÇO ---
+
+export class ProductionService {
+  
+  static async getOpenOrders() {
+    // CORREÇÃO: Ajustado para a rota correta do Backend (/production/orders/open)
+    try {
+        const response = await api.get('/production/orders/open'); 
+        return response.data;
+    } catch (e) {
+        console.warn("Erro ao buscar ordens do SAP:", e);
+        return [];
+    }
+  }
+
+  static async sendAppointment(payload: AppointmentPayload) {
+    // CORREÇÃO: A rota correta no backend é '/appoint' e não '/appointment'
     const response = await api.post('/production/appoint', payload);
     return response.data;
   }
-};
+
+  // --- O MÉTODO NOVO DEVE FICAR AQUI, DENTRO DA CLASSE ---
+  static async getMachineStats(machineId: number, date?: string): Promise<MachineStats> {
+    const params = date ? { target_date: date } : {};
+    const response = await api.get(`/production/stats/${machineId}`, { params });
+    return response.data;
+  }
+
+} 
+// <-- A CHAVE DA CLASSE FECHA AQUI

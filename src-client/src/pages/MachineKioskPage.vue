@@ -51,20 +51,20 @@
 
             <div v-if="isLoading" class="column items-center q-gutter-y-md">
               <q-spinner-orbit color="vemag-green" size="4em" />
-              <div class="text-h6 animate-blink text-vemag-green">Processando...</div>
+              <div class="text-h6 animate-blink text-vemag-green">Carregando...</div>
             </div>
 
             <div v-else-if="isMaintenanceMode" class="column q-gutter-y-md full-width animate-fade-in">
                 <div class="bg-red-9 q-pa-sm rounded-borders shadow-2">
                     <div class="text-h5 text-weight-bold text-white">EQUIPAMENTO PARADO</div>
-                    <div class="text-subtitle1 text-red-2">Aguardando intervenção técnica.</div>
+                    <div class="text-subtitle1 text-red-2">Aguardando manutenção.</div>
                 </div>
 
                 <q-btn 
                   push color="white" text-color="red-10" 
                   size="18px" padding="md"
                   icon="assignment_late" 
-                  label="SOLICITAR MANUTENÇÃO (O.M.)" 
+                  label="ABRIR O.M. (CONFIRMAR)" 
                   class="full-width shadow-10 hover-scale"
                   style="border-radius: 12px;"
                   @click="openMaintenanceDialog"
@@ -78,25 +78,24 @@
                 <q-icon name="warning" class="q-mr-sm" /> TERMINAL NÃO VINCULADO
               </div>
 
-              <div class="text-h6 text-grey-4">Toque abaixo para iniciar o turno</div>
+              <div class="text-h6 text-grey-4">Toque para iniciar turno</div>
               
               <q-btn 
                 push 
                 class="full-width vemag-btn-primary shadow-10 hover-scale relative-position overflow-hidden" 
-                size="22px" 
-                padding="20px"
+                size="22px" padding="20px"
                 @click="openBadgeScanner"
                 :disable="!productionStore.isKioskConfigured"
                 style="border-radius: 16px;"
               >
                 <div class="row items-center no-wrap">
                     <q-icon name="qr_code_scanner" size="36px" class="q-mr-md" />
-                    <div class="text-weight-bold">ESCANEAR CRACHÁ</div>
+                    <div class="text-weight-bold">LER CRACHÁ</div>
                 </div>
                 <div class="shine-effect"></div>
               </q-btn>
               
-              <q-btn flat color="grey-6" label="Configuração / Supervisor" size="sm" class="q-mt-sm opacity-50 hover-opacity-100" @click="openConfigDialog" />
+              <q-btn flat color="grey-6" label="Configuração" size="sm" @click="openConfigDialog" />
             </div>
           </q-card-section>
           
@@ -109,7 +108,61 @@
       </q-page>
     </q-page-container>
 
-    <q-dialog v-model="isConfigOpen" backdrop-filter="blur(8px)">
+    <q-dialog v-model="isMaintenanceDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
+       <q-card class="bg-red-50 text-dark">
+          <q-toolbar class="bg-red-10 text-white">
+             <q-icon name="report_problem" size="30px" class="q-mr-md" />
+             <q-toolbar-title class="text-h6 text-weight-bold">Detalhes da Quebra</q-toolbar-title>
+             <q-btn flat round icon="close" size="lg" v-close-popup />
+          </q-toolbar>
+          <q-card-section class="q-pa-lg column flex-center h-100">
+             <div class="full-width" style="max-width: 600px;">
+                 <div class="text-h6 text-grey-8">Equipamento: {{ productionStore.machineName }}</div>
+                 <q-input v-model="omDescription" type="textarea" outlined rows="5" placeholder="Descreva o problema..." class="text-body1 bg-white shadow-1" autofocus />
+                 <div class="row q-mt-lg q-gutter-md">
+                     <q-btn flat label="Cancelar" color="grey-8" size="lg" class="col" v-close-popup />
+                     <q-btn push color="red-10" label="CONFIRMAR ABERTURA" icon="send" size="lg" class="col shadow-5" :loading="isLoading" @click="submitMaintenance" />
+                 </div>
+             </div>
+          </q-card-section>
+       </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="showScanner" maximized>
+        <q-card class="bg-black text-white column">
+            <q-bar class="bg-vemag-green q-pa-sm" style="height: 60px;">
+                <q-icon name="badge" size="30px" />
+                <div class="text-h6 q-ml-md text-weight-bold">Posicione o Crachá</div>
+                <q-space />
+                <q-btn dense flat icon="close" size="20px" v-close-popup @click="stopScanner" />
+            </q-bar>
+            
+            <q-card-section class="col flex flex-center column relative-position q-pa-none bg-black">
+                <div id="reader" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 0;"></div>
+                
+                <div class="scanner-overlay z-top flex flex-center">
+                    <div class="scanner-frame relative-position">
+                        <div class="scan-line"></div>
+                        <div class="corner-tl"></div>
+                        <div class="corner-tr"></div>
+                        <div class="corner-bl"></div>
+                        <div class="corner-br"></div>
+                    </div>
+                </div>
+
+                <div class="absolute-bottom text-center q-pb-xl z-top">
+                    <div class="text-h6 text-white bg-black-transparent q-px-md q-py-sm rounded-borders inline-block">
+                        Aponte a câmera para o código
+                    </div>
+                    <div class="q-mt-md">
+                        <q-btn round color="white" text-color="black" icon="cameraswitch" size="lg" @click="switchCamera" />
+                    </div>
+                </div>
+            </q-card-section>
+        </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="isConfigOpen">
       <q-card style="width: 450px; border-radius: 16px;" class="shadow-24">
         <q-card-section class="bg-vemag-green text-white q-py-sm">
           <div class="text-h6 text-weight-bold">Vincular Terminal</div>
@@ -144,83 +197,19 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isMaintenanceDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
-       <q-card class="bg-red-50 text-dark">
-          <q-toolbar class="bg-red-10 text-white">
-             <q-icon name="report_problem" size="30px" class="q-mr-md" />
-             <q-toolbar-title class="text-h6 text-weight-bold">Abertura de O.M. - Corretiva</q-toolbar-title>
-             <q-btn flat round icon="close" size="lg" v-close-popup />
-          </q-toolbar>
-          
-          <q-card-section class="q-pa-lg column flex-center h-100">
-             <div class="full-width" style="max-width: 600px;">
-                 <div class="text-h6 text-grey-8 q-mb-xs">Equipamento</div>
-                 <div class="text-h4 text-weight-bold text-dark q-mb-lg">{{ productionStore.machineName }}</div>
-                 
-                 <div class="text-subtitle1 text-grey-8 q-mb-xs">Descrição do Problema</div>
-                 <q-input 
-                    v-model="omDescription" 
-                    type="textarea" 
-                    outlined 
-                    rows="5" 
-                    placeholder="Descreva o detalhe da quebra aqui..." 
-                    class="text-body1 bg-white shadow-1"
-                    autofocus 
-                 />
-                 
-                 <div class="row q-mt-lg q-gutter-md">
-                     <q-btn flat label="Cancelar" color="grey-8" size="lg" class="col" v-close-popup />
-                     <q-btn push color="red-10" label="CONFIRMAR" icon="send" size="lg" class="col shadow-5" :loading="isLoading" @click="submitMaintenance" :disable="!omDescription" />
-                 </div>
-             </div>
-          </q-card-section>
-       </q-card>
-    </q-dialog>
-
-    <q-dialog v-model="showScanner" maximized transition-show="slide-up" transition-hide="slide-down">
-      <q-card class="bg-black text-white column">
-        <q-bar class="bg-vemag-green q-pa-sm" style="height: 60px;">
-          <q-icon name="qr_code_scanner" size="30px" />
-          <div class="text-h6 q-ml-md text-weight-bold">Leitor de Crachá</div>
-          <q-space />
-          <q-btn dense flat icon="close" size="20px" v-close-popup @click="stopScanner">
-            <q-tooltip>Fechar Câmera</q-tooltip>
-          </q-btn>
-        </q-bar>
-
-        <q-card-section class="col flex flex-center column relative-position">
-          <div class="scanner-frame relative-position">
-              <div id="reader" style="width: 100%; height: 100%; background: #000;"></div>
-              <div class="scan-line"></div>
-          </div>
-          
-          <div class="text-h5 q-mt-lg text-grey-4 text-center text-weight-bold">
-              Posicione o Código de Barras
-          </div>
-          <div class="text-subtitle1 text-vemag-green q-mt-sm">Matrícula ou Crachá</div>
-          
-          <div v-if="lastScannedCode" class="q-mt-md bg-white text-black q-pa-sm rounded-borders text-h5 text-weight-bold animate-blink shadow-10">
-              LIDO: {{ lastScannedCode }}
-          </div>
-
-          <q-btn flat color="white" icon="cameraswitch" label="Trocar Câmera" size="md" class="q-mt-lg" @click="switchCamera" />
-        </q-card-section>
-      </q-card>
-    </q-dialog>
-
   </q-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router'; 
 import { useProductionStore } from 'stores/production-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useQuasar } from 'quasar';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 const router = useRouter();
-const route = useRoute(); // <--- IMPORTANTE: route inicializado
+const route = useRoute(); 
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const $q = useQuasar();
@@ -231,73 +220,50 @@ const isLoadingList = ref(false);
 const isConfigOpen = ref(false);
 const adminPassword = ref('');
 const selectedMachineOption = ref<number | null>(null);
+const machineOptions = computed(() => productionStore.machinesList.map(m => ({ label: m.brand, value: m.id })));
 
 const isMaintenanceDialogOpen = ref(false);
 const omDescription = ref('');
-let pollingTimer: ReturnType<typeof setInterval>;
-
-const forcedMaintenance = ref(false); // Estado local para forçar visualmente
-
-// --- Scanner ---
 const showScanner = ref(false);
 const lastScannedCode = ref('');
 let html5QrCode: Html5Qrcode | null = null;
 const facingMode = ref<"user" | "environment">("environment");
+let pollingTimer: ReturnType<typeof setInterval>;
 
-// --- Computed ---
-const machineOptions = computed(() => {
-  return productionStore.machinesList.map(m => ({
-    label: `${m.brand} ${m.model} (${m.license_plate || 'ID:' + m.id})`,
-    value: m.id
-  }));
-});
+// --- LÓGICA DE DETECÇÃO DE MANUTENÇÃO ---
+const forcedMaintenance = ref(false);
 
-// Verifica se a máquina está quebrada (Status MAINTENANCE)
 const isMaintenanceMode = computed(() => {
-    // 1. Verifica se a URL mandou a flag de manutenção (Prioridade máxima)
     if (route.query.state === 'maintenance' || forcedMaintenance.value) return true;
-
-    // 2. Verifica o status vindo do backend/store
     const status = (productionStore.currentMachine?.status || '').toUpperCase();
     return productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
 });
+
 // --- Ciclo de Vida ---
 onMounted(async () => {
-    await productionStore.loadKioskConfig();
-    
-    // --- O PULO DO GATO ---
-    // Se a gente veio redirecionado com ?state=maintenance, FORÇAMOS o status no backend
-    // caso o logout anterior tenha resetado para "Disponível" por engano.
-    if (route.query.state === 'maintenance') {
-        console.log("🔒 Modo Manutenção forçado pela navegação.");
-        forcedMaintenance.value = true;
-        
-        // Reforça no backend que está quebrado
-        if (productionStore.machineId) {
-            await productionStore.setMachineStatus('MAINTENANCE');
-        }
-    }
+  await productionStore.loadKioskConfig();
+  if (productionStore.machineId) {
+    selectedMachineOption.value = productionStore.machineId;
+  }
+  
+  if (route.query.state === 'maintenance') {
+      forcedMaintenance.value = true;
+  }
 
-    pollingTimer = setInterval(async () => {
+  pollingTimer = setInterval(async () => {
       if(productionStore.machineId) {
-          // 1. Atualiza dados do servidor
           await productionStore.loadKioskConfig();
-          
-          // 2. Checa status REAL no servidor
           const status = (productionStore.currentMachine?.status || '').toUpperCase();
           const isBackendBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
-          
-          // 3. SE O SERVIDOR LIBEROU (!isBackendBroken) MAS AQUI TÁ TRAVADO, DESTRAVA
           if ((forcedMaintenance.value || route.query.state === 'maintenance') && !isBackendBroken) {
-              console.log("🔓 Desbloqueio detectado. Liberando Kiosk...");
               forcedMaintenance.value = false;
-              await router.replace({ query: {} }); // Limpa URL
+              await router.replace({ query: {} }); 
               $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
           }
       }
-  }, 3000); // 3 segundos para resposta rápida
+  }, 3000);
 
-    window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
@@ -306,7 +272,8 @@ onUnmounted(() => {
    void stopScanner();
 });
 
-// --- SCANNER DE CÂMERA ---
+// --- FUNÇÕES ---
+
 function openBadgeScanner() {
   if (!productionStore.isKioskConfigured) {
     $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
@@ -321,52 +288,47 @@ async function startScanner() {
     try {
         if (html5QrCode) await stopScanner();
         html5QrCode = new Html5Qrcode("reader");
-        const config = { 
-            fps: 10, 
-            qrbox: { width: 400, height: 150 },
-            aspectRatio: 1.0,
-            formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13 ]
-        };
-        await html5QrCode.start({ facingMode: facingMode.value }, config, (decodedText) => { void onScanSuccess(decodedText) }, undefined);
-    } catch (err) {
-        console.error("Erro câmera:", err);
-        $q.notify({ type: 'negative', message: 'Câmera não acessível.' });
+        
+        // Configuração ajustada para priorizar leitura vertical (Crachá)
+        await html5QrCode.start(
+            { facingMode: facingMode.value }, 
+            { 
+                fps: 15, 
+                qrbox: { width: 250, height: 350 }, // Formato Retangular Vertical
+                aspectRatio: 1.0 
+            }, 
+            (decodedText) => { void onScanSuccess(decodedText) }, 
+            undefined
+        );
+    } catch(e) { 
+        console.error(e);
+        $q.notify({type:'negative', message:'Câmera indisponível'});
         showScanner.value = false;
     }
 }
 
 async function stopScanner() {
-    if (html5QrCode) {
-        try { if (html5QrCode.isScanning) await html5QrCode.stop(); html5QrCode.clear(); } catch (err) { console.error(err); }
+    if(html5QrCode) { 
+        try { if(html5QrCode.isScanning) await html5QrCode.stop(); html5QrCode.clear(); } catch(e){ console.error(e); }
         html5QrCode = null;
     }
 }
 
 async function onScanSuccess(decodedText: string) {
-    console.log("CÓDIGO LIDO:", decodedText);
     lastScannedCode.value = decodedText;
     await stopScanner();
     showScanner.value = false;
-    await handleLogin(decodedText);
+    void handleLogin(decodedText);
 }
 
-async function switchCamera() {
-    facingMode.value = facingMode.value === "environment" ? "user" : "environment";
-    await startScanner();
-}
-
-// --- LEITOR USB (TECLADO) ---
 let keyBuffer = '';
 let keyTimeout: any = null;
-
 function handleKeydown(event: KeyboardEvent) {
-    // Ignora input se estiver em manutenção (exceto atalhos de sistema)
-    if (isMaintenanceMode.value) return;
-
+    if (isMaintenanceMode.value) return; 
     if (event.key === 'Enter') {
         if (keyBuffer.length > 2) {
             const code = keyBuffer;
-            keyBuffer = ''; // Limpa buffer antes de processar
+            keyBuffer = '';
             void handleLogin(code);
         }
         keyBuffer = '';
@@ -374,57 +336,24 @@ function handleKeydown(event: KeyboardEvent) {
         if (event.key.length === 1) {
             keyBuffer += event.key;
             clearTimeout(keyTimeout);
-            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000); // 2s timeout para limpar buffer
+            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000);
         }
     }
 }
 
-// --- LOGIN DO OPERADOR ---
 async function handleLogin(code: string) {
-    if (isMaintenanceMode.value) {
-        $q.notify({ type: 'warning', message: 'Máquina em manutenção. Operação bloqueada.' });
-        return;
-    }
-
+    if (isMaintenanceMode.value) return $q.notify({type:'warning', message: 'Máquina Quebrada.'});
     isLoading.value = true;
     try {
         await productionStore.loginOperator(code);
-        if (productionStore.isShiftActive) {
-             void router.push({ 
-                name: 'operator-cockpit', 
-                params: { machineId: productionStore.machineId } 
-             });
-        }
-    } catch (e) {
-        console.error(e);
-        $q.notify({ type: 'negative', message: 'Crachá inválido ou erro de conexão.' });
+        if (productionStore.isShiftActive) router.push({ name: 'operator-cockpit' });
+    } catch(e) {
+        $q.notify({type:'negative', message: 'Erro no login.'});
     } finally {
         isLoading.value = false;
     }
 }
 
-// --- CONFIGURAÇÃO ---
-async function openConfigDialog() {
-  adminPassword.value = '';
-  selectedMachineOption.value = productionStore.machineId; 
-  isConfigOpen.value = true;
-  isLoadingList.value = true;
-  await productionStore.fetchAvailableMachines();
-  isLoadingList.value = false;
-}
-
-async function saveConfig() {
-  if (adminPassword.value !== 'admin123') {
-    $q.notify({ type: 'negative', message: 'Senha incorreta.' });
-    return;
-  }
-  if (selectedMachineOption.value) {
-    await productionStore.configureKiosk(selectedMachineOption.value);
-    isConfigOpen.value = false;
-  }
-}
-
-// --- MANUTENÇÃO (ABRIR O.M.) ---
 function openMaintenanceDialog() {
     const now = new Date().toLocaleString('pt-BR');
     omDescription.value = `Parada reportada em ${now}.\nMotivo: Falha no equipamento detectada pelo operador.`;
@@ -433,42 +362,42 @@ function openMaintenanceDialog() {
 
 async function submitMaintenance() {
     isLoading.value = true;
-    // Cria a O.M. real no backend
-    await productionStore.createMaintenanceOrder(omDescription.value);
-    
+    await productionStore.createMaintenanceOrder(omDescription.value || 'Quebra reportada');
     isMaintenanceDialogOpen.value = false;
-    omDescription.value = '';
     isLoading.value = false;
-    
-    $q.notify({ type: 'positive', message: 'O.M. Aberta com sucesso! Aguarde o técnico.' });
+    $q.notify({ type: 'positive', message: 'O.M. Confirmada!' });
 }
 
-// --- DESBLOQUEIO DE MÁQUINA ---
 function unlockMachine() {
-    $q.dialog({
-        title: 'Desbloqueio Supervisão',
-        message: 'Senha de supervisor para liberar:',
-        prompt: { model: '', type: 'password' },
-        cancel: true,
-        persistent: true,
-        ok: { label: 'LIBERAR', color: 'positive' }
-    }).onOk((data: string) => {
-        void (async () => {
-            if(data === '1234') { 
-                await productionStore.setMachineStatus('AVAILABLE');
-                $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
-            } else {
-                $q.notify({ type: 'negative', message: 'Senha incorreta.' });
-            }
-        })();
+    $q.dialog({ title: 'Senha Supervisor', prompt: { model: '', type: 'password' } }).onOk(pass => {
+        if(pass === '1234') {
+            forcedMaintenance.value = false; 
+            void productionStore.setMachineStatus('AVAILABLE');
+            router.replace({ query: {} }); 
+            $q.notify({ type: 'positive', message: 'Liberada.' });
+        } else {
+            $q.notify({ type: 'negative', message: 'Senha incorreta.' });
+        }
     });
+}
+
+function openConfigDialog() { isConfigOpen.value = true; adminPassword.value = ''; void productionStore.fetchAvailableMachines(); }
+
+async function saveConfig() {
+    if(adminPassword.value !== 'admin123') return $q.notify({type:'negative', message:'Senha incorreta'});
+    if(selectedMachineOption.value) {
+        await productionStore.configureKiosk(selectedMachineOption.value);
+        isConfigOpen.value = false;
+    }
+}
+
+function switchCamera() { 
+    facingMode.value = facingMode.value === "environment" ? "user" : "environment";
+    void startScanner();
 }
 </script>
 
 <style scoped>
-/* CORES VEMAG */
-.text-vemag-green { color: #008C7A !important; }
-.bg-vemag-green { background-color: #008C7A !important; }
 .bg-industrial-gradient {
     background: radial-gradient(circle at top right, #2a2a2a 0%, #121212 100%);
     background-image: url('/vemag.png'); 
@@ -476,15 +405,11 @@ function unlockMachine() {
     background-blend-mode: overlay;
     opacity: 0.6;
 }
-
-/* BOTÃO PRINCIPAL */
 .vemag-btn-primary {
     background: linear-gradient(135deg, #008C7A 0%, #00695C 100%);
     transition: all 0.3s ease;
 }
 .vemag-btn-primary:active { transform: scale(0.98); filter: brightness(0.9); }
-
-/* CARD ESTILIZADO */
 .kiosk-card {
     width: 500px; 
     max-width: 90vw;
@@ -495,72 +420,77 @@ function unlockMachine() {
 }
 .border-vemag { border-top: 6px solid #008C7A; }
 .border-red { border-top: 6px solid #b71c1c; box-shadow: 0 0 20px rgba(183, 28, 28, 0.4); }
-
 .bg-black-transparent { background: rgba(0,0,0,0.4); }
-
-/* ANIMAÇÕES */
 .hover-scale { transition: transform 0.2s; }
 .hover-scale:hover { transform: scale(1.02); }
-
 .hover-opacity-100 { transition: opacity 0.3s; }
 .hover-opacity-100:hover { opacity: 1; }
-
 .animate-blink { animation: blink 2s infinite; }
 .animate-pulse-red { animation: pulseRed 2s infinite; }
 .fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .animate-fade-in { animation: fadeIn 0.5s ease-in; }
+.ring-pulse { border: 2px solid #008C7A; border-radius: 50%; animation: ringPulse 2s infinite; }
 
-.ring-pulse {
-    border: 2px solid #008C7A;
-    border-radius: 50%;
-    animation: ringPulse 2s infinite;
+/* === NOVO ESTILO DO SCANNER === */
+.scanner-overlay {
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7); /* Escurece tudo em volta */
+    position: absolute;
+    top: 0; left: 0;
 }
 
-/* SCANNER OVERLAY */
 .scanner-frame {
-    width: 90%;
-    max-width: 500px;
-    height: 250px;
-    border: 3px solid rgba(255,255,255,0.3);
-    border-radius: 16px;
-    overflow: hidden;
+    width: 300px; /* Largura crachá */
+    height: 450px; /* Altura crachá */
+    border: 3px solid rgba(0, 140, 122, 0.6); /* Verde Vemag */
+    border-radius: 20px;
     position: relative;
-    box-shadow: 0 0 0 1000px rgba(0,0,0,0.7);
+    overflow: hidden;
+    box-shadow: 0 0 0 1000px rgba(0,0,0,0.6); /* Máscara forte em volta */
+    background: transparent;
 }
+
+/* Cantos decorativos para parecer viewfinder */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: absolute;
+    width: 40px; height: 40px;
+    border-color: #008C7A;
+    border-style: solid;
+    border-width: 0;
+}
+.corner-tl { top: 0; left: 0; border-top-width: 5px; border-left-width: 5px; border-top-left-radius: 20px; }
+.corner-tr { top: 0; right: 0; border-top-width: 5px; border-right-width: 5px; border-top-right-radius: 20px; }
+.corner-bl { bottom: 0; left: 0; border-bottom-width: 5px; border-left-width: 5px; border-bottom-left-radius: 20px; }
+.corner-br { bottom: 0; right: 0; border-bottom-width: 5px; border-right-width: 5px; border-bottom-right-radius: 20px; }
+
+/* Laser de Escaneamento */
 .scan-line {
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 3px;
-    background: #008C7A;
-    box-shadow: 0 0 8px #008C7A;
-    animation: scanMove 2s infinite linear;
+    height: 4px;
+    background: #00ffcc;
+    box-shadow: 0 0 15px #00ffcc, 0 0 30px #008C7A;
+    animation: scanAnimation 2.5s infinite linear;
+    opacity: 0.8;
 }
 
-/* SHINE EFFECT */
-.shine-effect {
-    position: absolute;
-    top: 0; left: -100%;
-    width: 50%; height: 100%;
-    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-    transform: skewX(-20deg);
-    animation: shine 3s infinite;
+@keyframes scanAnimation {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
 }
 
-/* KEYFRAMES */
+.shine-effect { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%); transform: skewX(-20deg); animation: shine 3s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(255, 0, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); } }
 @keyframes ringPulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
-@keyframes scanMove { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
 @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
-
-.opacity-50 { opacity: 0.5; }
-.opacity-60 { opacity: 0.6; }
-.opacity-30 { opacity: 0.3; }
-.opacity-80 { opacity: 0.8; }
-.letter-spacing-1 { letter-spacing: 1px; }
-.letter-spacing-2 { letter-spacing: 2px; }
+.opacity-50 { opacity: 0.5; } .opacity-60 { opacity: 0.6; } .opacity-30 { opacity: 0.3; } .opacity-80 { opacity: 0.8; }
+.letter-spacing-1 { letter-spacing: 1px; } .letter-spacing-2 { letter-spacing: 2px; }
 .font-monospace { font-family: monospace; }
 .fullscreen-bg { width: 100vw; height: 100vh; overflow: hidden; }
 </style>

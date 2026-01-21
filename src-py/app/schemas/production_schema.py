@@ -181,3 +181,17 @@ class ProductionOrderRead(BaseModel):
     
     class Config:
         from_attributes = True # Pydantic v2
+
+class MachineDailyStats(BaseModel):
+    date: str
+    total_running_operator_seconds: float = 0  # Produzindo com gente
+    total_running_autonomous_seconds: float = 0 # Produzindo sozinho (Troca de turno)
+    total_paused_operator_seconds: float = 0   # Parado com gente (Almoço, Banheiro, etc)
+    total_maintenance_seconds: float = 0       # Quebrado/Manutenção
+    total_idle_seconds: float = 0              # Ocioso (Sem turno)
+    
+    # Campos formatados para exibição (ex: "02:15:00")
+    formatted_running_operator: Optional[str] = "00:00:00"
+    formatted_running_autonomous: Optional[str] = "00:00:00"
+    formatted_paused_operator: Optional[str] = "00:00:00"
+    formatted_maintenance: Optional[str] = "00:00:00"
