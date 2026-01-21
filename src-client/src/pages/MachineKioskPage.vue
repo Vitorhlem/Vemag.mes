@@ -11,16 +11,16 @@
 
         <q-card 
           class="kiosk-card shadow-24 fade-in-up relative-position column" 
-          :class="{'border-red': productionStore.isMachineBroken, 'border-vemag': !productionStore.isMachineBroken}"
+          :class="{'border-red': isMaintenanceMode, 'border-vemag': !isMaintenanceMode}"
         >
           <div class="absolute-top-right q-pa-sm">
              <q-badge 
                 rounded 
-                :color="productionStore.isMachineBroken ? 'red-10' : 'positive'" 
+                :color="isMaintenanceMode ? 'red-10' : 'positive'" 
                 class="q-py-xs q-px-sm text-subtitle2 shadow-2"
              >
-                <q-icon :name="productionStore.isMachineBroken ? 'build_circle' : 'wifi'" class="q-mr-xs" />
-                {{ productionStore.isMachineBroken ? 'MANUTENÇÃO' : 'ONLINE' }}
+                <q-icon :name="isMaintenanceMode ? 'build_circle' : 'wifi'" class="q-mr-xs" />
+                {{ isMaintenanceMode ? 'MANUTENÇÃO' : 'ONLINE' }}
              </q-badge>
           </div>
 
@@ -30,47 +30,47 @@
                 <q-avatar 
                     size="100px" 
                     font-size="50px" 
-                    :color="productionStore.isMachineBroken ? 'red-10' : 'white'" 
-                    :text-color="productionStore.isMachineBroken ? 'white' : 'teal-9'" 
-                    :icon="productionStore.isMachineBroken ? 'report_problem' : 'precision_manufacturing'" 
+                    :color="isMaintenanceMode ? 'red-10' : 'white'" 
+                    :text-color="isMaintenanceMode ? 'white' : 'teal-9'" 
+                    :icon="isMaintenanceMode ? 'report_problem' : 'precision_manufacturing'" 
                     class="shadow-10 relative-position"
-                    :class="{'animate-pulse-red': productionStore.isMachineBroken}"
+                    :class="{'animate-pulse-red': isMaintenanceMode}"
                 >
-                   <div v-if="!productionStore.isMachineBroken" class="absolute-full ring-pulse"></div>
+                   <div v-if="!isMaintenanceMode" class="absolute-full ring-pulse"></div>
                 </q-avatar>
             </div>
             
             <div class="text-h4 text-weight-bolder q-mb-xs text-white letter-spacing-1">
-              {{ productionStore.machineName }}
+              {{ productionStore.machineName || 'Carregando...' }}
             </div>
             <div class="text-h6 text-grey-4 text-uppercase letter-spacing-2 q-mb-md">
-              {{ productionStore.machineSector }}
+              {{ productionStore.machineSector || '---' }}
             </div>
             
             <q-separator color="grey-8" class="full-width q-mb-md" />
 
             <div v-if="isLoading" class="column items-center q-gutter-y-md">
               <q-spinner-orbit color="vemag-green" size="4em" />
-              <div class="text-h6 animate-blink text-vemag-green">Validando Acesso...</div>
+              <div class="text-h6 animate-blink text-vemag-green">Processando...</div>
             </div>
 
-            <div v-else-if="productionStore.isMachineBroken" class="column q-gutter-y-md full-width animate-fade-in">
+            <div v-else-if="isMaintenanceMode" class="column q-gutter-y-md full-width animate-fade-in">
                 <div class="bg-red-9 q-pa-sm rounded-borders shadow-2">
                     <div class="text-h5 text-weight-bold text-white">EQUIPAMENTO PARADO</div>
-                    <div class="text-subtitle1 text-red-2">Reportado falha/quebra.</div>
+                    <div class="text-subtitle1 text-red-2">Aguardando intervenção técnica.</div>
                 </div>
 
                 <q-btn 
                   push color="white" text-color="red-10" 
                   size="18px" padding="md"
                   icon="assignment_late" 
-                  label="ABRIR ORDEM DE MANUTENÇÃO" 
+                  label="SOLICITAR MANUTENÇÃO (O.M.)" 
                   class="full-width shadow-10 hover-scale"
                   style="border-radius: 12px;"
                   @click="openMaintenanceDialog"
                 />
 
-                <q-btn flat color="grey-5" icon="lock_open" label="Liberar (Supervisor)" size="md" @click="unlockMachine" />
+                <q-btn flat color="grey-5" icon="lock_open" label="Liberar Máquina (Supervisor)" size="md" @click="unlockMachine" />
             </div>
 
             <div v-else class="column q-gutter-y-md full-width animate-fade-in items-center">
@@ -189,19 +189,18 @@
         </q-bar>
 
         <q-card-section class="col flex flex-center column relative-position">
-          
           <div class="scanner-frame relative-position">
               <div id="reader" style="width: 100%; height: 100%; background: #000;"></div>
               <div class="scan-line"></div>
           </div>
           
           <div class="text-h5 q-mt-lg text-grey-4 text-center text-weight-bold">
-             Posicione o Código de Barras
+              Posicione o Código de Barras
           </div>
           <div class="text-subtitle1 text-vemag-green q-mt-sm">Matrícula ou Crachá</div>
           
           <div v-if="lastScannedCode" class="q-mt-md bg-white text-black q-pa-sm rounded-borders text-h5 text-weight-bold animate-blink shadow-10">
-             LIDO: {{ lastScannedCode }}
+              LIDO: {{ lastScannedCode }}
           </div>
 
           <q-btn flat color="white" icon="cameraswitch" label="Trocar Câmera" size="md" class="q-mt-lg" @click="switchCamera" />
@@ -213,18 +212,19 @@
 </template>
 
 <script setup lang="ts">
-/* ... LÓGICA MANTIDA IGUAL, SÓ COPIAR O SCRIPT ANTERIOR ... */
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProductionStore } from 'stores/production-store';
+import { useAuthStore } from 'stores/auth-store';
 import { useQuasar } from 'quasar';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 const router = useRouter();
 const productionStore = useProductionStore();
+const authStore = useAuthStore();
 const $q = useQuasar();
 
-// --- Estados da Página ---
+// --- Estados ---
 const isLoading = ref(false);
 const isLoadingList = ref(false);
 const isConfigOpen = ref(false);
@@ -235,7 +235,7 @@ const isMaintenanceDialogOpen = ref(false);
 const omDescription = ref('');
 let pollingTimer: ReturnType<typeof setInterval>;
 
-// --- Estados do Scanner ---
+// --- Scanner ---
 const showScanner = ref(false);
 const lastScannedCode = ref('');
 let html5QrCode: Html5Qrcode | null = null;
@@ -249,27 +249,38 @@ const machineOptions = computed(() => {
   }));
 });
 
+// Verifica se a máquina está quebrada (Status MAINTENANCE)
+const isMaintenanceMode = computed(() => {
+    return productionStore.isMachineBroken || 
+           (productionStore.currentMachine?.status || '').toUpperCase().includes('MAINTENANCE') ||
+           (productionStore.currentMachine?.status || '').toUpperCase().includes('MANUTENÇÃO');
+});
+
 // --- Ciclo de Vida ---
-onMounted(() => {
-  void productionStore.loadKioskConfig();
+onMounted(async () => {
+  await productionStore.loadKioskConfig();
   if (productionStore.machineId) {
     selectedMachineOption.value = productionStore.machineId;
   }
   
+  // Atualiza status da máquina a cada 5s (para saber se foi liberada remotamente)
   pollingTimer = setInterval(() => {
       if(productionStore.machineId) {
           void productionStore.loadKioskConfig();
       }
   }, 5000);
+
+  // Escuta teclado (Leitor USB)
+  window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
    clearInterval(pollingTimer);
+   window.removeEventListener('keydown', handleKeydown);
    void stopScanner();
 });
 
-// --- LÓGICA DO SCANNER ---
-
+// --- SCANNER DE CÂMERA ---
 function openBadgeScanner() {
   if (!productionStore.isKioskConfigured) {
     $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
@@ -277,56 +288,30 @@ function openBadgeScanner() {
   }
   showScanner.value = true;
   lastScannedCode.value = '';
-  
-  setTimeout(() => {
-     void startScanner();
-  }, 500);
+  setTimeout(() => { void startScanner(); }, 500);
 }
 
 async function startScanner() {
     try {
-        if (html5QrCode) {
-            await stopScanner();
-        }
-
+        if (html5QrCode) await stopScanner();
         html5QrCode = new Html5Qrcode("reader");
-        
         const config = { 
             fps: 10, 
-            qrbox: { width: 400, height: 150 }, // Box mais largo para código de barras
+            qrbox: { width: 400, height: 150 },
             aspectRatio: 1.0,
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.ITF
-            ]
+            formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13 ]
         };
-        
-        await html5QrCode.start(
-            { facingMode: facingMode.value },
-            config,
-            (decodedText) => { void onScanSuccess(decodedText) }, 
-            undefined 
-        );
+        await html5QrCode.start({ facingMode: facingMode.value }, config, (decodedText) => { void onScanSuccess(decodedText) }, undefined);
     } catch (err) {
-        console.error("Erro ao iniciar câmera:", err);
-        $q.notify({ type: 'negative', message: 'Não foi possível acessar a câmera.' });
+        console.error("Erro câmera:", err);
+        $q.notify({ type: 'negative', message: 'Câmera não acessível.' });
         showScanner.value = false;
     }
 }
 
 async function stopScanner() {
     if (html5QrCode) {
-        try {
-            if (html5QrCode.isScanning) {
-                await html5QrCode.stop();
-            }
-            html5QrCode.clear();
-        } catch (err) {
-            console.error("Erro ao parar scanner:", err);
-        }
+        try { if (html5QrCode.isScanning) await html5QrCode.stop(); html5QrCode.clear(); } catch (err) { console.error(err); }
         html5QrCode = null;
     }
 }
@@ -334,14 +319,50 @@ async function stopScanner() {
 async function onScanSuccess(decodedText: string) {
     console.log("CÓDIGO LIDO:", decodedText);
     lastScannedCode.value = decodedText;
-    
     await stopScanner();
     showScanner.value = false;
-    
+    await handleLogin(decodedText);
+}
+
+async function switchCamera() {
+    facingMode.value = facingMode.value === "environment" ? "user" : "environment";
+    await startScanner();
+}
+
+// --- LEITOR USB (TECLADO) ---
+let keyBuffer = '';
+let keyTimeout: any = null;
+
+function handleKeydown(event: KeyboardEvent) {
+    // Ignora input se estiver em manutenção (exceto atalhos de sistema)
+    if (isMaintenanceMode.value) return;
+
+    if (event.key === 'Enter') {
+        if (keyBuffer.length > 2) {
+            const code = keyBuffer;
+            keyBuffer = ''; // Limpa buffer antes de processar
+            void handleLogin(code);
+        }
+        keyBuffer = '';
+    } else {
+        if (event.key.length === 1) {
+            keyBuffer += event.key;
+            clearTimeout(keyTimeout);
+            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000); // 2s timeout para limpar buffer
+        }
+    }
+}
+
+// --- LOGIN DO OPERADOR ---
+async function handleLogin(code: string) {
+    if (isMaintenanceMode.value) {
+        $q.notify({ type: 'warning', message: 'Máquina em manutenção. Operação bloqueada.' });
+        return;
+    }
+
     isLoading.value = true;
     try {
-        await productionStore.loginOperator(decodedText);
-        
+        await productionStore.loginOperator(code);
         if (productionStore.isShiftActive) {
              void router.push({ 
                 name: 'operator-cockpit', 
@@ -350,18 +371,13 @@ async function onScanSuccess(decodedText: string) {
         }
     } catch (e) {
         console.error(e);
+        $q.notify({ type: 'negative', message: 'Crachá inválido ou erro de conexão.' });
     } finally {
         isLoading.value = false;
     }
 }
 
-async function switchCamera() {
-    facingMode.value = facingMode.value === "environment" ? "user" : "environment";
-    await startScanner();
-}
-
-// --- CONFIGURAÇÃO E MANUTENÇÃO ---
-
+// --- CONFIGURAÇÃO ---
 async function openConfigDialog() {
   adminPassword.value = '';
   selectedMachineOption.value = productionStore.machineId; 
@@ -382,35 +398,41 @@ async function saveConfig() {
   }
 }
 
+// --- MANUTENÇÃO (ABRIR O.M.) ---
 function openMaintenanceDialog() {
     const now = new Date().toLocaleString('pt-BR');
-    omDescription.value = `Parada por quebra reportada em ${now}.\nMotivo: Falha no equipamento detectada pelo operador.`;
+    omDescription.value = `Parada reportada em ${now}.\nMotivo: Falha no equipamento detectada pelo operador.`;
     isMaintenanceDialogOpen.value = true;
 }
 
 async function submitMaintenance() {
     isLoading.value = true;
+    // Cria a O.M. real no backend
     await productionStore.createMaintenanceOrder(omDescription.value);
+    
     isMaintenanceDialogOpen.value = false;
     omDescription.value = '';
     isLoading.value = false;
-    $q.notify({ type: 'positive', message: 'O.M. Aberta com sucesso!' });
+    
+    $q.notify({ type: 'positive', message: 'O.M. Aberta com sucesso! Aguarde o técnico.' });
 }
 
+// --- DESBLOQUEIO DE MÁQUINA ---
 function unlockMachine() {
     $q.dialog({
         title: 'Desbloqueio Supervisão',
         message: 'Senha de supervisor para liberar:',
         prompt: { model: '', type: 'password' },
         cancel: true,
-        ok: { label: 'LIBERAR', color: 'positive', size: 'lg' }
+        persistent: true,
+        ok: { label: 'LIBERAR', color: 'positive' }
     }).onOk((data: string) => {
         void (async () => {
             if(data === '1234') { 
-                await productionStore.setMachineStatus('IDLE');
-                $q.notify({ type: 'positive', message: 'Liberado.' });
+                await productionStore.setMachineStatus('AVAILABLE');
+                $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
             } else {
-                $q.notify({ type: 'negative', message: 'Senha inválida.' });
+                $q.notify({ type: 'negative', message: 'Senha incorreta.' });
             }
         })();
     });
@@ -436,12 +458,12 @@ function unlockMachine() {
 }
 .vemag-btn-primary:active { transform: scale(0.98); filter: brightness(0.9); }
 
-/* CARD ESTILIZADO (Reduzido para 500px) */
+/* CARD ESTILIZADO */
 .kiosk-card {
-    width: 500px; /* Reduzido de 650px */
+    width: 500px; 
     max-width: 90vw;
     border-radius: 24px;
-    background: #1e1e1e; /* Dark Card */
+    background: #1e1e1e; 
     border: 1px solid rgba(255,255,255,0.1);
     z-index: 10;
 }
@@ -468,7 +490,7 @@ function unlockMachine() {
     animation: ringPulse 2s infinite;
 }
 
-/* SCANNER OVERLAY (Ajustado) */
+/* SCANNER OVERLAY */
 .scanner-frame {
     width: 90%;
     max-width: 500px;
@@ -508,8 +530,11 @@ function unlockMachine() {
 @keyframes shine { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
 
 .opacity-50 { opacity: 0.5; }
+.opacity-60 { opacity: 0.6; }
+.opacity-30 { opacity: 0.3; }
+.opacity-80 { opacity: 0.8; }
 .letter-spacing-1 { letter-spacing: 1px; }
-.letter-spacing-2 { letter-spacing: 1px; }
+.letter-spacing-2 { letter-spacing: 2px; }
 .font-monospace { font-family: monospace; }
 .fullscreen-bg { width: 100vw; height: 100vh; overflow: hidden; }
 </style>

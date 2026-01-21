@@ -129,11 +129,11 @@
                               </q-circular-progress>
                           </div>
                           <q-btn 
-    push color="blue-grey-9" text-color="white" 
-    icon="image" label="DESENHO" 
-    size="sm" padding="xs sm"
-    @click="openDrawing" 
-/>
+                              push color="blue-grey-9" text-color="white" 
+                              icon="image" label="DESENHO" 
+                              size="sm" padding="xs sm"
+                              @click="openDrawing" 
+                          />
                       </div>
                   </div>
               </div>
@@ -318,33 +318,30 @@
     </q-dialog>
 
     <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
-    <q-card class="bg-grey-10 text-white column">
-        <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
-            <q-icon name="picture_as_pdf" size="24px" />
-            <div class="text-h6 q-ml-md">
-                Desenho: {{ productionStore.activeOrder?.part_code || '---' }}
-            </div>
-            <q-space />
-            <q-btn dense flat icon="refresh" label="Recarregar" @click="loadDrawing" class="q-mr-sm" />
-            <q-btn dense flat icon="close" size="20px" v-close-popup />
-        </q-bar>
+        <q-card class="bg-grey-10 text-white column">
+            <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
+                <q-icon name="picture_as_pdf" size="24px" />
+                <div class="text-h6 q-ml-md">
+                    Desenho: {{ productionStore.activeOrder?.part_code }}
+                </div>
+                <q-space />
+                <q-btn flat icon="refresh" label="Recarregar" @click="openDrawing" class="q-mr-sm" />
+                <q-btn dense flat icon="close" size="20px" v-close-popup />
+            </q-bar>
 
-        <q-card-section class="col q-pa-none relative-position bg-grey-3">
-            <iframe 
-                v-if="drawingUrl"
-                :src="drawingUrl" 
-                class="fit" 
-                style="border: none;"
-            ></iframe>
-
-            <div v-else class="absolute-full flex flex-center column text-grey-8">
-                <q-icon name="find_in_page" size="80px" color="grey-6" />
-                <div class="text-h5 q-mt-md">Procurando desenho...</div>
-                <div class="text-caption">Certifique-se que o arquivo PDF existe na pasta do servidor com o código do item.</div>
-            </div>
-        </q-card-section>
-    </q-card>
-</q-dialog>
+            <q-card-section class="col q-pa-none relative-position bg-grey-3">
+                <iframe 
+                    v-if="drawingUrl"
+                    :src="drawingUrl" 
+                    class="fit" 
+                    style="border: none;"
+                ></iframe>
+                <div v-else class="absolute-full flex flex-center text-grey-8">
+                    Carregando visualizador...
+                </div>
+            </q-card-section>
+        </q-card>
+    </q-dialog>
 
     <q-dialog v-model="isStopDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
       <q-card class="bg-grey-2 column">
@@ -456,13 +453,12 @@ import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
-import { api } from 'boot/axios'; // Certifique-se de importar a api
+import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
 
 // --- IMPORTAÇÕES DE DADOS ---
 import { getOperatorName } from 'src/data/operators'; 
 import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
-import { SAP_STOP_REASONS } from 'src/data/sap-stops';
-import type {SapStopReason} from 'src/data/sap-stops';
+import { SAP_STOP_REASONS, SapStopReason } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
 
 const router = useRouter();
@@ -486,8 +482,8 @@ const currentPauseObj = ref<{
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isMaintenanceConfirmOpen = ref(false); // NOVO DIALOGO
-const drawingUrl = ref('');
 const isDrawingDialogOpen = ref(false);
+const drawingUrl = ref(''); // NOVA URL DINÂMICA
 const showOpList = ref(false);
 const loadingOps = ref(false);
 
@@ -589,50 +585,6 @@ function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
 
-async function loadDrawing() {
-    if (!productionStore.activeOrder?.part_code) {
-        $q.notify({ type: 'warning', message: 'Esta O.P. não tem código de peça definido.' });
-        return;
-    }
-
-    const itemCode = productionStore.activeOrder.part_code;
-    drawingUrl.value = ''; // Limpa anterior
-
-    // Url do Backend (Adicionamos timestamp ?t=... para evitar cache do navegador se o desenho mudar)
-    // Ajuste a URL base se necessário, mas geralmente o axios já sabe a base, aqui usamos URL direta para o iframe
-    const baseURL = api.defaults.baseURL || 'http://localhost:8000'; 
-    const targetURL = `${baseURL}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
-
-    // Teste simples para ver se o arquivo existe antes de abrir o iframe (opcional, mas bom para UX)
-    try {
-        await api.head(`/drawings/${encodeURIComponent(itemCode)}`);
-        drawingUrl.value = targetURL;
-    } catch (e) {
-        $q.notify({ 
-            type: 'negative', 
-            icon: 'broken_image',
-            message: `Desenho não encontrado para o item: ${itemCode}`,
-            caption: 'Verifique a pasta "static/drawings" no servidor.'
-        });
-    }
-}
-
-function openDrawing() {
-  if (!productionStore.activeOrder?.part_code) {
-      $q.notify({ type: 'warning', message: 'O.P. sem código de item definido.' });
-      return;
-  }
-
-  const itemCode = productionStore.activeOrder.part_code;
-  
-  // Monta a URL apontando para o seu Backend Python
-  // Adiciona timestamp (?t=) para garantir que não pegue cache velho
-  const baseUrl = api.defaults.baseURL || ''; // Pega a URL da API configurada no Axios
-  drawingUrl.value = `${baseUrl}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
-  
-  isDrawingDialogOpen.value = true;
-}
-
 async function openOpListDialog() {
   showOpList.value = true;
   loadingOps.value = true;
@@ -664,6 +616,23 @@ function selectOp(op: any) {
   $q.notify({ type: 'positive', message: `OP ${op.op_number} selecionada!` });
 }
 
+// --- FUNÇÃO PARA ABRIR O DESENHO (CORRIGIDA) ---
+function openDrawing() {
+  if (!productionStore.activeOrder?.part_code) {
+      $q.notify({ type: 'warning', message: 'O.P. sem código de item definido.' });
+      return;
+  }
+
+  const itemCode = productionStore.activeOrder.part_code;
+  
+  // URL dinâmica apontando para o backend Python (porta 8000 geralmente)
+  // Ajuste a porta se necessário. Se estiver rodando tudo na mesma origem, use /api/v1/drawings
+  const baseUrl = 'http://localhost:8000'; // ou api.defaults.baseURL
+  drawingUrl.value = `${baseUrl}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
+  
+  isDrawingDialogOpen.value = true;
+}
+
 async function handleMainButtonClick() {
   if (isPaused.value) {
     await finishPauseAndResume();
@@ -679,29 +648,25 @@ async function handleMainButtonClick() {
   resetTimer();
 }
 
-// --- LÓGICA DE SELEÇÃO DE MOTIVO ---
+// --- LÓGICA DE SELEÇÃO DE MOTIVO (CRÍTICO) ---
 function handleSapPause(stopReason: SapStopReason) {
   const now = new Date();
   
-  // 1. Guarda temporariamente o motivo escolhido
   currentPauseObj.value = {
     startTime: now,
     reasonCode: stopReason.code,
     reasonLabel: stopReason.label
   };
 
-  // 2. VERIFICAÇÃO CRÍTICA
+  // VERIFICA SE O MOTIVO EXIGE MANUTENÇÃO (QUEBRA)
   if (stopReason.requiresMaintenance) {
-      // Se for crítico, abre o diálogo de confirmação (Não pausa direto)
       isStopDialogOpen.value = false;
-      isMaintenanceConfirmOpen.value = true; 
+      isMaintenanceConfirmOpen.value = true; // Abre dialogo "Abrir O.M.?"
   } else {
-      // Se for simples, apenas pausa normalmente
       applyNormalPause();
   }
 }
 
-// Função auxiliar: Aplica a pausa visual e de estado
 function applyNormalPause() {
     isStopDialogOpen.value = false;
     isMaintenanceConfirmOpen.value = false;
@@ -711,7 +676,6 @@ function applyNormalPause() {
     $q.notify({ type: 'warning', message: `Pausa: ${currentPauseObj.value?.reasonLabel}`, icon: 'pause' });
 }
 
-// Função auxiliar: Se no diálogo vermelho o user escolher "Só Pausar"
 function confirmPauseOnly() {
     applyNormalPause();
 }
@@ -721,59 +685,134 @@ async function triggerCriticalBreakdown() {
     if (!currentPauseObj.value) return;
     
     isMaintenanceConfirmOpen.value = false;
-    $q.loading.show({ message: 'Registrando Quebra e Finalizando...', backgroundColor: 'red-10' });
+    $q.loading.show({ 
+        message: '🚨 Processando Quebra e Finalizando O.P...', 
+        backgroundColor: 'red-10'
+    });
 
     try {
-        const endTime = new Date();
-        const pauseStart = currentPauseObj.value.startTime;
+        const now = new Date();
+        // O tempo de produção conta do início do timer até AGORA (momento da quebra)
+        const productionStart = statusStartTime.value;
+        const eventTime = now.toISOString();
         
+        // --- DADOS COMUNS ---
         let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
-        if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+        if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
+             badge = authStore.user.employee_id;
+        }
         const operatorName = getOperatorName(String(badge).trim());
         const machineRes = productionStore.machineResource || '4.02.01';
+        
         let resourceDescription = '';
         const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
         if (foundEntry) resourceDescription = foundEntry.description;
 
-        // 1. Envia o Payload de Parada para fechar o apontamento do operador
-        const payload = {
-          op_number: String(activeOrder.value?.code || ''),
-          position: '',
-          operation: '',
-          operation_desc: '',
-          part_description: activeOrder.value?.part_name || '',
-          item_code: activeOrder.value?.part_code || '',
-          service_code: '',
-          resource_code: machineRes, 
-          resource_name: resourceDescription, 
-          operator_name: operatorName || '',
-          operator_id: String(badge),
-          start_time: statusStartTime.value.toISOString(), 
-          end_time: endTime.toISOString(),
-          stop_reason: currentPauseObj.value.reasonCode, // Motivo da quebra
-          // ENVIA A DESCRIÇÃO DO MOTIVO DA PARADA
-          stop_description: currentPauseObj.value.reasonLabel, 
-          vehicle_id: productionStore.machineId || 0
+        // =================================================================
+        // PASSO 1: ENVIAR APONTAMENTO DE PRODUÇÃO (FINALIZAR A O.P.)
+        // Regra: Tem O.P, mas NÃO TEM motivo de parada.
+        // =================================================================
+        
+        // Só envia produção se houver uma OP ativa
+        if (activeOrder.value?.code) {
+            const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
+            const cleanSeq = Math.floor(rawSeq / 10) * 10;
+            const stageStr = cleanSeq.toString().padStart(3, '0'); 
+            const sapData = getSapOperation(stageStr);
+
+            let opNumberToSend = activeOrder.value.code;
+            if (activeOrder.value.custom_ref) opNumberToSend = activeOrder.value.custom_ref;
+
+            const productionPayload = {
+                // --- DADOS DE PRODUÇÃO (PREENCHIDOS) ---
+                op_number: String(opNumberToSend),
+                position: stageStr,
+                operation: sapData.code || '',
+                operation_desc: sapData.description || '',
+                part_description: activeOrder.value.part_name || '',
+                item_code: activeOrder.value.part_code || '',
+                service_code: '', // Se houver lógica para serviço, preencher aqui
+                
+                // --- DADOS DA MÁQUINA ---
+                resource_code: machineRes,
+                resource_name: resourceDescription,
+                operator_name: operatorName || '',
+                operator_id: String(badge),
+                vehicle_id: productionStore.machineId || 0,
+
+                // --- TEMPOS (DO INÍCIO ATÉ A QUEBRA) ---
+                start_time: productionStart.toISOString(),
+                end_time: eventTime,
+
+                // --- CAMPOS DE PARADA (VAZIOS - Regra do Cliente) ---
+                stop_reason: '', 
+                stop_description: '' 
+            };
+
+            console.log("📤 [1/2] Enviando Produção Final (Pré-Quebra):", productionPayload);
+            await ProductionService.sendAppointment(productionPayload);
+        }
+
+        // =================================================================
+        // PASSO 2: ENVIAR APONTAMENTO DE PARADA (REGISTRAR A QUEBRA)
+        // Regra: Tem motivo de parada, mas NÃO TEM dados da O.P.
+        // =================================================================
+        
+        const stopPayload = {
+            // --- DADOS DE PRODUÇÃO (VAZIOS - Regra do Cliente) ---
+            op_number: '',
+            position: '',
+            operation: '',
+            operation_desc: '',
+            part_description: '',
+            item_code: '',
+            service_code: '',
+
+            // --- DADOS DA MÁQUINA ---
+            resource_code: machineRes,
+            resource_name: resourceDescription,
+            operator_name: operatorName || '',
+            operator_id: String(badge),
+            vehicle_id: productionStore.machineId || 0,
+
+            // --- TEMPOS ---
+            // Registra o momento exato da quebra.
+            // O SAP vai entender isso como o início da indisponibilidade.
+            start_time: eventTime,
+            end_time: eventTime, 
+
+            // --- CAMPOS DE PARADA (PREENCHIDOS) ---
+            stop_reason: currentPauseObj.value.reasonCode,
+            stop_description: currentPauseObj.value.reasonLabel
         };
 
-        console.log("📤 Payload de QUEBRA:", payload);
-        await ProductionService.sendAppointment(payload);
+        console.log("📤 [2/2] Enviando Registro de Quebra:", stopPayload);
+        await ProductionService.sendAppointment(stopPayload);
 
-        // 2. Define status da máquina como MAINTENANCE na Store/API
+        // =================================================================
+        // PASSO 3: BLOQUEIO E LOGOUT
+        // =================================================================
+
+        // Define status da máquina para MAINTENANCE (Vermelho no Kiosk)
         await productionStore.setMachineStatus('MAINTENANCE');
 
-        // 3. Desloga o operador com status de Manutenção
+        // Encerra sessão e desloga
         await productionStore.finishSession();
         await productionStore.logoutOperator('MAINTENANCE');
 
-        // 4. Redireciona para o Kiosk (que estará vermelho)
+        // Redireciona para o Kiosk (que estará vermelho e bloqueado)
         await router.push({ name: 'machine-kiosk' });
         
-        $q.notify({ type: 'negative', icon: 'build', message: 'Máquina parada para manutenção.', timeout: 5000 });
+        $q.notify({ 
+            type: 'negative', 
+            icon: 'build', 
+            message: 'Quebra registrada. O.P. Finalizada. Máquina Bloqueada.', 
+            timeout: 5000 
+        });
 
     } catch (error) {
-        console.error("Erro ao registrar quebra:", error);
-        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra.' });
+        console.error("Erro fatal no fluxo de quebra:", error);
+        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra no SAP.' });
     } finally {
         $q.loading.hide();
     }
@@ -789,26 +828,17 @@ async function finishPauseAndResume() {
     const endTime = new Date();
     const pauseStart = currentPauseObj.value.startTime;
     
-    // Identificação
     let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
     if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
         badge = authStore.user.employee_id;
     }
     const operatorName = getOperatorName(String(badge).trim());
 
-    // 1. PEGA O RECURSO REAL DA MÁQUINA
     const machineRes = productionStore.machineResource || '4.02.01'; 
-
-    // 2. BUSCA REVERSA NO MAPA GLOBAL
     let resourceDescription = '';
     const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
-    if (foundEntry) {
-        resourceDescription = foundEntry.description; 
-    }
+    if (foundEntry) resourceDescription = foundEntry.description; 
 
-    console.log(`[DEBUG PAUSA] Recurso: ${machineRes} | Descrição: ${resourceDescription}`);
-
-    // 3. Monta Payload
     const payload = {
       op_number: '',
       position: '',
@@ -817,10 +847,8 @@ async function finishPauseAndResume() {
       part_description: '',
       item_code: '',
       service_code: '',
-      
       resource_code: machineRes, 
       resource_name: resourceDescription, 
-
       operator_name: operatorName || '',
       operator_id: String(badge),
       
@@ -828,14 +856,12 @@ async function finishPauseAndResume() {
       end_time: endTime.toISOString(),
       
       stop_reason: currentPauseObj.value.reasonCode,
-      // ENVIA A DESCRIÇÃO DO MOTIVO DA PARADA
-      stop_description: currentPauseObj.value.reasonLabel, 
+      stop_description: currentPauseObj.value.reasonLabel, // Descrição também na pausa normal
       
       vehicle_id: productionStore.machineId || 0
     };
 
     console.log("📤 Payload de PARADA:", payload);
-
     await ProductionService.sendAppointment(payload);
 
     isPaused.value = false;
@@ -901,16 +927,13 @@ function confirmFinishOp() {
          op_number: String(opNumberToSend),
          service_code: '', 
          position: stageStr, 
-         
          operation: sapData.code || '', 
          operation_desc: sapData.description || '',
          resource_code: sapData.resourceCode || '', 
          resource_name: sapData.resourceName || '',
-         
          part_description: activeOrder.value?.part_name || '', 
          operator_name: operatorName || '', 
          operator_id: String(badge),
-         
          start_time: statusStartTime.value.toISOString(),
          end_time: endTime.toISOString(),
          item_code: activeOrder.value?.part_code || '', 
