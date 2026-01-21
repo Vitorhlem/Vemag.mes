@@ -5,6 +5,7 @@ export interface ProductionAppointmentPayload {
   op_number: string;      // U_NumeroDocumento (DocNum)
   service_code: string;   // U_Servico (Agora recebe o ItemCode, ex: "PA-10020")
   position: string;       // U_Posicao
+  stop_description?: string;
   operation: string;      // U_Operacao
   operation_desc?: string;
   

@@ -15,6 +15,7 @@ export interface Machine {
   status?: string; 
   category?: string;
   current_driver_id?: number;
+  sap_resource_code?: string; // <--- CAMPO IMPORTANTE ADICIONADO
 }
 
 export interface OperationStep {
@@ -66,6 +67,7 @@ export const useProductionStore = defineStore('production', () => {
   // --- ESTADO ---
   const machinesList = ref<Machine[]>([]);
   const machineId = ref<number | null>(null);
+  const machineResource = ref<string>('');
   const currentMachine = ref<Machine | null>(null);
   const machineName = ref<string>('Não Configurado');
   const machineSector = ref<string>('-');
@@ -175,8 +177,14 @@ export const useProductionStore = defineStore('production', () => {
     machineId.value = data.id;
     machineName.value = `${data.brand} ${data.model}`;
     machineSector.value = data.category || 'Geral';
+    
+    // AQUI ESTÁ A CORREÇÃO:
+    // Pega o 'sap_resource_code' do banco de dados (ex: '4.12.01')
+    // Se não tiver, usa um fallback seguro ou mantém vazio para forçar erro/aviso
+    machineResource.value = data.sap_resource_code || '4.02.01'; 
+    
+    console.log(`[STORE] Máquina Configurada: ${machineName.value} | Recurso SAP: ${machineResource.value}`);
   }
-
   async function loadKioskConfig() {
     const savedId = localStorage.getItem('TRU_MACHINE_ID');
     if (savedId) {
@@ -524,7 +532,7 @@ export const useProductionStore = defineStore('production', () => {
     fetchAvailableMachines, configureKiosk, fetchMachineHistory,
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
-    startStep, pauseStep, finishStep, 
-    startProduction, pauseProduction, enterSetup, addProduction, activeOperator, identifyOperator, clearOperator
+    startStep, pauseStep, finishStep, startProduction, pauseProduction, enterSetup, addProduction, activeOperator, identifyOperator, clearOperator,
+    machineResource
   };
 });

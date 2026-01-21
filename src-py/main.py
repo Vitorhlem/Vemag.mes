@@ -71,6 +71,7 @@ from app.models.tire_model import VehicleTire
 from app.models.fine_model import Fine
 from app.models.feedback_model import Feedback
 from app.models.demo_usage_model import DemoUsage
+from app.routers import drawings
 # ==============================================================================
 
 

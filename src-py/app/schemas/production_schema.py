@@ -152,6 +152,7 @@ class ProductionAppointmentCreate(BaseModel):
     end_time: datetime
     item_code: Optional[str] = "" 
     stop_reason: Optional[str] = ""
+    stop_description: Optional[str] = None  # <--- ADICIONE ESTA LINHA
 
 # ============================================================================
 # 9. LEITURA DE O.P. E ROTEIRO

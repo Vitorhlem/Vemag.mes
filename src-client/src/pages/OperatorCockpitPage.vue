@@ -18,7 +18,7 @@
               </div>
               <q-badge rounded :class="statusBgClass" class="shadow-2 text-white q-py-xs q-px-sm text-caption">
                 <q-icon :name="statusIcon" color="white" class="q-mr-xs" size="14px" />
-                {{ normalizedStatus }}
+                {{ displayStatus }}
               </q-badge>
             </div>
           </div>
@@ -129,11 +129,11 @@
                               </q-circular-progress>
                           </div>
                           <q-btn 
-                              push color="blue-grey-9" text-color="white" 
-                              icon="image" label="DESENHO" 
-                              size="sm" padding="xs sm"
-                              @click="isDrawingDialogOpen = true" 
-                          />
+    push color="blue-grey-9" text-color="white" 
+    icon="image" label="DESENHO" 
+    size="sm" padding="xs sm"
+    @click="openDrawing" 
+/>
                       </div>
                   </div>
               </div>
@@ -199,7 +199,7 @@
             <q-card class="col-auto bg-white text-center q-py-sm relative-position shadow-3" style="border-radius: 16px;">
                <div class="row items-center justify-center q-gutter-x-sm">
                   <q-icon name="timer" class="vemag-text-secondary" size="24px" />
-                  <div class="text-subtitle2 vemag-text-primary text-uppercase font-weight-bold">
+                  <div class="text-subtitle1 vemag-text-primary text-uppercase font-weight-bold">
                     Tempo no Estado
                   </div>
                </div>
@@ -210,20 +210,20 @@
             <div class="col relative-position q-mb-sm q-mt-sm">
                <q-btn 
                   class="fit shadow-6 hover-scale-producing" 
-                  :class="normalizedStatus === 'EM OPERAÇÃO' ? 'vemag-bg-primary text-white' : 'bg-blue-grey-10 text-white'" 
+                  :class="getButtonClass" 
                   push :loading="isLoadingAction"
                   style="border-radius: 20px;"
-                  @click="toggleProduction"
+                  @click="handleMainButtonClick"
                >
                   <div class="column items-center justify-center full-height">
-                    <q-icon size="60px" :name="normalizedStatus === 'EM OPERAÇÃO' ? 'pause_circle' : 'play_circle_filled'" />
+                    <q-icon size="60px" :name="isPaused ? 'play_arrow' : (normalizedStatus === 'EM OPERAÇÃO' ? 'pause_circle' : 'play_circle_filled')" />
                     
                     <div class="text-h4 text-weight-bolder q-mt-sm">
-                        {{ normalizedStatus === 'EM OPERAÇÃO' ? 'PAUSAR' : 'INICIAR' }}
+                        {{ isPaused ? 'RETOMAR' : (normalizedStatus === 'EM OPERAÇÃO' ? 'PAUSAR' : 'INICIAR') }}
                     </div>
                     
                     <div class="text-subtitle2 text-uppercase letter-spacing-1 opacity-80 q-mt-xs">
-                        {{ normalizedStatus === 'EM OPERAÇÃO' ? 'PRODUZINDO...' : 'INICIAR OPERAÇÃO' }}
+                        {{ isPaused ? 'VOLTAR A PRODUZIR' : (normalizedStatus === 'EM OPERAÇÃO' ? 'REGISTRAR PARADA' : 'INICIAR OPERAÇÃO') }}
                     </div>
                   </div>
                </q-btn>
@@ -318,18 +318,33 @@
     </q-dialog>
 
     <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
-        <q-card class="bg-black text-white column">
-            <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
-                <q-icon name="image" size="24px" />
-                <div class="text-h6 q-ml-md">Desenho Técnico</div>
-                <q-space />
-                <q-btn dense flat icon="close" size="20px" v-close-popup />
-            </q-bar>
-            <q-card-section class="col flex flex-center relative-position">
-                <q-img :src="productionStore.activeOrder?.technical_drawing_url || '/desenho.jpg'" style="max-width: 100%; max-height: 100%;" fit="contain" />
-            </q-card-section>
-        </q-card>
-    </q-dialog>
+    <q-card class="bg-grey-10 text-white column">
+        <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
+            <q-icon name="picture_as_pdf" size="24px" />
+            <div class="text-h6 q-ml-md">
+                Desenho: {{ productionStore.activeOrder?.part_code || '---' }}
+            </div>
+            <q-space />
+            <q-btn dense flat icon="refresh" label="Recarregar" @click="loadDrawing" class="q-mr-sm" />
+            <q-btn dense flat icon="close" size="20px" v-close-popup />
+        </q-bar>
+
+        <q-card-section class="col q-pa-none relative-position bg-grey-3">
+            <iframe 
+                v-if="drawingUrl"
+                :src="drawingUrl" 
+                class="fit" 
+                style="border: none;"
+            ></iframe>
+
+            <div v-else class="absolute-full flex flex-center column text-grey-8">
+                <q-icon name="find_in_page" size="80px" color="grey-6" />
+                <div class="text-h5 q-mt-md">Procurando desenho...</div>
+                <div class="text-caption">Certifique-se que o arquivo PDF existe na pasta do servidor com o código do item.</div>
+            </div>
+        </q-card-section>
+    </q-card>
+</q-dialog>
 
     <q-dialog v-model="isStopDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
       <q-card class="bg-grey-2 column">
@@ -350,17 +365,16 @@
             <div class="col scroll q-px-md q-pb-md">
                <div class="row q-col-gutter-md">
                   <div v-for="(reason, idx) in filteredStopReasons" :key="idx" class="col-12 col-sm-6 col-md-4">
-                     <q-btn color="white" text-color="dark" class="full-width shadow-2" padding="md" align="left" no-caps style="border-radius: 12px; min-height: 80px;" @click="handleReasonSelect(reason.label)">
-                        <div class="row items-center no-wrap full-width">
-                           <q-avatar :color="getCategoryColor(reason.category)" text-color="white" icon="priority_high" size="40px" font-size="24px" class="q-mr-md" />
-                           <div class="column">
+                      <q-btn color="white" text-color="dark" class="full-width shadow-2" padding="md" align="left" no-caps style="border-radius: 12px; min-height: 80px;" @click="handleSapPause(reason)">
+                         <div class="row items-center no-wrap full-width">
+                            <q-avatar :color="reason.requiresMaintenance ? 'red-9' : 'blue-grey'" text-color="white" :icon="reason.requiresMaintenance ? 'build' : 'priority_high'" size="40px" font-size="24px" class="q-mr-md" />
+                            <div class="column">
                               <div class="text-subtitle1 text-weight-bold leading-tight">{{ reason.label }}</div>
-                              <div class="text-caption text-grey-7">{{ reason.category }}</div>
-                           </div>
-                           <q-space />
-                           <q-icon v-if="reason.requiresMaintenance" name="build_circle" color="red" size="24px" />
-                        </div>
-                     </q-btn>
+                              <div class="text-caption text-grey-7">Cód: {{ reason.code }}</div>
+                              <div v-if="reason.requiresMaintenance" class="text-caption text-red-9 text-weight-bold">CRÍTICO: REQUER MANUTENÇÃO</div>
+                            </div>
+                         </div>
+                      </q-btn>
                   </div>
                </div>
             </div>
@@ -372,15 +386,18 @@
        <q-card class="bg-red-9 text-white" style="width: 500px; max-width: 95vw; border-radius: 20px;">
           <q-card-section class="row items-center q-pa-md">
              <q-avatar icon="warning" color="white" text-color="red-9" size="50px" />
-             <div class="text-h6 q-ml-md text-weight-bold">Parada Crítica</div>
+             <div class="text-h6 q-ml-md text-weight-bold">Parada Crítica Detectada</div>
           </q-card-section>
+          
           <q-card-section class="q-px-lg q-py-sm">
-             <p class="text-subtitle1">Motivo: <span class="text-weight-bolder text-yellow-3">"{{ pendingReason }}"</span>.</p>
-             <p class="text-body2 opacity-80">Requer intervenção técnica. Ação:</p>
+             <p class="text-subtitle1">Motivo: <span class="text-weight-bolder text-yellow-3">"{{ currentPauseObj?.reasonLabel }}"</span>.</p>
+             <p class="text-body2 opacity-80">Este motivo geralmente requer intervenção técnica.</p>
+             <p class="text-h6 q-mt-md text-center">O que deseja fazer?</p>
           </q-card-section>
+          
           <q-card-actions align="center" class="q-pa-md q-gutter-md">
-             <q-btn push color="white" text-color="red-9" size="md" class="col-grow" label="SÓ PAUSAR" @click="executeStop(false)" />
-             <q-btn push color="red-10" text-color="white" size="md" class="col-grow" style="border: 2px solid white;" label="ABRIR O.M." @click="executeStop(true)" />
+             <q-btn push color="white" text-color="red-9" size="lg" class="col-grow" label="SÓ PAUSAR" @click="confirmPauseOnly" />
+             <q-btn push color="red-10" text-color="white" size="lg" class="col-grow" style="border: 2px solid white;" label="ABRIR O.M. (QUEBRADA)" @click="triggerCriticalBreakdown" />
           </q-card-actions>
        </q-card>
     </q-dialog>
@@ -389,8 +406,8 @@
       <q-card style="width: 700px; max-width: 95vw; border-radius: 20px;">
         <q-card-section class="vemag-bg-primary text-white row items-center justify-between q-pa-md">
           <div class="text-h6 text-weight-bold row items-center">
-             <q-icon name="campaign" size="30px" class="q-mr-sm" />
-             Central de Ajuda (Andon)
+              <q-icon name="campaign" size="30px" class="q-mr-sm" />
+              Central de Ajuda (Andon)
           </div>
           <q-btn icon="close" flat round size="md" v-close-popup />
         </q-card-section>
@@ -437,12 +454,16 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
-import { STOP_REASONS } from 'src/data/stop-reasons';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
-// --- IMPORTAÇÃO CRÍTICA: MAPEAMENTO SAP ---
-import { getOperatorName } from 'src/data/operators'; // IMPORTAÇÃO DA LISTA DE NOMES
-import { getSapOperation } from 'src/data/sap-operations'; 
+import { api } from 'boot/axios'; // Certifique-se de importar a api
+
+// --- IMPORTAÇÕES DE DADOS ---
+import { getOperatorName } from 'src/data/operators'; 
+import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
+import { SAP_STOP_REASONS } from 'src/data/sap-stops';
+import type {SapStopReason} from 'src/data/sap-stops';
+import { ANDON_OPTIONS } from 'src/data/andon-options';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -454,22 +475,32 @@ const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
 const customOsBackgroundImage = ref('/a.jpg');
 
-// --- Dialogs ---
+// --- Estados ---
+const isPaused = ref(false);
+const currentPauseObj = ref<{
+  startTime: Date;
+  reasonCode: string;
+  reasonLabel: string;
+} | null>(null);
+
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
-const isMaintenanceConfirmOpen = ref(false);
+const isMaintenanceConfirmOpen = ref(false); // NOVO DIALOGO
+const drawingUrl = ref('');
 const isDrawingDialogOpen = ref(false);
 const showOpList = ref(false);
 const loadingOps = ref(false);
 
-const pendingReason = ref('');
 const stopSearch = ref('');
 const statusStartTime = ref(new Date());
 const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
 const andonNote = ref('');
 
-// --- Dados para Lista de OPs ---
+// Importando opções do Andon
+const andonOptions = ANDON_OPTIONS; 
+
+// --- Tabela ---
 const openOps = ref([]);
 const opColumns = [
   { name: 'op_number', label: 'OP / Ref', align: 'left', field: 'op_number', sortable: true },
@@ -483,13 +514,7 @@ const viewedStepIndex = ref(0);
 
 const currentViewedStep = computed(() => {
     if (!activeOrder.value?.steps || activeOrder.value.steps.length === 0) {
-        return {
-            seq: 10,
-            name: 'USINAGEM GERAL',
-            description: 'Realizar operação conforme desenho técnico.',
-            resource: 'MÁQUINA',
-            timeEst: 0
-        };
+        return { seq: 10, name: 'USINAGEM GERAL', description: 'Operação Padrão', resource: 'MÁQUINA', timeEst: 0 };
     }
     return activeOrder.value.steps[viewedStepIndex.value];
 });
@@ -506,17 +531,7 @@ function prevStepView() {
     }
 }
 
-// --- Configs ---
-const andonOptions = [
-  { label: 'Manutenção', icon: 'build', color: 'blue-grey-9' },
-  { label: 'Elétrica', icon: 'bolt', color: 'orange-9' },
-  { label: 'Logística', icon: 'forklift', color: 'brown-6' },
-  { label: 'Qualidade', icon: 'verified', color: 'purple-8' },
-  { label: 'Processo', icon: 'engineering', color: 'teal-7' },
-  { label: 'Segurança', icon: 'health_and_safety', color: 'red-9' },
-  { label: 'Gerente', icon: 'admin_panel_settings', color: 'red-10' }
-];
-
+// --- Computeds Visuais ---
 const elapsedTime = computed(() => {
    const diff = Math.max(0, Math.floor((currentTime.value.getTime() - statusStartTime.value.getTime()) / 1000));
    const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -529,48 +544,94 @@ const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR',
 const normalizedStatus = computed(() => {
     const raw = activeOrder.value?.status || '';
     const s = String(raw).trim().toUpperCase();
-
-    if (['RUNNING', 'EM USO', 'EM PRODUÇÃO', 'IN_USE', 'PRODUZINDO', 'EM OPERAÇÃO'].includes(s)) {
-        return 'EM OPERAÇÃO';
-    }
-    if (['SETUP', 'EM SETUP', 'PREPARAÇÃO', 'MANUTENÇÃO'].includes(s)) {
-        return 'MANUTENÇÃO';
-    }
+    if (['RUNNING', 'EM USO', 'EM OPERAÇÃO'].includes(s)) return 'EM OPERAÇÃO';
+    if (['PAUSED', 'PARADA'].includes(s)) return 'PARADA'; 
     return 'PARADA'; 
 });
 
-// --- Classes Visuais ---
+const displayStatus = computed(() => {
+  if (isPaused.value) return 'PARADA - ' + (currentPauseObj.value?.reasonLabel || '');
+  return normalizedStatus.value;
+});
+
 const statusBgClass = computed(() => {
+  if (isPaused.value) return 'bg-warning text-black'; 
   if (normalizedStatus.value === 'EM OPERAÇÃO') return 'bg-positive'; 
-  if (normalizedStatus.value === 'MANUTENÇÃO') return 'bg-warning';
   return 'bg-negative';
 });
 
 const statusTextClass = computed(() => {
+    if (isPaused.value) return 'text-warning';
     if (normalizedStatus.value === 'EM OPERAÇÃO') return 'vemag-text-primary';
-    if (normalizedStatus.value === 'MANUTENÇÃO') return 'text-warning';
     return 'text-negative';
 });
 
 const statusIcon = computed(() => {
+    if (isPaused.value) return 'pause';
     if (normalizedStatus.value === 'EM OPERAÇÃO') return 'autorenew';
-    if (normalizedStatus.value === 'MANUTENÇÃO') return 'handyman';
     return 'error_outline';
 });
 
-const filteredStopReasons = computed(() => {
-   if (!stopSearch.value) return STOP_REASONS;
-   const needle = stopSearch.value.toLowerCase();
-   return STOP_REASONS.filter(r => r.label.toLowerCase().includes(needle) || r.category.toLowerCase().includes(needle));
+const getButtonClass = computed(() => {
+  if (isPaused.value) return 'bg-orange-9 text-white'; 
+  if (normalizedStatus.value === 'EM OPERAÇÃO') return 'vemag-bg-primary text-white';
+  return 'bg-blue-grey-10 text-white';
 });
-function getCategoryColor(cat: string) {
-   if (cat === 'Mecânica') return 'grey-9';
-   if (cat === 'Elétrica') return 'orange-9';
-   return 'blue-grey';
-}
+
+const filteredStopReasons = computed(() => {
+   if (!stopSearch.value) return SAP_STOP_REASONS;
+   const needle = stopSearch.value.toLowerCase();
+   return SAP_STOP_REASONS.filter(r => r.label.toLowerCase().includes(needle));
+});
+
+function getCategoryColor(cat: string) { return 'blue-grey'; }
 function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
+
+async function loadDrawing() {
+    if (!productionStore.activeOrder?.part_code) {
+        $q.notify({ type: 'warning', message: 'Esta O.P. não tem código de peça definido.' });
+        return;
+    }
+
+    const itemCode = productionStore.activeOrder.part_code;
+    drawingUrl.value = ''; // Limpa anterior
+
+    // Url do Backend (Adicionamos timestamp ?t=... para evitar cache do navegador se o desenho mudar)
+    // Ajuste a URL base se necessário, mas geralmente o axios já sabe a base, aqui usamos URL direta para o iframe
+    const baseURL = api.defaults.baseURL || 'http://localhost:8000'; 
+    const targetURL = `${baseURL}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
+
+    // Teste simples para ver se o arquivo existe antes de abrir o iframe (opcional, mas bom para UX)
+    try {
+        await api.head(`/drawings/${encodeURIComponent(itemCode)}`);
+        drawingUrl.value = targetURL;
+    } catch (e) {
+        $q.notify({ 
+            type: 'negative', 
+            icon: 'broken_image',
+            message: `Desenho não encontrado para o item: ${itemCode}`,
+            caption: 'Verifique a pasta "static/drawings" no servidor.'
+        });
+    }
+}
+
+function openDrawing() {
+  if (!productionStore.activeOrder?.part_code) {
+      $q.notify({ type: 'warning', message: 'O.P. sem código de item definido.' });
+      return;
+  }
+
+  const itemCode = productionStore.activeOrder.part_code;
+  
+  // Monta a URL apontando para o seu Backend Python
+  // Adiciona timestamp (?t=) para garantir que não pegue cache velho
+  const baseUrl = api.defaults.baseURL || ''; // Pega a URL da API configurada no Axios
+  drawingUrl.value = `${baseUrl}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
+  
+  isDrawingDialogOpen.value = true;
+}
 
 async function openOpListDialog() {
   showOpList.value = true;
@@ -579,7 +640,7 @@ async function openOpListDialog() {
     openOps.value = await ProductionService.getOpenOrders();
   } catch (error) {
     console.error(error);
-    $q.notify({ type: 'negative', message: 'Erro ao carregar OPs do SAP' });
+    $q.notify({ type: 'negative', message: 'Erro ao carregar OPs' });
   } finally {
     loadingOps.value = false;
   }
@@ -598,10 +659,292 @@ function selectOp(op: any) {
     technical_drawing_url: '', 
     steps: [] 
   };
-  
   showOpList.value = false;
   resetTimer();
   $q.notify({ type: 'positive', message: `OP ${op.op_number} selecionada!` });
+}
+
+async function handleMainButtonClick() {
+  if (isPaused.value) {
+    await finishPauseAndResume();
+    return;
+  }
+  if (normalizedStatus.value === 'EM OPERAÇÃO') {
+    isStopDialogOpen.value = true; 
+    stopSearch.value = '';
+    return;
+  }
+  statusStartTime.value = new Date(); 
+  await productionStore.startProduction();
+  resetTimer();
+}
+
+// --- LÓGICA DE SELEÇÃO DE MOTIVO ---
+function handleSapPause(stopReason: SapStopReason) {
+  const now = new Date();
+  
+  // 1. Guarda temporariamente o motivo escolhido
+  currentPauseObj.value = {
+    startTime: now,
+    reasonCode: stopReason.code,
+    reasonLabel: stopReason.label
+  };
+
+  // 2. VERIFICAÇÃO CRÍTICA
+  if (stopReason.requiresMaintenance) {
+      // Se for crítico, abre o diálogo de confirmação (Não pausa direto)
+      isStopDialogOpen.value = false;
+      isMaintenanceConfirmOpen.value = true; 
+  } else {
+      // Se for simples, apenas pausa normalmente
+      applyNormalPause();
+  }
+}
+
+// Função auxiliar: Aplica a pausa visual e de estado
+function applyNormalPause() {
+    isStopDialogOpen.value = false;
+    isMaintenanceConfirmOpen.value = false;
+    isPaused.value = true;
+    productionStore.activeOrder.status = 'PAUSED'; 
+    statusStartTime.value = currentPauseObj.value!.startTime;
+    $q.notify({ type: 'warning', message: `Pausa: ${currentPauseObj.value?.reasonLabel}`, icon: 'pause' });
+}
+
+// Função auxiliar: Se no diálogo vermelho o user escolher "Só Pausar"
+function confirmPauseOnly() {
+    applyNormalPause();
+}
+
+// --- FUNÇÃO DE QUEBRA DE MÁQUINA (ABRIR O.M.) ---
+async function triggerCriticalBreakdown() {
+    if (!currentPauseObj.value) return;
+    
+    isMaintenanceConfirmOpen.value = false;
+    $q.loading.show({ message: 'Registrando Quebra e Finalizando...', backgroundColor: 'red-10' });
+
+    try {
+        const endTime = new Date();
+        const pauseStart = currentPauseObj.value.startTime;
+        
+        let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+        if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+        const operatorName = getOperatorName(String(badge).trim());
+        const machineRes = productionStore.machineResource || '4.02.01';
+        let resourceDescription = '';
+        const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
+        if (foundEntry) resourceDescription = foundEntry.description;
+
+        // 1. Envia o Payload de Parada para fechar o apontamento do operador
+        const payload = {
+          op_number: String(activeOrder.value?.code || ''),
+          position: '',
+          operation: '',
+          operation_desc: '',
+          part_description: activeOrder.value?.part_name || '',
+          item_code: activeOrder.value?.part_code || '',
+          service_code: '',
+          resource_code: machineRes, 
+          resource_name: resourceDescription, 
+          operator_name: operatorName || '',
+          operator_id: String(badge),
+          start_time: statusStartTime.value.toISOString(), 
+          end_time: endTime.toISOString(),
+          stop_reason: currentPauseObj.value.reasonCode, // Motivo da quebra
+          // ENVIA A DESCRIÇÃO DO MOTIVO DA PARADA
+          stop_description: currentPauseObj.value.reasonLabel, 
+          vehicle_id: productionStore.machineId || 0
+        };
+
+        console.log("📤 Payload de QUEBRA:", payload);
+        await ProductionService.sendAppointment(payload);
+
+        // 2. Define status da máquina como MAINTENANCE na Store/API
+        await productionStore.setMachineStatus('MAINTENANCE');
+
+        // 3. Desloga o operador com status de Manutenção
+        await productionStore.finishSession();
+        await productionStore.logoutOperator('MAINTENANCE');
+
+        // 4. Redireciona para o Kiosk (que estará vermelho)
+        await router.push({ name: 'machine-kiosk' });
+        
+        $q.notify({ type: 'negative', icon: 'build', message: 'Máquina parada para manutenção.', timeout: 5000 });
+
+    } catch (error) {
+        console.error("Erro ao registrar quebra:", error);
+        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra.' });
+    } finally {
+        $q.loading.hide();
+    }
+}
+
+// --- FUNÇÃO DE FINALIZAR PAUSA NORMAL ---
+async function finishPauseAndResume() {
+  if (!currentPauseObj.value) return;
+
+  $q.loading.show({ message: 'Registrando Parada no SAP...' });
+
+  try {
+    const endTime = new Date();
+    const pauseStart = currentPauseObj.value.startTime;
+    
+    // Identificação
+    let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+    if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
+        badge = authStore.user.employee_id;
+    }
+    const operatorName = getOperatorName(String(badge).trim());
+
+    // 1. PEGA O RECURSO REAL DA MÁQUINA
+    const machineRes = productionStore.machineResource || '4.02.01'; 
+
+    // 2. BUSCA REVERSA NO MAPA GLOBAL
+    let resourceDescription = '';
+    const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
+    if (foundEntry) {
+        resourceDescription = foundEntry.description; 
+    }
+
+    console.log(`[DEBUG PAUSA] Recurso: ${machineRes} | Descrição: ${resourceDescription}`);
+
+    // 3. Monta Payload
+    const payload = {
+      op_number: '',
+      position: '',
+      operation: '',
+      operation_desc: '',
+      part_description: '',
+      item_code: '',
+      service_code: '',
+      
+      resource_code: machineRes, 
+      resource_name: resourceDescription, 
+
+      operator_name: operatorName || '',
+      operator_id: String(badge),
+      
+      start_time: pauseStart.toISOString(),
+      end_time: endTime.toISOString(),
+      
+      stop_reason: currentPauseObj.value.reasonCode,
+      // ENVIA A DESCRIÇÃO DO MOTIVO DA PARADA
+      stop_description: currentPauseObj.value.reasonLabel, 
+      
+      vehicle_id: productionStore.machineId || 0
+    };
+
+    console.log("📤 Payload de PARADA:", payload);
+
+    await ProductionService.sendAppointment(payload);
+
+    isPaused.value = false;
+    currentPauseObj.value = null;
+    productionStore.activeOrder.status = 'RUNNING';
+    statusStartTime.value = new Date(); 
+
+    $q.notify({ type: 'positive', message: 'Parada registrada!', icon: 'timer_off' });
+
+  } catch (error) {
+    console.error("Erro pausa:", error);
+    $q.notify({ type: 'negative', message: 'Erro ao registrar parada.' });
+  } finally {
+    $q.loading.hide();
+  }
+}
+
+function confirmFinishOp() {
+  let badge = productionStore.currentOperatorBadge;
+
+  if (!badge && authStore.user?.employee_id) {
+      const role = authStore.user.role || '';
+      if (role !== 'admin' && role !== 'manager') {
+          badge = authStore.user.employee_id;
+      }
+  }
+
+  if (!badge || badge.includes('@')) {
+      $q.dialog({
+        title: 'Identificação Obrigatória',
+        message: 'Bipe seu crachá:',
+        prompt: { model: '', type: 'text', isValid: val => val.length > 0 },
+        cancel: true, persistent: true
+      }).onOk(data => {
+        productionStore.currentOperatorBadge = data;
+        confirmFinishOp(); 
+      });
+      return; 
+  }
+
+  const operatorName = getOperatorName(String(badge).trim());
+
+  $q.dialog({
+    title: 'Finalizar O.P.',
+    message: `Encerrar para ${operatorName || badge}?`,
+    cancel: true, persistent: true,
+    ok: { label: 'Finalizar', color: 'negative', push: true }
+  }).onOk(async () => {
+     $q.loading.show({ message: 'Enviando...' });
+     try {
+       const endTime = new Date();
+       const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
+       const cleanSeq = Math.floor(rawSeq / 10) * 10;
+       const stageStr = cleanSeq.toString().padStart(3, '0'); 
+       
+       const sapData = getSapOperation(stageStr);
+       console.log(`[DEBUG] Etapa: ${stageStr}`, sapData);
+
+       let opNumberToSend = activeOrder.value?.code;
+       if (activeOrder.value?.custom_ref) opNumberToSend = activeOrder.value.custom_ref;
+
+       const payload = {
+         op_number: String(opNumberToSend),
+         service_code: '', 
+         position: stageStr, 
+         
+         operation: sapData.code || '', 
+         operation_desc: sapData.description || '',
+         resource_code: sapData.resourceCode || '', 
+         resource_name: sapData.resourceName || '',
+         
+         part_description: activeOrder.value?.part_name || '', 
+         operator_name: operatorName || '', 
+         operator_id: String(badge),
+         
+         start_time: statusStartTime.value.toISOString(),
+         end_time: endTime.toISOString(),
+         item_code: activeOrder.value?.part_code || '', 
+         stop_reason: '', 
+         vehicle_id: productionStore.machineId || 0
+       };
+
+       console.log("📤 Payload Produção:", payload);
+       await ProductionService.sendAppointment(payload);
+
+       $q.notify({ type: 'positive', message: 'Enviado!' });
+       await productionStore.finishSession();
+       resetTimer();
+     } catch (error) {
+       console.error("Erro SAP:", error);
+       $q.notify({ type: 'negative', message: 'Erro ao registrar.' });
+     } finally {
+       $q.loading.hide();
+     }
+  });
+}
+
+function handleLogout() {
+  $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true }).onOk(() => {
+    void (async () => {
+        await productionStore.logoutOperator();
+        await router.push({ name: 'machine-kiosk' });
+    })();
+  });
+}
+
+async function simulateOpScan() {
+  await productionStore.loadOrderFromQr('OP-TESTE-4500');
+  resetTimer();
 }
 
 async function confirmAndonCall(sector: string) {
@@ -621,207 +964,26 @@ async function toggleSetup() {
   isLoadingAction.value = false;
 }
 
-async function toggleProduction() {
-  isLoadingAction.value = true;
-  if (normalizedStatus.value === 'EM OPERAÇÃO') {
-    isStopDialogOpen.value = true;
-    stopSearch.value = '';
-  } else {
-    statusStartTime.value = new Date(); 
-    await productionStore.startProduction();
-    resetTimer();
-  }
-  isLoadingAction.value = false;
-}
-
-function handleReasonSelect(reasonLabel: string) {
-    const reasonObj = STOP_REASONS.find(r => r.label === reasonLabel);
-    if (reasonObj?.requiresMaintenance) {
-        pendingReason.value = reasonLabel;
-        isStopDialogOpen.value = false; 
-        isMaintenanceConfirmOpen.value = true; 
-    } else {
-        pendingReason.value = reasonLabel;
-        isStopDialogOpen.value = false;
-        void executeStop(false); 
-    }
-}
-
-async function executeStop(isCriticalMaintenance: boolean) {
-    isLoadingAction.value = true;
-    isMaintenanceConfirmOpen.value = false; 
-
-    await productionStore.pauseProduction(pendingReason.value);
-
-    if (isCriticalMaintenance) {
-        $q.loading.show({ message: 'Registrando Quebra...', backgroundColor: 'red-10' });
-        await productionStore.setMachineStatus('MAINTENANCE');
-        await productionStore.finishSession();
-        await productionStore.logoutOperator('MAINTENANCE');
-        $q.loading.hide();
-        void router.push({ name: 'machine-kiosk' });
-        $q.notify({ type: 'negative', icon: 'build', message: `Máquina parada. Abra a O.M.`, timeout: 5000 });
-    } else {
-        resetTimer();
-        $q.notify({ type: 'warning', icon: 'pause', message: `Pausado: ${pendingReason.value}` });
-    }
-    isLoadingAction.value = false;
-}
-
-// LÓGICA DE FINALIZAÇÃO (ENVIO PARA O SAP - ATUALIZADO)
-function confirmFinishOp() {
-  
-  // 1. LÓGICA DE IDENTIFICAÇÃO (Mantida original)
-  let badge = productionStore.currentOperatorBadge;
-
-  if (!badge && authStore.user?.employee_id) {
-      const role = authStore.user.role || '';
-      if (role !== 'admin' && role !== 'manager') {
-          badge = authStore.user.employee_id;
-      }
-  }
-
-  if (!badge || badge.includes('@')) {
-      $q.dialog({
-        title: 'Identificação Obrigatória',
-        message: 'Crachá não identificado. Por favor, BIPE SEU CRACHÁ agora:',
-        prompt: { model: '', type: 'text', isValid: val => val.length > 0 },
-        cancel: true,
-        persistent: true
-      }).onOk(data => {
-        productionStore.currentOperatorBadge = data;
-        confirmFinishOp(); 
-      });
-      return; 
-  }
-
-  // 2. CONFIRMAÇÃO E ENVIO
-  $q.dialog({
-    title: 'Finalizar O.P.',
-    message: `Encerrar ordem para o operador ${badge}?`,
-    cancel: true,
-    persistent: true,
-    ok: { label: 'Finalizar', color: 'negative', push: true, size: 'md' }
-  }).onOk(async () => {
-     $q.loading.show({ message: 'Enviando ao SAP...' });
-     try {
-       const endTime = new Date();
-       
-       // A. Cálculo da Etapa
-       const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
-       const cleanSeq = Math.floor(rawSeq / 10) * 10;
-       const stageStr = cleanSeq.toString().padStart(3, '0'); 
-       
-       const operatorName = getOperatorName(String(badge).trim());
-
-       // B. BUSCA OS DADOS (Aqui está o ponto crítico)
-       // Chamamos a função uma única vez e guardamos o resultado
-       const sapData = getSapOperation(stageStr);
-       
-       // DEBUG: Vamos ver no console se o objeto sapData tem as propriedades certas
-       console.log(`[DEBUG SAP] Etapa: ${stageStr}`, sapData);
-
-       // C. Prioriza a referência da OP
-       let opNumberToSend = activeOrder.value?.code;
-       if (activeOrder.value?.custom_ref) {
-           opNumberToSend = activeOrder.value.custom_ref; 
-       }
-
-       // D. MONTA O PAYLOAD (Garantindo que os nomes das propriedades batem com o sap-operations.ts)
-       const payload = {
-         op_number: String(opNumberToSend),
-         service_code: '', 
-         position: stageStr, 
-         
-         // Operação e Descrição
-         operation: sapData.code || '', 
-         operation_desc: sapData.description || '',
-
-         // RECURSO AUTOMÁTICO: Verifique se no sap-operations.ts é 'resourceCode' ou 'resource_code'
-         // Baseado no arquivo que criamos, deve ser exatamente assim:
-         resource_code: sapData.resourceCode || '', 
-         resource_name: sapData.resourceName || '',
-         
-         part_description: activeOrder.value?.part_name || '', 
-         operator_name: operatorName || '', 
-         
-         operator_id: String(badge),
-         start_time: statusStartTime.value.toISOString(),
-         end_time: endTime.toISOString(),
-         item_code: activeOrder.value?.part_code || '', 
-         stop_reason: '',
-         vehicle_id: productionStore.machineId || 0
-       };
-
-       console.log("📤 Enviando para o Backend:", payload);
-       
-       await ProductionService.sendAppointment(payload);
-
-       $q.notify({ type: 'positive', message: 'Apontamento Enviado!', icon: 'check_circle' });
-       await productionStore.finishSession();
-       resetTimer();
-     } catch (error) {
-       console.error("Erro SAP:", error);
-       $q.notify({ type: 'negative', message: 'Erro ao registrar no SAP.' });
-     } finally {
-       $q.loading.hide();
-     }
-  });
-}
-
-function handleLogout() {
-  $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true, ok: { size: 'md', label: 'SAIR' } }).onOk(() => {
-    void (async () => {
-        await productionStore.logoutOperator();
-        await router.push({ name: 'machine-kiosk' });
-    })();
-  });
-}
-
-async function simulateOpScan() {
-  await productionStore.loadOrderFromQr('OP-TESTE-4500');
-  resetTimer();
-}
-
 let scanBuffer = '';
 let scanTimeout: any = null;
 
 async function handleGlobalKeydown(event: KeyboardEvent) {
-  if ((event.target as HTMLElement).tagName === 'INPUT' || (event.target as HTMLElement).tagName === 'TEXTAREA') {
-      return;
-  }
+  if ((event.target as HTMLElement).tagName === 'INPUT') return;
 
   if (event.key === 'Enter') {
       if (scanBuffer.length > 2) {
           const scannedBadge = scanBuffer.trim();
-          console.log("🔍 Crachá detectado:", scannedBadge);
-          
-          $q.loading.show({ message: `Autenticando Operador...` });
-          
+          $q.loading.show({ message: `Autenticando...` });
           try {
               await authStore.loginByBadge(scannedBadge);
-              
-              if (authStore.user && authStore.user.employee_id) {
+              if (authStore.user?.employee_id) {
                   productionStore.currentOperatorBadge = authStore.user.employee_id;
-                  
-                  $q.notify({
-                      type: 'positive',
-                      message: `Operador: ${authStore.user.full_name}`,
-                      caption: 'Login realizado com sucesso',
-                      icon: 'account_circle',
-                      position: 'top'
-                  });
+                  $q.notify({ type: 'positive', message: `Olá, ${authStore.user.full_name}` });
               } else {
                   productionStore.currentOperatorBadge = scannedBadge;
               }
-
           } catch (e) {
-              console.error(e);
-              $q.notify({
-                  type: 'negative',
-                  message: 'Crachá não reconhecido.',
-                  icon: 'error'
-              });
+              $q.notify({ type: 'negative', message: 'Crachá inválido.' });
           } finally {
               $q.loading.hide();
               scanBuffer = '';
@@ -838,21 +1000,13 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  if (productionStore.currentStepIndex !== -1) {
-      viewedStepIndex.value = productionStore.currentStepIndex;
-  }
-  
+  if (productionStore.currentStepIndex !== -1) viewedStepIndex.value = productionStore.currentStepIndex;
   timerInterval = setInterval(() => { currentTime.value = new Date(); }, 1000);
   resetTimer();
-
   window.addEventListener('keydown', handleGlobalKeydown);
 
-  // --- PROTEÇÃO DO OPERADOR (NÃO SOBRESCREVE SE JÁ EXISTIR UM BIPADO) ---
-  if (!productionStore.currentOperatorBadge && authStore.user && authStore.user.employee_id) {
-      const role = authStore.user.role || '';
-      if (role !== 'admin' && role !== 'manager') {
-          productionStore.currentOperatorBadge = authStore.user.employee_id;
-      }
+  if (!productionStore.currentOperatorBadge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
+      productionStore.currentOperatorBadge = authStore.user.employee_id;
   }
 });
 

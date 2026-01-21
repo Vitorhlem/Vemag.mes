@@ -64,6 +64,7 @@ export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
   '703': { code: '703', description: 'TERCEIRIZACAO SERVICOS E ATIVIDADES', resourceCode: '7.03.01', resourceName: 'Tercerização Serviços e Atividades' },
 };
 
+
 // Alterado para Record<string, ...> para suportar chaves "010"
 export const SAP_OPERATIONS: Record<string, SapOperationMap> = {
   // --- ROTEIRO PADRÃO ---

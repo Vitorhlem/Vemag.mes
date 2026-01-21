@@ -1,14 +1,15 @@
-// Arquivo: src-client/src/data/stop-reasons.ts
+// Arquivo: src-client/src/data/sap-stops.ts
 
-export interface StopReason {
+export interface SapStopReason {
   code: string;
   label: string;
   category: 'Geral' | 'Operacional' | 'Mecânica' | 'Elétrica' | 'Qualidade' | 'Logística' | 'Pessoal' | 'Outros';
-  requiresMaintenance?: boolean; // Se true, abre chamado de manutenção e bloqueia a máquina
+  requiresMaintenance?: boolean; // Se true, sugere abertura de O.M.
 }
 
-export const STOP_REASONS: StopReason[] = [
-  // --- LISTA SAP ORIGINAL (CÓDIGOS FIXOS) ---
+// AQUI ESTÁ A EXPORTAÇÃO CORRETA QUE O SEU ERRO PEDE:
+export const SAP_STOP_REASONS: SapStopReason[] = [
+  // --- LISTA SAP ORIGINAL (CÓDIGOS FIXOS 20-60005) ---
   { code: '20', label: 'Aguardando ponte rolante', category: 'Logística' },
   { code: '21', label: 'Máquina em manutenção', category: 'Mecânica', requiresMaintenance: true },
   { code: '22', label: 'Falta de energia elétrica', category: 'Geral' },
@@ -127,6 +128,6 @@ export const STOP_REASONS: StopReason[] = [
 
 // Função auxiliar para buscar o label pelo código
 export function getStopLabel(code: string): string {
-  const reason = STOP_REASONS.find(r => r.code === code);
+  const reason = SAP_STOP_REASONS.find(r => r.code === code);
   return reason ? reason.label : `Motivo ${code}`;
 }

@@ -236,7 +236,8 @@ class SAPIntegrationService:
             "U_DataFimAp": sap_data_fim,
             "U_HoraInicioAp": sap_hora_ini,
             "U_HoraFimAp": sap_hora_fim,
-            "U_MotivoParada": appointment_data.get('stop_reason', "")
+            "U_MotivoParada": appointment_data.get('stop_reason', ""),
+            "U_DescricaoParada": appointment_data.get('stop_description', "") # <--- ADICIONE ESTA LINHA
         }
 
         try:
