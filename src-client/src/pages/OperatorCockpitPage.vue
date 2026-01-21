@@ -801,18 +801,16 @@ async function triggerCriticalBreakdown() {
         await productionStore.logoutOperator('MAINTENANCE');
 
         // Redireciona para o Kiosk (que estará vermelho e bloqueado)
-        await router.push({ name: 'machine-kiosk' });
-        
-        $q.notify({ 
-            type: 'negative', 
-            icon: 'build', 
-            message: 'Quebra registrada. O.P. Finalizada. Máquina Bloqueada.', 
-            timeout: 5000 
+        await router.push({ 
+            name: 'machine-kiosk', 
+            query: { state: 'maintenance' } // <--- ISSO GARANTE QUE O KIOSK SAIBA QUE QUEBROU
         });
+        
+        $q.notify({ type: 'negative', icon: 'build', message: 'Máquina parada. O.M. solicitada.', timeout: 5000 });
 
     } catch (error) {
-        console.error("Erro fatal no fluxo de quebra:", error);
-        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra no SAP.' });
+        console.error("Erro fatal:", error);
+        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra.' });
     } finally {
         $q.loading.hide();
     }

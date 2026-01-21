@@ -213,13 +213,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useProductionStore } from 'stores/production-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useQuasar } from 'quasar';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 const router = useRouter();
+const route = useRoute(); // <--- IMPORTANTE: route inicializado
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const $q = useQuasar();
@@ -234,6 +235,8 @@ const selectedMachineOption = ref<number | null>(null);
 const isMaintenanceDialogOpen = ref(false);
 const omDescription = ref('');
 let pollingTimer: ReturnType<typeof setInterval>;
+
+const forcedMaintenance = ref(false); // Estado local para forçar visualmente
 
 // --- Scanner ---
 const showScanner = ref(false);
@@ -251,27 +254,50 @@ const machineOptions = computed(() => {
 
 // Verifica se a máquina está quebrada (Status MAINTENANCE)
 const isMaintenanceMode = computed(() => {
-    return productionStore.isMachineBroken || 
-           (productionStore.currentMachine?.status || '').toUpperCase().includes('MAINTENANCE') ||
-           (productionStore.currentMachine?.status || '').toUpperCase().includes('MANUTENÇÃO');
-});
+    // 1. Verifica se a URL mandou a flag de manutenção (Prioridade máxima)
+    if (route.query.state === 'maintenance' || forcedMaintenance.value) return true;
 
+    // 2. Verifica o status vindo do backend/store
+    const status = (productionStore.currentMachine?.status || '').toUpperCase();
+    return productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
+});
 // --- Ciclo de Vida ---
 onMounted(async () => {
-  await productionStore.loadKioskConfig();
-  if (productionStore.machineId) {
-    selectedMachineOption.value = productionStore.machineId;
-  }
-  
-  // Atualiza status da máquina a cada 5s (para saber se foi liberada remotamente)
-  pollingTimer = setInterval(() => {
-      if(productionStore.machineId) {
-          void productionStore.loadKioskConfig();
-      }
-  }, 5000);
+    await productionStore.loadKioskConfig();
+    
+    // --- O PULO DO GATO ---
+    // Se a gente veio redirecionado com ?state=maintenance, FORÇAMOS o status no backend
+    // caso o logout anterior tenha resetado para "Disponível" por engano.
+    if (route.query.state === 'maintenance') {
+        console.log("🔒 Modo Manutenção forçado pela navegação.");
+        forcedMaintenance.value = true;
+        
+        // Reforça no backend que está quebrado
+        if (productionStore.machineId) {
+            await productionStore.setMachineStatus('MAINTENANCE');
+        }
+    }
 
-  // Escuta teclado (Leitor USB)
-  window.addEventListener('keydown', handleKeydown);
+    pollingTimer = setInterval(async () => {
+      if(productionStore.machineId) {
+          // 1. Atualiza dados do servidor
+          await productionStore.loadKioskConfig();
+          
+          // 2. Checa status REAL no servidor
+          const status = (productionStore.currentMachine?.status || '').toUpperCase();
+          const isBackendBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
+          
+          // 3. SE O SERVIDOR LIBEROU (!isBackendBroken) MAS AQUI TÁ TRAVADO, DESTRAVA
+          if ((forcedMaintenance.value || route.query.state === 'maintenance') && !isBackendBroken) {
+              console.log("🔓 Desbloqueio detectado. Liberando Kiosk...");
+              forcedMaintenance.value = false;
+              await router.replace({ query: {} }); // Limpa URL
+              $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
+          }
+      }
+  }, 3000); // 3 segundos para resposta rápida
+
+    window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
