@@ -75,6 +75,19 @@ export const useProductionStore = defineStore('production', () => {
     name: '',
     badge: ''
   });
+  const isInSetup = computed(() => {
+      // Verifica se o status local da ordem é SETUP
+      if (activeOrder.value?.status === 'SETUP') return true;
+      
+      // Verifica se o status da máquina no banco indica manutenção/setup
+      // (Lembrando que no banco salvamos "Em manutenção" para setup)
+      const machStatus = (currentMachine.value?.status || '').toUpperCase();
+      
+      // Se estiver "Em manutenção" mas a ordem estiver rodando ou pausada, não é setup.
+      // Setup é quando explicitamente colocamos a flag.
+      // Simplificação: Se o último log foi SETUP, estamos em setup.
+      return activeOrder.value?.status === 'SETUP'; 
+  });
   const currentOperator = ref<Operator | null>(null);
   const currentOperatorBadge = ref<string | null>(null);
   
@@ -237,11 +250,35 @@ export const useProductionStore = defineStore('production', () => {
   }
 
   async function setMachineStatus(status: string) {
-    if (currentMachine.value) {
-        const label = status === 'MAINTENANCE' ? "Em manutenção" : (status === 'AVAILABLE' ? "Disponível" : status);
-        currentMachine.value = { ...currentMachine.value, status: label };
-    }
-    try { await api.post('/production/machine/status', { machine_id: machineId.value, status: status }); } catch (error) { console.error('Erro status', error); }
+      // 1. Lógica para Modo Teste
+
+
+      if (!machineId.value) return;
+
+      try {
+          // 2. Envia para o Backend (O backend vai converter para "Em uso")
+          await api.post('/production/machine/status', { machine_id: machineId.value, status: status });
+          
+          // 3. Atualiza Localmente com a string em Português
+          if (currentMachine.value) {
+              const s = status.toUpperCase();
+              
+              if (s === 'RUNNING' || s === 'IN_USE' || s === 'EM USO') {
+                  currentMachine.value.status = 'Em uso'; // <--- O PULO DO GATO
+              } 
+              else if (s === 'AVAILABLE' || s === 'IDLE' || s === 'DISPONIVEL') {
+                  currentMachine.value.status = 'Disponível';
+              } 
+              else if (s === 'MAINTENANCE' || s === 'BROKEN') {
+                  currentMachine.value.status = 'Manutenção';
+              } 
+              else {
+                  currentMachine.value.status = status;
+              }
+          }
+      } catch (e) {
+          console.error("Erro ao atualizar status da máquina:", e);
+      }
   }
 
   async function loginOperator(scannedCode: string) {
@@ -269,6 +306,7 @@ export const useProductionStore = defineStore('production', () => {
       
       console.log('[DEBUG KIOSK] 4. Enviando Evento Login:', loginPayload); // LOG 4
       await api.post('/production/event', loginPayload);
+      await setMachineStatus('AVAILABLE');
 
       // ATUALIZA ESTADO
       currentOperator.value = operator;
@@ -354,6 +392,7 @@ export const useProductionStore = defineStore('production', () => {
         new_status: statusToSend, 
         reason: 'Logoff / Troca de Turno'
       });
+      await setMachineStatus(statusToSend);
 
       if (currentMachine.value) {
           currentMachine.value = { ...currentMachine.value, status: visualStatus };
@@ -408,6 +447,7 @@ export const useProductionStore = defineStore('production', () => {
             machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: qrCode
          });
          activeOrder.value.status = 'SETUP';
+         await setMachineStatus('SETUP');
       }
       Notify.create({ type: 'positive', message: 'O.P. Carregada!' });
     } catch { 
@@ -418,22 +458,78 @@ export const useProductionStore = defineStore('production', () => {
 
   async function startProduction() { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'RUNNING' };
-      if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Em uso' };
+
+      
+      // 1. Registra o Log
       await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
+      
+      // 2. FORÇA O STATUS NO BANCO (Isso corrige o dashboard)
+      await setMachineStatus('RUNNING');
   }
 
   async function pauseProduction(reason: string) { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'PAUSED' };
-      if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Parada' };
+      
+  
+
+      // 1. Registra Log
       await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
+      
+      // 2. Atualiza Status da Máquina (Geralmente Available ou Stopped)
+      // Se a parada for quebra, isso será tratado em createMaintenanceOrder
+      // Se for pausa operacional, a máquina fica "Parada/Disponível"
+      await setMachineStatus('AVAILABLE'); 
   }
 
   
 
-  async function enterSetup() {
-      if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'SETUP' };
-      if (currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Em manutenção' };
-      await sendEvent('STATUS_CHANGE', { new_status: 'SETUP', reason: 'Setup Iniciado' });
+  async function toggleSetup() {
+      if (!machineId.value || !currentOperatorBadge.value) return;
+
+      // --- SAIR DO MODO SETUP ---
+      if (isInSetup.value) {
+          try {
+              // 1. Registra Log de FIM (Volta para Available)
+              // O backend vai calcular o tempo entre o log anterior (SETUP) e este (AVAILABLE)
+              await sendEvent('STATUS_CHANGE', { 
+                  new_status: 'AVAILABLE', 
+                  reason: 'Fim de Setup' 
+              });
+
+              // 2. Libera a máquina no banco (Dashboard fica Verde/Disponível)
+              await setMachineStatus('AVAILABLE');
+
+              // 3. Atualiza estado local da Ordem
+              if (activeOrder.value) {
+                  activeOrder.value.status = 'PENDING'; 
+              }
+
+          } catch (e) {
+              console.error("Erro ao sair do setup:", e);
+          }
+      } 
+      // --- ENTRAR NO MODO SETUP ---
+      else {
+          try {
+              if (activeOrder.value) {
+                  activeOrder.value.status = 'SETUP';
+              }
+
+              // 1. Registra Log de INÍCIO
+              // O campo 'reason' contendo "Setup" é crucial para o gráfico classificar como Produtivo
+              await sendEvent('STATUS_CHANGE', { 
+                  new_status: 'SETUP', 
+                  reason: 'Início de Setup' 
+              });
+
+              // 2. Bloqueia a máquina no banco (Dashboard fica Vermelho/Manutenção)
+              // Usamos MAINTENANCE porque "Setup" não existe no Enum do banco
+              await setMachineStatus('MAINTENANCE'); 
+              
+          } catch (e) {
+              console.error("Erro ao entrar em setup:", e);
+          }
+      }
   }
 
   function addProduction(qty: number, isScrap = false) {
@@ -497,17 +593,15 @@ export const useProductionStore = defineStore('production', () => {
           Loading.show();
           const payload = { vehicle_id: machineId.value, problem_description: `Kiosk: ${notes}`, category: 'Mecânica', maintenance_type: 'CORRETIVA' };
           await api.post('/maintenance/requests', payload);
-          if(currentMachine.value) currentMachine.value = { ...currentMachine.value, status: 'Em manutenção' };
+          
+          // Força status de manutenção
+          await setMachineStatus('MAINTENANCE');
+          
           Notify.create({ type: 'positive', icon: 'build_circle', message: 'O.M. Criada!' });
       } catch (error: any) { 
           console.error(error);
           Notify.create({ type: 'negative', message: 'Erro ao criar O.M.' }); 
       } finally { Loading.hide(); }
-  }
-
-  async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
-    if (!machineId.value || !currentOperatorBadge.value) return;
-    try { await api.post('/production/event', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: activeOrder.value?.code, event_type: type, ...payload }); } catch (e) { console.error('Falha de sincronização MES', e); }
   }
 
   async function triggerAndon(sector: string, note?: string) {
@@ -558,7 +652,7 @@ export const useProductionStore = defineStore('production', () => {
     fetchAvailableMachines, configureKiosk, fetchMachineHistory,
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
-    startStep, pauseStep, finishStep, startProduction, pauseProduction, enterSetup, addProduction, activeOperator, identifyOperator, clearOperator,
+    startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
     machineResource
   };
 });

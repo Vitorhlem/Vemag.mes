@@ -29,6 +29,27 @@ class MachineStatusUpdate(BaseModel):
     machine_id: int
     status: str
 
+class MachineDailyStats(BaseModel):
+    date: str
+    total_running_operator_seconds: float
+    total_running_autonomous_seconds: float
+    total_paused_operator_seconds: float
+    total_maintenance_seconds: float
+    total_idle_seconds: float
+    
+    # Campos novos para separar Setup de Pausa Comum
+    total_setup_seconds: float     # <--- NOVO
+    total_pause_seconds: float     # <--- NOVO
+    
+    formatted_running_operator: str
+    formatted_running_autonomous: str
+    formatted_paused_operator: str # Esse continua sendo a soma (Total)
+    formatted_maintenance: str
+    
+    # Formatações novas
+    formatted_setup: str           # <--- NOVO
+    formatted_pause: str           # <--- NOVO
+
 # ============================================================================
 # 1. ESTATÍSTICAS DA MÁQUINA (CORRIGIDO ASYNC)
 # ============================================================================
@@ -38,22 +59,16 @@ async def get_machine_stats(
     target_date: date = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Calcula o tempo gasto em cada estado da máquina no dia especificado.
-    Analisa a linha do tempo de eventos (Logs).
-    """
     if not target_date:
         target_date = date.today()
 
-    # Define o intervalo do dia
     start_of_day = datetime.combine(target_date, time.min)
     end_of_day = datetime.combine(target_date, time.max)
     
     if target_date == date.today():
         end_of_day = datetime.now()
 
-    # 1. Buscar último log ANTES do dia começar (para estado inicial)
-    # Nota: Usamos vehicle_id pois é o nome da coluna no banco
+    # 1. Buscar último log ANTES do dia começar
     stmt_last = select(ProductionLog).filter(
         ProductionLog.vehicle_id == machine_id,
         ProductionLog.timestamp < start_of_day
@@ -75,20 +90,24 @@ async def get_machine_stats(
     # --- LÓGICA DE CÁLCULO ---
     current_status = last_log_before.new_status if last_log_before else "IDLE"
     is_operator_present = (last_log_before.event_type == 'LOGIN') if last_log_before else False
-    
+    current_reason = last_log_before.reason if last_log_before else ""
+
     stats = {
         "running_op": 0.0,
         "running_auto": 0.0,
-        "paused_op": 0.0,
+        "paused_productive": 0.0,
+        "paused_unproductive": 0.0,
         "maintenance": 0.0,
         "idle": 0.0
     }
 
     timeline = []
+    
     timeline.append({
         "time": start_of_day, 
         "status": current_status, 
-        "has_op": is_operator_present
+        "has_op": is_operator_present,
+        "reason": current_reason
     })
 
     for log in todays_logs:
@@ -99,14 +118,18 @@ async def get_machine_stats(
         
         if log.new_status:
             current_status = log.new_status
+        
+        if log.reason:
+            current_reason = log.reason
 
         timeline.append({
             "time": log.timestamp,
             "status": current_status,
-            "has_op": is_operator_present
+            "has_op": is_operator_present,
+            "reason": log.reason or ""
         })
 
-    timeline.append({"time": end_of_day, "status": "IGNORE", "has_op": False})
+    timeline.append({"time": end_of_day, "status": "IGNORE", "has_op": False, "reason": ""})
 
     for i in range(len(timeline) - 1):
         segment_start = timeline[i]
@@ -115,25 +138,38 @@ async def get_machine_stats(
         duration = (segment_end["time"] - segment_start["time"]).total_seconds()
         
         st = str(segment_start["status"]).upper()
+        reason = str(segment_start.get("reason", "")).upper()
         op = segment_start["has_op"]
 
+        # 1. MANUTENÇÃO
         if "MAINTENANCE" in st or "MANUTENÇÃO" in st or "MANUTENCAO" in st:
             stats["maintenance"] += duration
         
-        elif "RUNNING" in st or "EM OPERAÇÃO" in st or "EM USO" in st:
+        # 2. RODANDO (PRODUÇÃO)
+        elif "RUNNING" in st or "EM OPERAÇÃO" in st or "EM USO" in st or "IN_USE" in st:
             if op:
                 stats["running_op"] += duration
             else:
                 stats["running_auto"] += duration
         
-        elif ("PAUSED" in st or "PARADA" in st or "STOPPED" in st):
+        # 3. PAUSAS E SETUP (AQUI ESTAVA O PROBLEMA)
+        # Adicionei "SETUP" e "EM PREPARAÇÃO" na verificação principal
+        elif ("PAUSED" in st or "PARADA" in st or "STOPPED" in st or "AVAILABLE" in st or "DISPONÍVEL" in st or "SETUP" in st or "PREPARAÇÃO" in st):
             if op:
-                stats["paused_op"] += duration
+                # Classificação: O que é Produtivo vs Improdutivo
+                # Se o status ou motivo for explicitamente SETUP, vai para paused_productive (Card Roxo)
+                if "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason or "MEDIÇÃO" in reason or "LIMPEZA" in reason:
+                    stats["paused_productive"] += duration
+                else:
+                    # Pausa comum (Banheiro, etc) -> Card Laranja
+                    stats["paused_unproductive"] += duration
             else:
                 stats["idle"] += duration 
         
         else:
             stats["idle"] += duration
+
+    total_paused = stats["paused_productive"] + stats["paused_unproductive"]
 
     def fmt(seconds):
         return str(timedelta(seconds=int(seconds)))
@@ -142,13 +178,22 @@ async def get_machine_stats(
         date=str(target_date),
         total_running_operator_seconds=stats["running_op"],
         total_running_autonomous_seconds=stats["running_auto"],
-        total_paused_operator_seconds=stats["paused_op"],
+        total_paused_operator_seconds=total_paused,
         total_maintenance_seconds=stats["maintenance"],
         total_idle_seconds=stats["idle"],
+        
+        # NOVOS CAMPOS
+        total_setup_seconds=stats["paused_productive"],
+        total_pause_seconds=stats["paused_unproductive"],
+
         formatted_running_operator=fmt(stats["running_op"]),
         formatted_running_autonomous=fmt(stats["running_auto"]),
-        formatted_paused_operator=fmt(stats["paused_op"]),
-        formatted_maintenance=fmt(stats["maintenance"])
+        formatted_paused_operator=fmt(total_paused),
+        formatted_maintenance=fmt(stats["maintenance"]),
+        
+        # NOVAS FORMATAÇÕES
+        formatted_setup=fmt(stats["paused_productive"]),
+        formatted_pause=fmt(stats["paused_unproductive"])
     )
 
 # ============================================================================
@@ -192,41 +237,58 @@ async def get_operator_by_badge(
 @router.post("/machine/status")
 async def set_machine_status(
     data: MachineStatusUpdate, 
-    db: AsyncSession = Depends(deps.get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
-    Força uma mudança de status manual.
-    IMPORTANTE: Isso também deve fechar a fatia de tempo atual para manter a consistência do MES.
+    Força o status para português para compatibilidade com o Dashboard.
     """
+    print(f"🔄 [BACKEND] Mudança de Status Solicitada: {data.status} para Máquina ID: {data.machine_id}")
+
     query = select(Vehicle).where(Vehicle.id == data.machine_id)
     result = await db.execute(query)
     vehicle = result.scalars().first()
     
     if not vehicle:
+        print("❌ Máquina não encontrada no banco.")
         raise HTTPException(status_code=404, detail="Máquina não encontrada")
     
-    # Mapeamento e Lógica de Enum
-    status_upper = data.status.upper()
-    new_status_enum = VehicleStatus.AVAILABLE
+    status_upper = str(data.status).strip().upper()
     
-    category_mes = "IDLE" # Default
+    # --- MAPEAMENTO PARA PORTUGUÊS (Compatibilidade Dashboard) ---
+    new_status_db = "Disponível" 
+    category_mes = "IDLE"
 
-    if status_upper in ["MAINTENANCE", "BROKEN", "SETUP", "MANUTENÇÃO"]:
-        new_status_enum = VehicleStatus.MAINTENANCE
-        category_mes = "PLANNED_STOP"
-    elif status_upper in ["RUNNING", "IN_USE", "EM USO", "EM OPERAÇÃO"]:
-        new_status_enum = VehicleStatus.IN_USE
+    # 1. EM USO / RODANDO
+    if status_upper in ["RUNNING", "IN_USE", "EM USO", "EM OPERAÇÃO", "OPERANDO", "WORKING"]:
+        new_status_db = "Em uso"
         category_mes = "PRODUCING"
-    
-    # 1. Atualiza Veículo
-    vehicle.status = new_status_enum.value
+
+    # 2. MANUTENÇÃO
+    elif status_upper in ["MAINTENANCE", "BROKEN", "SETUP", "MANUTENÇÃO", "QUEBRADA", "MANUTENCAO", "EM MANUTENÇÃO"]:
+            new_status_db = VehicleStatus.MAINTENANCE.value # "Em manutenção"
+            category_mes = "PLANNED_STOP"
+            
+    # 3. DISPONÍVEL / PARADA
+    else:
+        new_status_db = "Disponível"
+        category_mes = "IDLE"
+
+    print(f"✅ [BACKEND] Gravando no Banco: '{new_status_db}'")
+
+    # Atualiza Veículo
+    vehicle.status = new_status_db
     db.add(vehicle)
     
-    # 2. MES: Fecha fatia anterior e abre nova (Genérica)
-    await ProductionService.close_current_slice(db, vehicle.id)
-    await ProductionService.open_new_slice(db, vehicle.id, category=category_mes, reason="Manual Override")
+    # Atualiza Fatias de Tempo (MES)
+    try:
+        await ProductionService.close_current_slice(db, vehicle.id)
+        await ProductionService.open_new_slice(db, vehicle.id, category=category_mes, reason=f"Status: {new_status_db}")
+    except Exception as e:
+        print(f"⚠️ [BACKEND] Erro ao atualizar fatia MES (não crítico): {e}")
     
     await db.commit()
+    await db.refresh(vehicle)
+    
     return {"message": "Status atualizado", "new_status": vehicle.status}
 
 # ============================================================================

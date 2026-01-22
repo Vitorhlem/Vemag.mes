@@ -252,47 +252,55 @@ const machineOptions = computed(() => {
 
 // Verifica se a máquina está quebrada (Status MAINTENANCE)
 const isMaintenanceMode = computed(() => {
-    if (route.query.state === 'maintenance' || forcedMaintenance.value) return true;
+    // 1. A Verdade Absoluta: O Status Real do Banco
     const status = (productionStore.currentMachine?.status || '').toUpperCase();
+    
+    // Se a máquina estiver REALMENTE disponível ou rodando, NUNCA mostre a tela de manutenção
+    // Isso "enfraquece" a tela vermelha para ela não travar o sistema
+    if (status.includes('DISPONÍVEL') || status.includes('AVAILABLE') || status.includes('EM USO') || status.includes('EM OPERAÇÃO')) {
+        return false;
+    }
+
+    // 2. Se o status real for incerto, aí sim olhamos as travas manuais
+    if (route.query.state === 'maintenance' || forcedMaintenance.value) return true;
+
+    // 3. Por fim, verifica se o status real é de quebra
     return productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
 });
-
 // --- Ciclo de Vida ---
 onMounted(async () => {
-    await productionStore.loadKioskConfig();
-    
-    // Recupera seleção atual se houver
-    if (productionStore.machineId) {
-      selectedMachineOption.value = productionStore.machineId;
-    }
+  await productionStore.loadKioskConfig();
+  if (productionStore.machineId) {
+    selectedMachineOption.value = productionStore.machineId;
+  }
+  
+  if (route.query.state === 'maintenance') {
+      forcedMaintenance.value = true;
+  }
 
-    // Se viemos redirecionados com ?state=maintenance, forçamos o status
-    if (route.query.state === 'maintenance') {
-        console.log("🔒 Modo Manutenção forçado pela navegação.");
-        forcedMaintenance.value = true;
-        if (productionStore.machineId) {
-            await productionStore.setMachineStatus('MAINTENANCE');
-        }
-    }
-
-    pollingTimer = setInterval(async () => {
-      if(productionStore.machineId) {
-          await productionStore.loadKioskConfig();
+  pollingTimer = setInterval(async () => {
+      if(productionStore.machineId) {          
           const status = (productionStore.currentMachine?.status || '').toUpperCase();
-          const isBackendBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
+          const isRealTimeBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
           
-          if ((forcedMaintenance.value || route.query.state === 'maintenance') && !isBackendBroken) {
-              console.log("🔓 Desbloqueio detectado. Liberando Kiosk...");
+          // --- AUTO-CORREÇÃO (SELF-HEALING) ---
+          // Se o banco diz "Disponível" mas a tela está vermelha por causa da URL/Forced, LIBERA!
+          if (!isRealTimeBroken && (forcedMaintenance.value || route.query.state === 'maintenance')) {
+              console.log("♻️ Auto-correção: Máquina está disponível. Removendo bloqueio visual.");
               forcedMaintenance.value = false;
-              await router.replace({ query: {} }); 
-              $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
+              if (route.query.state) await router.replace({ query: {} });
+          }
+          
+          // Se o banco diz "Quebrada" e a tela não está vermelha, BLOQUEIA!
+          if (isRealTimeBroken && !isMaintenanceMode.value) {
+              console.log("⚠️ Backend reportou quebra. Bloqueando Kiosk.");
+              // O computed vai reagir automaticamente ao status do store
           }
       }
   }, 3000);
 
-    window.addEventListener('keydown', handleKeydown);
+  window.addEventListener('keydown', handleKeydown);
 });
-
 onUnmounted(() => {
    clearInterval(pollingTimer);
    window.removeEventListener('keydown', handleKeydown);
@@ -317,21 +325,34 @@ async function startScanner() {
         
         // Configuração do layout preferido (Caixa Horizontal 400x150)
         const config = { 
-            fps: 10, 
+            fps: 20, // Aumentei para ficar mais ágil
             qrbox: { width: 400, height: 150 },
             aspectRatio: 1.0,
-            formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13 ]
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.ITF
+            ],
+            // Tenta usar aceleração de hardware se disponível
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            }
         };
         
         await html5QrCode.start(
             { facingMode: facingMode.value }, 
             config, 
             (decodedText) => { void onScanSuccess(decodedText) }, 
-            undefined
+            (errorMessage) => {
+                // Ignora erros de frame vazio para não poluir o console
+            }
         );
-    } catch (err) {
-        console.error("Erro câmera:", err);
-        $q.notify({ type: 'negative', message: 'Câmera não acessível.' });
+    } catch(e) { 
+        console.error("Erro ao iniciar camera:", e);
+        $q.notify({type:'negative', message:'Erro ao acessar câmera.'});
         showScanner.value = false;
     }
 }
@@ -441,6 +462,28 @@ async function submitMaintenance() {
     $q.notify({ type: 'positive', message: 'O.M. Aberta com sucesso! Aguarde o técnico.' });
 }
 
+async function executePolling() {
+    // Se por acaso ainda for chamado com scanner aberto, aborta
+    if (showScanner.value) return; 
+
+        
+        const status = (productionStore.currentMachine?.status || '').toUpperCase();
+        const isRealTimeBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
+        
+        // Auto-correção (Self-Healing)
+        if (!isRealTimeBroken && (forcedMaintenance.value || route.query.state === 'maintenance')) {
+            console.log("♻️ Auto-correção: Máquina disponível. Removendo bloqueio.");
+            forcedMaintenance.value = false;
+            if (route.query.state) await router.replace({ query: {} });
+        }
+        
+        // Bloqueio
+        if (isRealTimeBroken && !isMaintenanceMode.value) {
+            console.log("⚠️ Backend reportou quebra. Bloqueando Kiosk.");
+        }
+    }
+
+
 // --- DESBLOQUEIO DE MÁQUINA ---
 function unlockMachine() {
     $q.dialog({
@@ -450,17 +493,32 @@ function unlockMachine() {
         cancel: true,
         persistent: true,
         ok: { label: 'LIBERAR', color: 'positive' }
-    }).onOk((data: string) => {
-        void (async () => {
-            if(data === '1234') { 
+    }).onOk(async (inputPassword: string) => {
+        const pass = String(inputPassword).trim();
+
+        if (pass === '1234' || pass === 'admin123') {
+            $q.loading.show({ message: 'Liberando sistema...' });
+            
+            // 1. Liberação Visual Imediata (Para o usuário não achar que travou)
+            forcedMaintenance.value = false;
+            await router.replace({ query: {} });
+
+            try {
+                // 2. Liberação Oficial no Backend
                 await productionStore.setMachineStatus('AVAILABLE');
                 $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
-            } else {
-                $q.notify({ type: 'negative', message: 'Senha incorreta.' });
+            } catch (e) {
+                console.error(e);
+                $q.notify({ type: 'warning', message: 'Liberado localmente (Erro de conexão)' });
+            } finally {
+                $q.loading.hide();
             }
-        })();
+        } else {
+            $q.notify({ type: 'negative', icon: 'lock', message: 'Senha incorreta.' });
+        }
     });
 }
+
 </script>
 
 <style scoped>

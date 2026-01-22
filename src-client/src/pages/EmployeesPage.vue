@@ -83,7 +83,7 @@
 
             <div v-else>
                 <div class="row q-col-gutter-md q-mb-md">
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md">
                         <q-card class="full-height shadow-1 bg-green-1 text-green-10 border-left-green">
                             <q-card-section>
                                 <div class="text-caption text-uppercase text-weight-bold opacity-80">Produção (Operador)</div>
@@ -92,7 +92,7 @@
                             </q-card-section>
                         </q-card>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md">
                         <q-card class="full-height shadow-1 bg-blue-1 text-blue-10 border-left-blue">
                             <q-card-section>
                                 <div class="text-caption text-uppercase text-weight-bold opacity-80">Produção Autônoma</div>
@@ -101,16 +101,28 @@
                             </q-card-section>
                         </q-card>
                     </div>
-                    <div class="col-12 col-md-3">
+                    
+                    <div class="col-12 col-md">
+                        <q-card class="full-height shadow-1 bg-purple-1 text-purple-10 border-left-purple">
+                            <q-card-section>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Setup / Preparação</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
+                                <div class="text-caption text-grey-8">Tempo de ajuste.</div>
+                            </q-card-section>
+                        </q-card>
+                    </div>
+
+                    <div class="col-12 col-md">
                         <q-card class="full-height shadow-1 bg-orange-1 text-orange-10 border-left-orange">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Pausa Operacional</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_paused_operator || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Pausa (Perda)</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Logado mas parado.</div>
                             </q-card-section>
                         </q-card>
                     </div>
-                    <div class="col-12 col-md-3">
+                    
+                    <div class="col-12 col-md">
                         <q-card class="full-height shadow-1 bg-red-1 text-red-10 border-left-red">
                             <q-card-section>
                                 <div class="text-caption text-uppercase text-weight-bold opacity-80">Manutenção / Quebra</div>
@@ -132,10 +144,17 @@
                           <q-tooltip>Autônoma: {{ machineStats?.formatted_running_autonomous }}</q-tooltip>
                           {{ machineStats?.total_running_autonomous_seconds ? 'Auto' : '' }}
                        </div>
-                       <div class="bg-orange text-white flex flex-center text-caption" :style="{flex: machineStats?.total_paused_operator_seconds || 0}">
-                          <q-tooltip>Pausa: {{ machineStats?.formatted_paused_operator }}</q-tooltip>
-                          {{ machineStats?.total_paused_operator_seconds ? 'Pausa' : '' }}
+                       
+                       <div class="bg-purple text-white flex flex-center text-caption" :style="{flex: machineStats?.total_setup_seconds || 0}">
+                          <q-tooltip>Setup: {{ machineStats?.formatted_setup }}</q-tooltip>
+                          {{ machineStats?.total_setup_seconds ? 'Setup' : '' }}
                        </div>
+
+                       <div class="bg-orange text-white flex flex-center text-caption" :style="{flex: machineStats?.total_pause_seconds || 0}">
+                          <q-tooltip>Pausa: {{ machineStats?.formatted_pause }}</q-tooltip>
+                          {{ machineStats?.total_pause_seconds ? 'Pausa' : '' }}
+                       </div>
+
                        <div class="bg-red text-white flex flex-center text-caption" :style="{flex: machineStats?.total_maintenance_seconds || 0}">
                           <q-tooltip>Manutenção: {{ machineStats?.formatted_maintenance }}</q-tooltip>
                           {{ machineStats?.total_maintenance_seconds ? 'Manut.' : '' }}
@@ -228,8 +247,9 @@
                         <div class="text-h6 text-weight-bold">Linha do Tempo (Gantt Chart)</div>
                         <div class="row q-gutter-x-md text-caption">
                             <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#21BA45;"></div> Operação</div>
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#F2C037;"></div> Setup/Manut.</div>
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#C10015;"></div> Parada</div>
+                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#9C27B0;"></div> Setup</div>
+                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#F2C037;"></div> Pausa/Ocioso</div>
+                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#C10015;"></div> Manutenção</div>
                         </div>
                     </q-card-section>
                     
@@ -238,7 +258,7 @@
                             <div 
                                 v-for="(block, idx) in mesStore.timeline" 
                                 :key="idx"
-                                :class="`bg-${block.color} relative-position hover-highlight`"
+                                :class="`bg-${getGanttColor(block)} relative-position hover-highlight`"
                                 :style="{ width: getBlockWidth(block.duration_min) + '%', minWidth: '2px' }"
                             >
                                 <q-tooltip anchor="top middle" self="bottom middle">
@@ -396,6 +416,7 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, onMounted, computed } from 'vue';
 import { date, exportFile, useQuasar } from 'quasar';
 import type { QTableColumn } from 'quasar';
@@ -414,13 +435,12 @@ const activeTab = ref('machine');
 const filterDate = ref(date.formatDate(new Date(), 'YYYY-MM-DD'));
 const selectedMachine = ref<number | null>(null);
 const isLoading = ref(false);
-const machineStats = ref<MachineStats | null>(null); // Estado para as novas métricas
+const machineStats = ref<MachineStats | null>(null);
 
 const machineOptions = computed(() => 
     productionStore.machinesList.map(m => ({ label: `${m.brand} ${m.model}`, value: m.id }))
 );
 
-// --- COLUNAS DA TABELA MÁQUINA ---
 const columns: QTableColumn[] = [
   { name: 'timestamp', label: 'Data/Hora', field: 'timestamp', align: 'left', sortable: true },
   { name: 'event_type', label: 'Tipo Evento', field: 'event_type', align: 'left', sortable: true },
@@ -454,7 +474,6 @@ function onOperatorClick(evt: Event, row: EmployeeStat) {
     void router.push(`/users/${row.id}/stats`);
 }
 
-// --- TRADUÇÕES E FORMATAÇÃO (NOVO) ---
 function translateEventType(type: string): string {
     const map: Record<string, string> = {
         'LOGIN': 'Entrada (Login)',
@@ -471,21 +490,39 @@ function translateEventType(type: string): string {
 
 function translateStatus(status: string): string {
     const s = String(status || '').toUpperCase();
-    if (s.includes('RUNNING') || s.includes('OPERATION')) return 'EM OPERAÇÃO';
+    if (s.includes('RUNNING') || s.includes('OPERATION') || s.includes('EM USO')) return 'EM OPERAÇÃO';
     if (s.includes('PAUSED') || s.includes('STOPPED')) return 'PAUSADA';
-    if (s.includes('MAINTENANCE')) return 'MANUTENÇÃO';
+    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'MANUTENÇÃO';
     if (s.includes('IDLE')) return 'DISPONÍVEL';
     if (s.includes('SETUP')) return 'EM SETUP';
     return status;
 }
 
+// [NOVA FUNÇÃO] Lógica de Cor para o Gantt (Inclui Setup Roxo)
+function getGanttColor(block: any) {
+    const s = String(block.status || '').toUpperCase();
+    const r = String(block.reason || '').toUpperCase();
+    
+    // Prioridade máxima para Setup
+    if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) {
+        return 'purple';
+    }
+    
+    // Cores padrão
+    if (s.includes('RUNNING') || s.includes('PRODUCING')) return 'green';
+    if (s.includes('MAINTENANCE')) return 'red';
+    if (s.includes('PAUSED') || s.includes('STOPPED')) return 'orange';
+    
+    return 'grey';
+}
+
 function getStatusColor(status: string) {
     const s = String(status).toUpperCase();
-    if (s.includes('RUNNING') || s.includes('OPERAÇÃO')) return 'positive';
+    if (s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('EM USO')) return 'positive';
     if (s.includes('STOPPED') || s.includes('PAUSA')) return 'orange';
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'negative';
     if (s.includes('IDLE') || s.includes('DISPONÍVEL')) return 'grey-7';
-    if (s.includes('SETUP')) return 'blue';
+    if (s.includes('SETUP')) return 'purple'; // Setup Roxo
     return 'grey';
 }
 
@@ -518,16 +555,13 @@ function formatTime(isoStr: string) {
     return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-// --- ATUALIZAÇÃO DOS DADOS ---
 async function refreshData() {
     isLoading.value = true;
     try {
         await mesStore.fetchEmployeeStats(filterDate.value, filterDate.value);
         if (selectedMachine.value) {
-            // Carrega Logs
             await mesStore.fetchDailyTimeline(selectedMachine.value, filterDate.value);
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
-            // [NOVO] Carrega Estatísticas de Tempo Calculadas
             machineStats.value = await ProductionService.getMachineStats(selectedMachine.value, filterDate.value);
         }
     } catch (e) {
@@ -553,7 +587,6 @@ function exportToCsv() {
         mesStore.rawLogs.forEach(row => {
             const cleanReason = (row.reason || '').replace(/;/g, ',');
             const cleanDetails = (row.details || '').replace(/;/g, ',');
-            // Traduzido para o CSV
             content += `${new Date(row.timestamp).toLocaleString()};${translateEventType(row.event_type)};${translateStatus(row.new_status || '')};${cleanReason};${row.operator_name || ''};${cleanDetails}\n`;
         });
     } else {
@@ -608,13 +641,14 @@ onMounted(async () => {
 .border-left-blue { border-left: 5px solid #2196f3; }
 .border-left-orange { border-left: 5px solid #ff9800; }
 .border-left-red { border-left: 5px solid #f44336; }
+.border-left-purple { border-left: 5px solid #9C27B0; } /* [NOVO] */
 
-/* Ajustes para Impressão */
 @media print {
     .q-page { background: white !important; }
     .q-btn, .q-header, .q-drawer, .q-tabs { display: none !important; }
     .q-card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
     .bg-positive { background-color: #21BA45 !important; -webkit-print-color-adjust: exact; }
     .bg-negative { background-color: #C10015 !important; -webkit-print-color-adjust: exact; }
+    .bg-purple { background-color: #9C27B0 !important; -webkit-print-color-adjust: exact; } /* [NOVO] */
 }
 </style>
