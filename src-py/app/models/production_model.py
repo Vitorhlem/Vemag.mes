@@ -1,8 +1,76 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float, Text, Boolean, Enum as SAEnum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Date, JSON
+from sqlalchemy.orm import relationship
 from typing import Optional, List
 from app.db.base_class import Base
+
+class EmployeeDailyMetric(Base):
+    """
+    Tabela de Fechamento Diário.
+    Armazena o desempenho consolidado do operador em um dia específico.
+    """
+    __tablename__ = "employee_daily_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, index=True)
+    
+    # [CORREÇÃO] Removemos a ForeignKey para evitar erro de 'table not found' na inicialização.
+    # O ID será salvo normalmente, e o relacionamento via 'relationship' abaixo funciona igual.
+    user_id = Column(Integer, nullable=False)
+    
+    # Já havíamos removido a FK daqui também:
+    organization_id = Column(Integer, nullable=False)
+    
+    # Métricas Consolidadas (Snapshot)
+    total_hours = Column(Float, default=0.0)
+    productive_hours = Column(Float, default=0.0)
+    unproductive_hours = Column(Float, default=0.0)
+    efficiency = Column(Float, default=0.0)
+    
+    # Detalhes Ricos (JSON)
+    top_reasons_snapshot = Column(JSON, default=[]) 
+    
+    # Metadados de Auditoria
+    closed_at = Column(DateTime, default=datetime.now)
+    version = Column(String, default="v1")
+
+    # Relacionamento com User (Isso funciona pois usa string "User" e é resolvido depois)
+    # primaryjoin ajuda o SQLAlchemy a saber como ligar as tabelas sem a ForeignKey explícita na coluna
+    user = relationship("User", primaryjoin="foreign(EmployeeDailyMetric.user_id) == User.id")
+
+class VehicleDailyMetric(Base):
+    """
+    Snapshot Diário de Performance da Máquina.
+    """
+    __tablename__ = "vehicle_daily_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, index=True)
+    
+    # Sem ForeignKey explícita para evitar conflito de importação
+    vehicle_id = Column(Integer, nullable=False)
+    organization_id = Column(Integer, nullable=False)
+    
+    # KPIs
+    total_hours = Column(Float, default=0.0)       # 24h ou tempo de turno
+    running_hours = Column(Float, default=0.0)     # Produzindo
+    idle_hours = Column(Float, default=0.0)        # Parada sem justificativa
+    maintenance_hours = Column(Float, default=0.0) # Quebrada/Manutenção
+    planned_stop_hours = Column(Float, default=0.0) # Setup, Almoço
+    
+    # Indicadores Calculados
+    availability = Column(Float, default=0.0) # (Run / (Total - Planned))
+    utilization = Column(Float, default=0.0)  # (Run / Total)
+    
+    # Detalhes
+    top_reasons_snapshot = Column(JSON, default=[]) # JSON
+    
+    closed_at = Column(DateTime, default=datetime.now)
+
+    # Relacionamento Lazy
+    vehicle = relationship("Vehicle", primaryjoin="foreign(VehicleDailyMetric.vehicle_id) == Vehicle.id")
 
 class ProductionOrder(Base):
     __tablename__ = "production_orders"

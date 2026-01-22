@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 # Models
-from app.models.production_model import ProductionLog, ProductionOrder, ProductionSession, ProductionTimeSlice
+from app.models.production_model import VehicleDailyMetric, EmployeeDailyMetric, ProductionLog, ProductionOrder, ProductionSession, ProductionTimeSlice
 from app.models.vehicle_model import Vehicle, VehicleStatus
 from app.models.user_model import User
 
@@ -42,6 +42,103 @@ class ProductionService:
         return None
 
     @staticmethod
+    async def consolidate_machine_metrics(db: AsyncSession, target_date: date):
+        """
+        Calcula e salva o desempenho das MÁQUINAS.
+        """
+        print(f"🚜 [CRON] Consolidando Máquinas para: {target_date}")
+        
+        start_of_day = datetime.combine(target_date, datetime.min.time())
+        end_of_day = datetime.combine(target_date, datetime.max.time())
+        
+        # 1. Busca máquinas ativas (que tiveram logs ou estão cadastradas)
+        # Para simplificar, pegamos todas as máquinas da frota
+        # Importe Vehicle dentro do método para evitar ciclo se necessário, ou use select direto
+        from app.models.vehicle_model import Vehicle
+        machines = (await db.execute(select(Vehicle))).scalars().all()
+        
+        count = 0
+        for machine in machines:
+            # 2. Calcula métricas baseadas em TIME SLICES (Mais preciso para máquina)
+            # Precisamos das fatias que tocaram o dia alvo
+            q_slices = select(ProductionTimeSlice).where(
+                ProductionTimeSlice.vehicle_id == machine.id,
+                ProductionTimeSlice.start_time <= end_of_day,
+                (ProductionTimeSlice.end_time >= start_of_day) | (ProductionTimeSlice.end_time == None)
+            )
+            slices = (await db.execute(q_slices)).scalars().all()
+            
+            run_sec = 0.0
+            maint_sec = 0.0
+            planned_sec = 0.0
+            idle_sec = 0.0
+            reasons_map = {}
+            
+            for s in slices:
+                # Recorte do tempo para caber no dia (se a fatia virou a noite)
+                s_start = max(s.start_time, start_of_day)
+                s_end = min(s.end_time or datetime.now(), end_of_day)
+                
+                duration = (s_end - s_start).total_seconds()
+                if duration <= 0: continue
+                
+                cat = (s.category or "").upper()
+                reason = (s.reason or "").upper()
+                
+                if cat == "PRODUCING" or cat == "RUNNING":
+                    run_sec += duration
+                elif cat == "PLANNED_STOP" or "SETUP" in reason:
+                    planned_sec += duration
+                elif "MAINTENANCE" in cat or "MANUTENÇÃO" in reason:
+                    maint_sec += duration
+                else:
+                    idle_sec += duration
+                    # Motivos de ociosidade
+                    if duration > 60:
+                        lbl = s.reason or "Ocioso"
+                        reasons_map[lbl] = reasons_map.get(lbl, 0) + 1
+
+            total_sec = run_sec + maint_sec + planned_sec + idle_sec
+            if total_sec == 0: total_sec = 1 # Evitar div/0
+            
+            # Cálculos OEE Simplificados
+            # Disponibilidade = Tempo Rodando / (Tempo Total - Paradas Planejadas)
+            available_time = total_sec - planned_sec
+            availability = (run_sec / available_time * 100) if available_time > 0 else 0.0
+            
+            # Utilização = Tempo Rodando / Tempo Total Calendário (24h ou Turno)
+            utilization = (run_sec / total_sec * 100)
+            
+            # Top Motivos
+            top_reasons = [{"label": k, "count": v} for k, v in sorted(reasons_map.items(), key=lambda x: x[1], reverse=True)[:3]]
+
+            # 3. Persistir
+            q_exist = select(VehicleDailyMetric).where(
+                VehicleDailyMetric.date == target_date,
+                VehicleDailyMetric.vehicle_id == machine.id
+            )
+            metric = (await db.execute(q_exist)).scalars().first()
+            
+            if not metric:
+                metric = VehicleDailyMetric(date=target_date, vehicle_id=machine.id, organization_id=1)
+                db.add(metric)
+            
+            metric.total_hours = round(total_sec / 3600, 2)
+            metric.running_hours = round(run_sec / 3600, 2)
+            metric.maintenance_hours = round(maint_sec / 3600, 2)
+            metric.planned_stop_hours = round(planned_sec / 3600, 2)
+            metric.idle_hours = round(idle_sec / 3600, 2)
+            metric.availability = round(availability, 1)
+            metric.utilization = round(utilization, 1)
+            metric.top_reasons_snapshot = top_reasons
+            metric.closed_at = datetime.now()
+            
+            count += 1
+            
+        await db.commit()
+        return count
+
+    @staticmethod
     async def open_new_slice(
         db: AsyncSession, 
         vehicle_id: int, 
@@ -66,6 +163,115 @@ class ProductionService:
         db.add(new_slice)
         await db.commit()
         return new_slice
+
+
+    @staticmethod
+    async def consolidate_daily_metrics(db: AsyncSession, target_date: date):
+        """
+        Executa o Fechamento Diário: Calcula métricas baseadas em LOGS e salva no banco.
+        Pode ser rodado várias vezes para o mesmo dia (atualiza os dados se já existirem).
+        """
+        print(f"🔄 [CRON] Iniciando Fechamento Diário para: {target_date}")
+        
+        start_of_day = datetime.combine(target_date, datetime.min.time())
+        end_of_day = datetime.combine(target_date, datetime.max.time())
+        
+        # 1. Busca todos os usuários (da organização 1 por padrão ou itera por orgs)
+        # Para simplificar, vamos pegar todos os usuários que tiveram logs no dia
+        q_active_users = select(ProductionLog.operator_id).where(
+            ProductionLog.timestamp >= start_of_day,
+            ProductionLog.timestamp <= end_of_day,
+            ProductionLog.operator_id != None
+        ).distinct()
+        
+        active_user_ids = (await db.execute(q_active_users)).scalars().all()
+        
+        count = 0
+        for user_id in active_user_ids:
+            # 2. Reutiliza a Lógica de Logs (Aprovada) para calcular este usuário
+            q_logs = select(ProductionLog).where(
+                ProductionLog.operator_id == user_id,
+                ProductionLog.timestamp >= start_of_day,
+                ProductionLog.timestamp <= end_of_day
+            ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
+            
+            user_logs = (await db.execute(q_logs)).scalars().all()
+            
+            prod_sec = 0.0
+            unprod_sec = 0.0
+            reasons_map = {}
+            
+            # Algoritmo de Reconstrução de Linha do Tempo
+            for log in user_logs:
+                q_next = select(ProductionLog).where(
+                    ProductionLog.vehicle_id == log.vehicle_id,
+                    ProductionLog.timestamp > log.timestamp
+                ).order_by(ProductionLog.timestamp.asc()).limit(1)
+                next_log = (await db.execute(q_next)).scalars().first()
+                
+                # Se não tem próximo log no dia, assume fim do dia ou agora (se for hoje)
+                limit_time = end_of_day
+                if target_date == date.today():
+                    limit_time = datetime.now()
+                
+                next_time = next_log.timestamp if next_log else limit_time
+                
+                # Truncar para o dia alvo (caso o próximo log seja amanhã)
+                if next_time > end_of_day: next_time = end_of_day
+                
+                duration = (next_time - log.timestamp).total_seconds()
+                duration = max(0.0, duration) # Proteção
+
+                st = (log.new_status or "").upper()
+                reason = (log.reason or "").upper()
+                
+                # Regra: Setup = Produtivo
+                is_running = st in ["RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "IN_USE"]
+                is_setup = "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason
+                
+                if is_running or is_setup:
+                    prod_sec += duration
+                else:
+                    unprod_sec += duration
+                    if duration > 60:
+                        lbl = log.reason or st or "Parada genérica"
+                        if lbl not in reasons_map: reasons_map[lbl] = 0
+                        reasons_map[lbl] += 1
+
+            total_sec = prod_sec + unprod_sec
+            efficiency = (prod_sec / total_sec * 100) if total_sec > 0 else 0.0
+            
+            # Top 3 Motivos
+            sorted_reasons = sorted(reasons_map.items(), key=lambda x: x[1], reverse=True)[:3]
+            top_reasons_list = [{"label": k, "count": v} for k, v in sorted_reasons]
+
+            # 3. Salvar/Atualizar na Tabela de Métricas
+            q_exists = select(EmployeeDailyMetric).where(
+                EmployeeDailyMetric.date == target_date,
+                EmployeeDailyMetric.user_id == user_id
+            )
+            metric_entry = (await db.execute(q_exists)).scalars().first()
+            
+            if not metric_entry:
+                metric_entry = EmployeeDailyMetric(
+                    date=target_date, 
+                    user_id=user_id, 
+                    organization_id=1 # Fixo por enquanto, ou pegar do User
+                )
+                db.add(metric_entry)
+            
+            metric_entry.total_hours = round(total_sec / 3600, 2)
+            metric_entry.productive_hours = round(prod_sec / 3600, 2)
+            metric_entry.unproductive_hours = round(unprod_sec / 3600, 2)
+            metric_entry.efficiency = round(efficiency, 1)
+            metric_entry.top_reasons_snapshot = top_reasons_list
+            metric_entry.closed_at = datetime.now()
+            
+            count += 1
+        
+        await db.commit()
+        print(f"✅ [CRON] Fechamento de {target_date} concluído. {count} registros processados.")
+        return count
 
     @staticmethod
     async def handle_event(

@@ -3,13 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_
 from sqlalchemy.orm import selectinload
 from datetime import datetime, date, time, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel
 
 # Imports do Projeto
 from app.db.session import get_db
 from app import deps
-from app.models.production_model import ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
+from app.models.production_model import VehicleDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
 from app.models.user_model import User
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
@@ -53,6 +53,88 @@ class MachineDailyStats(BaseModel):
 
 # ============================================================================
 # 0. ESTATÍSTICAS DE FUNCIONÁRIOS (MOVIDO PARA CIMA PARA EVITAR ERRO 422)
+
+@router.post("/closing/force")
+async def force_daily_closing(
+    target_date: date = None, 
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    if not target_date: target_date = date.today()
+    
+    # Roda ambos os processos
+    users_count = await ProductionService.consolidate_daily_metrics(db, target_date)
+    machines_count = await ProductionService.consolidate_machine_metrics(db, target_date)
+    
+    return {
+        "message": "Fechamento Completo executado", 
+        "date": target_date, 
+        "processed": {"users": users_count, "machines": machines_count}
+    }
+
+@router.post("/closing/force")
+async def force_daily_closing(
+    target_date: date = None, 
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Força o cálculo e persistência das métricas para uma data específica.
+    Útil para regenerar histórico ou testar o fechamento.
+    """
+    if not current_user.is_superuser: # Opcional: Proteger rota
+        pass 
+
+    if not target_date:
+        target_date = date.today() # Padrão: Fecha o dia de hoje (parcial)
+        
+    count = await ProductionService.consolidate_daily_metrics(db, target_date)
+    
+    return {"message": "Fechamento executado com sucesso", "date": target_date, "processed_users": count}
+
+@router.get("/reports/daily-closing", response_model=List[Any]) # Usando List[Any] para flexibilidade ou crie um Schema
+async def get_daily_closing_report(
+    target_date: date,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Busca o relatório consolidado (Snapshot) de um dia específico.
+    É super rápido pois não calcula nada, apenas lê da tabela de métricas.
+    """
+    org_id = current_user.organization_id if current_user else 1
+    
+    # Busca na tabela de snapshot (EmployeeDailyMetric)
+    query = select(EmployeeDailyMetric).where(
+        EmployeeDailyMetric.date == target_date,
+        EmployeeDailyMetric.organization_id == org_id
+    ).order_by(desc(EmployeeDailyMetric.total_hours))
+    
+    # Precisamos fazer um join ou carregar o nome do usuário, 
+    # pois a tabela de métricas só tem o user_id
+    # Vamos fazer Eager Loading do User
+    query = query.options(selectinload(EmployeeDailyMetric.user))
+    
+    results = (await db.execute(query)).scalars().all()
+    
+    report_data = []
+    for row in results:
+        report_data.append({
+            "id": row.id,
+            "user_id": row.user_id,
+            "employee_name": row.user.full_name if row.user else f"ID {row.user_id}",
+            "total_hours": row.total_hours,
+            "productive_hours": row.productive_hours,
+            "unproductive_hours": row.unproductive_hours,
+            "efficiency": row.efficiency,
+            "top_reasons": row.top_reasons_snapshot, # Já é JSON
+            "closed_at": row.closed_at
+        })
+        
+    return report_data
+
+
+
 @router.get("/stats/employees", response_model=List[EmployeeStatsRead])
 async def get_employee_stats(
     start_date: Optional[date] = None,
@@ -843,3 +925,70 @@ async def get_production_order(
         return sap_data
         
     raise HTTPException(status_code=404, detail="OP não encontrada no SAP")
+
+@router.get("/reports/daily-closing/employees", response_model=List[Any])
+async def get_daily_employee_report(
+    target_date: date,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Retorna o histórico consolidado de OPERADORES para a data.
+    """
+    org_id = current_user.organization_id if current_user else 1
+    
+    query = select(EmployeeDailyMetric).options(selectinload(EmployeeDailyMetric.user)).where(
+        EmployeeDailyMetric.date == target_date,
+        EmployeeDailyMetric.organization_id == org_id
+    ).order_by(desc(EmployeeDailyMetric.total_hours))
+    
+    results = (await db.execute(query)).scalars().all()
+    
+    report_data = []
+    for row in results:
+        # Garante que user não seja None para evitar erro
+        user_name = "Desconhecido"
+        if row.user:
+            user_name = row.user.full_name or row.user.email
+        
+        report_data.append({
+            "id": row.id,
+            "user_id": row.user_id,
+            "employee_name": user_name,
+            "total_hours": row.total_hours,
+            "productive_hours": row.productive_hours,
+            "unproductive_hours": row.unproductive_hours,
+            "efficiency": row.efficiency,
+            "top_reasons": row.top_reasons_snapshot,
+            "closed_at": row.closed_at
+        })
+        
+    return report_data
+
+@router.get("/reports/daily-closing/vehicles", response_model=List[Any])
+async def get_daily_vehicle_report(
+    target_date: date,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    org_id = current_user.organization_id if current_user else 1
+    query = select(VehicleDailyMetric).options(selectinload(VehicleDailyMetric.vehicle)).where(
+        VehicleDailyMetric.date == target_date,
+        VehicleDailyMetric.organization_id == org_id
+    ).order_by(desc(VehicleDailyMetric.running_hours))
+    
+    results = (await db.execute(query)).scalars().all()
+    
+    report = []
+    for row in results:
+        report.append({
+            "id": row.id,
+            "vehicle_name": f"{row.vehicle.brand} {row.vehicle.model}" if row.vehicle else f"ID {row.vehicle_id}",
+            "running_hours": row.running_hours,
+            "maintenance_hours": row.maintenance_hours,
+            "idle_hours": row.idle_hours,
+            "availability": row.availability,
+            "utilization": row.utilization,
+            "top_reasons": row.top_reasons_snapshot
+        })
+    return report

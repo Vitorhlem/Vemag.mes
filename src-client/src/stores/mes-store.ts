@@ -34,6 +34,28 @@ export interface TimelineBlock {
   color: string;
 }
 
+export interface DailyMetric {
+  id: number;
+  employee_name: string;
+  total_hours: number;
+  productive_hours: number;
+  unproductive_hours: number;
+  efficiency: number;
+  top_reasons: { label: string; count: number }[];
+  closed_at: string;
+}
+
+export interface VehicleMetric {
+  id: number;
+  vehicle_name: string;
+  running_hours: number;
+  maintenance_hours: number;
+  idle_hours: number;
+  availability: number;
+  utilization: number;
+  top_reasons: { label: string; count: number }[];
+}
+
 export interface EmployeeStat {
   id: number;
   employee_name: string;
@@ -64,6 +86,9 @@ export const useMesStore = defineStore('mes', () => {
   const employeeStats = ref<EmployeeStat[]>([]);
   const userSessions = ref<SessionDetail[]>([]);
   const isLoading = ref(false);
+  const dailyHistory = ref<DailyMetric[]>([]); // Novo State
+  const dailyEmployeeHistory = ref<DailyMetric[]>([]);
+  const dailyVehicleHistory = ref<VehicleMetric[]>([]);
 
   // --- ACTIONS ---
 
@@ -107,6 +132,42 @@ export const useMesStore = defineStore('mes', () => {
     } catch (error) {
       console.error('Erro Stats Funcionario', error);
       employeeStats.value = [];
+    } finally {
+      isLoading.value = false;
+    }
+  
+  }
+
+
+  async function fetchDailyHistory(date: string) {
+    try {
+      isLoading.value = true;
+      // Busca em paralelo
+      const [resEmp, resVeh] = await Promise.all([
+        api.get<DailyMetric[]>('/production/reports/daily-closing/employees', { params: { target_date: date } }),
+        api.get<VehicleMetric[]>('/production/reports/daily-closing/vehicles', { params: { target_date: date } })
+      ]);
+      
+      dailyEmployeeHistory.value = resEmp.data;
+      dailyVehicleHistory.value = resVeh.data;
+    } catch (error) {
+      console.error('Erro ao buscar histórico consolidado', error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // [NOVO] Forçar Fechamento Manual
+  async function forceDailyClosing(date: string) {
+    try {
+      isLoading.value = true;
+      await api.post('/production/closing/force', { target_date: date });
+      // Após forçar, recarrega a lista para mostrar o resultado
+      await fetchDailyHistory(date);
+      return true;
+    } catch (error) {
+      console.error('Erro ao processar fechamento', error);
+      return false;
     } finally {
       isLoading.value = false;
     }
@@ -176,6 +237,12 @@ export const useMesStore = defineStore('mes', () => {
     fetchMachineOEE,
     fetchDailyTimeline,
     fetchEmployeeStats,
-    fetchUserSessions
+    fetchUserSessions,
+    dailyHistory,
+    fetchDailyHistory,
+    forceDailyClosing,
+    dailyEmployeeHistory,
+    dailyVehicleHistory,
+
   };
 });
