@@ -629,7 +629,19 @@ function exportToCsv() {
 }
 
 function printReport() {
-    window.print();
+    // Monta a URL da nova página de impressão
+    const routeData = router.resolve({
+        path: '/print/mes-report',
+        query: { 
+            // Passa os filtros atuais para a nova página
+            date: filterDate.value, 
+            machineId: selectedMachine.value,
+            type: activeTab.value // 'machine' ou 'employee'
+        }
+    });
+    
+    // Abre em nova aba
+    window.open(routeData.href, '_blank');
 }
 
 onMounted(async () => {

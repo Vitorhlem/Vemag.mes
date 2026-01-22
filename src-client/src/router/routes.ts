@@ -200,6 +200,17 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
+  {
+    path: '/print',
+    component: () => import('layouts/BlankLayout.vue'), // Usa o layout vazio existente
+    children: [
+      { 
+        path: 'mes-report', 
+        component: () => import('pages/PrintMesReportPage.vue') 
+      }
+    ]
+  },
+
   // =========================================================================
   // 4. ERROS (404)
   // =========================================================================
