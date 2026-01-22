@@ -348,25 +348,99 @@ async def open_andon_alert(
     return {"status": "success", "alert_id": new_alert.id}
 
 # ============================================================================
-# 6. REGISTRO DE EVENTOS (MES CORE)
+# 6. REGISTRO DE EVENTOS (MES CORE) - COM DEBUGGER DETALHADO
 # ============================================================================
 @router.post("/event")
 async def register_production_event(
     event: production_schema.ProductionEventCreate,
     db: AsyncSession = Depends(deps.get_db)
 ):
-    """
-    Endpoint Central do Cockpit.
-    Delega toda a lógica para o ProductionService.
-    """
+    print(f"\n🔍 [PASSO 1] Recebido do Front: Tipo={event.event_type} | Badge='{event.operator_badge}'")
+
     try:
+        # 1. Executa o serviço padrão
         result = await ProductionService.handle_event(db, event)
+        print(f"🔍 [PASSO 2] Resultado do Service: {type(result)}")
+        # print(f"   Dados: {result}") # Descomente se quiser ver o objeto inteiro
+
+        # 2. Descobre o ID do Log e do Operador de forma segura
+        log_id = None
+        current_op_id = None
+
+        if isinstance(result, dict):
+            log_id = result.get('id')
+            current_op_id = result.get('operator_id')
+            print(f"   -> É um Dicionário. Log ID: {log_id} | Op ID: {current_op_id}")
+        else:
+            # Tenta pegar como atributo de objeto ou Pydantic model
+            log_id = getattr(result, 'id', None)
+            current_op_id = getattr(result, 'operator_id', None)
+            print(f"   -> É um Objeto. Log ID: {log_id} | Op ID: {current_op_id}")
+
+        # 3. Verifica se precisa corrigir
+        raw_badge = str(event.operator_badge).strip() if event.operator_badge else ""
+        
+        if not current_op_id and raw_badge:
+            print(f"⚠️ [FIX] Detectado Log sem Operador (System). Iniciando busca manual por: '{raw_badge}'")
+            
+            # Busca Usuário
+            query_user = select(User).where(or_(
+                User.employee_id == raw_badge,
+                func.lower(User.email) == raw_badge.lower()
+            ))
+            res_user = await db.execute(query_user)
+            user = res_user.scalars().first()
+            
+            if user:
+                print(f"✅ [FIX] Usuário encontrado no DB: {user.full_name} (ID: {user.id})")
+                
+                if log_id:
+                    # Busca o Log real no banco para editar
+                    log_entry = await db.get(ProductionLog, log_id)
+                    if log_entry:
+                        log_entry.operator_id = user.id
+                        db.add(log_entry)
+                        await db.commit()
+                        await db.refresh(log_entry)
+                        print(f"🚀 [FIX] SUCESSO! Log {log_id} atualizado para User ID {user.id}")
+                        
+                        # Atualiza o resultado visual para retornar ao front correto
+                        if isinstance(result, dict):
+                            result['operator_id'] = user.id
+                            result['operator_name'] = user.full_name
+                        else:
+                            # Se for objeto pydantic ou orm, tentamos atualizar
+                            try:
+                                result.operator_id = user.id
+                                # Se tiver campo name no schema de resposta
+                                if hasattr(result, 'operator_name'):
+                                    result.operator_name = user.full_name
+                            except:
+                                pass
+                    else:
+                        print(f"❌ [FIX ERRO] Não consegui recarregar o Log ID {log_id} do banco.")
+                else:
+                    print("❌ [FIX ERRO] O serviço criou o log mas não retornou o ID dele.")
+            else:
+                print(f"❌ [FIX FALHA] Usuário NÃO encontrado no banco para o crachá '{raw_badge}'")
+                
+                # Debug Extra: Mostra quem está no banco pra conferir
+                debug_q = select(User.employee_id, User.full_name).limit(5)
+                d_res = await db.execute(debug_q)
+                print(f"   (Amostra do banco: {d_res.all()})")
+        
+        elif current_op_id:
+            print(f"✅ [OK] O log já foi criado com Operador ID: {current_op_id}. Nenhuma correção necessária.")
+        else:
+            print("ℹ️ [INFO] Sem crachá enviado ou log anônimo intencional.")
+
         return result
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+
     except Exception as e:
-        print(f"[ERRO CRÍTICO] Event Handler: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        print(f"❌ [ERRO FATAL] {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
 # 7. HISTÓRICO
@@ -392,9 +466,11 @@ async def get_machine_history(
     history = []
     for log in logs:
         op_name = "System"
+        op_id = None # ID para o link
         if log.operator_id:
             op = await db.get(User, log.operator_id)
             if op: op_name = op.full_name or op.email
+            op_id = op.id # Pega o ID real do usuário
             
         history.append({
             "id": log.id,
@@ -403,7 +479,8 @@ async def get_machine_history(
             "new_status": log.new_status,
             "reason": log.reason,
             "details": log.details,
-            "operator_name": op_name
+            "operator_name": op_name,
+            "operator_id": op_id # <--- CAMPO NOVO (Verifique seu Schema production_schema)
         })
         
     return history

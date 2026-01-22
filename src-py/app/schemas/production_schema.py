@@ -69,6 +69,7 @@ class ProductionLogRead(BaseModel):
     reason: Optional[str] = None
     details: Optional[str] = None
     operator_name: Optional[str] = None 
+    operator_id: Optional[int] = None # Link clicável
 
     class Config:
         from_attributes = True

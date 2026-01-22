@@ -298,6 +298,22 @@
                                 </q-td>
                             </template>
 
+                            <template v-slot:body-cell-operator_name="props">
+                                <q-td :props="props">
+                                    <div 
+                                        v-if="props.row.operator_id" 
+                                        class="text-primary text-weight-bold cursor-pointer hover-underline"
+                                        @click.stop="goToUserProfile(props.row.operator_id)"
+                                    >
+                                        {{ props.value }}
+                                        <q-tooltip>Ver Perfil</q-tooltip>
+                                    </div>
+                                    <div v-else class="text-grey-7 italic">
+                                        {{ props.value || 'System' }}
+                                    </div>
+                                </q-td>
+                            </template>
+
                             <template v-slot:body-cell-timestamp="props">
                                 <q-td :props="props">
                                     {{ new Date(props.value).toLocaleString('pt-BR') }}
@@ -487,6 +503,11 @@ function translateEventType(type: string): string {
     };
     return map[type] || type;
 }
+function goToUserProfile(userId: number) {
+    if (userId) {
+        router.push(`/users/${userId}/stats`);
+    }
+}
 
 function translateStatus(status: string): string {
     const s = String(status || '').toUpperCase();
@@ -495,6 +516,7 @@ function translateStatus(status: string): string {
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'MANUTENÇÃO';
     if (s.includes('IDLE')) return 'DISPONÍVEL';
     if (s.includes('SETUP')) return 'EM SETUP';
+    if (s.includes('AVAILABLE')) return 'PARADA';
     return status;
 }
 
@@ -512,6 +534,7 @@ function getGanttColor(block: any) {
     if (s.includes('RUNNING') || s.includes('PRODUCING')) return 'green';
     if (s.includes('MAINTENANCE')) return 'red';
     if (s.includes('PAUSED') || s.includes('STOPPED')) return 'orange';
+    
     
     return 'grey';
 }
@@ -635,7 +658,9 @@ onMounted(async () => {
     background-color: #f5f5f5;
     transition: background-color 0.2s;
 }
-
+.hover-underline:hover {
+    text-decoration: underline;
+}
 /* Bordas Coloridas nos Cards de Tempo */
 .border-left-green { border-left: 5px solid #4caf50; }
 .border-left-blue { border-left: 5px solid #2196f3; }

@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 
 # Models
 from app.models.production_model import ProductionLog, ProductionOrder, ProductionSession, ProductionTimeSlice
@@ -71,9 +71,10 @@ class ProductionService:
     async def handle_event(
         db: AsyncSession, 
         event: ProductionEventCreate
-    ):
+    ) -> Dict[str, Any]: # Mudamos o retorno para Dict genérico para incluir o Log
         """
         Processa um evento bruto vindo do Frontend e gerencia as fatias de tempo.
+        Retorna um dicionário com os dados do Log criado.
         """
         timestamp = datetime.now()
         
@@ -98,9 +99,18 @@ class ProductionService:
             order = await db.get(ProductionOrder, session.production_order_id)
 
         # 2. Registrar Log Bruto (Auditoria)
-        # Buscar ID do operador pelo crachá
-        q_user = select(User).where(User.email == event.operator_badge)
-        user = (await db.execute(q_user)).scalars().first()
+        # Buscar ID do operador pelo crachá (email ou employee_id)
+        user = None
+        if event.operator_badge:
+            clean_badge = str(event.operator_badge).strip()
+            # Tenta busca robusta
+            # IMPORTANTE: Se não achar aqui, o ID será None e o 'Fail-Safe' do Endpoint corrigirá depois.
+            from sqlalchemy import or_
+            q_user = select(User).where(or_(
+                User.employee_id == clean_badge,
+                User.email == clean_badge
+            ))
+            user = (await db.execute(q_user)).scalars().first()
         
         log = ProductionLog(
             vehicle_id=machine.id,
@@ -114,10 +124,12 @@ class ProductionService:
             details=event.details,
             timestamp=timestamp
         )
-        db.add(log)
+        db.add(log) # Adiciona na sessão, mas ID ainda não existe
 
         # 3. Lógica de Fatias de Tempo (Time Slices)
         # Só mexe nas fatias se houver mudança de status ou início/fim de turno
+        status_map_category = {} # Inicializa para evitar erro de referência
+        
         if event.new_status:
             # Mapeamento: Status Frontend -> Categoria TimeSlice (MES)
             status_map_category = {
@@ -183,8 +195,20 @@ class ProductionService:
                 session.total_scrap += (event.quantity_scrap or 0)
                 db.add(session)
 
-        await db.commit()
-        return {"status": "processed", "new_category": status_map_category.get(event.new_status.upper()) if event.new_status else None}
+        # FINALIZAÇÃO
+        await db.commit() # Salva tudo no banco
+        
+        # [CRÍTICO] Atualiza o objeto log com o ID gerado pelo banco
+        await db.refresh(log) 
+        
+        # Monta o retorno com dados do LOG para o endpoint usar
+        return {
+            "id": log.id, # <--- AGORA TEM ID
+            "status": "processed", 
+            "operator_id": log.operator_id,
+            "operator_name": user.full_name if user else None,
+            "new_category": status_map_category.get(event.new_status.upper()) if event.new_status else None
+        }
 
     @staticmethod
     async def calculate_oee(db: AsyncSession, vehicle_id: int, start_date: datetime, end_date: datetime):
