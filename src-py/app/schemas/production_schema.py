@@ -116,8 +116,11 @@ class EmployeeStatsRead(BaseModel):
     productive_hours: float
     unproductive_hours: float
     efficiency: float
-    top_reasons: List[dict]
+    # Usar List[Any] ou List[Dict] evita erro 422 se o formato interno variar
+    top_reasons: List[Any] = [] 
 
+    class Config:
+        from_attributes = True
 class EmployeeDetailRead(BaseModel):
     total_hours: float
     productive_hours: float

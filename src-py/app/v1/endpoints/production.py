@@ -14,7 +14,7 @@ from app.models.user_model import User
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from app.schemas import production_schema, vehicle_schema, user_schema
-from app.schemas.production_schema import ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats
+from app.schemas.production_schema import EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats
 
 # Import do Modelo Vehicle (com fallback de nome)
 try:
@@ -50,6 +50,111 @@ class MachineDailyStats(BaseModel):
     formatted_setup: str           # <--- NOVO
     formatted_pause: str           # <--- NOVO
 
+
+# ============================================================================
+# 0. ESTATÍSTICAS DE FUNCIONÁRIOS (MOVIDO PARA CIMA PARA EVITAR ERRO 422)
+@router.get("/stats/employees", response_model=List[EmployeeStatsRead])
+async def get_employee_stats(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_active_user)
+):
+    if not start_date: start_date = date.today().replace(day=1)
+    if not end_date: end_date = date.today()
+        
+    dt_start = datetime.combine(start_date, time.min)
+    dt_end = datetime.combine(end_date, time.max)
+    
+    # 1. Busca Operadores da Organização
+    org_id = current_user.organization_id if current_user else 1
+    query_users = select(User).where(User.organization_id == org_id)
+    users = (await db.execute(query_users)).scalars().all()
+    
+    stats_list = []
+
+    for user in users:
+        # 2. Busca TODOS os logs onde este usuário foi o responsável
+        # Ordenamos por máquina e tempo para reconstruir a linha do tempo
+        q_logs = select(ProductionLog).where(
+            ProductionLog.operator_id == user.id,
+            ProductionLog.timestamp >= dt_start,
+            ProductionLog.timestamp <= dt_end
+        ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
+        
+        user_logs = (await db.execute(q_logs)).scalars().all()
+        
+        # Se não tem logs, pula
+        if not user_logs:
+            stats_list.append({
+                "id": user.id, "employee_name": user.full_name or user.email,
+                "total_hours": 0, "productive_hours": 0, "unproductive_hours": 0,
+                "efficiency": 0, "top_reasons": []
+            })
+            continue
+
+        prod_sec = 0.0
+        unprod_sec = 0.0
+        reasons_map = {}
+
+        # 3. Reconstrói a história
+        # Para cada log do usuário, calculamos quanto tempo durou aquele status
+        # até que QUALQUER OUTRO evento (dele, de outro ou do sistema) acontecesse na mesma máquina.
+        
+        for log in user_logs:
+            # Busca o PRÓXIMO log desta mesma máquina (para saber quando o estado mudou)
+            q_next = select(ProductionLog).where(
+                ProductionLog.vehicle_id == log.vehicle_id,
+                ProductionLog.timestamp > log.timestamp
+            ).order_by(ProductionLog.timestamp.asc()).limit(1)
+            
+            next_log = (await db.execute(q_next)).scalars().first()
+            
+            # Se tem próximo log, calcula duração. Se não (é o atual), calcula até AGORA.
+            end_time = next_log.timestamp if next_log else datetime.now()
+            
+            # Trava de segurança: Se a diferença for > 12h, provavelmente mudou turno/dia, ignoramos.
+            duration = (end_time - log.timestamp).total_seconds()
+            if duration > 43200: duration = 0 
+            if duration < 0: duration = 0
+
+            # --- CLASSIFICAÇÃO ---
+            st = (log.new_status or "").upper()
+            reason = (log.reason or "").upper()
+            
+            # Produtivo: OPERAÇÃO ou SETUP
+            is_running = st in ["RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "IN_USE"]
+            is_setup = "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason
+            
+            if is_running or is_setup:
+                prod_sec += duration
+            else:
+                # Improdutivo: PARADA, MANUTENÇÃO, ETC.
+                unprod_sec += duration
+                
+                # Conta motivo apenas se durou mais de 1 minuto (filtra ruído)
+                if duration > 60:
+                    lbl = log.reason or st or "Parada genérica"
+                    reasons_map[lbl] = reasons_map.get(lbl, 0) + 1
+
+        total_sec = prod_sec + unprod_sec
+        efficiency = (prod_sec / total_sec * 100) if total_sec > 0 else 0.0
+        
+        sorted_reasons = sorted(reasons_map.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_reasons_list = [{"label": k, "count": v} for k, v in sorted_reasons]
+
+        stats_list.append({
+            "id": user.id, 
+            "employee_name": user.full_name or user.email,
+            "total_hours": round(total_sec / 3600, 2),
+            "productive_hours": round(prod_sec / 3600, 2),
+            "unproductive_hours": round(unprod_sec / 3600, 2),
+            "efficiency": round(efficiency, 1),
+            "top_reasons": top_reasons_list
+        })
+    
+    stats_list.sort(key=lambda x: x['total_hours'], reverse=True)
+    return stats_list
 # ============================================================================
 # 1. ESTATÍSTICAS DA MÁQUINA (CORRIGIDO ASYNC)
 # ============================================================================
@@ -629,49 +734,7 @@ async def get_machine_oee(
     metrics = await ProductionService.calculate_oee(db, machine_id, dt_start, dt_end)
     return metrics
 
-@router.get("/stats/employees", response_model=List[production_schema.EmployeeStatsRead])
-async def get_employee_stats(
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
-):
-    if not start_date: start_date = date.today().replace(day=1)
-    if not end_date: end_date = date.today()
-    dt_start = datetime.combine(start_date, time.min)
-    dt_end = datetime.combine(end_date, time.max)
 
-    query_users = select(User).where(User.organization_id == current_user.organization_id)
-    users = (await db.execute(query_users)).scalars().all()
-    
-    stats_list = []
-
-    for user in users:
-        q_sess = select(ProductionSession).where(
-            ProductionSession.user_id == user.id,
-            ProductionSession.start_time >= dt_start,
-            ProductionSession.start_time <= dt_end
-        )
-        sessions = (await db.execute(q_sess)).scalars().all()
-
-        total_sec = sum(s.duration_seconds for s in sessions)
-        prod_sec = sum(s.productive_seconds for s in sessions)
-        unprod_sec = sum(s.unproductive_seconds for s in sessions)
-        
-        efficiency = (prod_sec / total_sec * 100) if total_sec > 0 else 0
-
-        stats_list.append({
-            "id": user.id, 
-            "employee_name": user.full_name or user.email,
-            "total_hours": round(total_sec / 3600, 2),
-            "productive_hours": round(prod_sec / 3600, 2),
-            "unproductive_hours": round(unprod_sec / 3600, 2),
-            "efficiency": round(efficiency, 1),
-            "top_reasons": [] 
-        })
-    
-    stats_list.sort(key=lambda x: x['total_hours'], reverse=True)
-    return stats_list
 
 @router.get("/users/{user_id}/sessions", response_model=List[production_schema.SessionDetail])
 async def get_user_sessions(
