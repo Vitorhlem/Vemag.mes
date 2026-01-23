@@ -5,23 +5,42 @@ from app import deps
 from app.crud import crud_andon
 from app.schemas.andon_schema import AndonCallCreate, AndonCallResponse
 from app.models.user_model import User
-from app.models.andon_model import AndonSector # Garanta que importou o Enum
+from app.models.andon_model import AndonSector, AndonStatus
 
 router = APIRouter()
 
 def _format_response(call):
+    # Formatação Segura
+    m_name = f"Máquina {call.machine_id}"
+    if call.machine:
+        m_name = f"{call.machine.brand} {call.machine.model}"
+        
+    op_name = "---"
+    if call.operator:
+        op_name = call.operator.full_name or call.operator.email
+        
+    tech_name = None
+    if call.accepted_by:
+        tech_name = call.accepted_by.full_name
+    elif call.accepted_by_id:
+        tech_name = f"ID {call.accepted_by_id}"
+
+    # Setor (Enum para String)
+    sector_str = str(call.sector.value) if hasattr(call.sector, 'value') else str(call.sector)
+
     return {
         "id": call.id,
         "machine_id": call.machine_id,
-        "machine_name": f"Máquina {call.machine_id}", 
-        "machine_sector": str(call.sector.value) if hasattr(call.sector, 'value') else str(call.sector),
-        "sector": call.sector,
+        "machine_name": m_name, 
+        "machine_sector": "Produção",
+        "sector": sector_str,
         "reason": call.reason,
         "description": call.description,
         "status": call.status,
         "opened_at": call.opened_at,
         "accepted_at": call.accepted_at,
-        "accepted_by_name": str(call.accepted_by_id) if call.accepted_by_id else None
+        "accepted_by_name": tech_name,
+        "operator_name": op_name
     }
 
 @router.post("/", response_model=AndonCallResponse)
@@ -31,7 +50,21 @@ async def create_andon_call(
     andon_in: AndonCallCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    # AWAIT É OBRIGATÓRIO AQUI
+    # LOG DE DEBUG
+    print(f"➕ [ANDON] Criando chamado. Máquina: {andon_in.machine_id}, Setor: {andon_in.sector}, Org: {current_user.organization_id}")
+
+    # Mapper de Setor (Front UPPER -> Enum Title)
+    sector_map = {
+        "MANUTENÇÃO": AndonSector.MAINTENANCE, "MANUTENCAO": AndonSector.MAINTENANCE,
+        "QUALIDADE": AndonSector.QUALITY, "LOGISTICA": AndonSector.LOGISTICS,
+        "PCP": AndonSector.PCP, "GERENTE": AndonSector.MANAGER,
+        "SEGURANÇA": AndonSector.SECURITY
+    }
+    
+    # Corrige setor se necessário
+    if andon_in.sector.upper() in sector_map:
+        andon_in.sector = sector_map[andon_in.sector.upper()]
+
     call = await crud_andon.create_call(db, andon_in, current_user.organization_id, current_user.id)
     return _format_response(call)
 
@@ -40,72 +73,34 @@ async def get_active_andon_calls(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Lista chamados ativos.
-    - Se for GERENTE ou ADMIN: Vê tudo (Painel Geral).
-    - Se for MANUTENÇÃO: Vê apenas chamados de Manutenção.
-    - Se for QUALIDADE: Vê apenas chamados de Qualidade.
-    - Se for OPERADOR: Vê tudo (ou pode restringir apenas à linha dele, mas geralmente vê tudo para saber status).
-    """
+    # LOG DE DEBUG
+    print(f"🔍 [ANDON BOARD] Usuário: {current_user.email} (Org: {current_user.organization_id}) buscando ativos...")
     
-    target_sector = None
-    
-    # Normaliza a role para maiúsculo para comparação segura
-    # Assumindo que current_user.role é uma string ou Enum
-    user_role = str(current_user.role).upper() if current_user.role else ""
+    # Sem filtro de setor (mostra tudo para testar)
+    target_sector = None 
 
-    # --- REGRA DE NEGÓCIO: QUEM VÊ O QUE ---
-    
-    if user_role in ["MAINTENANCE", "MANUTENCAO", "MECANICO", "ELETRICISTA"]:
-        target_sector = AndonSector.MAINTENANCE
-        
-    elif user_role in ["QUALITY", "QUALIDADE", "INSPETOR"]:
-        target_sector = AndonSector.QUALITY
-        
-    elif user_role in ["LOGISTICS", "LOGISTICA", "EMPILHADEIRA"]:
-        target_sector = AndonSector.LOGISTICS
-        
-    elif user_role in ["PCP", "PLANEJAMENTO"]:
-        target_sector = AndonSector.PCP
-        
-    elif user_role in ["MANAGER", "GERENTE", "ADMIN", "SUPERVISOR"]:
-        target_sector = None # Vê tudo (Modo TV de Gestão)
-        
-    else:
-        # Fallback: Se for um cargo não mapeado (ex: RH), talvez não deva ver nada,
-        # ou ver tudo. Vamos assumir que vê tudo por enquanto para não quebrar a TV.
-        target_sector = None 
-
-    # Chama o CRUD passando o filtro
     calls = await crud_andon.get_active_calls(
         db, 
         org_id=current_user.organization_id, 
         sector_filter=target_sector
     )
     
+    print(f"✅ [ANDON BOARD] Encontrados: {len(calls)} chamados ativos.")
+    
     return [_format_response(c) for c in calls]
+
 @router.put("/{id}/accept", response_model=AndonCallResponse)
 async def accept_andon_call(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    id: int,
-    current_user: User = Depends(deps.get_current_active_user),
+    *, db: AsyncSession = Depends(deps.get_db), id: int, current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    # AWAIT É OBRIGATÓRIO AQUI
     call = await crud_andon.accept_call(db, id, current_user.id)
-    if not call:
-        raise HTTPException(status_code=404, detail="Call not found")
+    if not call: raise HTTPException(404, "Call not found")
     return _format_response(call)
 
 @router.put("/{id}/resolve", response_model=AndonCallResponse)
 async def resolve_andon_call(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    id: int,
-    current_user: User = Depends(deps.get_current_active_user),
+    *, db: AsyncSession = Depends(deps.get_db), id: int, current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    # AWAIT É OBRIGATÓRIO AQUI
     call = await crud_andon.resolve_call(db, id)
-    if not call:
-        raise HTTPException(status_code=404, detail="Call not found")
+    if not call: raise HTTPException(404, "Call not found")
     return _format_response(call)
