@@ -36,13 +36,13 @@
 
         <q-card-section class="text-center q-pt-lg">
           <div class="logo-container q-mb-md">
-            <img src="/Logo-Oficial.png" class="login-logo" />
+            <img src="~assets/trucar-logo-white.png" class="login-logo" style="height: 70px;" />
           </div>
-          <div class="text-h5 text-weight-bolder text-white tracking-widest">
-            VEMAG<span class="text-orange-5">.MES</span>
+          <div class="text-h5 text-weight-bolder text-white tracking-widest font-mono">
+            VEMAG<span class="text-primary">.MES</span>
           </div>
-          <div class="text-caption text-grey-5 text-uppercase q-mt-xs">
-            Acesso ao Chão de Fábrica
+          <div class="text-caption text-teal-4 text-uppercase q-mt-xs text-weight-bold letter-spacing-1">
+            Intelligent Manufacturing Access
           </div>
         </q-card-section>
 
@@ -55,12 +55,12 @@
               dark
               outlined
               dense
-              color="orange-5"
+              color="primary"
               class="industrial-input"
               :disable="isLoading"
             >
               <template v-slot:prepend>
-                <q-icon name="badge" color="orange-5" />
+                <q-icon name="badge" color="primary" />
               </template>
             </q-input>
 
@@ -71,20 +71,20 @@
               dark
               outlined
               dense
-              color="orange-5"
+              color="primary"
               class="industrial-input"
               :disable="isLoading"
             >
               <template v-slot:prepend>
-                <q-icon name="lock" color="orange-5" />
+                <q-icon name="lock" color="primary" />
               </template>
             </q-input>
 
             <div class="row justify-between items-center q-mt-sm">
-                <q-checkbox v-model="remember" label="Manter conectado" dark dense color="grey-6" size="sm" />
+                <q-checkbox v-model="remember" label="Manter conectado" dark dense color="teal-4" size="sm" class="text-grey-5" />
                 
                 <div 
-                    class="text-grey-5 text-caption cursor-pointer link-hover" 
+                    class="text-teal-4 text-caption cursor-pointer link-hover" 
                     @click="goToForgotPassword"
                 >
                     Esqueceu a senha?
@@ -93,15 +93,15 @@
 
             <q-btn
               type="submit"
-              color="orange-9"
+              color="primary"
               text-color="white"
               label="INICIAR SISTEMA"
-              class="full-width q-mt-lg text-weight-bold tracking-widest industrial-btn"
+              class="full-width q-mt-lg text-weight-bold tracking-widest industrial-btn shadow-green"
               :loading="isLoading"
               unelevated
             >
                 <template v-slot:loading>
-                    <q-spinner-gears class="on-left" /> Validando...
+                    <q-spinner-gears class="on-left" /> Validando Protocolos...
                 </template>
             </q-btn>
 
@@ -111,9 +111,9 @@
                     dense
                     no-caps
                     size="sm"
-                    color="orange-5" 
+                    color="teal-4" 
                     label="Não tem acesso? Solicite aqui (Registrar)" 
-                    class="opacity-80"
+                    class="opacity-80 font-inter"
                     @click="goToRegister"
                 />
             </div>
@@ -124,7 +124,7 @@
         <q-card-section class="text-center q-pb-lg">
             <div class="status-indicator row items-center justify-center q-gutter-x-sm">
                 <div class="led-light"></div>
-                <span class="text-caption text-grey-6">SISTEMA ONLINE • V.2.0</span>
+                <span class="text-caption text-teal-8 text-weight-medium font-mono">SISTEMA ONLINE • VEMAG V.2.0</span>
             </div>
         </q-card-section>
       </q-card>
@@ -134,10 +134,11 @@
 </template>
 
 <script setup lang="ts">
+/* LÓGICA ORIGINAL MANTIDA INTEGRALMENTE */
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from 'stores/auth-store';
-import { useQuasar } from 'quasar';
+import { useQuasar, setCssVar } from 'quasar';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -173,7 +174,6 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-  
       await authStore.login({ email: email.value, password: password.value });
 
       if (authStore.user?.role === 'admin') {
@@ -184,19 +184,16 @@ async function handleLogin() {
           void router.push('/dashboard');
       }
       
-      $q.notify({ type: 'positive', message: 'Bem-vindo ao Vemag MES!' });
+      $q.notify({ type: 'positive', message: 'Autenticação bem-sucedida. Bem-vindo à Trucar!' });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
       console.error(error);
       let msg = 'Falha no login. Verifique suas credenciais.';
-      
       if (error.response && error.response.status === 401) {
           msg = 'Email ou senha incorretos.';
       } else if (error.message) {
           msg = error.message;
       }
-      
       $q.notify({ type: 'negative', message: msg });
   } finally {
       isLoading.value = false;
@@ -204,6 +201,7 @@ async function handleLogin() {
 }
 
 onMounted(() => {
+    setCssVar('primary', '#128c7e');
     if (typeof window !== 'undefined') {
         mouseX.value = window.innerWidth / 2;
         mouseY.value = window.innerHeight / 2;
@@ -211,18 +209,23 @@ onMounted(() => {
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+/* --- CONFIGURAÇÃO DE CORES TRUCAR --- */
+$trucar-green: #128c7e;
+$trucar-mint: #70c0b0;
+
 /* --- CONTAINER E FUNDO --- */
 .industrial-login-container {
     width: 100vw;
     height: 100vh;
-    background-color: #121212;
+    background-color: #060d0d; /* Fundo levemente esverdeado escuro */
     overflow: hidden;
     position: relative;
     cursor: crosshair;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: 'Inter', sans-serif;
 }
 
 .technical-grid {
@@ -232,26 +235,25 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        linear-gradient(rgba(18, 140, 126, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 140, 126, 0.08) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: 0;
 }
 
-/* --- NOVO: SCANNER BAR (ANIMAÇÃO CONTÍNUA) --- */
+/* --- SCANNER BAR --- */
 .scanner-bar {
     position: absolute;
     top: -20%;
     left: 0;
     width: 100%;
-    height: 40px; /* Altura do gradiente */
-    /* Gradiente laranja transparente que some nas bordas */
-    background: linear-gradient(to bottom, transparent, rgba(255, 152, 0, 0.15) 50%, transparent);
-    border-bottom: 2px solid rgba(255, 152, 0, 0.4); /* Linha mais forte embaixo */
+    height: 60px;
+    background: linear-gradient(to bottom, transparent, rgba(112, 192, 176, 0.15) 50%, transparent);
+    border-bottom: 2px solid #008f7266;
     z-index: 1;
     pointer-events: none;
-    animation: scan 6s linear infinite; /* Animação infinita de 6 segundos */
-    box-shadow: 0 0 15px rgba(255, 152, 0, 0.2);
+    animation: scan 8s linear infinite;
+    box-shadow: 0 5px 20px rgba(18, 140, 126, 0.1);
 }
 
 @keyframes scan {
@@ -264,150 +266,140 @@ onMounted(() => {
 /* --- EIXOS --- */
 .axis-x, .axis-y {
     position: absolute;
-    background-color: rgba(255, 152, 0, 0.3);
+    background-color: rgba(112, 192, 176, 0.25);
     pointer-events: none;
     z-index: 1;
-    box-shadow: 0 0 10px rgba(255, 152, 0, 0.1);
 }
 
 .axis-x {
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    border-bottom: 1px dashed rgba(255, 152, 0, 0.5);
+    top: 0; left: 0; width: 100%; height: 1px;
+    border-bottom: 1px dashed rgba(18, 140, 126, 0.4);
 }
 
 .axis-y {
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 100%;
-    border-right: 1px dashed rgba(255, 152, 0, 0.5);
+    top: 0; left: 0; width: 1px; height: 100%;
+    border-right: 1px dashed rgba(18, 140, 126, 0.4);
 }
 
 .axis-label {
     position: absolute;
-    background: #FF9800;
-    color: #000;
+    background: $trucar-green;
+    color: #fff;
     font-size: 10px;
-    font-family: monospace;
-    padding: 2px 4px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 6px;
     font-weight: bold;
+    border-radius: 2px;
 }
-.axis-label.top { top: 10px; left: 5px; }
-.axis-label.left { left: 10px; top: -20px; }
+.axis-label.top { top: 15px; left: 5px; }
+.axis-label.left { left: 15px; top: -25px; }
 
 .machine-head {
     position: absolute;
-    top: 0; 
-    left: 0;
-    width: 0;
-    height: 0;
+    top: 0; left: 0; width: 0; height: 0;
     z-index: 2;
     pointer-events: none;
 }
 
 .head-spinner {
     position: absolute;
-    top: -15px;
-    left: -15px;
-    width: 30px;
-    height: 30px;
-    border: 2px solid #FF9800;
+    top: -20px; left: -20px; width: 40px; height: 40px;
+    border: 1px solid $trucar-mint;
     border-radius: 50%;
     border-top-color: transparent;
-    animation: spin 1s linear infinite;
+    animation: spin 2s linear infinite;
 }
 
 .head-glow {
     position: absolute;
-    top: -4px;
-    left: -4px;
-    width: 8px;
-    height: 8px;
-    background-color: #FF9800;
+    top: -5px; left: -5px; width: 10px; height: 10px;
+    background-color: $trucar-mint;
     border-radius: 50%;
-    box-shadow: 0 0 15px 5px rgba(255, 152, 0, 0.6);
+    box-shadow: 0 0 20px 8px rgba(112, 192, 176, 0.6);
 }
 
-/* --- CARD --- */
+/* --- CARD GLASS --- */
 .login-content {
     z-index: 10;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     padding: 20px;
 }
 
 .login-card {
-    background: rgba(30, 30, 30, 0.85);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    background: rgba(10, 26, 26, 0.7); /* Vidro Escuro */
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(112, 192, 176, 0.15);
+    border-radius: 12px;
     position: relative;
     overflow: hidden;
 }
 
 .safety-stripe {
-    height: 4px;
+    height: 5px;
     background: repeating-linear-gradient(
         45deg,
-        #F2C037,
-        #F2C037 10px,
-        #000 10px,
-        #000 20px
+        $trucar-green,
+        $trucar-green 15px,
+        #000 15px,
+        #000 30px
     );
     width: 100%;
 }
 
-.login-logo {
-    height: 60px;
-    filter: brightness(0) invert(1);
-    opacity: 0.9;
-}
-
-.tracking-widest { letter-spacing: 3px; }
+.tracking-widest { letter-spacing: 4px; }
+.letter-spacing-1 { letter-spacing: 1px; }
 
 .industrial-input :deep(.q-field__control) {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    transition: all 0.3s ease;
 }
+
 .industrial-input :deep(.q-field__label) {
-    font-family: monospace;
+    font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
-    font-size: 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
 }
 
 .industrial-btn {
-    border-radius: 2px;
-    border: 1px solid #FF9800;
-    transition: all 0.3s ease;
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 48px;
+    background: linear-gradient(135deg, $trucar-green, $trucar-mint) !important;
 }
+
 .industrial-btn:hover {
-    background-color: #F57C00 !important;
-    box-shadow: 0 0 15px rgba(255, 152, 0, 0.4);
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(18, 140, 126, 0.3);
 }
 
 .link-hover:hover {
-    color: #FF9800 !important;
+    color: #fff !important;
     text-decoration: underline;
+    text-shadow: 0 0 8px rgba(112, 192, 176, 0.8);
 }
 
 .led-light {
-    width: 8px;
-    height: 8px;
-    background-color: #00E676;
+    width: 10px; height: 10px;
+    background-color: #00ff88;
     border-radius: 50%;
-    box-shadow: 0 0 5px #00E676;
+    box-shadow: 0 0 10px #00ff88;
     animation: pulse-green 2s infinite;
 }
 
-.opacity-80 { opacity: 0.8; }
+.shadow-green { box-shadow: 0 4px 15px rgba(18, 140, 126, 0.2); }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
 
 @keyframes spin { 100% { transform: rotate(360deg); } }
 @keyframes pulse-green {
-    0% { opacity: 0.5; }
-    50% { opacity: 1; }
-    100% { opacity: 0.5; }
+    0%, 100% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
 }
+
+.animate-fade { animation: fadeIn 1s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>

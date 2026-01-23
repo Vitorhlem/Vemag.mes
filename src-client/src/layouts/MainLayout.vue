@@ -7,12 +7,12 @@
       bordered
       :width="260"
       :breakpoint="800"
-      class="bg-surface drawer-style"
+      class="glass-drawer drawer-style"
     >
-<q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: '0.5' }">        
+      <q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: '0.5' }">        
         <div class="q-pa-md row items-center justify-center relative-position" style="height: 110px;">
-          <img src="~assets/trucar-logo-dark.png" class="logo-light animate-fade" style="height: 55px; max-width: 90%; transition: all 0.3s;" alt="Vemag Logo">
-          <img src="~assets/trucar-logo-white.png" class="logo-dark animate-fade" style="height: 55px; max-width: 90%; display: none; transition: all 0.3s;" alt="Vemag Logo">
+          <img src="~assets/trucar-logo-dark.png" class="logo-light animate-fade" style="height: 65px; max-width: 90%; transition: all 0.3s;" alt="Trucar Logo">
+          <img src="~assets/trucar-logo-white.png" class="logo-dark animate-fade" style="height: 65px; max-width: 90%; display: none; transition: all 0.3s;" alt="Trucar Logo">
         </div>
         
         <q-separator class="q-mx-lg q-mb-md opacity-10" />
@@ -20,7 +20,7 @@
         <q-list padding class="q-px-md text-grey-7">
           <template v-for="category in menuStructure" :key="category.label">
             
-            <q-item-label header class="text-weight-bold text-uppercase text-caption text-grey-5 q-pt-md q-pl-xs letter-spacing-1" style="font-size: 0.7rem;">
+            <q-item-label header class="text-weight-bold text-uppercase text-caption text-teal-8 q-pt-md q-pl-xs letter-spacing-1" style="font-size: 0.7rem; opacity: 0.7;">
               {{ category.label }}
             </q-item-label>
 
@@ -47,7 +47,7 @@
             <q-separator v-if="category.separator" class="q-my-md q-mx-sm opacity-10" />
           </template>
 
-          <div v-if="authStore.isSuperuser" class="q-mt-xl bg-red-1 rounded-borders q-pa-xs border-red-soft">
+          <div v-if="authStore.isSuperuser" class="q-mt-xl bg-red-1 rounded-borders q-pa-xs border-red-soft" style="background: rgba(254, 242, 242, 0.4); backdrop-filter: blur(5px);">
             <q-item-label header class="text-weight-bold text-uppercase text-caption text-negative q-pt-sm q-pl-md">
               Zona de Perigo
             </q-item-label>
@@ -63,19 +63,19 @@
       </q-scroll-area>
     </q-drawer>
 
-    <q-header bordered class="bg-white-blur text-grey-9 header-style">
+    <q-header bordered class="glass-header text-grey-9 header-style">
       <q-toolbar style="height: 70px;">
-        <q-btn flat dense round icon="menu_open" color="grey-8" aria-label="Menu" @click="toggleLeftDrawer" class="lt-md" />
+        <q-btn flat dense round icon="menu_open" color="teal-9" aria-label="Menu" @click="toggleLeftDrawer" class="lt-md" />
         
         <div class="row items-center q-ml-sm cursor-pointer logo-area" @click="router.push('/')">
-          <div class="bg-primary text-white rounded-borders flex flex-center q-mr-md shadow-2 transition-transform hover-rotate" style="width: 36px; height: 36px;">
+          <div class="bg-primary text-white rounded-borders flex flex-center q-mr-md shadow-2 transition-transform hover-rotate" style="width: 36px; height: 36px; background: linear-gradient(135deg, #128c7e, #70c0b0) !important;">
              <q-icon name="hub" size="20px" />
           </div>
           <div>
             <q-toolbar-title class="text-weight-bold text-dark gt-xs font-mono q-pl-none" style="font-size: 1.35rem; letter-spacing: -0.5px; line-height: 1;">
               vemag<span class="text-primary">.mes</span>
             </q-toolbar-title>
-            <div class="text-caption text-grey-5 gt-xs" style="line-height: 1; font-size: 0.7rem; letter-spacing: 1px;">INTELLIGENT MANUFACTURING</div>
+            <div class="text-caption text-teal-8 gt-xs" style="line-height: 1; font-size: 0.7rem; letter-spacing: 1px; font-weight: 600;">INTELLIGENT MANUFACTURING</div>
           </div>
         </div>
 
@@ -83,34 +83,34 @@
 
         <div class="row q-gutter-sm items-center">
           
-          <q-btn v-if="authStore.isManager" flat round dense class="text-grey-7 relative-position hover-scale q-mr-sm">
+          <q-btn v-if="authStore.isManager" flat round dense class="text-teal-9 relative-position hover-scale q-mr-sm">
             <q-icon name="notifications_none" size="26px" />
             <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
             
-            <q-menu @show="notificationStore.fetchNotifications()" fit anchor="bottom right" self="top right" :offset="[0, 14]" class="shadow-10 rounded-borders" style="width: 360px; max-width: 95vw;">
-              <div class="row no-wrap items-center q-pa-md bg-white border-bottom">
+            <q-menu @show="notificationStore.fetchNotifications()" fit anchor="bottom right" self="top right" :offset="[0, 14]" class="shadow-10 rounded-borders glass-menu">
+              <div class="row no-wrap items-center q-pa-md border-bottom" style="background: rgba(255,255,255,0.6)">
                 <div class="text-subtitle1 text-weight-bold text-grey-9">Alertas da Fábrica</div>
                 <q-space />
                 <q-btn round flat icon="done_all" size="sm" color="primary" @click="markAllRead">
-  <q-tooltip>Marcar tudo como lido</q-tooltip>
-</q-btn>
+                  <q-tooltip>Marcar tudo como lido</q-tooltip>
+                </q-btn>
               </div>
-              <q-scroll-area style="height: 300px;" class="bg-grey-1">
+              <q-scroll-area style="height: 300px;">
                   <q-list separator>
-                    <q-item v-for="notification in notificationStore.notifications" :key="notification.id" clickable v-ripple class="bg-white q-py-md hover-bg-gray" @click="handleNotificationClick(notification)">
+                    <q-item v-for="notification in notificationStore.notifications" :key="notification.id" clickable v-ripple class="q-py-md hover-bg-gray" @click="handleNotificationClick(notification)">
                       <q-item-section avatar>
-                        <div class="bg-orange-1 q-pa-sm rounded-circle text-orange-9 shadow-sm"><q-icon name="notifications_active" size="20px" /></div>
+                        <div class="bg-teal-1 q-pa-sm rounded-circle text-teal-9 shadow-sm"><q-icon name="notifications_active" size="20px" /></div>
                       </q-item-section>
                       <q-item-section>
                         <q-item-label class="text-body2 text-weight-medium text-grey-9">{{ notification.message }}</q-item-label>
                         <q-item-label caption class="text-grey-6 q-mt-xs">{{ formatNotificationDate(notification.created_at) }}</q-item-label>
                       </q-item-section>
                       <q-item-section side v-if="!notification.is_read">
-                         <div class="status-dot bg-blue-5"></div>
+                         <div class="status-dot bg-teal-5"></div>
                       </q-item-section>
                     </q-item>
                     <div v-if="notificationStore.notifications.length === 0" class="column flex-center full-height q-pa-xl text-grey-5">
-                      <q-icon name="check_circle_outline" size="40px" class="q-mb-sm text-green-4" />
+                      <q-icon name="check_circle_outline" size="40px" class="q-mb-sm text-teal-4" />
                       <div class="text-caption">Nenhum alerta pendente.</div>
                     </div>
                   </q-list>
@@ -118,9 +118,9 @@
             </q-menu>
           </q-btn>
 
-          <div style="height: 30px; width: 1px; background: #e2e8f0;" class="q-mx-sm"></div>
+          <div style="height: 30px; width: 1px; background: rgba(18, 140, 126, 0.2);" class="q-mx-sm"></div>
 
-          <q-btn-dropdown flat no-caps class="text-grey-9 profile-btn q-ml-none rounded-borders q-px-sm hover-bg-gray" content-class="profile-menu shadow-10 rounded-borders">
+          <q-btn-dropdown flat no-caps class="text-grey-9 profile-btn q-ml-none rounded-borders q-px-sm hover-bg-gray" content-class="profile-menu shadow-10 rounded-borders glass-menu">
             <template v-slot:label>
               <div class="row items-center no-wrap">
                 <q-avatar size="40px" class="shadow-1 border-2 border-white">
@@ -136,15 +136,15 @@
 
             <div class="row no-wrap q-pa-md" style="min-width: 290px;">
               <div class="column" style="flex: 1;">
-                <div class="text-overline text-grey-5 q-mb-sm">Sistema</div>
+                <div class="text-overline text-teal-9 q-mb-sm">Sistema</div>
                 
                 <div class="q-mb-md">
                   <div class="text-caption text-weight-medium text-grey-8 q-mb-xs">Cor do Tema</div>
                   <div class="row q-gutter-xs">
+                    <q-btn round size="xs" class="shadow-1" color="teal-9" @click="changeTheme('#128c7e')" /> 
                     <q-btn round size="xs" class="shadow-1" color="blue-10" @click="changeTheme('#154ec1')" /> 
                     <q-btn round size="xs" class="shadow-1" color="grey-9" @click="changeTheme('#263238')" /> 
                     <q-btn round size="xs" class="shadow-1" color="red-9" @click="changeTheme('#c62828')" /> 
-                    <q-btn round size="xs" class="shadow-1" color="teal-9" @click="changeTheme('#00695c')" /> 
                     <q-btn round size="xs" icon="palette" flat class="text-grey-6 bg-grey-2">
                       <q-popup-proxy>
                         <q-color v-model="customColor" @update:model-value="(val) => val && changeTheme(val)" no-header no-footer default-view="palette" />
@@ -157,7 +157,7 @@
                 
                 <q-list dense>
                   <q-item clickable v-close-popup to="/settings" class="rounded-borders hover-bg-gray q-py-sm">
-                    <q-item-section avatar style="min-width: 30px;"><q-icon name="tune" size="18px" color="grey-7" /></q-item-section>
+                    <q-item-section avatar style="min-width: 30px;"><q-icon name="tune" size="18px" color="teal-7" /></q-item-section>
                     <q-item-section>Configurações</q-item-section>
                   </q-item>
                   <q-item clickable v-close-popup @click="handleLogout" class="rounded-borders hover-bg-red-soft q-py-sm text-negative">
@@ -193,7 +193,7 @@ import { ptBR } from 'date-fns/locale';
 import defaultAvatar from 'assets/default-avatar.png';
 
 const leftDrawerOpen = ref(false);
-const customColor = ref('#154ec1'); // Azul Vemag padrão
+const customColor = ref('#128c7e'); // Alterado para o Verde Trucar
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
@@ -271,15 +271,10 @@ function getOperatorMenu(): MenuCategory[] {
     ];
 }
 async function markAllRead() {
-  // Filtra apenas as não lidas
   const unreadNotifications = notificationStore.notifications.filter(n => !n.is_read);
-  
-  // Marca uma por uma (já que a store não tem o método em massa)
   for (const notification of unreadNotifications) {
     await notificationStore.markAsRead(notification.id);
   }
-  
-  // Atualiza a contagem
   await notificationStore.fetchUnreadCount();
 }
 
@@ -326,7 +321,7 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 onMounted(() => {
-  setCssVar('primary', '#154ec1');
+  setCssVar('primary', '#128c7e'); // Verde Trucar
   if (authStore.isManager) {
     void notificationStore.fetchUnreadCount();
   }
@@ -336,55 +331,69 @@ onMounted(() => {
 <style lang="scss" scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
+
+
 .font-inter { font-family: 'Inter', sans-serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-/* --- Colors & Backgrounds --- */
-.bg-surface { background-color: #ffffff; }
-.bg-grey-1 { background-color: #f8fafc; }
-.bg-white-blur { 
-  background-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
+/* --- Glassmorphism Effect --- */
+.glass-header { 
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
+.glass-drawer {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+.glass-menu {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+}
+
+/* --- Colors & Backgrounds --- */
+.bg-grey-1 { background-color: #f0f4f4; }
+
 /* --- Navigation & Drawer --- */
-.drawer-style { border-right: 1px solid #f1f5f9; }
+.drawer-style { border-right: 1px solid rgba(18, 140, 126, 0.1); }
 
 .navigation-item {
-  color: #475569; /* Slate-600 */
+  color: #334e4b;
   border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 0.9rem;
   
   &:hover {
-    background-color: #f1f5f9;
-    color: #1e293b;
+    background-color: rgba(112, 192, 176, 0.15);
+    color: #128c7e;
     transform: translateX(4px);
   }
-  
-  .nav-icon { transition: color 0.2s ease; }
 }
 
 .active-item {
-  background: linear-gradient(90deg, #eff6ff 0%, #ffffff 100%); /* Gradiente sutil */
-  color: var(--q-primary);
+  background: linear-gradient(90deg, rgba(112, 192, 176, 0.2) 0%, rgba(255, 255, 255, 0.8) 100%) !important;
+  color: #128c7e !important;
   font-weight: 600;
-  border-left: 3px solid var(--q-primary);
-  border-radius: 4px 8px 8px 4px; /* Canto reto na esquerda */
+  border-left: 4px solid #128c7e;
+  border-radius: 4px 8px 8px 4px;
   
   .icon-wrapper {
-    background-color: rgba(var(--q-primary), 0.1);
+    background-color: rgba(18, 140, 126, 0.15);
     border-radius: 6px;
     width: 32px; height: 32px;
   }
   
-  .nav-icon { color: var(--q-primary); }
+  .nav-icon { color: #128c7e; }
 }
 
 /* --- Header Styling --- */
 .header-style {
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);
+  border-bottom: 1px solid rgba(18, 140, 126, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
 }
 
 .logo-area {
@@ -398,8 +407,8 @@ onMounted(() => {
 .icon-wrapper { width: 32px; height: 32px; transition: background-color 0.3s; }
 .border-2 { border: 2px solid white; }
 .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
-.border-bottom { border-bottom: 1px solid #f1f5f9; }
-.hover-bg-gray:hover { background-color: #f8fafc; }
+.border-bottom { border-bottom: 1px solid rgba(18, 140, 126, 0.1); }
+.hover-bg-gray:hover { background-color: rgba(112, 192, 176, 0.1); }
 .hover-bg-red-soft:hover { background-color: #fef2f2; }
 .hover-scale { transition: transform 0.2s; &:hover { transform: scale(1.05); } }
 .hover-red:hover { background-color: #fee2e2 !important; }
@@ -421,28 +430,33 @@ onMounted(() => {
 .animate-fade { animation: fadeIn 0.8s ease-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* --- Dark Mode Overrides --- */
+/* --- Dark Mode Overrides (Glassmorphism Dark) --- */
 .body--dark {
-  .bg-surface { background-color: #0f172a; border-color: #1e293b; }
-  .text-primary-text { color: #f8fafc; }
+  .bg-grey-1 { background-color: #020617; }
+  .glass-header { 
+    background-color: rgba(15, 23, 42, 0.7) !important;
+    border-bottom-color: rgba(112, 192, 176, 0.2);
+  }
+  .glass-drawer { 
+    background-color: rgba(15, 23, 42, 0.6) !important;
+    border-right-color: rgba(112, 192, 176, 0.2);
+  }
   .logo-light { display: none; }
   .logo-dark { display: block !important; }
-  .bg-grey-1 { background-color: #020617; }
-  .bg-white-blur { background-color: rgba(15, 23, 42, 0.9); border-bottom-color: #1e293b; }
-  .drawer-style { border-right-color: #1e293b; }
   
   .navigation-item {
     color: #94a3b8;
-    &:hover { background-color: rgba(255,255,255,0.05); color: #f1f5f9; }
+    &:hover { background-color: rgba(112, 192, 176, 0.1); color: #70c0b0; }
   }
   .active-item { 
-    background: linear-gradient(90deg, rgba(var(--q-primary), 0.2) 0%, transparent 100%);
-    color: var(--q-primary);
-    .icon-wrapper { background-color: rgba(var(--q-primary), 0.2); }
+    background: linear-gradient(90deg, rgba(18, 140, 126, 0.3) 0%, transparent 100%) !important;
+    color: #70c0b0 !important;
+    border-left-color: #70c0b0;
   }
-  .bg-white { background-color: #1e293b !important; color: white; }
-  .text-grey-9 { color: #f1f5f9 !important; }
+  .text-teal-8 { color: #70c0b0 !important; }
   .text-dark { color: white !important; }
-  .border-bottom { border-bottom-color: #334155; }
+  .border-bottom { border-bottom-color: rgba(255,255,255,0.1); }
 }
+
+
 </style>

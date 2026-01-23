@@ -6,7 +6,7 @@
         <div class="row items-center q-gutter-x-sm">
           <q-icon name="factory" size="2em" class="text-primary opacity-80" />
           <div>
-            <div class="text-caption text-uppercase text-grey-6 text-weight-bold letter-spacing-2">
+            <div class="text-caption text-uppercase text-teal-9 text-weight-bold letter-spacing-2">
               Visão Geral da Planta
             </div>
             <h1 class="text-h4 text-weight-900 q-my-none text-gradient">
@@ -16,8 +16,8 @@
         </div>
         <div class="text-subtitle1 text-grey-7 q-mt-sm flex items-center">
           <span>Bem-vindo de volta, <strong>{{ authStore.user?.full_name?.split(' ')[0] }}</strong>.</span>
-          <q-badge color="green-1" text-color="green-9" class="q-ml-md q-px-sm">
-            <span class="dot-indicator bg-green-5 q-mr-xs"></span> Sistema Online
+          <q-badge color="teal-1" text-color="teal-9" class="q-ml-md q-px-sm glass-badge">
+            <span class="dot-indicator bg-teal-5 q-mr-xs"></span> Sistema Online
           </q-badge>
         </div>
       </div>
@@ -26,10 +26,10 @@
         <div class="row q-gutter-sm">
            <q-btn 
              flat
-             color="grey-8" 
+             color="teal-10" 
              icon="refresh" 
              label="Atualizar Dados" 
-             class="btn-hover-effect"
+             class="btn-hover-effect glass-btn"
              @click="() => refreshData()" 
              :loading="dashboardStore.isLoading || vehicleStore.isLoading"
            />
@@ -38,26 +38,26 @@
              icon="add" 
              label="Ações Rápidas" 
              unelevated 
-             class="shadow-4 btn-rounded q-px-lg"
-             content-class="rounded-borders shadow-10"
+             class="shadow-4 btn-rounded q-px-lg shadow-green"
+             content-class="glass-menu shadow-10"
              dropdown-icon="expand_more"
            >
             <q-list class="q-py-md" style="min-width: 240px">
-              <div class="text-caption q-px-md q-mb-sm text-grey-6 text-uppercase text-weight-bold">Cadastro</div>
+              <div class="text-caption q-px-md q-mb-sm text-teal-9 text-uppercase text-weight-bold">Cadastro</div>
               
               <q-item clickable v-close-popup @click="() => router.push('/vehicles')" class="item-hover">
-                <q-item-section avatar><div class="icon-box bg-blue-1 text-blue-9"><q-icon name="precision_manufacturing" size="20px"/></div></q-item-section>
+                <q-item-section avatar><div class="icon-box bg-teal-1 text-teal-9"><q-icon name="precision_manufacturing" size="20px"/></div></q-item-section>
                 <q-item-section>
                    <q-item-label class="text-weight-bold">Nova Máquina</q-item-label>
                    <q-item-label caption>Cadastrar ativo</q-item-label>
                 </q-item-section>
               </q-item>
               
-              <q-separator spaced class="q-mx-md" />
-              <div class="text-caption q-px-md q-mb-sm text-grey-6 text-uppercase text-weight-bold">Operação</div>
+              <q-separator spaced class="q-mx-md opacity-10" />
+              <div class="text-caption q-px-md q-mb-sm text-teal-9 text-uppercase text-weight-bold">Operação</div>
 
               <q-item clickable v-close-popup @click="() => router.push('/factory/kiosk')" class="item-hover">
-                <q-item-section avatar><div class="icon-box bg-teal-1 text-teal-9"><q-icon name="monitor" size="20px"/></div></q-item-section>
+                <q-item-section avatar><div class="icon-box bg-cyan-1 text-cyan-9"><q-icon name="monitor" size="20px"/></div></q-item-section>
                 <q-item-section>
                    <q-item-label class="text-weight-bold">Modo Kiosk</q-item-label>
                    <q-item-label caption>Tela do operador</q-item-label>
@@ -65,7 +65,7 @@
               </q-item>
               
               <q-item clickable v-close-popup @click="scheduleMaintenanceGeneral" class="item-hover">
-                <q-item-section avatar><div class="icon-box bg-red-1 text-red-9"><q-icon name="build_circle" size="20px"/></div></q-item-section>
+                <q-item-section avatar><div class="icon-box bg-orange-1 text-orange-9"><q-icon name="build_circle" size="20px"/></div></q-item-section>
                 <q-item-section>
                    <q-item-label class="text-weight-bold">Solicitar Manutenção</q-item-label>
                    <q-item-label caption>Abrir chamado</q-item-label>
@@ -79,9 +79,9 @@
 
     <div v-if="dashboardStore.isLoading && !realTimeStats" class="row q-col-gutter-md animate-pulse">
        <div class="col-12 col-md-3" v-for="n in 4" :key="n">
-         <q-card flat class="rounded-xl bg-white q-pa-md">
+         <q-card flat class="rounded-xl glass-card q-pa-md">
              <div class="row items-center no-wrap">
-                <q-skeleton type="circle" size="50px" />
+                <q-skeleton type="circle" size="50px" class="bg-teal-1" />
                 <div class="col q-pl-md">
                     <q-skeleton type="text" width="60%" />
                     <q-skeleton type="rect" height="30px" width="40%" class="q-mt-sm" />
@@ -99,10 +99,10 @@
             label="Ativos Totais" 
             :value="realTimeStats.total" 
             icon="domain" 
-            color="primary" 
+            color="teal-9" 
             to="/vehicles" 
             :loading="dashboardStore.isLoading"
-            class="full-height shadow-card hover-scale" 
+            class="full-height glass-card shadow-card hover-scale" 
           />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
@@ -113,7 +113,7 @@
             color="positive" 
             to="/vehicles?status=Em uso" 
             :loading="dashboardStore.isLoading"
-            class="full-height shadow-card hover-scale" 
+            class="full-height glass-card shadow-card hover-scale" 
           />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
@@ -124,7 +124,7 @@
             color="warning" 
             to="/vehicles?status=Disponível" 
             :loading="dashboardStore.isLoading"
-            class="full-height shadow-card hover-scale" 
+            class="full-height glass-card shadow-card hover-scale" 
           />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
@@ -135,14 +135,15 @@
             color="negative" 
             to="/maintenance" 
             :loading="dashboardStore.isLoading"
-            class="full-height shadow-card hover-scale" 
+            class="full-height glass-card shadow-card hover-scale" 
           />
         </div>
       </div>
 
-      <div class="text-h6 text-weight-bold text-grey-9 q-mb-md flex items-center">
-        <q-icon name="insights" class="q-mr-sm text-grey-6" /> Indicadores de Performance
+      <div class="text-h6 text-weight-bold text-teal-10 q-mb-md flex items-center">
+        <q-icon name="insights" class="q-mr-sm text-teal-6" /> Indicadores de Performance
       </div>
+      
       <div class="row q-col-gutter-md q-mb-xl">
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
@@ -150,8 +151,8 @@
              :value="efficiencyKpis?.cost_per_km ?? 0" 
              unit="R$/h" 
              icon="attach_money" 
-             color="deep-purple" 
-             class="metric-clean"
+             color="teal-8" 
+             class="metric-clean glass-card"
              tooltip="Média dos últimos 30 dias"
            />
          </div>
@@ -161,8 +162,8 @@
              :value="efficiencyKpis?.fleet_avg_efficiency ?? 0" 
              unit="%" 
              icon="bolt" 
-             color="blue-8" 
-             class="metric-clean"
+             color="cyan-8" 
+             class="metric-clean glass-card"
              :formatter="(v: number) => v.toFixed(1)" 
            />
          </div>
@@ -172,8 +173,8 @@
              :value="variableCostTotal" 
              unit="R$" 
              icon="account_balance_wallet" 
-             color="orange-9" 
-             class="metric-clean"
+             color="emerald-9" 
+             class="metric-clean glass-card"
              :formatter="(v: number) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`" 
            />
          </div>
@@ -184,7 +185,7 @@
              unit="%" 
              icon="pie_chart" 
              color="teal" 
-             class="metric-clean"
+             class="metric-clean glass-card"
              :formatter="(v: number) => `${v.toFixed(1)}%`" 
            />
          </div>
@@ -194,13 +195,13 @@
         
         <div class="col-12 col-lg-8 column q-gutter-y-lg">
           
-          <div class="dashboard-card shadow-1 q-pa-none overflow-hidden">
+          <div class="dashboard-card glass-card shadow-1 q-pa-none overflow-hidden">
              <div class="card-header q-pa-md border-bottom-light row justify-between items-center">
                 <div>
-                   <div class="text-h6 text-weight-bold text-grey-9">Custos Industriais</div>
+                   <div class="text-h6 text-weight-bold text-teal-10">Custos Industriais</div>
                    <div class="text-caption text-grey-6">Análise de gastos por categoria</div>
                 </div>
-                <q-btn round flat icon="more_horiz" color="grey-7" />
+                <q-btn round flat icon="more_horiz" color="teal-7" />
              </div>
              <div class="q-pa-md">
                 <ApexChart 
@@ -211,21 +212,21 @@
                   :series="costAnalysisChart.series" 
                 />
                 <div v-else class="empty-state-box">
-                   <div class="bg-grey-2 q-pa-lg rounded-circle q-mb-md">
-                      <q-icon name="bar_chart" size="3em" color="grey-5" />
+                   <div class="bg-teal-1 q-pa-lg rounded-circle q-mb-md">
+                      <q-icon name="bar_chart" size="3em" color="teal-3" />
                    </div>
-                   <div class="text-grey-7 text-weight-medium">Sem dados financeiros</div>
+                   <div class="text-teal-9 text-weight-medium">Sem dados financeiros</div>
                    <q-btn outline color="primary" label="Lançar Custos" to="/costs" class="q-mt-md rounded-borders" />
                 </div>
              </div>
           </div>
 
-          <div class="dashboard-card shadow-1 q-pa-none overflow-hidden">
-             <div class="card-header q-pa-md border-bottom-light row justify-between items-center bg-grey-1-light">
+          <div class="dashboard-card glass-card shadow-1 q-pa-none overflow-hidden">
+             <div class="card-header q-pa-md border-bottom-light row justify-between items-center bg-teal-gradient-faded">
                  <div class="row items-center">
-                    <div class="icon-box-sm bg-blue-1 text-blue-9 q-mr-md"><q-icon name="calendar_month" /></div>
+                    <div class="icon-box-sm bg-teal-1 text-teal-9 q-mr-md"><q-icon name="calendar_month" /></div>
                     <div>
-                       <div class="text-subtitle1 text-weight-bold text-grey-9">Agenda de Manutenção</div>
+                       <div class="text-subtitle1 text-weight-bold text-teal-10">Agenda de Manutenção</div>
                        <div class="text-caption text-grey-6">Próximas intervenções programadas</div>
                     </div>
                  </div>
@@ -233,10 +234,10 @@
              </div>
              
              <q-list class="q-py-sm">
-                 <q-item v-for="item in mergedMaintenanceList" :key="item.id" class="q-py-md q-px-lg transition-bg hover:bg-grey-1">
+                 <q-item v-for="item in mergedMaintenanceList" :key="item.id" class="q-py-md q-px-lg transition-bg hover:bg-teal-5-faded">
                    <q-item-section avatar>
                       <q-avatar 
-                        :color="item.is_overdue ? 'red-1' : 'blue-1'" 
+                        :color="item.is_overdue ? 'red-1' : 'teal-1'" 
                         :text-color="item.is_overdue ? 'negative' : 'primary'" 
                         font-size="24px"
                         class="shadow-1"
@@ -246,22 +247,22 @@
                    </q-item-section>
                    
                    <q-item-section>
-                     <q-item-label class="text-weight-bold text-body1 text-grey-9">{{ item.info }}</q-item-label>
+                     <q-item-label class="text-weight-bold text-body1 text-teal-10">{{ item.info }}</q-item-label>
                      <q-item-label caption class="q-mt-xs">
                          <span v-if="item.is_overdue" class="text-negative flex items-center">
                             <q-icon name="error" size="xs" class="q-mr-xs"/> Atrasada há {{ item.overdue_diff }}h
                          </span>
                          <span v-else class="text-grey-7 flex items-center">
                             <q-icon name="event" size="xs" class="q-mr-xs"/> Vence em: 
-                            <span class="text-primary q-ml-xs text-weight-medium bg-blue-1 q-px-xs rounded-borders">{{ item.due_label }}</span>
+                            <span class="text-primary q-ml-xs text-weight-medium bg-teal-1 q-px-xs rounded-borders">{{ item.due_label }}</span>
                          </span>
                      </q-item-label>
                    </q-item-section>
                    
                    <q-item-section side>
                       <q-btn 
-                        :color="item.is_overdue ? 'negative' : 'grey-3'" 
-                        :text-color="item.is_overdue ? 'white' : 'grey-9'"
+                        :color="item.is_overdue ? 'negative' : 'teal-1'" 
+                        :text-color="item.is_overdue ? 'white' : 'teal-10'"
                         unelevated 
                         dense 
                         class="q-px-md rounded-borders"
@@ -272,19 +273,20 @@
                    </q-item-section>
                  </q-item>
 
-                 <div v-if="!mergedMaintenanceList.length" class="empty-state-list">
-                     <q-icon name="task_alt" size="3em" class="text-green-5 q-mb-sm" />
-                     <div class="text-grey-8">Tudo em dia! Nenhuma manutenção próxima.</div>
-                 </div>
+                 <div v-if="!mergedMaintenanceList.length" class="empty-state-list full-width">
+    <q-icon name="check_circle" size="4em" class="text-teal-5 q-mb-md" />
+    <div class="text-teal-9 text-weight-medium">Tudo em dia!</div>
+    <div class="text-grey-6">Nenhuma manutenção próxima programada.</div>
+</div>
              </q-list>
           </div>
         </div>
 
         <div class="col-12 col-lg-4 column q-gutter-y-lg">
           
-          <div class="dashboard-card shadow-1 overflow-hidden">
+          <div class="dashboard-card glass-card shadow-1 overflow-hidden">
              <div class="q-pa-md border-bottom-light">
-                <div class="text-subtitle1 text-weight-bold">Status da Frota</div>
+                <div class="text-subtitle1 text-weight-bold text-teal-10">Status da Frota</div>
              </div>
              <div class="q-pa-md flex flex-center relative-position" style="min-height: 260px">
                 <ApexChart 
@@ -294,27 +296,27 @@
                     :options="fleetStatusChart.options" 
                     :series="fleetStatusChart.series" 
                 />
-                <div v-else class="text-center text-grey-5 absolute-center column flex-center">
-                   <q-icon name="pie_chart" size="4em" color="grey-3" />
+                <div v-else class="text-center text-teal-5 absolute-center column flex-center">
+                   <q-icon name="pie_chart" size="4em" color="teal-1" />
                    <div class="text-caption q-mt-sm">Sem dados de status</div>
                 </div>
              </div>
           </div>
 
-          <div class="dashboard-card shadow-1 overflow-hidden border-top-critical">
-             <div class="card-header q-pa-md row justify-between items-center bg-white">
+          <div class="dashboard-card glass-card shadow-1 overflow-hidden border-top-critical">
+             <div class="card-header q-pa-md row justify-between items-center" style="background: rgba(255,255,255,0.4)">
                 <div class="row items-center text-negative">
                    <div class="pulse-icon bg-red-1 q-mr-md flex flex-center" style="width: 32px; height: 32px; border-radius: 50%">
                       <q-icon name="notifications_active" size="18px"/>
                    </div>
                    <div class="text-subtitle1 text-weight-bold">Alertas Andon</div>
                 </div>
-                <q-badge color="red-1" text-color="negative" :label="processedAlerts.length" rounded />
+                <q-badge color="red-1" text-color="negative" :label="processedAlerts.length" rounded class="glass-badge" />
              </div>
              
-             <q-scroll-area style="height: 400px;" :thumb-style="{ width: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0' }">
+             <q-scroll-area style="height: 400px;" :thumb-style="{ width: '6px', borderRadius: '3px', backgroundColor: 'rgba(18, 140, 126, 0.2)' }">
                <q-list separator>
-                 <q-item v-for="alert in processedAlerts" :key="alert.id" class="q-py-md q-px-md hover:bg-red-1 transition-bg cursor-pointer">
+                 <q-item v-for="alert in processedAlerts" :key="alert.id" class="q-py-md q-px-md hover:bg-red-1-faded transition-bg cursor-pointer">
                    <q-item-section top avatar>
                       <div class="relative-position">
                         <q-avatar icon="warning" color="negative" text-color="white" size="md" font-size="20px" class="shadow-2" />
@@ -333,10 +335,10 @@
                  </q-item>
 
                  <div v-if="processedAlerts.length === 0" class="column flex-center full-height q-pa-xl text-center">
-                     <div class="bg-green-1 q-pa-lg rounded-circle q-mb-md">
-                        <q-icon name="verified" size="3em" color="positive" />
+                     <div class="bg-teal-1 q-pa-lg rounded-circle q-mb-md">
+                        <q-icon name="verified" size="3em" color="teal-5" />
                      </div>
-                     <div class="text-grey-9 text-weight-medium">Sem chamados abertos</div>
+                     <div class="text-teal-9 text-weight-medium">Sem chamados abertos</div>
                      <div class="text-grey-6 text-caption">Sua operação está rodando suavemente.</div>
                  </div>
                </q-list>
@@ -359,7 +361,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { colors } from 'quasar';
+import { colors, setCssVar } from 'quasar';
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useVehicleStore } from 'stores/vehicle-store'; 
@@ -417,7 +419,7 @@ const realTimeStats = computed(() => {
 const overdueVehicles = computed(() => {
    return vehicleStore.vehicles.filter(v => {
       if (v.next_maintenance_km && v.current_engine_hours) {
-         return v.current_engine_hours >= v.next_maintenance_km;
+          return v.current_engine_hours >= v.next_maintenance_km;
       }
       return false;
    });
@@ -478,8 +480,8 @@ const costAnalysisChart = computed(() => {
           yaxis: {
             labels: { style: { colors: '#64748b' }, formatter: (val: number) => `R$ ${val}` }
           },
-          colors: [colors.getPaletteColor('primary')],
-          grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+          colors: ['#128c7e'], // Cor Trucar
+          grid: { borderColor: 'rgba(18, 140, 126, 0.1)', strokeDashArray: 4 },
           dataLabels: { enabled: false },
           tooltip: { theme: 'light' }
       } 
@@ -493,11 +495,11 @@ const fleetStatusChart = computed(() => {
         series,
         options: {
             labels: ['Aguardando', 'Produzindo', 'Manutenção'],
-            colors: ['#fbbf24', '#22c55e', '#ef4444'], 
+            colors: ['#fbbf24', '#128c7e', '#ef4444'], 
             chart: { type: 'donut', fontFamily: 'Inter, sans-serif' },
             legend: { position: 'bottom', labels: { colors: '#475569' } },
             dataLabels: { enabled: false },
-            plotOptions: { donut: { size: '75%', labels: { show: true, total: { show: true, label: 'Total', color: '#64748b' } } } },
+            plotOptions: { donut: { size: '75%', labels: { show: true, total: { show: true, label: 'Total', color: '#128c7e' } } } },
             stroke: { show: true, width: 2, colors: ['#fff'] }
         }
     };
@@ -523,6 +525,7 @@ function scheduleMaintenanceGeneral() {
 }
 
 onMounted(() => {
+    setCssVar('primary', '#128c7e');
     if (authStore.isManager) {
         void refreshData();
     }
@@ -530,55 +533,79 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// Variáveis e Utilitários
-$shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-$shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-$shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+// Variáveis Trucar
+$trucar-green: #128c7e;
+$trucar-mint: #70c0b0;
+$shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 
 .dashboard-bg { 
-  background-color: #f1f5f9; // Slate-100
+  background-color: #f0f4f4; // Fundo menta frio
   min-height: 100vh;
 }
 
-// Tipografia
+/* --- Glassmorphism --- */
+.glass-card {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+}
+
+.glass-badge {
+  background: rgba(18, 140, 126, 0.1) !important;
+  backdrop-filter: blur(4px);
+}
+
+.glass-btn {
+  background: rgba(18, 140, 126, 0.05);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+}
+
+.glass-menu {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* --- Tipografia --- */
 .text-weight-900 { font-weight: 900; }
 .text-gradient {
-  background: linear-gradient(to right, var(--q-primary), darken(#1976D2, 15%));
+  background: linear-gradient(to right, $trucar-green, $trucar-mint);
+  -webkit-background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .letter-spacing-2 { letter-spacing: 2px; }
 
-// Cartões
+/* --- Cartões e Sombras --- */
 .dashboard-card { 
   border-radius: 16px; 
-  background: white;
-  border: 1px solid white;
 }
 .shadow-card {
-  box-shadow: $shadow-sm;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
+.shadow-green { box-shadow: $shadow-green; }
 
-// Bordas e Separadores
-.border-bottom-light { border-bottom: 1px solid #f1f5f9; }
+/* --- Bordas e Separadores --- */
+.border-bottom-light { border-bottom: 1px solid rgba(18, 140, 126, 0.1); }
 .border-top-critical { border-top: 4px solid var(--q-negative); }
 
-// Efeitos de Hover
+/* --- Efeitos de Hover --- */
 .hover-scale { 
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   &:hover { 
     transform: translateY(-4px); 
-    box-shadow: $shadow-lg;
-    border-color: var(--q-primary);
+    box-shadow: 0 10px 25px -5px rgba(18, 140, 126, 0.2);
+    border-color: $trucar-green;
   } 
 }
-.btn-hover-effect:hover { background: rgba(0,0,0,0.03); color: var(--q-primary); }
-.item-hover:hover { background-color: #f8fafc; .text-weight-bold { color: var(--q-primary); } }
+.btn-hover-effect:hover { background: rgba(18, 140, 126, 0.1); color: $trucar-green; }
+.item-hover:hover { 
+  background-color: rgba(112, 192, 176, 0.1); 
+  .text-weight-bold { color: $trucar-green; } 
+}
 
-// Elementos Decorativos
+/* --- Elementos Decorativos --- */
 .icon-box {
   width: 40px; height: 40px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
@@ -594,16 +621,14 @@ $shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 .rounded-circle { border-radius: 50%; }
 .btn-rounded { border-radius: 8px; }
 
-// Empty States
-.empty-state-box {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 350px; text-align: center;
+/* --- Backgrounds Específicos --- */
+.bg-teal-gradient-faded {
+  background: linear-gradient(90deg, rgba(112, 192, 176, 0.1) 0%, transparent 100%);
 }
-.empty-state-list {
-  padding: 40px; text-align: center; display: flex; flex-direction: column; align-items: center;
-}
+.hover\:bg-teal-5-faded:hover { background-color: rgba(112, 192, 176, 0.1); }
+.hover\:bg-red-1-faded:hover { background-color: rgba(239, 68, 68, 0.05); }
 
-// Animações
+/* --- Animations --- */
 .fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .animate-fade-down { animation: fadeDown 0.8s ease-out forwards; }
@@ -611,4 +636,22 @@ $shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+.empty-state-list {
+  display: flex;
+  flex-direction: column;  /* Coloca ícone sobre o texto */
+  align-items: center;     /* Centraliza horizontalmente */
+  justify-content: center; /* Centraliza verticalmente */
+  text-align: center;
+  padding: 60px 20px;      /* Espaçamento interno para o card não ficar "magro" */
+  min-height: 250px;       /* Garante uma altura mínima visualmente agradável */
+  width: 100%;             /* Crucial para o alinhamento central funcionar */
+}
+
+/* Ajuste adicional caso o ícone ainda pareça deslocado */
+.empty-state-list .q-icon {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
 </style>

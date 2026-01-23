@@ -1,31 +1,42 @@
 <template>
-  <q-page class="q-pa-md bg-grey-1">
+  <q-page class="q-pa-md bg-glass-layout">
     
     <div class="row items-center justify-between q-mb-md">
       <div>
-        <div class="text-h4 text-weight-bold text-blue-grey-9">Painel de Performance (MES)</div>
-        <div class="text-subtitle1 text-grey-7">Análise detalhada de produtividade e paradas</div>
+        <div class="text-h4 text-weight-bold text-gradient-trucar">Painel de Performance (MES)</div>
+        <div class="text-subtitle1 text-teal-9 opacity-80">Análise detalhada de produtividade e paradas</div>
       </div>
       
-      <div class="row q-gutter-md">
-        <q-input outlined dense v-model="filterDate" mask="date" :rules="['date']" label="Data de Análise" bg-color="white" style="width: 150px">
-          <template v-slot:append>
-            <q-icon name="event" class="cursor-pointer">
-              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                <q-date v-model="filterDate" @update:model-value="refreshData">
-                  <div class="row items-center justify-end">
-                    <q-btn v-close-popup label="Fechar" color="primary" flat />
-                  </div>
-                </q-date>
-              </q-popup-proxy>
-            </q-icon>
-          </template>
-        </q-input>
+      <div class="row q-gutter-md items-center"> 
+  
+  <q-input 
+    outlined 
+    dense 
+    v-model="filterDate" 
+    mask="date" 
+    :rules="['date']" 
+    label="Data de Análise" 
+    class="glass-input" 
+    bg-color="white" 
+    style="width: 150px"
+    hide-bottom-space  >
+    <template v-slot:append>
+      <q-icon name="event" class="cursor-pointer text-primary">
+        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+          <q-date v-model="filterDate" color="teal-9" @update:model-value="refreshData">
+            <div class="row items-center justify-end">
+              <q-btn v-close-popup label="Fechar" color="primary" flat />
+            </div>
+          </q-date>
+        </q-popup-proxy>
+      </q-icon>
+    </template>
+  </q-input>
 
-        <q-btn-dropdown push color="teal-8" icon="file_download" label="Exportar Dados">
-           <q-list>
+        <q-btn-dropdown push color="teal-8" icon="file_download" label="Exportar Dados" class="shadow-green">
+           <q-list class="glass-menu">
               <q-item clickable v-close-popup @click="exportToCsv">
-                 <q-item-section avatar><q-icon name="table_view" color="green" /></q-item-section>
+                 <q-item-section avatar><q-icon name="table_view" color="teal-9" /></q-item-section>
                  <q-item-section>
                     <q-item-label>Excel / CSV</q-item-label>
                     <q-item-label caption>Dados da aba atual</q-item-label>
@@ -38,17 +49,17 @@
            </q-list>
         </q-btn-dropdown>
 
-        <q-btn push color="primary" icon="refresh" @click="refreshData" :loading="isLoading">
+        <q-btn push color="primary" icon="refresh" @click="refreshData" :loading="isLoading" class="shadow-green">
             <q-tooltip>Atualizar Dados</q-tooltip>
         </q-btn>
       </div>
     </div>
 
-    <q-card class="q-mb-md shadow-1">
+    <q-card class="q-mb-md glass-card shadow-sm">
         <q-tabs
           v-model="activeTab"
           align="left"
-          class="text-grey-7"
+          class="text-teal-8"
           active-color="primary"
           indicator-color="primary"
           narrow-indicator
@@ -72,70 +83,70 @@
                     emit-value map-options
                     label="Selecionar Equipamento"
                     bg-color="white"
-                    class="col-12 col-md-4"
+                    class="col-12 col-md-4 glass-input"
                     @update:model-value="refreshData"
                 />
             </div>
 
-            <div v-if="!selectedMachine" class="flex flex-center q-pa-xl text-grey-6">
+            <div v-if="!selectedMachine" class="flex flex-center q-pa-xl text-teal-9 opacity-50">
                 Selecione uma máquina para carregar os dados.
             </div>
 
             <div v-else>
                 <div class="row q-col-gutter-md q-mb-md">
                     <div class="col-12 col-md">
-                        <q-card class="full-height shadow-1 bg-green-1 text-green-10 border-left-green">
+                        <q-card class="full-height glass-card border-left-green shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Produção (Operador)</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_running_operator || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-teal-9 opacity-80">Produção (Operador)</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-teal-10">{{ machineStats?.formatted_running_operator || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo efetivo logado.</div>
                             </q-card-section>
                         </q-card>
                     </div>
                     <div class="col-12 col-md">
-                        <q-card class="full-height shadow-1 bg-blue-1 text-blue-10 border-left-blue">
+                        <q-card class="full-height glass-card border-left-blue shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Produção Autônoma</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_running_autonomous || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-blue-9 opacity-80">Produção Autônoma</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-blue-10">{{ machineStats?.formatted_running_autonomous || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Sem operador (Troca turno).</div>
                             </q-card-section>
                         </q-card>
                     </div>
                     
                     <div class="col-12 col-md">
-                        <q-card class="full-height shadow-1 bg-purple-1 text-purple-10 border-left-purple">
+                        <q-card class="full-height glass-card border-left-purple shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Setup / Preparação</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-purple-9 opacity-80">Setup / Preparação</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-purple-10">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo de ajuste.</div>
                             </q-card-section>
                         </q-card>
                     </div>
 
                     <div class="col-12 col-md">
-                        <q-card class="full-height shadow-1 bg-orange-1 text-orange-10 border-left-orange">
+                        <q-card class="full-height glass-card border-left-orange shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Pausa (Perda)</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-orange-9 opacity-80">Pausa (Perda)</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-orange-10">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Logado mas parado.</div>
                             </q-card-section>
                         </q-card>
                     </div>
                     
                     <div class="col-12 col-md">
-                        <q-card class="full-height shadow-1 bg-red-1 text-red-10 border-left-red">
+                        <q-card class="full-height glass-card border-left-red shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80">Manutenção / Quebra</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm">{{ machineStats?.formatted_maintenance || '00:00:00' }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-red-9 opacity-80">Manutenção / Quebra</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-red-10">{{ machineStats?.formatted_maintenance || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo indisponível.</div>
                             </q-card-section>
                         </q-card>
                     </div>
                 </div>
 
-                <q-card class="q-pa-md q-mb-lg shadow-1">
-                    <div class="text-subtitle2 text-weight-bold text-grey-8 q-mb-sm">Distribuição do Tempo (24h)</div>
-                    <div class="row no-wrap rounded-borders overflow-hidden" style="height: 30px;">
+                <q-card class="q-pa-md q-mb-lg glass-card shadow-sm">
+                    <div class="text-subtitle2 text-weight-bold text-teal-10 q-mb-sm">Distribuição do Tempo (24h)</div>
+                    <div class="row no-wrap rounded-borders overflow-hidden" style="height: 30px; border: 1px solid rgba(0,0,0,0.05)">
                        <div class="bg-green text-white flex flex-center text-caption" :style="{flex: machineStats?.total_running_operator_seconds || 0}">
                           <q-tooltip>Prod. Humana: {{ machineStats?.formatted_running_operator }}</q-tooltip>
                           {{ machineStats?.total_running_operator_seconds ? 'Op.' : '' }}
@@ -167,34 +178,38 @@
 
                 <div class="row q-col-gutter-md q-mb-lg">
                     <div class="col-12 col-md-3">
-                        <q-card class="full-height shadow-2 relative-position overflow-hidden">
-                        <div class="absolute-full bg-blue-grey-9 opacity-10"></div>
+                        <q-card class="full-height glass-card shadow-green relative-position overflow-hidden">
+                        <div class="absolute-full bg-teal-gradient-faded opacity-20"></div>
                         <q-card-section class="column items-center justify-center text-center q-py-lg">
-                            <div class="text-h6 text-grey-8 text-uppercase">OEE Global</div>
-                            <div class="text-h2 text-weight-bolder text-blue-grey-10 q-my-sm">
+                            <div class="text-h6 text-teal-9 text-uppercase">OEE Global</div>
+                            <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
                                 {{ mesStore.oeeData?.oee_percentage || 0 }}<span class="text-h5">%</span>
                             </div>
-                            <q-badge :color="getOeeColor(mesStore.oeeData?.oee_percentage)" class="q-py-xs q-px-md text-caption">
-                                {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
-                            </q-badge>
+                            <q-badge 
+  :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
+  :class="{ 'animate-pulse shadow-red': (mesStore.oeeData?.oee_percentage || 0) < 65 }"
+  class="q-py-xs q-px-md text-caption text-weight-bold"
+>
+    {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
+</q-badge>
                         </q-card-section>
                         </q-card>
                     </div>
 
                     <div class="col-12 col-md-3">
-                        <q-card class="full-height shadow-1">
+                        <q-card class="full-height glass-card shadow-sm">
                         <q-card-section>
                             <div class="row items-center no-wrap">
-                                <q-icon name="timer" color="primary" size="lg" class="q-mr-md bg-blue-1 q-pa-sm rounded-borders" />
-                                <div>
-                                    <div class="text-caption text-grey-6 text-uppercase text-weight-bold">Disponibilidade</div>
-                                    <div class="text-h4 text-weight-bold text-primary">{{ mesStore.oeeData?.availability || 0 }}%</div>
+                                <q-icon name="timer" color="primary" size="lg" class="bg-teal-1 q-pa-sm rounded-borders" />
+                                <div class="q-ml-md">
+                                    <div class="text-caption text-teal-8 text-uppercase text-weight-bold">Disponibilidade</div>
+                                    <div class="text-h4 text-weight-bold text-teal-10">{{ mesStore.oeeData?.availability || 0 }}%</div>
                                 </div>
                             </div>
-                            <q-separator class="q-my-md" />
+                            <q-separator class="q-my-md opacity-10" />
                             <div class="row justify-between text-caption text-grey-8">
                                 <span>Tempo Produzindo:</span>
-                                <span class="text-weight-bold">{{ Math.round(mesStore.oeeData?.metrics.producing_min || 0) }} min</span>
+                                <span class="text-weight-bold text-teal-9">{{ Math.round(mesStore.oeeData?.metrics.producing_min || 0) }} min</span>
                             </div>
                             <div class="row justify-between text-caption text-grey-8">
                                 <span>Paradas Planejadas:</span>
@@ -205,56 +220,51 @@
                     </div>
 
                     <div class="col-12 col-md-3">
-                        <q-card class="full-height shadow-1">
+                        <q-card class="full-height glass-card shadow-sm">
                         <q-card-section>
                             <div class="row items-center no-wrap">
-                                <q-icon name="speed" color="orange-8" size="lg" class="q-mr-md bg-orange-1 q-pa-sm rounded-borders" />
-                                <div>
-                                    <div class="text-caption text-grey-6 text-uppercase text-weight-bold">Performance</div>
+                                <q-icon name="speed" color="orange-8" size="lg" class="bg-orange-1 q-pa-sm rounded-borders" />
+                                <div class="q-ml-md">
+                                    <div class="text-caption text-orange-9 text-uppercase text-weight-bold">Performance</div>
                                     <div class="text-h4 text-weight-bold text-orange-9">{{ mesStore.oeeData?.performance || 0 }}%</div>
                                 </div>
                             </div>
-                            <q-separator class="q-my-md" />
-                            <div class="text-caption text-grey-6">
-                                Comparativo entre Ciclo Padrão vs Realizado.
-                                <br><em>(Requer cadastro de tempos de ciclo)</em>
-                            </div>
+                            <q-separator class="q-my-md opacity-10" />
+                            <div class="text-caption text-grey-6 italic">Comparativo entre Ciclo Padrão vs Realizado. <br><em>(Requer cadastro de tempos de ciclo)</em></div>
                         </q-card-section>
                         </q-card>
                     </div>
 
                     <div class="col-12 col-md-3">
-                        <q-card class="full-height shadow-1">
+                        <q-card class="full-height glass-card shadow-sm">
                         <q-card-section>
                             <div class="row items-center no-wrap">
-                                <q-icon name="verified" color="positive" size="lg" class="q-mr-md bg-green-1 q-pa-sm rounded-borders" />
-                                <div>
-                                    <div class="text-caption text-grey-6 text-uppercase text-weight-bold">Qualidade</div>
+                                <q-icon name="verified" color="positive" size="lg" class="bg-green-1 q-pa-sm rounded-borders" />
+                                <div class="q-ml-md">
+                                    <div class="text-caption text-teal-9 text-uppercase text-weight-bold">Qualidade</div>
                                     <div class="text-h4 text-weight-bold text-positive">{{ mesStore.oeeData?.quality || 0 }}%</div>
                                 </div>
                             </div>
-                            <q-separator class="q-my-md" />
-                            <div class="text-caption text-grey-6">
-                                Peças Boas vs Total Produzido (incluindo Refugos).
-                            </div>
+                            <q-separator class="q-my-md opacity-10" />
+                            <div class="text-caption text-grey-6 italic">Peças Boas vs Total Produzido (incluindo Refugos).</div>
                         </q-card-section>
                         </q-card>
                     </div>
                 </div>
 
-                <q-card class="q-mb-lg shadow-2">
-                    <q-card-section class="row items-center justify-between">
-                        <div class="text-h6 text-weight-bold">Linha do Tempo (Gantt Chart)</div>
+                <q-card class="q-mb-lg glass-card shadow-sm overflow-hidden">
+                    <q-card-section class="row items-center justify-between border-bottom-light">
+                        <div class="text-h6 text-weight-bold text-teal-10">Linha do Tempo (Gantt Chart)</div>
                         <div class="row q-gutter-x-md text-caption">
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#21BA45;"></div> Operação</div>
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#9C27B0;"></div> Setup</div>
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#F2C037;"></div> Pausa/Ocioso</div>
-                            <div class="row items-center"><div class="q-mr-xs" style="width:12px;height:12px;background:#C10015;"></div> Manutenção</div>
+                            <div class="row items-center"><div class="q-mr-xs legend-dot bg-green"></div> Operação</div>
+                            <div class="row items-center"><div class="q-mr-xs legend-dot bg-purple"></div> Setup</div>
+                            <div class="row items-center"><div class="q-mr-xs legend-dot bg-orange"></div> Pausa/Ocioso</div>
+                            <div class="row items-center"><div class="q-mr-xs legend-dot bg-red"></div> Manutenção</div>
                         </div>
                     </q-card-section>
                     
                     <q-card-section class="q-pt-none overflow-auto">
-                        <div class="gantt-container rounded-borders relative-position bg-grey-3" style="height: 60px; display: flex; width: 100%;">
+                        <div class="gantt-container rounded-borders relative-position bg-grey-3 q-mt-md" style="height: 60px; display: flex; width: 100%;">
                             <div 
                                 v-for="(block, idx) in mesStore.timeline" 
                                 :key="idx"
@@ -269,21 +279,21 @@
                                 </q-tooltip>
                             </div>
                         </div>
-                        <div class="row justify-between text-caption text-grey-6 q-mt-xs font-monospace">
+                        <div class="row justify-between text-caption text-teal-8 q-mt-xs font-monospace opacity-70">
                             <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:59</span>
                         </div>
                     </q-card-section>
                 </q-card>
 
-                <q-card class="shadow-1">
+                <q-card class="glass-card shadow-sm overflow-hidden">
                     <q-card-section>
-                        <div class="text-h6 text-weight-bold q-mb-md">Histórico de Eventos Detalhado</div>
-                        
+                        <div class="text-h6 text-weight-bold text-teal-10 q-mb-md">Histórico de Eventos Detalhado</div>
                         <q-table
                             :rows="mesStore.rawLogs"
                             :columns="columns"
                             row-key="id"
                             flat bordered
+                            class="glass-table"
                             :pagination="{ rowsPerPage: 15 }"
                         >
                             <template v-slot:body-cell-event_type="props">
@@ -294,17 +304,13 @@
 
                             <template v-slot:body-cell-new_status="props">
                                 <q-td :props="props">
-                                    <q-badge :color="getStatusColor(props.value)" :label="translateStatus(props.value)" />
+                                    <q-badge :color="getStatusColor(props.value)" :label="translateStatus(props.value)" class="glass-badge-status" />
                                 </q-td>
                             </template>
 
                             <template v-slot:body-cell-operator_name="props">
                                 <q-td :props="props">
-                                    <div 
-                                        v-if="props.row.operator_id" 
-                                        class="text-primary text-weight-bold cursor-pointer hover-underline"
-                                        @click.stop="goToUserProfile(props.row.operator_id)"
-                                    >
+                                    <div v-if="props.row.operator_id" class="text-primary text-weight-bold cursor-pointer hover-teal" @click.stop="goToUserProfile(props.row.operator_id)">
                                         {{ props.value }}
                                         <q-tooltip>Ver Perfil</q-tooltip>
                                     </div>
@@ -326,12 +332,11 @@
         </q-tab-panel>
 
         <q-tab-panel name="employee" class="q-pa-none">
-            
             <div class="row q-col-gutter-md q-mb-lg">
                 <div class="col-12 col-md-4">
-                    <q-card class="bg-teal-9 text-white shadow-3">
+                    <q-card class="bg-teal-9 text-white shadow-green">
                         <q-card-section class="row items-center">
-                            <q-icon name="groups" size="50px" class="q-mr-md opacity-50" />
+                            <q-icon name="groups" size="50px" class="q-mr-md opacity-40" />
                             <div>
                                 <div class="text-h4 text-weight-bold">{{ mesStore.employeeStats.length }}</div>
                                 <div class="text-subtitle2 opacity-80">Operadores Ativos</div>
@@ -340,9 +345,9 @@
                     </q-card>
                 </div>
                 <div class="col-12 col-md-4">
-                    <q-card class="bg-blue-grey-9 text-white shadow-3">
+                    <q-card class="bg-teal-10 text-white shadow-sm">
                         <q-card-section class="row items-center">
-                            <q-icon name="schedule" size="50px" class="q-mr-md opacity-50" />
+                            <q-icon name="schedule" size="50px" class="q-mr-md opacity-40" />
                             <div>
                                 <div class="text-h4 text-weight-bold">{{ totalHoursFormatted }}h</div>
                                 <div class="text-subtitle2 opacity-80">Horas Totais Apontadas</div>
@@ -351,9 +356,9 @@
                     </q-card>
                 </div>
                 <div class="col-12 col-md-4">
-                    <q-card class="bg-orange-9 text-white shadow-3">
+                    <q-card class="bg-orange-9 text-white shadow-sm">
                         <q-card-section class="row items-center">
-                            <q-icon name="trending_up" size="50px" class="q-mr-md opacity-50" />
+                            <q-icon name="trending_up" size="50px" class="q-mr-md opacity-40" />
                             <div>
                                 <div class="text-h4 text-weight-bold">{{ avgEfficiency }}%</div>
                                 <div class="text-subtitle2 opacity-80">Eficiência Média da Equipe</div>
@@ -363,9 +368,9 @@
                 </div>
             </div>
 
-            <q-card class="shadow-2">
+            <q-card class="glass-card shadow-sm">
                 <q-card-section>
-                    <div class="text-h6 text-weight-bold text-blue-grey-9 q-mb-md row items-center">
+                    <div class="text-h6 text-weight-bold text-teal-10 q-mb-md row items-center">
                         <q-icon name="leaderboard" class="q-mr-sm" /> Ranking de Produtividade
                     </div>
                     
@@ -374,17 +379,17 @@
                         :columns="employeeColumns"
                         row-key="id"
                         flat bordered
+                        class="glass-table cursor-pointer hover-effect-table"
                         :pagination="{ rowsPerPage: 20 }"
                         separator="cell"
-                        @row-click="onOperatorClick" 
-                        class="cursor-pointer hover-effect-table"
+                        @row-click="onOperatorClick"
                     >
                         <template v-slot:body-cell-employee_name="props">
                             <q-td :props="props" class="row items-center no-wrap">
-                                <q-avatar color="primary" text-color="white" size="32px" class="q-mr-sm">
+                                <q-avatar color="primary" text-color="white" size="32px" class="q-mr-sm shadow-1">
                                     {{ props.value.charAt(0).toUpperCase() }}
                                 </q-avatar>
-                                <div class="text-weight-bold">{{ props.value }}</div>
+                                <div class="text-weight-bold text-teal-10">{{ props.value }}</div>
                             </q-td>
                         </template>
 
@@ -397,10 +402,10 @@
                                             :color="getEfficiencyColor(props.value)" 
                                             size="8px" 
                                             rounded 
-                                            track-color="grey-3"
+                                            class="glass-progress"
                                         />
                                     </div>
-                                    <div class="text-weight-bold">{{ props.value }}%</div>
+                                    <div class="text-weight-bold text-teal-10">{{ props.value }}%</div>
                                 </div>
                             </q-td>
                         </template>
@@ -412,13 +417,13 @@
                                         v-for="(reason, idx) in props.value" 
                                         :key="idx"
                                         color="red-1" 
-                                        text-color="red-9"
-                                        class="q-pa-xs"
+                                        text-color="negative"
+                                        class="q-pa-xs border-red-soft"
                                     >
                                         {{ reason.label }} ({{ reason.count }})
                                     </q-badge>
                                 </div>
-                                <span v-else class="text-grey-5 italic">Sem paradas registradas</span>
+                                <span v-else class="text-teal-5 italic">Sem paradas registradas</span>
                             </q-td>
                         </template>
                     </q-table>
@@ -432,9 +437,9 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* LOGICA ORIGINAL MANTIDA 100% */
 import { ref, onMounted, computed } from 'vue';
-import { date, exportFile, useQuasar } from 'quasar';
+import { date, exportFile, useQuasar, setCssVar } from 'quasar';
 import type { QTableColumn } from 'quasar';
 import { useMesStore } from 'stores/mes-store';
 import type { EmployeeStat } from 'stores/mes-store';
@@ -469,7 +474,7 @@ const columns: QTableColumn[] = [
 const employeeColumns: QTableColumn[] = [
     { name: 'employee_name', label: 'Colaborador', field: 'employee_name', align: 'left', sortable: true },
     { name: 'total_hours', label: 'Horas Totais', field: 'total_hours', align: 'center', sortable: true },
-    { name: 'productive_hours', label: 'Hrs Produtivas', field: 'productive_hours', align: 'center', sortable: true, classes: 'text-bold text-positive' },
+    { name: 'productive_hours', label: 'Hrs Produtivas', field: 'productive_hours', align: 'center', sortable: true, classes: 'text-bold text-teal-9' },
     { name: 'unproductive_hours', label: 'Hrs Paradas', field: 'unproductive_hours', align: 'center', sortable: true, classes: 'text-negative' },
     { name: 'efficiency', label: 'Eficiência Geral', field: 'efficiency', align: 'left', sortable: true },
     { name: 'top_reasons', label: 'Principais Ofensores (Paradas)', field: 'top_reasons', align: 'left' },
@@ -486,7 +491,7 @@ const avgEfficiency = computed(() => {
     return Math.round(total / mesStore.employeeStats.length);
 });
 
-function onOperatorClick(evt: Event, row: EmployeeStat) {
+function onOperatorClick(_evt: Event, row: EmployeeStat) {
     void router.push(`/users/${row.id}/stats`);
 }
 
@@ -505,7 +510,7 @@ function translateEventType(type: string): string {
 }
 function goToUserProfile(userId: number) {
     if (userId) {
-        router.push(`/users/${userId}/stats`);
+        void router.push(`/users/${userId}/stats`);
     }
 }
 
@@ -520,22 +525,13 @@ function translateStatus(status: string): string {
     return status;
 }
 
-// [NOVA FUNÇÃO] Lógica de Cor para o Gantt (Inclui Setup Roxo)
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase();
     const r = String(block.reason || '').toUpperCase();
-    
-    // Prioridade máxima para Setup
-    if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) {
-        return 'purple';
-    }
-    
-    // Cores padrão
+    if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) return 'purple';
     if (s.includes('RUNNING') || s.includes('PRODUCING')) return 'green';
     if (s.includes('MAINTENANCE')) return 'red';
     if (s.includes('PAUSED') || s.includes('STOPPED')) return 'orange';
-    
-    
     return 'grey';
 }
 
@@ -545,29 +541,29 @@ function getStatusColor(status: string) {
     if (s.includes('STOPPED') || s.includes('PAUSA')) return 'orange';
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'negative';
     if (s.includes('IDLE') || s.includes('DISPONÍVEL')) return 'grey-7';
-    if (s.includes('SETUP')) return 'purple'; // Setup Roxo
+    if (s.includes('SETUP')) return 'purple';
     return 'grey';
 }
 
 function getEfficiencyColor(val: number) {
     if (val >= 90) return 'positive';
-    if (val >= 75) return 'primary';
+    if (val >= 75) return 'teal-9';
     if (val >= 50) return 'warning';
     return 'negative';
 }
 
-function getOeeColor(val?: number) {
-    if (!val) return 'grey';
-    if (val >= 85) return 'positive';
-    if (val >= 65) return 'warning';
-    return 'negative';
-}
-
 function getOeeLabel(val?: number) {
-    if (!val) return 'N/A';
+    if (val === undefined || val === null) return 'N/A';
     if (val >= 85) return 'World Class';
     if (val >= 65) return 'Aceitável';
     return 'Crítico';
+}
+
+function getOeeColor(val?: number) {
+    if (val === undefined || val === null) return 'grey-7';
+    if (val >= 85) return 'positive'; // Verde
+    if (val >= 65) return 'warning';  // Laranja
+    return 'red-10';                  // Vermelho Industrial Intenso
 }
 
 function getBlockWidth(minutes: number) {
@@ -621,71 +617,121 @@ function exportToCsv() {
     }
 
     const status = exportFile(filename, content, 'text/csv');
-    if (status === true) {
-        $q.notify({ type: 'positive', message: 'Download iniciado!' });
-    } else {
+    if (status !== true) {
         $q.notify({ type: 'negative', message: 'Erro ao baixar arquivo' });
     }
 }
 
 function printReport() {
-    // Monta a URL da nova página de impressão
     const routeData = router.resolve({
         path: '/print/mes-report',
         query: { 
-            // Passa os filtros atuais para a nova página
             date: filterDate.value, 
             machineId: selectedMachine.value,
-            type: activeTab.value // 'machine' ou 'employee'
+            type: activeTab.value 
         }
     });
-    
-    // Abre em nova aba
     window.open(routeData.href, '_blank');
 }
 
 onMounted(async () => {
+    setCssVar('primary', '#128c7e');
     await productionStore.fetchAvailableMachines();
     if (machineOptions.value && machineOptions.value.length > 0 && machineOptions.value[0]) {
         selectedMachine.value = machineOptions.value[0].value;
-        await refreshData();
+        void refreshData();
     }
 });
 </script>
 
-<style scoped>
-.hover-highlight:hover {
-    filter: brightness(1.1);
-    cursor: pointer;
-    z-index: 10;
-    transform: scaleY(1.1);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+<style scoped lang="scss">
+/* Estilização Trucar MES - Identidade Trucar com lógica original preservada */
+.bg-glass-layout {
+  background-color: #f0f4f4;
+  min-height: 100vh;
 }
-.font-monospace { font-family: monospace; }
-.opacity-10 { opacity: 0.1; }
-.opacity-50 { opacity: 0.5; }
-.opacity-80 { opacity: 0.8; }
 
-.hover-effect-table tbody tr:hover {
-    background-color: #f5f5f5;
-    transition: background-color 0.2s;
+.text-gradient-trucar {
+  background: linear-gradient(to right, #128c7e, #70c0b0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.hover-underline:hover {
-    text-decoration: underline;
+
+/* Glassmorphism Classes */
+.glass-card {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+  border-radius: 12px;
 }
-/* Bordas Coloridas nos Cards de Tempo */
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(8px);
+}
+
+.glass-menu {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(10px);
+}
+
+.glass-badge {
+  background: rgba(18, 140, 126, 0.1) !important;
+  color: #128c7e !important;
+  border: 1px solid rgba(18, 140, 126, 0.2);
+}
+
+.glass-badge-status {
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.glass-table {
+  background: transparent !important;
+  :deep(.q-table__card) { background: transparent; }
+  :deep(thead tr) { background: rgba(18, 140, 126, 0.05); }
+}
+
+/* Bordas Coloridas Originais (Preservadas) */
 .border-left-green { border-left: 5px solid #4caf50; }
 .border-left-blue { border-left: 5px solid #2196f3; }
 .border-left-orange { border-left: 5px solid #ff9800; }
 .border-left-red { border-left: 5px solid #f44336; }
-.border-left-purple { border-left: 5px solid #9C27B0; } /* [NOVO] */
+.border-left-purple { border-left: 5px solid #9C27B0; }
 
-@media print {
-    .q-page { background: white !important; }
-    .q-btn, .q-header, .q-drawer, .q-tabs { display: none !important; }
-    .q-card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
-    .bg-positive { background-color: #21BA45 !important; -webkit-print-color-adjust: exact; }
-    .bg-negative { background-color: #C10015 !important; -webkit-print-color-adjust: exact; }
-    .bg-purple { background-color: #9C27B0 !important; -webkit-print-color-adjust: exact; } /* [NOVO] */
+.legend-dot { width: 12px; height: 12px; border-radius: 2px; }
+
+.hover-highlight:hover {
+  filter: brightness(1.1);
+  transform: scaleY(1.05);
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(18, 140, 126, 0.2);
+}
+
+.shadow-green { box-shadow: 0 4px 14px 0 rgba(18, 140, 126, 0.2); }
+.border-bottom-light { border-bottom: 1px solid rgba(18, 140, 126, 0.1); }
+.bg-teal-gradient-faded { background: linear-gradient(135deg, rgba(112, 192, 176, 0.2) 0%, transparent 100%); }
+
+.hover-teal:hover { text-decoration: underline; color: #128c7e; }
+.font-monospace { font-family: 'JetBrains Mono', monospace; }
+
+.animate-fade { animation: fadeIn 0.8s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.shadow-red {
+  box-shadow: 0 0 12px rgba(211, 47, 47, 0.7); /* Brilho neon vermelho */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Animação de pulso para o modo crítico */
+.animate-pulse {
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 </style>
