@@ -591,16 +591,29 @@ const normalizedStatus = computed(() => {
     return 'PARADA'; 
 });
 const displayStatus = computed(() => {
-  if (productionStore.isInSetup) return 'EM PREPARAÇÃO (SETUP)'; // <--- RECONHECE SETUP
-  if (isPaused.value) return 'PARADA - ' + (currentPauseObj.value?.reasonLabel || '');
+  if (productionStore.isInSetup) return 'EM PREPARAÇÃO (SETUP)';
+  
+  // --- MUDANÇA: Texto explícito "EM PAUSA" quando pausado manualmente ---
+  if (isPaused.value) return 'EM PAUSA - ' + (currentPauseObj.value?.reasonLabel || '');
+  
+  const rawStatus = activeOrder.value?.status?.toUpperCase() || '';
+  if (['AVAILABLE', 'DISPONÍVEL', 'PENDING'].includes(rawStatus)) {
+      return 'AGUARDANDO INÍCIO'; // Sem tolerância, apenas status neutro
+  }
+  
   return normalizedStatus.value;
 });
 
 const statusBgClass = computed(() => {
-  if (productionStore.isInSetup) return 'bg-purple-9 text-white'; // <--- COR ROXA
-  if (isPaused.value) return 'bg-warning text-black'; 
-  if (normalizedStatus.value === 'EM OPERAÇÃO') return 'bg-positive'; 
-  return 'bg-negative';
+  if (productionStore.isInSetup) return 'bg-purple-9 text-white';
+  
+  // --- MUDANÇA: Cor Laranja (Warning) para Pausa ---
+  if (isPaused.value) return 'bg-orange-9 text-white'; 
+  
+  if (normalizedStatus.value === 'EM OPERAÇÃO') return 'bg-positive text-white';
+  
+  // Cor neutra para Aguardando
+  return 'bg-blue-grey-9 text-white';
 });
 
 const statusTextClass = computed(() => {
@@ -610,10 +623,10 @@ const statusTextClass = computed(() => {
 });
 
 const statusIcon = computed(() => {
-    if (productionStore.isInSetup) return 'build_circle'; // <--- ÍCONE SETUP
-    if (isPaused.value) return 'pause';
+    if (productionStore.isInSetup) return 'build_circle';
+    if (isPaused.value) return 'pause_circle_filled'; // Ícone de pausa preenchido
     if (normalizedStatus.value === 'EM OPERAÇÃO') return 'autorenew';
-    return 'error_outline';
+    return 'hourglass_empty';
 });
 const getButtonClass = computed(() => {
   if (isPaused.value) return 'bg-orange-9 text-white'; 
