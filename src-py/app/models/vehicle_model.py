@@ -27,6 +27,7 @@ class VehicleStatus(str, enum.Enum):
     AVAILABLE = "Disponível"
     IN_USE = "Em uso"
     MAINTENANCE = "Em manutenção"
+    STOPPED = "Parada"  # <--- ADICIONE ESTE STATUS
 
 class Vehicle(Base):
     __tablename__ = "vehicles"

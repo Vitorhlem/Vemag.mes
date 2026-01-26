@@ -810,17 +810,23 @@ async function applyNormalPause() {
 
         // --- 2. ATUALIZA ESTADO LOCAL PARA PAUSA ---
         isPaused.value = true;
-        if (activeOrder.value) activeOrder.value.status = 'PAUSED';
-        
-        // Define o tempo de INÍCIO DA PAUSA como AGORA
-        statusStartTime.value = new Date(); 
-        
-        // Notifica backend apenas para log/dashboard em tempo real
-        const reason = currentPauseObj.value?.reasonLabel || 'Pausa Genérica';
-        await productionStore.pauseProduction(reason);
+    if (activeOrder.value) activeOrder.value.status = 'PAUSED';
+    
+    // Define o tempo de INÍCIO DA PAUSA como AGORA
+    statusStartTime.value = new Date(); 
+    
+    // Notifica backend apenas para log/dashboard em tempo real
+    const reason = currentPauseObj.value?.reasonLabel || 'Pausa Genérica';
+    
+    // 1. Chama a store para registrar o evento de pausa
+    await productionStore.pauseProduction(reason);
 
-        $q.notify({ type: 'warning', message: `Produção salva. Pausa iniciada: ${reason}`, icon: 'pause' });
+    // 2. ADICIONE ESTA LINHA AQUI:
+    // Força explicitamente o status 'STOPPED' (Parada) para o backend,
+    // garantindo que não fique 'AVAILABLE' mesmo se a store tiver lógica antiga.
+    await productionStore.setMachineStatus('STOPPED'); 
 
+    $q.notify({ type: 'warning', message: `Produção salva. Pausa iniciada: ${reason}`, icon: 'pause' });
     } catch (error) {
         console.error("Erro ao pausar:", error);
         $q.notify({ type: 'negative', message: 'Erro ao salvar produção no SAP.' });
@@ -1224,7 +1230,7 @@ async function confirmAndonCall(sector: string) {
 
 
 async function handleSetupClick() {
-  // CENÁRIO 1: FINALIZAR SETUP
+  // --- CENÁRIO 1: FINALIZAR SETUP (Salvar e Enviar para SAP) ---
   if (productionStore.isInSetup) {
       $q.dialog({
           title: 'Finalizar Setup',
@@ -1233,33 +1239,91 @@ async function handleSetupClick() {
           persistent: true,
           ok: { label: 'Finalizar', color: 'positive' }
       }).onOk(async () => {
-          $q.loading.show({ message: 'Finalizando Setup...' });
+          $q.loading.show({ message: 'Registrando Setup no SAP...' });
+          isLoadingAction.value = true;
+          
           try {
-              // --- ANTES: ENVIAVA PARA SAP AQUI ---
-              // Removido temporariamente conforme solicitado.
-              console.log("ℹ️ [SISTEMA] Setup finalizado localmente. Duração salva nos logs internos.");
+              const now = new Date();
+              const startSetup = statusStartTime.value; // Hora que o setup começou
 
-              // Apenas finaliza no nosso sistema
+              // 1. Preparar dados para o SAP
+              let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+              if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+              
+              const operatorName = getOperatorName(String(badge).trim());
+              const machineRes = productionStore.machineResource || '4.02.01';
+              
+              let resourceDescription = '';
+              const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
+              if (foundEntry) resourceDescription = foundEntry.description;
+
+              // 2. Payload Inteligente
+              const setupPayload = {
+                  op_number: activeOrder.value?.code || '',
+                  position: '', 
+                  operation: '', 
+                  operation_desc: 'PREPARAÇÃO',
+                  part_description: 'SETUP DE MÁQUINA',
+                  item_code: activeOrder.value?.part_code || '',
+                  service_code: '',
+                  resource_code: machineRes,
+                  resource_name: resourceDescription,
+                  operator_name: operatorName || '',
+                  operator_id: String(badge),
+                  vehicle_id: productionStore.machineId || 0,
+                  
+                  start_time: startSetup.toISOString(),
+                  end_time: now.toISOString(),
+                  
+                  stop_reason: 'SETUP', 
+                  // Gatilho para U_setup='Y' no Python
+                  stop_description: 'Setup e Preparação de Máquina' 
+              };
+
+              console.log("📤 [SETUP] Enviando apontamento:", setupPayload);
+              await ProductionService.sendAppointment(setupPayload);
+
+              // 3. Atualizar Estado Local (CORREÇÃO AQUI)
+              // O toggleSetup() já muda o status para 'AVAILABLE' internamente.
+              // Não precisamos (e não devemos) chamar setMachineStatus('STOPPED') depois.
               await productionStore.toggleSetup();
               
-              resetTimer(); // Reinicia o contador da tela para o novo estado (Disponível)
+              // Reinicia o relógio visual (agora contando tempo ocioso/disponível)
+              resetTimer(); 
               $q.notify({ type: 'positive', message: 'Setup registrado com sucesso!' });
 
           } catch (error) {
-              console.error(error);
-              $q.notify({ type: 'negative', message: 'Erro ao registrar fim de setup.' });
+              console.error("Erro Setup:", error);
+              $q.notify({ type: 'negative', message: 'Erro ao registrar setup no SAP.' });
               // Tenta destravar mesmo com erro para não prender o operador
               await productionStore.toggleSetup();
           } finally {
               $q.loading.hide();
+              isLoadingAction.value = false;
           }
       });
   } 
-  // CENÁRIO 2: INICIAR SETUP
+  
+  // --- CENÁRIO 2: INICIAR SETUP ---
   else {
-      statusStartTime.value = new Date(); // Zera o relógio visual para o operador acompanhar o tempo de setup
-      await productionStore.toggleSetup();
-      resetTimer();
+      isLoadingAction.value = true;
+      try {
+          // 1. Inicia o modo Setup na Store
+          await productionStore.toggleSetup();
+          
+          // 2. Envia status visual para o Dashboard (Roxo/Manutenção)
+          await productionStore.setMachineStatus('MAINTENANCE'); 
+          
+          // 3. Reinicia o relógio para contar o tempo de setup
+          statusStartTime.value = new Date(); 
+          resetTimer();
+          
+          $q.notify({ type: 'info', message: 'Modo Setup Iniciado. Cronômetro rodando.' });
+      } catch (e) {
+          console.error(e);
+      } finally {
+          isLoadingAction.value = false;
+      }
   }
 }
 

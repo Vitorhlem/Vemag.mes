@@ -73,7 +73,7 @@
           </div>
           <div>
             <q-toolbar-title class="text-weight-bold text-dark gt-xs font-mono q-pl-none" style="font-size: 1.35rem; letter-spacing: -0.5px; line-height: 1;">
-              vemag<span class="text-primary">.mes</span>
+              VEMAG<span class="text-primary">.mes</span>
             </q-toolbar-title>
             <div class="text-caption text-teal-8 gt-xs" style="line-height: 1; font-size: 0.7rem; letter-spacing: 1px; font-weight: 600;">INTELLIGENT MANUFACTURING</div>
           </div>

@@ -193,6 +193,14 @@ class SAPIntegrationService:
         except Exception as e:
             print(f"❌ [SAP] Erro Busca OP Única: {e}")
             return None
+        
+    async def _find_vehicle_by_identifier(self, identifier: str) -> Optional[Vehicle]:
+        stmt = select(Vehicle).where(
+            Vehicle.identifier == identifier, 
+            Vehicle.organization_id == self.org_id
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().first()
 
     # =========================================================================
     # 4. APONTAMENTO DE PRODUÇÃO
@@ -204,8 +212,18 @@ class SAPIntegrationService:
         dt_ini = appointment_data['start_time']
         dt_fim = appointment_data['end_time']
 
-        dt_ini_local = dt_ini - timedelta(hours=3)
-        dt_fim_local = dt_fim - timedelta(hours=3)
+        # Ajuste de Fuso Horário (se necessário, verifique se seu servidor já não está em UTC ou Local)
+        # Se o objeto datetime vier com timezone info, converta. Se for naive, assuma que precisa ajustar.
+        # Aqui mantive sua lógica original de -3h (Brasília)
+        if dt_ini.tzinfo:
+            dt_ini_local = dt_ini  # Se já tem timezone, deixa o serializer tratar ou converta
+        else:
+            dt_ini_local = dt_ini - timedelta(hours=3)
+            
+        if dt_fim.tzinfo:
+            dt_fim_local = dt_fim
+        else:
+            dt_fim_local = dt_fim - timedelta(hours=3)
 
         sap_data_ini = dt_ini_local.strftime("%Y-%m-%d")
         sap_data_fim = dt_fim_local.strftime("%Y-%m-%d")
@@ -214,22 +232,31 @@ class SAPIntegrationService:
 
         raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
         sap_operator_id = raw_id[:-1] if len(raw_id) > 1 else raw_id
-        final_resource = sap_resource_code if sap_resource_code else "4.02.01"
+        
+        # --- LÓGICA DE DETECÇÃO DE SETUP ---
+        # Verifica se 'setup' ou 'preparação' aparece nas descrições para marcar o flag
+        is_setup_val = "N"
+        full_text_search = (
+            str(appointment_data.get('stop_description', '')) + " " + 
+            str(appointment_data.get('operation_desc', '')) + " " +
+            str(appointment_data.get('stop_reason', ''))
+        ).lower()
+        
+        if "setup" in full_text_search or "prepara" in full_text_search:
+            is_setup_val = "S"
+        # -----------------------------------
 
         payload = {
             "U_NumeroDocumento": str(appointment_data['op_number']),
             "U_Servico": "",
             "U_Posicao": str(appointment_data['position']),
-            
-            # --- CORREÇÃO: PREENCHIMENTO DA OPERAÇÃO ---
-            "U_Operacao": str(appointment_data['operation']), # Agora recebe o código (ex: "701")
-            "U_DescricaoOperacao": appointment_data.get('operation_desc', ''), # Novo campo SAP
+            "U_Operacao": str(appointment_data['operation']),
+            "U_DescricaoOperacao": appointment_data.get('operation_desc', ''),
             "U_DescricaoServico": appointment_data.get('part_description', ''), 
             
-            # Frontend manda 'operator_name' -> SAP espera 'U_DescricaoOperador'
             "U_DescricaoOperador": appointment_data.get('operator_name', ''),
-            "U_Recurso": str(appointment_data['resource_code']),        # Ex: 7.01.01
-            "U_DescricaoRecurso": str(appointment_data['resource_name']), # Ex: Analista de PPCP
+            "U_Recurso": str(appointment_data['resource_code']),        
+            "U_DescricaoRecurso": str(appointment_data['resource_name']),
             "U_Operador": sap_operator_id,
             
             "U_DataInicioAp": sap_data_ini,
@@ -237,11 +264,14 @@ class SAPIntegrationService:
             "U_HoraInicioAp": sap_hora_ini,
             "U_HoraFimAp": sap_hora_fim,
             "U_MotivoParada": appointment_data.get('stop_reason', ""),
-            "U_DescricaoParada": appointment_data.get('stop_description', "") # <--- ADICIONE ESTA LINHA
+            "U_DescricaoParada": appointment_data.get('stop_description', ""),
+            
+            # --- CAMPO NOVO ADICIONADO ---
+            "U_setup": is_setup_val 
         }
 
         try:
-            print(f"🏭 [SAP] Enviando Apontamento... Dados: {payload}")
+            print(f"🏭 [SAP] Enviando Apontamento... Payload: {payload}")
             
             target_url = f"{SAP_BASE_URL}/LGO_CAPONTAMENTO"
             response = await self.client.post(target_url, json=payload, cookies=self.cookies)

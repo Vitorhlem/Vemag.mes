@@ -452,12 +452,29 @@ async def set_machine_status(
 
     # 2. MANUTENÇÃO
     elif status_upper in ["MAINTENANCE", "BROKEN", "SETUP", "MANUTENÇÃO", "QUEBRADA", "MANUTENCAO", "EM MANUTENÇÃO"]:
-            new_status_db = VehicleStatus.MAINTENANCE.value # "Em manutenção"
-            category_mes = "PLANNED_STOP"
+        # Se você não tiver o Enum VehicleStatus importado, use a string direta: "Em manutenção"
+        try:
+            new_status_db = VehicleStatus.MAINTENANCE.value
+        except:
+            new_status_db = "Em manutenção"
+        category_mes = "PLANNED_STOP"
+
+    # 3. PARADA / PAUSA (CORREÇÃO AQUI)
+    elif status_upper in ["STOPPED", "PAUSED", "PARADA", "EM PAUSA", "PAUSA"]:
+        # Tenta pegar do Enum ou usa a string direta
+        try:
+            new_status_db = VehicleStatus.STOPPED.value
+        except:
+            new_status_db = "Parada"
+        category_mes = "UNPLANNED_STOP"
             
-    # 3. DISPONÍVEL / PARADA
+    # 4. DISPONÍVEL (Padrão para AVAILABLE, IDLE, etc)
     else:
-        new_status_db = "Disponível"
+        # Tenta pegar do Enum ou usa a string direta
+        try:
+            new_status_db = VehicleStatus.AVAILABLE.value
+        except:
+            new_status_db = "Disponível"
         category_mes = "IDLE"
 
     print(f"✅ [BACKEND] Gravando no Banco: '{new_status_db}'")

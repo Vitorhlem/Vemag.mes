@@ -250,21 +250,16 @@ export const useProductionStore = defineStore('production', () => {
   }
 
   async function setMachineStatus(status: string) {
-      // 1. Lógica para Modo Teste
-
-
       if (!machineId.value) return;
 
       try {
-          // 2. Envia para o Backend (O backend vai converter para "Em uso")
           await api.post('/production/machine/status', { machine_id: machineId.value, status: status });
           
-          // 3. Atualiza Localmente com a string em Português
           if (currentMachine.value) {
               const s = status.toUpperCase();
               
               if (s === 'RUNNING' || s === 'IN_USE' || s === 'EM USO') {
-                  currentMachine.value.status = 'Em uso'; // <--- O PULO DO GATO
+                  currentMachine.value.status = 'Em uso';
               } 
               else if (s === 'AVAILABLE' || s === 'IDLE' || s === 'DISPONIVEL') {
                   currentMachine.value.status = 'Disponível';
@@ -272,6 +267,11 @@ export const useProductionStore = defineStore('production', () => {
               else if (s === 'MAINTENANCE' || s === 'BROKEN') {
                   currentMachine.value.status = 'Manutenção';
               } 
+              // --- ADICIONE ESTE BLOCO ---
+              else if (s === 'STOPPED' || s === 'PARADA' || s === 'PAUSED') {
+                  currentMachine.value.status = 'Em Pausa'; 
+              }
+              // ---------------------------
               else {
                   currentMachine.value.status = status;
               }
@@ -280,7 +280,6 @@ export const useProductionStore = defineStore('production', () => {
           console.error("Erro ao atualizar status da máquina:", e);
       }
   }
-
   async function loginOperator(scannedCode: string) {
     if (!machineId.value) return;
     
@@ -470,15 +469,13 @@ export const useProductionStore = defineStore('production', () => {
   async function pauseProduction(reason: string) { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'PAUSED' };
       
-  
-
       // 1. Registra Log
       await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
       
-      // 2. Atualiza Status da Máquina (Geralmente Available ou Stopped)
-      // Se a parada for quebra, isso será tratado em createMaintenanceOrder
-      // Se for pausa operacional, a máquina fica "Parada/Disponível"
-      await setMachineStatus('AVAILABLE'); 
+      // 2. CORREÇÃO AQUI:
+      // ANTES: await setMachineStatus('AVAILABLE'); 
+      // AGORA: Envia 'STOPPED' para o backend saber que está ocupada/pausada
+      await setMachineStatus('STOPPED'); 
   }
 
   

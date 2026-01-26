@@ -116,9 +116,20 @@
             class="full-height glass-card shadow-card hover-scale" 
           />
         </div>
+        <div class="col-12 col-sm-6 col-md-4 col-lg">
+          <StatCard 
+            label="Em Pausa" 
+            :value="realTimeStats.paused" 
+            icon="pause_circle" 
+            color="orange-9" 
+            to="/vehicles?status=Parada" 
+            :loading="dashboardStore.isLoading"
+            class="full-height glass-card shadow-card hover-scale" 
+          />
+        </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-3">
           <StatCard 
-            label="Disponível / Parado" 
+            label="Disponível" 
             :value="realTimeStats.idle" 
             icon="hourglass_empty" 
             color="warning" 
@@ -408,12 +419,40 @@ const processedAlerts = computed(() => recentAlerts.value);
 
 const realTimeStats = computed(() => {
   const allMachines = vehicleStore.vehicles;
-  const running = allMachines.filter(m => ['Em uso', 'IN_USE', 'RUNNING'].includes(String(m.status))).length;
-  const stopped = allMachines.filter(m => ['Em manutenção', 'MAINTENANCE', 'SETUP'].includes(String(m.status))).length;
-  const idle = allMachines.filter(m => ['Disponível', 'AVAILABLE', 'IDLE', 'STOPPED'].includes(String(m.status))).length;
+  
+  // Função auxiliar para normalizar status
+  const getStatus = (m: any) => String(m.status || '').toUpperCase().trim();
+
   const total = allMachines.length;
 
-  return { total, running, stopped, idle, utilizationRate: total > 0 ? (running / total) * 100 : 0 };
+  // 1. Em Produção
+  const running = allMachines.filter(m => 
+    ['EM USO', 'IN_USE', 'RUNNING', 'EM OPERAÇÃO', 'PRODUCING'].includes(getStatus(m))
+  ).length;
+
+  // 2. Em Manutenção (Usa a chave 'stopped' para compatibilidade com o card de Manutenção)
+  const stopped = allMachines.filter(m => 
+    ['EM MANUTENÇÃO', 'MAINTENANCE', 'SETUP', 'QUEBRADA'].includes(getStatus(m))
+  ).length;
+
+  // 3. Em Pausa (NOVO CÁLCULO)
+  const paused = allMachines.filter(m => 
+    ['PARADA', 'STOPPED', 'PAUSED', 'EM PAUSA'].includes(getStatus(m))
+  ).length;
+
+  // 4. Disponível (Removemos 'STOPPED' daqui para não duplicar)
+  const idle = allMachines.filter(m => 
+    ['DISPONÍVEL', 'DISPONIVEL', 'AVAILABLE', 'IDLE', 'LIVRE'].includes(getStatus(m))
+  ).length;
+
+  return { 
+    total, 
+    running, 
+    stopped, // Manutenção
+    paused,  // Pausa (Novo)
+    idle,    // Disponível
+    utilizationRate: total > 0 ? (running / total) * 100 : 0 
+  };
 });
 
 const overdueVehicles = computed(() => {

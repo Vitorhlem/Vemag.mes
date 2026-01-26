@@ -225,9 +225,14 @@ class ProductionService:
                 st = (log.new_status or "").upper()
                 reason = (log.reason or "").upper()
                 
-                # Regra: Setup = Produtivo
+                # Definição de Estados
+                is_available = st in ["AVAILABLE", "IDLE", "DISPONÍVEL", "DISPONIVEL"]
                 is_running = st in ["RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "IN_USE"]
-                is_setup = "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason
+                
+                # CORREÇÃO: Setup só é verdadeiro se NÃO for 'Available'
+                # Isso impede que "Fim de Setup" (que contém a palavra Setup) conte como tempo produtivo
+                has_setup_keyword = "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason
+                is_setup = has_setup_keyword and not is_available and not is_running
                 
                 if is_running or is_setup:
                     prod_sec += duration
@@ -378,7 +383,10 @@ class ProductionService:
             enum_map = {
                 "PRODUCING": VehicleStatus.IN_USE,
                 "PLANNED_STOP": VehicleStatus.MAINTENANCE,
-                "UNPLANNED_STOP": VehicleStatus.AVAILABLE, # Ou MAINTENANCE, depende da regra de negócio
+                
+                # ALTERAÇÃO AQUI: Parada não planejada agora vira "Parada" (ocupada) e não Disponível
+                "UNPLANNED_STOP": VehicleStatus.STOPPED, 
+                
                 "IDLE": VehicleStatus.AVAILABLE
             }
             # Se for parada não planejada (quebra), joga para Manutenção visualmente?
@@ -406,10 +414,20 @@ class ProductionService:
         
         # [CRÍTICO] Atualiza o objeto log com o ID gerado pelo banco
         await db.refresh(log) 
+
+        # --- ADICIONE ESTE BLOCO ABAIXO ---
+        # Força o recálculo das métricas do dia para o Painel de Empregados atualizar na hora
+        try:
+            print(f"🔄 [AUTO] Recalculando métricas para o operador {log.operator_id}...")
+            # Recalcula apenas o dia de hoje para refletir a mudança de status
+            await ProductionService.consolidate_daily_metrics(db, date.today())
+        except Exception as e:
+            print(f"⚠️ [WARN] Erro ao consolidar métricas em tempo real: {e}")
+        # ----------------------------------
         
         # Monta o retorno com dados do LOG para o endpoint usar
         return {
-            "id": log.id, # <--- AGORA TEM ID
+            "id": log.id, 
             "status": "processed", 
             "operator_id": log.operator_id,
             "operator_name": user.full_name if user else None,
