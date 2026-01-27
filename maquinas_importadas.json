@@ -1,0 +1,1502 @@
+[
+    {
+        "code": "07.001002.0001",
+        "name": "SERVIÇO OPER. CALANDRAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0017",
+        "name": "SERVIÇO OPER. OXICORTAR E CALANDRAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0029",
+        "name": "SERVIÇO OPER. PRENSAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0031",
+        "name": "SERVIÇO OPER. PRENSAR E ENDIREITAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0025",
+        "name": "SERVIÇO OPER. OXICORTAR, CALANDRAR E SOLDAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0002",
+        "name": "SERVIÇO OPER. CALANDRAR POR Kg",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0004",
+        "name": "SERVIÇO OPER. CALANDRAR E SOLDAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0018",
+        "name": "SERVIÇO OPER. OXICORTAR E CALANDRAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0026",
+        "name": "SERVIÇO OPER. OXICORTAR, CALANDRAR E SOLDAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0030",
+        "name": "SERVIÇO OPER. PRENSAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "07.001002.0032",
+        "name": "SERVIÇO OPER. PRENSAR E ENDIREITAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "06.000003.0069",
+        "name": "FRESADORA PORTAL DYE",
+        "group": 9812,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0282",
+        "name": "CONJ CARCACA ESCAPE RADIAL 1700 PARA CIM - MATERIAL 16340072",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0283",
+        "name": "CONJ CARCACA ESCAPE RADIAL 1700 PARA CIM - MATERIAL 16340074",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "11.014002.0001",
+        "name": "ELEMENTO FILTRANTE PARA FILTRO DE RETORNO DA UH DO CIRCUITO",
+        "group": 10052,
+        "asset": false
+    },
+    {
+        "code": "AT000001",
+        "name": "MANDRILHADORA CNC FTPM3",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "99.001008.0001",
+        "name": "TORNO VERTICAL SC27",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "CP000094",
+        "name": "CNC MODELO MC422-C ID:587.932-04 SN:19.969.757",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000100",
+        "name": "CNC HEIDENHAIN MC 422C ID 587.932-01 NR 18.740.950",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000105",
+        "name": "VENTILADOR SIMODRIVE RADIALGEBLAESE 6SN1162-0BA02-AA2 SIEMENS",
+        "group": 6608,
+        "asset": true
+    },
+    {
+        "code": "CP000114",
+        "name": "FUSO ESFERICO 78MM DIAMETRO X 4740MM COMP EIXO X MANDRILHADORA  M3FTP",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "16.001001.0169",
+        "name": "MANDRILHADORA CNC MOD PB130R 380V - NEWAY",
+        "group": 8115,
+        "asset": false
+    },
+    {
+        "code": "AT001239",
+        "name": "TORNO VERTICAL CNC MODELO VNL400M 380V NEWAY",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "CP000138",
+        "name": "VENTILADOR SIMODRIVE RADIALGEBLAESE 6SN1162 0BA02 0AA2 SIEMENS",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000140",
+        "name": "COLUNA MANDRILHADORA 110 ZOCCA - OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000141",
+        "name": "TRAVESSA MANDRILHADORA 110 ZOCCA - OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000142",
+        "name": "BASE MANDRILHADORA 110 ZOCCA - OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "04.000001.0300",
+        "name": "CONJ CARCACA ESCAPE RADIAL 1700 PARA CIM",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0564",
+        "name": "CESTO DA PRENSA FUNDIDO E USINADO - 145070-N",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "CP000143",
+        "name": "PROTECAO TELESCOPICA EIXO Z COM 9 CAIXA RETANGULAR MANDRILHADORA 110 ZOCA OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000144",
+        "name": "PROTECAO TELESCOPICA EIXO Z COM 9 CAIXA RETANGULAR MANDRILHADORA 110 ZOCA OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000145",
+        "name": "PROTECAO TELESCOPICA EIXO X COM 6 CAIXA RETANGULAR MANDRILHADORA 110 ZOCA OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000146",
+        "name": "PROTECAO TELESCOPICA EIXO X COM 6 CAIXA RETANGULAR MANDRILHADORA 110 ZOCA OP 62102",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "12.008005.0607",
+        "name": "ENGRENAGEM MANDRILADORA ZOCCA 110 REF: 22 4173",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0281",
+        "name": "CONJ CARCACA ESCAPE RADIAL 1700 PARA CIM - MATERIAL 16340076",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0325",
+        "name": "CONJUNTO CARCACA ESCAPE RADIAL TURBINA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0510",
+        "name": "CONE CALANDRADO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0609",
+        "name": "CONJ CARCACA ESCAPE RADIAL 68 PARA BAIXO - MAT. 16887358",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0608",
+        "name": "CONJ CARCACA ESCAPE RADIAL 68 PARA BAIXO - MAT. 16887117",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0607",
+        "name": "CONJ CARCACA ESCAPE RADIAL 68 PARA BAIXO - MAT. 16887361",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0685",
+        "name": "CESTO DA PRENSA FUNDIDO E USINADO 101289-N",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0866",
+        "name": "MANDRIL PARA FRESADORA PFAUTER",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.1132",
+        "name": "PRENSA CABO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.1179",
+        "name": "CALANDRA VIROLAS",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.1248",
+        "name": "PRENSA CABO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.1262",
+        "name": "CESTO DA PRENSA 10 USINADO (PAR) 101289-N",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.1357",
+        "name": "ROLETE PRENSA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "04.000001.0341",
+        "name": "BASE DA INJETORA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0070",
+        "name": "MESA DA PRENSA HIDR 20T",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0132",
+        "name": "PINO FOR ROTOR BLADE RADIAL 45/49-1CP D=20 L=46 MM",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0168",
+        "name": "CARCACA ESCAPE RADIAL SOLD SUPERIOR 48",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0169",
+        "name": "CARCACA ESCAPE RADIAL SOLD INFERIOR 48",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0090",
+        "name": "REFORMA NO CARRO DE ELEVAÇÃO - PONTE ROLANTE 66",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0110",
+        "name": "CILINDRO PRENSAGEM SIEMPELKAMP",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1250",
+        "name": "MANCAL FIXO EIXO ENTRADA INF. PRENSA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1251",
+        "name": "MANCAL LIVRE EIXO ENTRADA INF. PRENSA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0172",
+        "name": "ROLO CORRECAO PRE PRENSA MDF1",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1676",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1673",
+        "name": "TUBO CALANDRADO Ø38 MM - A106",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1674",
+        "name": "CANTONEIRA CALANDRADA 63 X 10 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1675",
+        "name": "TUBO CALANDRADO Ø38 MM - A106",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0205",
+        "name": "ROLETE PRENSA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.2165",
+        "name": "CESTO DA PRENSA 10 USINADO (PAR) 101289-N - ROTEIRO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "AT000334",
+        "name": "TORNO HORIZONTAL ROMI CENTUR 30D X 1000MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "05.000001.0155",
+        "name": "TAMBOR ACIONADOR FILTRO PRENSA VPS",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "05.000001.0168",
+        "name": "PRATO PRENSA DIREITO E ESQUERDO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "AT000303",
+        "name": "RETIFICADEIRA MG 1.500 - MEGA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000304",
+        "name": "RETIFICADEIRA MG 1.500 - MEGA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000305",
+        "name": "RETIFICADEIRA MG 1.500 - MEGA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000263",
+        "name": "MAQUINA SERRA FITA HORIZONTAL FM-500 220/380V ( C/ NR 12 )- FRANHO",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000152",
+        "name": "CALANDRA HIDRAULICA PLANETARIA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000213",
+        "name": "FURADEIRA RADIAL KONE KR-60",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000233",
+        "name": "MANDRIL FLUTUANTE RADIAL E ANGULAR CM3 EXTERNO X CM3 INTERNO - SANCHES BLANES",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000335",
+        "name": "TORNO HORIZONTAL ROMI CENTUR 80A X 8000MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000336",
+        "name": "TORNO HORIZONTAL ROMI MKD I",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000337",
+        "name": "TORNO HORIZONTAL ROMI MULTIPLIC 40A X 3000MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000338",
+        "name": "TORNO VERTICAL KNA-110 MARCA MATALEXPORTA - STANKPORT",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000339",
+        "name": "TORNO VERTICAL MARCA TITAN MOD SC14",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000340",
+        "name": "TORNO VERTICAL MARCA TITAN MOD SC27",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000341",
+        "name": "TORNO VERTICAL MARCA TITAN MOD SC33",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000237",
+        "name": "MANDRILHADORA FRESADORA MARCA ZOCCA MOD MFZ-110",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000238",
+        "name": "MANDRILHADORA FRESADORA MARCA ZOCCA MOD MFZ-110",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000205",
+        "name": "FRESADORA PORTAL RAM CUT 2 - SERIE 66.305.003",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000212",
+        "name": "FURADEIRA RADIAL CSEPEL RFH 100/3000",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000214",
+        "name": "FURADEIRA RADIAL MOD FRN100 NARDINI",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000239",
+        "name": "MANDRILHADORA FREZADORA HORIZONTAL CNC MARCA TAURUS/WOTAN - WOMAT M3FTP NR 76301-008 ANO 2007",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000244",
+        "name": "MANIVELA ELETRÔNICA CNC FANUC / MCS/GSK FAGOR 4 EIXOS C/ BOTÃO EMERGENCIA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000245",
+        "name": "MANIVELA ELETRÔNICA CNC P/FAGOR E OUTROS - ZSSY1468-01G-100B-5L - GSK",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000246",
+        "name": "MANIVELA ELETRÔNICA CNC P/FAGOR E OUTROS - ZSSY1468-01G-100B-5L - GSK",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000280",
+        "name": "PONTE ROLANTE 10 TON - PRM 10TON X 10MTS ELEVAÇÃO 20MTS VAO OF-0322-12 FRISKE",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000281",
+        "name": "PONTE ROLANTE 10 TON - PRM 10TON X 10MTS ELEVAÇÃO 20MTS VAO OF-0323-12 FRISKE",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000282",
+        "name": "PONTE ROLANTE 20 TON - PRM 20TON X 10MTS ELEVAÇÃO X 20MTS VAO OF-0324-12 FRISKE",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000283",
+        "name": "PONTE ROLANTE BIVIGA 20 TON X 20,0MTS VÃO - OMIS MOD.: PRB 20TON",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000284",
+        "name": "PONTE ROLANTE MONOVIGA 10 TON X 11,6MTS VÃO - OMIS MOD.: PRM 10TON",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000285",
+        "name": "PONTE ROLANTE MONOVIGA 10 TON X 20,0MTS VÃO - OMIS MOD.: PRM 10TON",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000286",
+        "name": "PONTE ROLANTE MONOVIGA 10 TON X 20,0MTS VÃO - OMIS MOD.: PRM 10TON",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000287",
+        "name": "PONTE ROLANTE MONOVIGA DEMAG EKKE 10,0 T X 20.000 MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000288",
+        "name": "PONTE ROLANTE MONOVIGA DEMAG EKKE 10,0 T X 20.000 MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000293",
+        "name": "PRENSA HIDRAULICA FERMASA MODELO PL15-15.4 CAP 150T",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000294",
+        "name": "PROTEÇÃO TELESCOPIA PARA BARRAMENTO TRANSVERSAL = MANDRILADORA UNION",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000289",
+        "name": "PONTE ROLANTE TIPO EKKE 10TX20MTS - DEMAG",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000290",
+        "name": "PONTE ROLANTE TIPO EKKE 10TX20MTS - DEMAG",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000291",
+        "name": "PONTE ROLANTE TIPO ZKKE 20TX20MTS",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000292",
+        "name": "PONTE ROLANTE TIPO ZKKE 40TX20MTS",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000155",
+        "name": "CENTRO USINAGEM HORIZONTAL  FLOOR TYPE - SERIE 76301.009",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000236",
+        "name": "MANDRIL ROSQUEADOR MRCP-2 COMPENSAÇAO AXIAL E RADIAL CAP.M8-M20 - CM3 C/ARRASTE",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000242",
+        "name": "MANDRILHADORA UNIVERSAL ZOCCA MFZ100 CUROS 2000X2000X1500",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000240",
+        "name": "MANDRILHADORA MARCA ZOCCA FUSO 110MM",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "AT000241",
+        "name": "MANDRILHADORA PEGARD AF130 CNC",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "06.000001.0495",
+        "name": "EIXO FORJADO DA PRENSA 12-12-4 - ACO 4140 (IMPORTADO) - DUPPS",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0561",
+        "name": "EIXO DA PRENSA 12-12-4 - ACO 4140 - USINADO 145094",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0814",
+        "name": "CHAPA 6 35MM CALANDRAGEM",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0524",
+        "name": "CONJUNTO CARCACA ESCAPE RADIAL TURBINA - WEG",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.1322",
+        "name": "CARCACA ESCAPE RADIAL SOLD SUPERIOR 85",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.1317",
+        "name": "CARCACA ESCAPE RADIAL SOLD INFERIOR 85",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0365",
+        "name": "MESA DA PRENSA HIDR 20T AJUSTE VIGAS - PALETRANS",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0366",
+        "name": "REGUA DA PRENSA HIDR 20T AJUSTE VIGAS - PALETRANS",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0376",
+        "name": "PRATO PRENSA 1 RGO 477 - EUCATEX",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0290",
+        "name": "CJ USINAGEM BASE UNIDADE INJETORA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0553",
+        "name": "CESTO FUNDIDO PRENSA 12 1 LADO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.1305",
+        "name": "CHAPA DE ACO 4 PRENSA 12 CORTADA CONFORME DESENHO 176473",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.1644",
+        "name": "CHAPA DE ACO 6 PRENSA 12 CORTADA CONF. DESENHO 172308 (REF. 172303)",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0887",
+        "name": "MANDRIL PARA FRESADORA DE DENTES PFAUTER - Ø50 PROJETO 800015-019 DESENHO 01-02162/3",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000001.0304",
+        "name": "BASE UNIDADE INJETORA - ROMI",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000002.0631",
+        "name": "TAMBOR ACIONADOR FILTRO PRENSA VPS 2200L COMPLETO C/ MANCAIS E RO",
+        "group": 9811,
+        "asset": false
+    },
+    {
+        "code": "06.000002.0642",
+        "name": "ROLO PREPRENSA 9098 REC",
+        "group": 9811,
+        "asset": false
+    },
+    {
+        "code": "06.000001.1341",
+        "name": "COMBINATION CHOKE PRENSA 12 FUNDIDO EM ACO 8620",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "06.000002.0368",
+        "name": "ANEL ROSCADO M360X4 DIAM.460X46 - PRENSAS SCHULER",
+        "group": 9811,
+        "asset": false
+    },
+    {
+        "code": "06.000002.0369",
+        "name": "ANEL ROSCADO - M340X4 DIAM.435X44 - PRENSAS SCHULER",
+        "group": 9811,
+        "asset": false
+    },
+    {
+        "code": "06.000002.0499",
+        "name": "ESTRUTURA DE CARRO DE PONTE ROLANTE",
+        "group": 9811,
+        "asset": false
+    },
+    {
+        "code": "06.000003.0296",
+        "name": "LUNETA TORNO CENTUR 80 (11078)",
+        "group": 9812,
+        "asset": false
+    },
+    {
+        "code": "16.001016.0445",
+        "name": "COTOVELO JOELHO PRENSAR PEX 90° 1/2\"",
+        "group": 9969,
+        "asset": false
+    },
+    {
+        "code": "06.000003.0183",
+        "name": "MANDRILHADORA ELETRICA MARCA FEIN MODELO AB-146A 220/380/440V. MD.130",
+        "group": 9812,
+        "asset": false
+    },
+    {
+        "code": "06.000003.0108",
+        "name": "LUNETA TORNO 80A",
+        "group": 9812,
+        "asset": false
+    },
+    {
+        "code": "06.000003.0397",
+        "name": "LUNETA DO TORNO 80A",
+        "group": 9812,
+        "asset": false
+    },
+    {
+        "code": "16.002007.0156",
+        "name": "TERMINAL BSP PRE PRENSADO - MUNCK CAMINHAO",
+        "group": 9865,
+        "asset": false
+    },
+    {
+        "code": "16.002007.0157",
+        "name": "TERMINAL 90 BSP PRE PRENSADO - MUNCK CAMINHAO",
+        "group": 9865,
+        "asset": false
+    },
+    {
+        "code": "AT001272",
+        "name": "RETIFICADEIRA 1300W 19000RPM EL220V BRUSHLESS",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "16.001015.0006",
+        "name": "ESCADA DE MADEIRA EUCALIPTO PARA TORNO 920 X 500 X 640 MM",
+        "group": 9934,
+        "asset": false
+    },
+    {
+        "code": "CP000115",
+        "name": "MANDRILHADORA CNC MOD PB130R 380V - NEWAY",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "07.002004.0041",
+        "name": "SERVIÇO DE MANUTENÇÃO MECÂNICA EM PONTE ROLANTE CAP. 10 TON.",
+        "group": 6597,
+        "asset": false
+    },
+    {
+        "code": "99.078001.0004",
+        "name": "FRICÇÃO MECANICA DA RADIAL KR60 PF 21201 UMD5 EK",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000053",
+        "name": "CNC MODELO MC420-L3 ID:515.929-12 SN:28.275.697",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000020",
+        "name": "CNC COMPLETO FAGOR MODELO PSB3 8055",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000082",
+        "name": "PROTECAO EIXO X MANDRILHADORA",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "CP000059",
+        "name": "MONITOR TORNO SC 33 MOD NMON-5511-ICD",
+        "group": 9867,
+        "asset": true
+    },
+    {
+        "code": "AT000959",
+        "name": "MANDRIL FLUTUANTE RADIAL E ANGULAR CM3 EXTERNO X CM3 INTERNO - SANCHES BLANES",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "AT000958",
+        "name": "MANDRIL ROSQUEADOR MRCP-2 COMPENSAÇAO AXIAL E RADIAL CAP.M8-M20 - CM3 C/ARRASTE",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "AT001236",
+        "name": "TORNO DE BANCADA PRATIKO N6 SCHULZ",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "AT001237",
+        "name": "TORNO DE BANCADA PRATIKO N6 SCHULZ",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "AT001238",
+        "name": "TORNO DE BANCADA PRATIKO N6 SCHULZ",
+        "group": 8232,
+        "asset": true
+    },
+    {
+        "code": "07.002004.0050",
+        "name": "SERVIÇO DE MANUTENÇÃO MECÂNICA DE EQUIPAMENTOS - PONTE ROLANTE",
+        "group": 6597,
+        "asset": false
+    },
+    {
+        "code": "07.001001.0014",
+        "name": "SERVIÇO DE TRANSPORTE RODOVIÁRIO - REMESSA/RETORNO LOCACAO",
+        "group": 6584,
+        "asset": false
+    },
+    {
+        "code": "08.014001.0006",
+        "name": "INSUMO CALANDRAGEM",
+        "group": 9924,
+        "asset": false
+    },
+    {
+        "code": "AT000005",
+        "name": "FRESADORA PORTAL DYE SERIE 32283-1",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT000006",
+        "name": "RETIFICADEIRA INDUSTRIAL MEGA MG1500 220V",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT000007",
+        "name": "TORNO HORIZONTAL NZ400G - NARDINI",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT000008",
+        "name": "TORNO HORIZONTAL NZ325G - NARDINI",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT000963",
+        "name": "SERRA FITA FM-1600 HORIZONTAL 400MM AVANCO HIDRAULICO 220V NR12",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT001041",
+        "name": "RETIFICADEIRA 1/4 POL 220V 450W - DWE4887-B2",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT001065",
+        "name": "RETIFICADEIRA MG 1.500 - MEGA",
+        "group": 6584,
+        "asset": true
+    },
+    {
+        "code": "07.001002.0003",
+        "name": "SERVIÇO OPER. CALANDRAR E SOLDAR",
+        "group": 6585,
+        "asset": false
+    },
+    {
+        "code": "AT001075",
+        "name": "RETIFICADEIRA 1.1/2 POL 20V 4.0AH 220V 2 BAT C/ CARR BOLSA",
+        "group": 8228,
+        "asset": true
+    },
+    {
+        "code": "03.000001.0756",
+        "name": "NERVURA RADIAL 1B",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0757",
+        "name": "NERVURA RADIAL 1A",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1484",
+        "name": "CHAPA CALANDRADA 10 MM AISI 304L",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1855",
+        "name": "CHAPA CALANDRADA 44 MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1859",
+        "name": "BASE PRENSA CABO AS14000 - CALDEIRADA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0928",
+        "name": "BASE PRENSA CABO AS14000",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0939",
+        "name": "ESTRUTURA PRENSA CABO O38,1X367",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0951",
+        "name": "CHAPA CALANDRADA 25,0 MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "07.002009.0003",
+        "name": "SERVIÇO DE EXECUÇÃO DE BASE PARA TORNO",
+        "group": 10021,
+        "asset": false
+    },
+    {
+        "code": "07.001001.0013",
+        "name": "SERVIÇO DE TRANSPORTE RODOVIÁRIO - REMESSA/RETORNO INDUSTRIALIZACAO",
+        "group": 6584,
+        "asset": false
+    },
+    {
+        "code": "AT001314",
+        "name": "MANDRILHADORA CNC PAMA SPEEDRAM - FLOOR TYPE",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "AT000912",
+        "name": "MANDRILHADORA CNC MOD PB130R 380V - NEWAY",
+        "group": 8204,
+        "asset": true
+    },
+    {
+        "code": "07.001001.0015",
+        "name": "SERVIÇO DE TRANSPORTE RODOVIÁRIO - REMESSA/RETORNO EM GARANTIA",
+        "group": 6584,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0414",
+        "name": "PINO FOR ROTOR BLADE RADIAL 45/49-1CP",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1803",
+        "name": "CHAPA CORTE A LASER 6,0 MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1863",
+        "name": "CHAPA CALANDRADA 44,4 MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1276",
+        "name": "CHAPA CORTE A LASER 0,5 X 1240 X 3000 - AISI 316L",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1277",
+        "name": "CHAPA CORTE A LASER 1,0 X 1240 X 3000 - AISI 316L",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1862",
+        "name": "ESTRUTURA PRENSA CABO O38,1X367 - CALDEIRADA",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.2111",
+        "name": "CHAPA CALANDRADA 51MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1885",
+        "name": "CHAPA CALANDRADA 88,9 MM ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.2105",
+        "name": "CHAPA CALANDRADA 13,0 MM - DE.1420-02-001",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1949",
+        "name": "CHAPA CALANDRADA 51 MM WELDOX 700",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0934",
+        "name": "CHAPA CALANDRADA 37,5 MM - ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0944",
+        "name": "CHAPA CALANDRADA 25 MM - ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1183",
+        "name": "CHAPA CALANDRADA 1,5 MM AISI 316L",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0945",
+        "name": "CHAPA CALANDRADA 22 MM - ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0738",
+        "name": "ANEL EXT PRENSA GAXETA POS. 3A",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "02.000001.0740",
+        "name": "ANEL INT PRENSA GAXETA POS. 4",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1581",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1582",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1583",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1586",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1585",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1580",
+        "name": "CANTONEIRA CALANDRADA 76 X 6 MM - ASTM A36",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1738",
+        "name": "CHAPA CALANDRADA 25 MM - ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1739",
+        "name": "CHAPA CALANDRADA 38 MM - ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1712",
+        "name": "TUBO CALANDRADO Ø38 MM - A106",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1570",
+        "name": "CHAPA CALANDRADA 25,0 MM ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1571",
+        "name": "CHAPA CALANDRADA 25,0 MM ASTM A572 GR.50",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1677",
+        "name": "TUBO CALANDRADO Ø38 MM - A106",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1588",
+        "name": "BUCHA DA LUNETA - TORNO 80A",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1687",
+        "name": "TUBO ØN38,1 - CALANDRADO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1688",
+        "name": "TUBO ØN38,1 - CALANDRADO",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0004",
+        "name": "RELE ARCO PILOTO PLASMA CNC CODIGO 1346",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0076",
+        "name": "VENTILADOR RADIAL A9-OG MONOFASICO 220V 60 HZ",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0058",
+        "name": "BOCAL DE RETORNO DN 65",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0057",
+        "name": "BOCAL DE RETORNO DN 150",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0059",
+        "name": "BOCAL DE RETORNO CURVO DN 80",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "03.000001.0061",
+        "name": "BOCAL DE RETORNO CURVO DN 150",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0378",
+        "name": "MACHO GALVANIZADO 7/8 JIC X 5/8 PRENSADO",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "03.000001.1396",
+        "name": "CHAPA CORTE A LASER CONFORME DESENHO VE.3491/0",
+        "group": 6608,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0014",
+        "name": "PRENSA CABO PARA FIM DE CURSO STECK",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0005",
+        "name": "VENTILADOR CHOPPER PLASMA CNC CODIGO 2578",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0220",
+        "name": "PRENSA CABO STECK PG 16( 22MM) S803 CI",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0223",
+        "name": "PRENSA CABO STECK PG 13,5 -  S802 CI",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0246",
+        "name": "PRENSA CABO STECK PG11 S801CI",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0263",
+        "name": "ELEMENTO FILTRANTE RETORNO CÓD. HO527110AH - NEWTEC",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0336",
+        "name": "CAPA PRENSANDA Ø 1/2",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0379",
+        "name": "FEMEA GIRATORIA RETA GALV. 26MM X 5/8 PRENSADO",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0380",
+        "name": "FEMEA GIRATORIA RETA GALV. 7/8 JIC X 5/8 PRENSADO",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0361",
+        "name": "CONJUTO ENGRENAGEM E BUCHA EIXO ARVORE - TORNO MKD 1 COD. ROMI R19469",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0436",
+        "name": "PRENSA CABO STECK PG 13,5  S802 CI",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0480",
+        "name": "PRENSA CABO STECK BSP 1/4 S-850C",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0323",
+        "name": "VENTILADOR SIMODRIVE RADIALGEBLAESE 6SN1162-0BA02-0AA2 – SIEMENS",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0268",
+        "name": "MANIPULADOR DUAS POSICOES COM RETORNO",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0219",
+        "name": "PRENSA CABO STECK BSP 1/2 S852",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0380",
+        "name": "PRENSA CABO STECK BSP 1",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008002.0381",
+        "name": "PRENSA CABO STECK BSP 3/4",
+        "group": 8059,
+        "asset": false
+    },
+    {
+        "code": "12.008005.0095",
+        "name": "CONJUNTO FREIO ELETRICO POLAR - FEN40/B 24VCC 48W (UPF-5 PARA MANDRILHADORA 110 ZOCCA)",
+        "group": 8062,
+        "asset": false
+    },
+    {
+        "code": "12.041001.0043",
+        "name": "MANGUEIRA HIDRAULICA 1/4\" 1AT X 2500 PRENSADA",
+        "group": 9823,
+        "asset": false
+    },
+    {
+        "code": "13.014001.0003",
+        "name": "MANDRIL ROSQUEADOR REF. MRCP-2 COMPENSAÇAO AXIAL E RADIAL CAP.M8-M20 - CM3 C/ARRASTE",
+        "group": 9619,
+        "asset": false
+    },
+    {
+        "code": "13.014002.0001",
+        "name": "MANDRIL FLUTUANTE RADIAL E ANGULAR REF. CM3 EXTERNO X CM3 INTERNO - SANCHES BLANES",
+        "group": 9620,
+        "asset": false
+    },
+    {
+        "code": "12.008007.0043",
+        "name": "LUVA PARA PRENSAGEM COBRE M0,7 - 22 X 45 SBME - 450",
+        "group": 9886,
+        "asset": false
+    },
+    {
+        "code": "12.044004.0006",
+        "name": "MANIPULADOR 4 POSICOES COM RETORNO PA 24",
+        "group": 9846,
+        "asset": false
+    },
+    {
+        "code": "12.021002.0002",
+        "name": "JOGO DE ESCOVA METALGRAFITE = RETIFICADEIRA MG 1.500 - MEGA COD. 5001",
+        "group": 9057,
+        "asset": false
+    },
+    {
+        "code": "12.041001.0027",
+        "name": "MANGUEIRA HIDRAULICA 2\" 1AT X 420 MM PRENSADA",
+        "group": 9823,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0004",
+        "name": "SERRA DE FITA SUL CORTE PERFECT M42  27 X 0,90 X 3/4 COMPRIMENTO: 3,88 M - AÇO CORTAR AÇO INCONEL",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0007",
+        "name": "SERRA DE FITA M42 1 X 6-10 COMPRIMENTO: 3,88 M - STARRET",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "12.064008.0001",
+        "name": "CHAPA CORTE A LASER CONFORME DESENHO FDR-004",
+        "group": 10069,
+        "asset": false
+    },
+    {
+        "code": "11.024013.0001",
+        "name": "PRENSA CABO 1/8\" - ALUMINIO",
+        "group": 10167,
+        "asset": false
+    },
+    {
+        "code": "11.024013.0002",
+        "name": "PRENSA CABO 3/16\" - ALUMINIO",
+        "group": 10167,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0006",
+        "name": "SERRA DE FITA M42 1 X 4 - 6 COMPRIMENTO: 3,88 M - STARRET",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0009",
+        "name": "SERRA DE FITA M42  HSS - CO 27 X 0,9 MM 6 - 10 COMPRIMENTO: 4,46 M - STARRETT",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0008",
+        "name": "SERRA DE FITA M42  HSS - CO 27 X 0,9 MM 4 - 6 COMPRIMENTO: 4,46 M - STARRETT",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0002",
+        "name": "SERRA DE FITA M42 1 X 4-6 COMPRIMENTO: 3,88 M",
+        "group": 9013,
+        "asset": false
+    },
+    {
+        "code": "09.001026.0003",
+        "name": "SERRA DE FITA SUL CORTE PERFECT  27 X 0,90 X 4/6 COMPRIMENTO: 3,88 M - P/ CORTE AISI 304 (MACIÇO)",
+        "group": 9013,
+        "asset": false
+    }
+]

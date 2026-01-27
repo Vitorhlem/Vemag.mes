@@ -1,292 +1,302 @@
 <template>
-  <q-card flat bordered>
-    <q-card-section class="bg-primary text-white">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-h6">Dossiê Técnico da Máquina</div>
-          <div class="text-subtitle2">{{ report.vehicle_model }} ({{ report.vehicle_identifier }})</div>
-        </div>
-        <div class="q-gutter-sm">
-          <q-btn @click="exportToPDF" icon="picture_as_pdf" label="PDF" dense unelevated color="white" text-color="primary" />
-          <q-btn @click="exportToXLSX" icon="description" label="Excel" dense unelevated color="white" text-color="primary" />
-        </div>
-      </div>
-      <div class="text-caption q-mt-sm">
-        Período de Análise: {{ formatDate(report.report_period_start) }} a {{ formatDate(report.report_period_end) }}
-      </div>
-    </q-card-section>
+  <div class="report-wrapper">
+    <div class="row justify-end q-mb-sm print-hide">
+      <q-btn 
+        color="primary" 
+        icon="print" 
+        label="Imprimir Dossiê" 
+        unelevated 
+        @click="printReport"
+      />
+    </div>
 
-    <q-card-section>
-      <div class="row q-col-gutter-md">
-        
-        <div v-if="report.financial_summary" class="col-12 col-md-6">
-          <q-card flat bordered>
-            <q-card-section><div class="text-subtitle1 text-weight-bold text-grey-8">Resumo de Custos</div></q-card-section>
-            <q-list separator dense>
-              <q-item>
-                <q-item-section>Custo Total no Período:</q-item-section>
-                <q-item-section side class="text-weight-bold">{{ formatCurrency(report.financial_summary.total_costs) }}</q-item-section>
-              </q-item>
-              <q-item v-if="report.financial_summary.cost_per_metric > 0">
-                <q-item-section>
-                  {{ report.financial_summary.metric_unit === 'km' ? 'Custo por KM:' : 'Custo por Hora:' }}
-                </q-item-section>
-                <q-item-section side class="text-weight-bold">
-                  {{ formatCurrency(report.financial_summary.cost_per_metric) }} / {{ report.financial_summary.metric_unit }}
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-card>
-        </div>
-        
-        <div v-if="report.performance_summary" class="col-12 col-md-6">
-          <q-card flat bordered>
-            <q-card-section><div class="text-subtitle1 text-weight-bold text-grey-8">Resumo de Performance</div></q-card-section>
-            <q-list separator dense>
-              <q-item>
-                <q-item-section>
-                  {{ report.performance_summary.activity_unit === 'km' ? 'Horímetro Atual:' : 'Horímetro Atual:' }}
-                </q-item-section>
-                <q-item-section side class="text-weight-bold">
-                  {{ report.performance_summary.vehicle_total_activity.toFixed(2) }} {{ report.performance_summary.activity_unit }}
-                </q-item-section>
-              </q-item>
-
-              <q-item v-if="report.performance_summary.period_total_activity > 0">
-                <q-item-section>
-                  {{ report.performance_summary.activity_unit === 'km' ? 'Produção (Distância):' : 'Produção (Horas):' }}
-                </q-item-section>
-                <q-item-section side class="text-weight-bold">
-                  {{ report.performance_summary.period_total_activity.toFixed(2) }} {{ report.performance_summary.activity_unit }}
-                </q-item-section>
-              </q-item>
-              
-              <q-item v-if="report.performance_summary.period_total_fuel > 0">
-                <q-item-section>
-                  Consumo Total:
-                </q-item-section>
-                <q-item-section side class="text-weight-bold">
-                  {{ report.performance_summary.period_total_fuel.toFixed(2) }} 
-                  {{ report.performance_summary.activity_unit === 'km' ? 'L' : 'Unid.' }}
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-card>
-        </div>
-      </div>
-
-      <div v-if="report.costs_detailed && report.costs_detailed.length > 0" class="q-mt-lg">
-        <q-table title="Detalhamento de Custos" :rows="report.costs_detailed" :columns="costColumns" row-key="id" flat dense bordered />
-      </div>
-
-      <div v-if="report.maintenance_detailed && report.maintenance_detailed.length > 0" class="q-mt-lg">
-        <q-table title="Histórico de Manutenções" :rows="report.maintenance_detailed" :columns="maintenanceColumns" row-key="id" flat dense bordered />
-      </div>
-
-      <div v-if="report.journeys_detailed && report.journeys_detailed.length > 0" class="q-mt-lg">
-        <q-table title="Histórico de Turnos" :rows="report.journeys_detailed" :columns="journeysColumns" row-key="id" flat dense bordered />
-      </div>
+    <div class="report-container bg-white q-pa-md rounded-borders print-area">
       
-      <div v-if="report.fuel_logs_detailed && report.fuel_logs_detailed.length > 0" class="q-mt-lg">
-        <q-table title="Histórico de Abastecimento / Energia" :rows="report.fuel_logs_detailed" :columns="fuelColumns" row-key="id" flat dense bordered />
+      <div class="row items-center justify-between q-mb-lg border-bottom q-pb-md">
+        <div class="row items-center">
+          <img src="/vemagdark.png" class="report-logo q-mr-lg" alt="VEMAG Logo" />
+          
+          <q-separator vertical class="q-mr-lg gt-xs" />
+
+          <div class="row items-center">
+            <q-avatar size="50px" font-size="24px" color="teal-1" text-color="teal-9" class="q-mr-md gt-xs">
+              {{ report.vehicle_model.charAt(0) }}
+            </q-avatar>
+            <div>
+              <div class="text-h5 text-weight-bold text-blue-grey-9">{{ report.vehicle_model }}</div>
+              <div class="text-caption text-grey-7">ID: {{ report.vehicle_identifier }} | Dossiê de Performance</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="text-right">
+          <div class="text-subtitle2 text-teal-8">
+            {{ formatDate(report.report_period_start) }} até {{ formatDate(report.report_period_end) }}
+          </div>
+          <div class="text-caption text-grey-5">Gerado em {{ new Date(report.generated_at).toLocaleString() }}</div>
+        </div>
       </div>
 
-      <div v-if="report.documents_detailed && report.documents_detailed.length > 0" class="q-mt-lg">
-        <q-table title="Documentação Técnica" :rows="report.documents_detailed" :columns="documentsColumns" row-key="id" flat dense bordered />
+      <div v-if="report.performance_summary" class="q-mb-xl">
+        <div class="text-h6 text-teal-9 q-mb-md border-left-teal q-pl-sm">Performance Global (OEE)</div>
+        
+        <div class="row q-col-gutter-md">
+          <div class="col-12 col-md-3">
+            <q-card flat bordered class="text-center q-pa-md bg-teal-1 print-card">
+              <div class="text-h3 text-weight-bolder text-teal-9">{{ report.performance_summary.oee_percent }}%</div>
+              <div class="text-subtitle2 text-teal-8">OEE Global</div>
+            </q-card>
+          </div>
+          <div class="col-12 col-md-3">
+            <q-card flat bordered class="q-pa-sm print-card">
+              <q-item>
+                <q-item-section avatar><q-icon name="timer" color="primary" size="lg"/></q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-h5">{{ report.performance_summary.availability_percent }}%</q-item-label>
+                  <q-item-label caption>Disponibilidade</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-card>
+          </div>
+          <div class="col-12 col-md-3">
+            <q-card flat bordered class="q-pa-sm print-card">
+              <q-item>
+                <q-item-section avatar><q-icon name="healing" color="orange" size="lg"/></q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-h5">{{ report.performance_summary.mtbf_hours }} h</q-item-label>
+                  <q-item-label caption>MTBF (Médio entre Falhas)</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-card>
+          </div>
+          <div class="col-12 col-md-3">
+            <q-card flat bordered class="q-pa-sm print-card">
+              <q-item>
+                <q-item-section avatar><q-icon name="build_circle" color="red" size="lg"/></q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-h5">{{ report.performance_summary.mttr_hours }} h</q-item-label>
+                  <q-item-label caption>MTTR (Médio para Reparo)</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-card>
+          </div>
+        </div>
       </div>
 
-    </q-card-section>
-  </q-card>
+      <div v-if="report.performance_summary" class="row q-col-gutter-lg q-mb-xl page-break-inside-avoid">
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="full-height print-card">
+            <q-card-section>
+              <div class="text-subtitle1 text-weight-bold">Distribuição do Tempo (Horas)</div>
+            </q-card-section>
+            <q-card-section>
+              <ApexChart type="bar" height="300" :options="waterfallOptions" :series="waterfallSeries" />
+            </q-card-section>
+          </q-card>
+        </div>
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="full-height print-card">
+            <q-card-section>
+              <div class="text-subtitle1 text-weight-bold">Top 5 Motivos de Parada (Pareto)</div>
+            </q-card-section>
+            <q-card-section>
+              <ApexChart type="bar" height="300" :options="paretoOptions" :series="paretoSeries" />
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+
+      <div v-if="report.financial_summary" class="q-mb-xl page-break-inside-avoid">
+        <div class="text-h6 text-teal-9 q-mb-md border-left-teal q-pl-sm">Análise Financeira</div>
+        <div class="row q-col-gutter-md items-stretch">
+          <div class="col-12 col-md-4">
+             <q-card flat class="bg-grey-1 text-center q-pa-lg full-height flex flex-center column print-card">
+                <div class="text-caption text-uppercase text-grey-7">Custo Total do Período</div>
+                <div class="text-h4 text-weight-bolder text-teal-10 q-my-sm">
+                  {{ formatCurrency(report.financial_summary.total_costs) }}
+                </div>
+                <div class="text-caption text-grey-6">
+                  {{ formatCurrency(report.financial_summary.cost_per_metric) }} / hora produtiva
+                </div>
+             </q-card>
+          </div>
+          <div class="col-12 col-md-8">
+             <q-markup-table flat bordered dense class="print-card">
+               <thead>
+                 <tr>
+                   <th class="text-left">Categoria de Custo</th>
+                   <th class="text-right">Valor</th>
+                   <th class="text-right">%</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 <tr v-for="(amount, cat) in report.financial_summary.costs_by_category" :key="cat">
+                   <td>{{ cat }}</td>
+                   <td class="text-right">{{ formatCurrency(amount) }}</td>
+                   <td class="text-right">{{ ((amount / report.financial_summary.total_costs)*100).toFixed(1) }}%</td>
+                 </tr>
+               </tbody>
+             </q-markup-table>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="report.maintenance_detailed?.length" class="q-mb-lg page-break-before">
+        <div class="text-h6 text-teal-9 q-mb-md border-left-teal q-pl-sm">Histórico de Intervenções</div>
+        <q-table
+          flat bordered
+          :rows="report.maintenance_detailed"
+          :columns="maintenanceColumns"
+          row-key="id"
+          dense
+          hide-pagination
+          :pagination="{ rowsPerPage: 0 }"
+          class="print-card"
+        >
+          <template v-slot:body-cell-status="props">
+            <q-td :props="props">
+              <q-badge :color="props.value === 'CONCLUIDA' ? 'positive' : 'warning'" class="print-badge">
+                {{ props.value }}
+              </q-badge>
+            </q-td>
+          </template>
+        </q-table>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { type PropType } from 'vue';
-import type { QTableColumn } from 'quasar';
-import { format } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import autoTable, { type UserOptions } from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-import type { VehicleConsolidatedReport } from 'src/models/report-models';
-import type { Journey } from 'src/models/journey-models';
-import type { DocumentPublic } from 'src/models/document-models';
-import type { MaintenanceRequest } from 'src/models/maintenance-models';
-import type { FuelLog } from 'src/models/fuel-log-models';
-import type { VehicleCost } from 'src/models/vehicle-cost-models';
+import { computed } from 'vue';
+import { date } from 'quasar';
+import ApexChart from 'vue3-apexcharts';
 
-interface AutoTableOptions extends UserOptions { startY?: number; }
-interface jsPDFWithLastTable extends jsPDF { lastAutoTable: { finalY: number }; }
+const props = defineProps<{ report: any }>();
 
-const props = defineProps({
-  report: {
-    type: Object as PropType<VehicleConsolidatedReport>,
-    required: true,
-  },
-});
+const formatDate = (val: string) => date.formatDate(val, 'DD/MM/YYYY');
+const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-const formatDate = (dateString: string | Date | null | undefined) => {
-  if (!dateString) return 'N/A';
-  const date = typeof dateString === 'string' ? new Date(dateString.replace(/-/g, '/')) : dateString;
-  try { return format(date, 'dd/MM/yyyy'); } catch  { return 'Data Inválida'; }
-};
-const formatDateTime = (dateString: string | Date | null | undefined) => {
-  if (!dateString) return 'N/A';
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-   try { return format(date, 'dd/MM/yyyy HH:mm'); } catch { return 'Data Inválida'; }
-};
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return 'R$ 0,00';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const printReport = () => {
+  window.print();
 };
 
-// COLUNAS
-const costColumns: QTableColumn<VehicleCost>[] = [
-  { name: 'date', label: 'Data', field: 'date', format: val => formatDate(val), align: 'left', sortable: true },
-  { name: 'cost_type', label: 'Tipo', field: 'cost_type', align: 'left', sortable: true },
+const waterfallSeries = computed(() => [{
+  name: 'Horas',
+  data: [
+    { x: 'Total Calendário', y: props.report.performance_summary?.time_distribution?.calendar || 0 },
+    { x: 'Paradas Planejadas', y: props.report.performance_summary?.time_distribution?.planned_stop || 0 },
+    { x: 'Paradas N/Planej.', y: props.report.performance_summary?.time_distribution?.unplanned_stop || 0 },
+    { x: 'Tempo Produtivo', y: props.report.performance_summary?.time_distribution?.running || 0, fillColor: '#26A69A' }
+  ]
+}]);
+
+const waterfallOptions = {
+  chart: { type: 'bar', toolbar: { show: false } },
+  plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+  dataLabels: { enabled: true },
+  xaxis: { type: 'category' },
+  colors: ['#546E7A', '#FFB74D', '#EF5350', '#26A69A']
+};
+
+const paretoSeries = computed(() => [{
+  name: 'Minutos',
+  data: (props.report.performance_summary?.stop_reasons || []).map((r: any) => r.duration_minutes)
+}]);
+
+const paretoOptions = computed(() => ({
+  chart: { type: 'bar', toolbar: { show: false } },
+  plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+  dataLabels: { enabled: true },
+  xaxis: { categories: (props.report.performance_summary?.stop_reasons || []).map((r: any) => r.reason) },
+  colors: ['#EF5350']
+}));
+
+const maintenanceColumns = [
+  { name: 'date', label: 'Data', field: (row: any) => formatDate(row.created_at), align: 'left' },
+  { name: 'type', label: 'Tipo', field: 'type', align: 'left' },
   { name: 'description', label: 'Descrição', field: 'description', align: 'left' },
-  { name: 'amount', label: 'Valor', field: 'amount', format: val => formatCurrency(val), align: 'right', sortable: true },
+  { name: 'reporter', label: 'Solicitante', field: (row: any) => row.reporter?.full_name || 'N/A', align: 'left' },
+  { name: 'status', label: 'Status', field: 'status', align: 'center' },
 ];
-
-const fuelColumns: QTableColumn<FuelLog>[] = [
-  { name: 'timestamp', label: 'Data', field: 'timestamp', format: val => formatDateTime(val), align: 'left', sortable: true },
-  { name: 'odometer', label: 'Horímetro/Km', field: 'odometer', align: 'center', sortable: true },
-  { name: 'liters', label: 'Qtd', field: 'liters', align: 'right', sortable: true },
-  { name: 'total_cost', label: 'Custo', field: 'total_cost', format: val => formatCurrency(val), align: 'right', sortable: true },
-];
-
-const maintenanceColumns: QTableColumn<MaintenanceRequest>[] = [
-  { name: 'created_at', label: 'Data', field: 'created_at', format: val => formatDate(val), align: 'left', sortable: true },
-  { name: 'category', label: 'Categoria', field: 'category', align: 'left', sortable: true },
-  { name: 'status', label: 'Status', field: 'status', align: 'center', sortable: true },
-  { name: 'problem_description', label: 'Descrição', field: 'problem_description', align: 'left', style: 'white-space: normal; min-width: 200px;' },
-];
-
-const journeysColumns: QTableColumn<Journey>[] = [
-  { name: 'start_time', label: 'Início', field: 'start_time', format: val => formatDateTime(val), align: 'left', sortable: true },
-  { name: 'end_time', label: 'Término', field: 'end_time', format: val => formatDateTime(val), align: 'left', sortable: true },
-  { name: 'start_engine_hours', label: 'Início (h/km)', field: 'start_engine_hours', align: 'center' },
-  { name: 'end_engine_hours', label: 'Fim (h/km)', field: 'end_engine_hours', align: 'center' },
-  { name: 'is_active', label: 'Status', field: 'is_active', format: val => (val ? 'Em Andamento' : 'Finalizado'), align: 'center', sortable: true },
-];
-
-const documentsColumns: QTableColumn<DocumentPublic>[] = [
-  { name: 'document_type', label: 'Tipo', field: 'document_type', align: 'left', sortable: true },
-  { name: 'expiry_date', label: 'Vencimento', field: 'expiry_date', format: val => formatDate(val), align: 'center', sortable: true },
-];
-
-function exportToPDF() {
-  const doc = new jsPDF() as jsPDFWithLastTable;
-  const report = props.report;
-
-  doc.setFontSize(18);
-  doc.text(`Dossiê Técnico: ${report.vehicle_model} (${report.vehicle_identifier})`, 14, 22);
-  doc.setFontSize(11);
-  doc.setTextColor(100);
-  doc.text(`Período: ${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`, 14, 30);
-  
-  let startY = 40;
-  const summaryBody: (string | number)[][] = [];
-  
-  if (report.performance_summary) {
-     const unit = report.performance_summary.activity_unit;
-     const totalLabel = unit === 'km' ? 'Odômetro Atual' : 'Horímetro Atual';
-     const totalValue = `${report.performance_summary.vehicle_total_activity.toFixed(2)} ${unit}`;
-     summaryBody.push([totalLabel, totalValue]);
-     
-     if (report.performance_summary.period_total_activity > 0) {
-        const periodLabel = unit === 'km' ? 'Produção (Distância)' : 'Produção (Horas)';
-        const periodValue = `${report.performance_summary.period_total_activity.toFixed(2)} ${unit}`;
-        summaryBody.push([periodLabel, periodValue]);
-     }
-  }
-
-  if (report.financial_summary) {
-    summaryBody.push(['Custo Total (Período)', formatCurrency(report.financial_summary.total_costs)]);
-  }
-
-  if (summaryBody.length > 0) {
-    autoTable(doc, {
-      startY: startY,
-      head: [['Métrica', 'Valor']],
-      body: summaryBody,
-    } as AutoTableOptions);
-    startY = doc.lastAutoTable.finalY + 10;
-  }
-  
-  const addTableToPdf = (title: string, head: string[][], body: (string | number | undefined | null)[][]) => {
-    if (!body || body.length === 0) return;
-    doc.setFontSize(14);
-    doc.text(title, 14, startY);
-    startY += 8;
-    autoTable(doc, { startY: startY, head: head, body: body, headStyles: { fillColor: [41, 128, 185] } } as AutoTableOptions);
-    startY = doc.lastAutoTable.finalY + 10;
-  };
-
-  addTableToPdf('Custos',
-    [['Data', 'Tipo', 'Descrição', 'Valor']],
-    report.costs_detailed?.map(c => [formatDate(c.date), c.cost_type, c.description, formatCurrency(c.amount)]) || []
-  );
-  addTableToPdf('Manutenções',
-    [['Data', 'Categoria', 'Status', 'Descrição']],
-    report.maintenance_detailed?.map(m => [formatDate(m.created_at), m.category, m.status, m.problem_description]) || []
-  );
-  addTableToPdf('Turnos',
-    [['Início', 'Término', 'Horím. Início', 'Horím. Fim', 'Status']],
-    report.journeys_detailed?.map(j => [
-      formatDateTime(j.start_time), 
-      formatDateTime(j.end_time || ''), 
-      j.start_engine_hours ?? 'N/A', 
-      j.end_engine_hours ?? 'N/A', 
-      j.is_active ? 'Ativa' : 'Finalizada'
-    ]) || []
-  );
-  
-  doc.save(`dossie_${report.vehicle_identifier}.pdf`);
-}
-
-function exportToXLSX() {
-  const report = props.report;
-  const wb = XLSX.utils.book_new();
-  
-  const summaryData: (string | number)[][] = [
-    ["Dossiê Técnico da Máquina"],
-    [`${report.vehicle_model} (${report.vehicle_identifier})`],
-    [`Período: ${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`],
-    [],
-    ["Métrica", "Valor"],
-  ];
-  
-  if (report.performance_summary) {
-    summaryData.push(['Atividade Total', report.performance_summary.vehicle_total_activity]);
-  }
-  if (report.financial_summary) {
-    summaryData.push(['Custo Total', report.financial_summary.total_costs]);
-  }
-  
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addSheet = (sheetName: string, data: Record<string, any>[] | undefined) => {
-    if (data && data.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    }
-  };
-
-  addSheet("Custos", report.costs_detailed?.map(c => ({
-    Data: formatDate(c.date), Tipo: c.cost_type, Descrição: c.description, Valor: c.amount
-  })));
-  addSheet("Manutenções", report.maintenance_detailed?.map(m => ({
-    Data: formatDate(m.created_at), Categoria: m.category, Status: m.status, Descrição: m.problem_description
-  })));
-  addSheet("Turnos", report.journeys_detailed?.map(j => ({
-    Início: formatDateTime(j.start_time), 
-    Término: formatDateTime(j.end_time || ''), 
-    'Horím. Inicial': j.start_engine_hours,
-    'Horím. Final': j.end_engine_hours,
-    Status: j.is_active ? 'Ativa' : 'Finalizada'
-  })));
-
-  XLSX.writeFile(wb, `dossie_${report.vehicle_identifier}.xlsx`);
-}
 </script>
+
+<style scoped>
+.report-container {
+  font-family: 'Inter', sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.report-logo {
+  height: 50px;
+  object-fit: contain;
+}
+.border-bottom { border-bottom: 2px solid #f0f0f0; }
+.border-left-teal { border-left: 5px solid #009688; }
+
+/* CSS CRÍTICO PARA IMPRESSÃO LIMPA */
+@media print {
+  /* 1. Oculta tudo que é filho direto do body, exceto se for nosso container (que será movido visualmente) */
+  /* Nota: No Quasar/Vue, o app está dentro de #q-app. Vamos ocultar tudo dentro de body primeiro. */
+  body > * {
+    display: none !important;
+  }
+
+  /* 2. Reseta o body e html para permitir scroll completo e fundo branco */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. Força a exibição do relatório e o posiciona sobre tudo */
+  .report-container {
+    display: block !important;
+    position: absolute; /* Absolute ou Fixed para sair do fluxo normal oculto */
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    min-height: 100vh;
+    z-index: 99999;
+    background-color: white !important;
+    padding: 20px !important;
+    margin: 0 !important;
+    font-size: 12px; /* Ajuste opcional para caber melhor */
+  }
+
+  /* 4. Garante que os filhos do relatório sejam visíveis */
+  .report-container * {
+    visibility: visible;
+  }
+
+  /* 5. Oculta botões e elementos de tela */
+  .print-hide { 
+    display: none !important; 
+  }
+  
+  /* 6. Estilização de Cards para papel (sem sombra, com borda) */
+  .print-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  
+  /* 7. Força impressão de cores de fundo (importante para gráficos e headers) */
+  .bg-teal-1 { 
+    background-color: #f0fdf4 !important; 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact;
+  }
+  
+  .bg-grey-1 {
+    background-color: #f5f5f5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 8. Controles de quebra de página */
+  .page-break-inside-avoid { break-inside: avoid; }
+  .page-break-before { break-before: page; }
+}
+</style>

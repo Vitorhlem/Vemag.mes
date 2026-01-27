@@ -20,7 +20,7 @@
               <img src="/Logo-Oficial.png" class="login-logo" />
             </div>
             <div class="text-h5 text-weight-bolder text-white tracking-widest">
-                NOVA PLANTA<span class="text-orange-5">.IND</span>
+                NOVA PLANTA<span class="text-vemag-primary">.IND</span>
             </div>
             <div class="text-caption text-grey-5 text-uppercase q-mt-xs">
               Configuração do Ambiente Fabril
@@ -30,7 +30,8 @@
           <q-stepper
             v-model="step"
             ref="stepper"
-            color="orange-9"
+            active-color="teal"
+            done-color="teal-10"
             animated
             flat
             dark
@@ -47,11 +48,11 @@
               <q-input 
                 v-model="formData.organization_name" 
                 label="Razão Social / Nome da Planta *" 
-                dark outlined dense color="orange-5"
+                dark outlined dense color="teal"
                 class="industrial-input q-mb-md"
                 :rules="[val => !!val || 'Obrigatório']"
               >
-                <template v-slot:prepend><q-icon name="business" color="orange-5" /></template>
+                <template v-slot:prepend><q-icon name="business" color="teal" /></template>
               </q-input>
 
               <q-select
@@ -59,18 +60,18 @@
                 :options="sectorOptions"
                 label="Segmento Industrial *"
                 emit-value map-options
-                dark outlined dense color="orange-5"
+                dark outlined dense color="teal"
                 class="industrial-input"
                 :rules="[val => !!val || 'Obrigatório']"
                 readonly
               >
                 <template v-slot:prepend>
-                  <q-icon name="precision_manufacturing" color="orange-5" />
+                  <q-icon name="precision_manufacturing" color="teal" />
                 </template>
               </q-select>
 
               <q-stepper-navigation class="q-mt-lg">
-                <q-btn @click="() => stepper?.next()" color="orange-9" label="PRÓXIMO" class="full-width industrial-btn" unelevated />
+                <q-btn @click="() => stepper?.next()" class="full-width industrial-btn bg-vemag-primary text-white" unelevated label="PRÓXIMO" />
               </q-stepper-navigation>
             </q-step>
 
@@ -83,33 +84,33 @@
               <q-input 
                 v-model="formData.full_name" 
                 label="Nome do Responsável *" 
-                dark outlined dense color="orange-5"
+                dark outlined dense color="teal"
                 class="industrial-input q-mb-md"
                 :rules="[val => !!val || 'Obrigatório']"
               >
-                  <template v-slot:prepend><q-icon name="person" color="orange-5" /></template>
+                  <template v-slot:prepend><q-icon name="person" color="teal" /></template>
               </q-input>
               
               <q-input 
                 v-model="formData.email" 
                 type="email" 
                 label="E-mail Corporativo *" 
-                dark outlined dense color="orange-5"
+                dark outlined dense color="teal"
                 class="industrial-input q-mb-md"
                 :rules="[val => !!val || 'Obrigatório']"
               >
-                  <template v-slot:prepend><q-icon name="alternate_email" color="orange-5" /></template>
+                  <template v-slot:prepend><q-icon name="alternate_email" color="teal" /></template>
               </q-input>
               
               <q-input 
                 v-model="formData.password" 
                 type="password" 
                 label="Senha de Acesso *" 
-                dark outlined dense color="orange-5"
+                dark outlined dense color="teal"
                 class="industrial-input"
                 :rules="[val => !!val || 'Obrigatório']"
               >
-                  <template v-slot:prepend><q-icon name="lock" color="orange-5" /></template>
+                  <template v-slot:prepend><q-icon name="lock" color="teal" /></template>
               </q-input>
               
               <q-stepper-navigation class="q-mt-lg row q-col-gutter-md">
@@ -119,7 +120,7 @@
                   <div class="col-6">
                     <q-btn 
                       @click="onSubmit" 
-                      :color="registerStatus === 'success' ? 'positive' : (registerStatus === 'error' ? 'negative' : 'orange-9')" 
+                      :class="registerStatus === 'success' ? 'bg-positive text-white' : (registerStatus === 'error' ? 'bg-negative text-white' : 'bg-vemag-primary text-white')"
                       class="full-width industrial-btn" 
                       unelevated 
                       :loading="isLoading"
@@ -136,7 +137,7 @@
           
             <div class="text-center q-mt-md">
                <span class="text-grey-5">Já possui planta ativa? 
-                   <span class="text-orange-5 cursor-pointer text-weight-bold hover-underline" @click="goToLogin">
+                   <span class="text-vemag-primary cursor-pointer text-weight-bold hover-underline" @click="goToLogin">
                        ACESSAR PAINEL
                    </span>
                </span>
@@ -167,22 +168,22 @@
         <div class="bg-overlay"></div>
         
         <div class="visual-content text-white text-center q-pa-xl">
-            <h2 class="text-h2 text-weight-bolder tracking-widest q-mb-sm">VEMAG<span class="text-orange-5">.MES</span></h2>
+            <h2 class="text-h2 text-weight-bolder tracking-widest q-mb-sm">VEMAG<span class="text-vemag-primary">.MES</span></h2>
             <h5 class="text-h5 text-weight-light text-grey-4 q-mb-xl">Otimização e Controle Total do Chão de Fábrica.</h5>
 
             <div class="features-grid">
                  <div class="feature-item">
-                     <q-icon name="settings_suggest" size="md" color="orange-5" />
+                     <q-icon name="settings_suggest" size="md" color="teal" />
                      <div class="text-subtitle1 text-weight-bold q-mt-sm">Controle de O.P.</div>
                      <div class="text-caption text-grey-5">Rastreamento em tempo real de cada ordem.</div>
                  </div>
                  <div class="feature-item">
-                     <q-icon name="build_circle" size="md" color="orange-5" />
+                     <q-icon name="build_circle" size="md" color="teal" />
                      <div class="text-subtitle1 text-weight-bold q-mt-sm">Manutenção</div>
                      <div class="text-caption text-grey-5">Gestão preventiva e corretiva integrada.</div>
                  </div>
                  <div class="feature-item">
-                     <q-icon name="insights" size="md" color="orange-5" />
+                     <q-icon name="insights" size="md" color="teal" />
                      <div class="text-subtitle1 text-weight-bold q-mt-sm">OEE & KPIs</div>
                      <div class="text-caption text-grey-5">Métricas de eficiência instantâneas.</div>
                  </div>
@@ -214,13 +215,13 @@ const stepper = ref<QStepper | null>(null);
 
 const formData = ref<UserRegister>({
   organization_name: '',
-  sector: 'servicos', // Mantém 'servicos' para compatibilidade com backend, mas visualmente é Metalúrgica
+  sector: 'servicos', // Mantém 'servicos' para compatibilidade com backend
   full_name: '',
   email: '',
   password: '',
 });
 
-// Opção Única Fixa (O usuário vê Indústria, mas o valor é o que o backend aceita)
+// Opção Única Fixa
 const sectorOptions: { label: string, value: UserSector }[] = [
   { label: 'Indústria Metalúrgica / Manufatura', value: 'servicos' }, 
 ];
@@ -283,6 +284,12 @@ function handleMouseLeave() {
 </script>
 
 <style scoped>
+/* --- CORES VEMAG --- */
+.text-vemag-primary { color: #008478 !important; }
+.bg-vemag-primary { background-color: #008478 !important; }
+.bg-vemag-dark { background-color: #003D38 !important; }
+.bg-vemag-muted { background-color: #00665E !important; }
+
 /* --- ESTRUTURA GERAL --- */
 .industrial-register-container {
     width: 100vw;
@@ -316,7 +323,8 @@ function handleMouseLeave() {
 
 .safety-stripe {
     height: 4px;
-    background: repeating-linear-gradient(45deg, #F2C037, #F2C037 10px, #000 10px, #000 20px);
+    /* Alterado de amarelo/laranja para #008478 */
+    background: repeating-linear-gradient(45deg, #008478, #008478 10px, #000 10px, #000 20px);
     width: 100%;
 }
 
@@ -325,7 +333,8 @@ function handleMouseLeave() {
     top: var(--shine-y, 0); left: var(--shine-x, 0);
     transform: translate(-50%, -50%);
     width: 400px; height: 400px;
-    background: radial-gradient(circle, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0) 60%); /* Shine laranja */
+    /* Alterado de laranja para #008478 */
+    background: radial-gradient(circle, rgba(0, 132, 120, 0.15) 0%, rgba(0, 132, 120, 0) 60%);
     opacity: var(--shine-opacity, 0);
     transition: opacity 0.3s ease-out;
     pointer-events: none;
@@ -354,14 +363,14 @@ function handleMouseLeave() {
 /* BOTÕES */
 .industrial-btn {
     border-radius: 2px;
-    border: 1px solid #E65100; /* Laranja Escuro */
+    border: 1px solid #008478; /* VEMAG Primary */
     font-weight: bold;
     letter-spacing: 1px;
     transition: all 0.3s ease;
 }
 .industrial-btn:hover {
-    background-color: #EF6C00 !important;
-    box-shadow: 0 0 15px rgba(239, 108, 0, 0.4);
+    background-color: #00665E !important; /* VEMAG Muted */
+    box-shadow: 0 0 15px rgba(0, 132, 120, 0.4);
 }
 .border-grey {
     border: 1px solid rgba(255,255,255,0.2);
@@ -374,7 +383,7 @@ function handleMouseLeave() {
 .industrial-bg {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-image: url('~assets/register-visual-1.jpg'); /* Use uma imagem de fábrica escura */
+    background-image: url('~assets/register-visual-1.jpg'); 
     background-size: cover;
     background-position: center;
     filter: grayscale(100%);
@@ -408,7 +417,7 @@ function handleMouseLeave() {
 }
 .feature-item:hover {
     transform: translateY(-5px);
-    border-color: #F57C00;
+    border-color: #008478; /* VEMAG Primary */
 }
 
 /* SELOS */

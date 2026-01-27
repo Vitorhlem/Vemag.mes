@@ -461,7 +461,15 @@ class ProductionService:
         # Simplificação: Performance = 100% se não tiver cadastro de ciclo padrão
         performance = 1.0 
         quality = 1.0
-        
+
+        unplanned_stops = [s for s in slices if s.category == "UNPLANNED_STOP"]
+        num_failures = len(unplanned_stops)
+        total_repair_time = sum(s.duration_seconds for s in unplanned_stops) / 3600 # horas
+
+        operating_time_hours = operating_time / 3600 if operating_time > 0 else 0
+        mtbf = (operating_time_hours / num_failures) if num_failures > 0 else operating_time_hours
+        mttr = (total_repair_time / num_failures) if num_failures > 0 else 0
+    
         return {
             "oee_percentage": round(availability * performance * quality * 100, 2),
             "availability": round(availability * 100, 2),

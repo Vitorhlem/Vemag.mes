@@ -285,7 +285,7 @@ function getManagerMenu(): MenuCategory[] {
     label: 'Visão Geral', 
     children: [
       { title: 'Dashboard da Planta', icon: 'analytics', to: '/dashboard' },
-      { title: 'Equipe Técnica', icon: 'groups', to: '/employees' }, 
+      { title: 'Apontamentos', icon: 'groups', to: '/employees' }, 
       { title: 'Relatórios', icon: 'summarize', to: '/reports' },
     ]
   });

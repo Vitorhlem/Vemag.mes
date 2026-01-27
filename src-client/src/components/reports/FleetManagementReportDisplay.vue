@@ -1,192 +1,178 @@
 <template>
-  <q-card flat bordered>
-    <q-card-section class="bg-primary text-white">
-      <div class="flex items-center justify-between">
+  <div class="report-container bg-white q-pa-md rounded-borders print-area">
+    
+    <div class="row justify-end q-mb-sm print-hide">
+      <q-btn 
+        color="indigo" 
+        icon="print" 
+        label="Imprimir Relatório" 
+        unelevated 
+        @click="printReport"
+      />
+    </div>
+
+    <div class="row items-center justify-between q-mb-lg border-bottom q-pb-md">
+      <div class="row items-center">
+        <img src="/vemagdark.png" class="report-logo q-mr-lg" alt="VEMAG Logo" />
+        
+        <q-separator vertical class="q-mr-lg gt-xs" />
+
         <div>
-          <div class="text-h6">Relatório Gerencial de Produção</div>
-          <div class="text-subtitle2">Visão macro de custos e eficiência do parque fabril</div>
-        </div>
-        <div class="q-gutter-sm">
-          <q-btn @click="exportToPDF" icon="picture_as_pdf" label="PDF" dense unelevated color="white" text-color="primary" />
-          <q-btn @click="exportToXLSX" icon="description" label="Excel" dense unelevated color="white" text-color="primary" />
+          <div class="text-h5 text-weight-bold text-indigo-9">Visão Geral da Fábrica</div>
+          <div class="text-caption text-grey-7">Análise consolidada de {{ report.summary.active_machines_count }} ativos</div>
         </div>
       </div>
-      <div class="text-caption q-mt-sm">
-        Período de Análise: {{ formatDate(report.report_period_start) }} a {{ formatDate(report.report_period_end) }}
+      <div class="text-right">
+        <div class="text-subtitle2 text-indigo-8">
+          {{ formatDate(report.report_period_start) }} até {{ formatDate(report.report_period_end) }}
+        </div>
       </div>
-    </q-card-section>
+    </div>
 
-    <q-card-section>
-      <div class="row q-col-gutter-md q-mb-lg">
-        <div class="col-12 col-md-4">
-          <q-card flat bordered class="bg-grey-1">
-            <q-card-section>
-                <div class="text-caption text-grey-8 text-uppercase">Custo Total da Fábrica</div>
-                <div class="text-h5 text-weight-bold text-primary">{{ formatCurrency(report.summary.total_cost) }}</div>
-            </q-card-section>
-          </q-card>
-        </div>
-        <div class="col-12 col-md-4">
-          <q-card flat bordered class="bg-grey-1">
-            <q-card-section>
-                <div class="text-caption text-grey-8 text-uppercase">Atividade Total (Horas/Km)</div>
-                <div class="text-h5 text-weight-bold text-primary">{{ report.summary.total_distance_km.toFixed(2) }}</div>
-            </q-card-section>
-          </q-card>
-        </div>
-        <div class="col-12 col-md-4">
-          <q-card flat bordered class="bg-grey-1">
-            <q-card-section>
-                <div class="text-caption text-grey-8 text-uppercase">Custo Médio Unitário</div>
-                <div class="text-h5 text-weight-bold text-primary">{{ report.summary.overall_cost_per_km.toFixed(2) }}</div>
-            </q-card-section>
-          </q-card>
-        </div>
+    <div class="row q-col-gutter-md q-mb-xl">
+      <div class="col-12 col-md-3">
+        <q-card flat bordered class="text-center q-pa-md bg-indigo-1 print-card">
+          <div class="text-h3 text-weight-bolder text-indigo-9">{{ report.summary.global_oee }}%</div>
+          <div class="text-subtitle2 text-indigo-8">OEE Global da Planta</div>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-3">
+        <q-card flat bordered class="q-pa-sm print-card">
+          <q-item>
+            <q-item-section avatar><q-icon name="attach_money" color="green" size="lg"/></q-item-section>
+            <q-item-section>
+              <q-item-label class="text-h5">{{ formatCurrency(report.summary.total_cost) }}</q-item-label>
+              <q-item-label caption>Custo Total Operacional</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-3">
+        <q-card flat bordered class="q-pa-sm print-card">
+          <q-item>
+            <q-item-section avatar><q-icon name="precision_manufacturing" color="teal" size="lg"/></q-item-section>
+            <q-item-section>
+              <q-item-label class="text-h5">{{ report.summary.total_production_hours }} h</q-item-label>
+              <q-item-label caption>Horas Produzindo</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-3">
+        <q-card flat bordered class="q-pa-sm print-card">
+          <q-item>
+            <q-item-section avatar><q-icon name="warning" color="red" size="lg"/></q-item-section>
+            <q-item-section>
+              <q-item-label class="text-h5">{{ report.summary.total_downtime_hours }} h</q-item-label>
+              <q-item-label caption>Horas Paradas (Gargalo)</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-card>
+      </div>
+    </div>
+
+    <div class="row q-col-gutter-lg q-mb-xl page-break-inside-avoid">
+      <div class="col-12 col-md-6">
+        <q-card flat bordered class="full-height print-card">
+          <q-card-section>
+            <div class="text-subtitle1 text-weight-bold text-positive">🏆 Top 5 Eficiência (OEE)</div>
+          </q-card-section>
+          <q-list separator>
+            <q-item v-for="(v, i) in report.top_5_most_efficient_vehicles" :key="i">
+              <q-item-section avatar>
+                <q-avatar size="sm" color="green-1" text-color="green">{{ i + 1 }}</q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-bold">{{ v.vehicle_identifier }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <div class="text-weight-bold text-green-9">{{ v.value }}%</div>
+                <div class="text-caption text-grey-6" v-if="v.secondary_value">{{ v.secondary_value.toFixed(1) }}h paradas</div>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card>
       </div>
 
-      <div class="row q-col-gutter-lg">
-        <div class="col-12 col-md-5">
-          <q-card flat bordered class="full-height">
-            <q-card-section>
-              <div class="text-h6">Distribuição de Custos</div>
-            </q-card-section>
-            <q-separator />
-            <q-card-section>
-              <CostsPieChart v-if="hasCostData" :costs="costsForChart" style="height: 350px;" />
-              <div v-else class="text-center text-grey q-pa-md">Sem dados de custo no período.</div>
-            </q-card-section>
-          </q-card>
-        </div>
+      <div class="col-12 col-md-6">
+        <q-card flat bordered class="full-height print-card">
+          <q-card-section>
+            <div class="text-subtitle1 text-weight-bold text-negative">⚠️ Top 5 Gargalos (Baixo OEE)</div>
+          </q-card-section>
+          <q-list separator>
+            <q-item v-for="(v, i) in report.top_5_least_efficient_vehicles" :key="i">
+              <q-item-section avatar>
+                <q-avatar size="sm" color="red-1" text-color="red">{{ i + 1 }}</q-avatar>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-bold">{{ v.vehicle_identifier }}</q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <q-badge color="red" :label="v.value + '%'" />
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card>
+      </div>
+    </div>
 
-        <div class="col-12 col-md-7">
-          <q-card flat bordered class="full-height">
-            <q-card-section>
-              <div class="text-h6">Rankings de Máquinas</div>
-            </q-card-section>
-            <q-separator />
-            <q-list separator>
-              <q-expansion-item icon="trending_down" label="Top 5 Maiores Custos" header-class="text-negative text-weight-bold" default-opened>
-                <RankingTable :data="report.top_5_most_expensive_vehicles" />
-              </q-expansion-item>
-              
-              <q-expansion-item icon="precision_manufacturing" label="Top 5 Mais Eficientes" header-class="text-positive text-weight-bold">
-                <RankingTable :data="report.top_5_most_efficient_vehicles" />
-              </q-expansion-item>
-              
-               <q-expansion-item icon="warning" label="Top 5 Maior Custo Unitário" header-class="text-orange text-weight-bold">
-                <RankingTable :data="report.top_5_highest_cost_per_km_vehicles" />
-              </q-expansion-item>
-            </q-list>
-          </q-card>
+    <div class="q-mb-lg page-break-inside-avoid">
+      <div class="text-h6 text-indigo-9 q-mb-md">Distribuição de Custos Industriais</div>
+      <div class="row q-col-gutter-md">
+        <div class="col-12 col-md-8">
+           <ApexChart type="bar" height="300" :options="costChartOptions" :series="costChartSeries" />
+        </div>
+        <div class="col-12 col-md-4">
+           <q-list bordered separator class="rounded-borders print-card">
+             <q-item v-for="(amount, cat) in report.costs_by_category" :key="cat">
+               <q-item-section>{{ cat }}</q-item-section>
+               <q-item-section side>{{ formatCurrency(amount) }}</q-item-section>
+             </q-item>
+           </q-list>
         </div>
       </div>
-    </q-card-section>
-  </q-card>
+    </div>
+
+  </div>
 </template>
 
 <script setup lang="ts">
-import { type PropType, computed } from 'vue';
-import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-import type { FleetManagementReport, VehicleRankingEntry } from 'src/models/report-models';
-import CostsPieChart from 'components/CostsPieChart.vue';
-import RankingTable from 'components/reports/RankingTable.vue';
+import { computed } from 'vue';
+import { date } from 'quasar';
+import ApexChart from 'vue3-apexcharts';
 
-// Interface para TypeScript reconhecer plugin
-interface jsPDFWithPlugin extends jsPDF {
-  lastAutoTable: { finalY: number };
-}
+const props = defineProps<{ report: any }>();
 
-const props = defineProps({
-  report: {
-    type: Object as PropType<FleetManagementReport>,
-    required: true,
-  },
-});
+const formatDate = (val: string) => date.formatDate(val, 'DD/MM/YYYY');
+const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-const formatDate = (dateString: string) => format(new Date(dateString.replace(/-/g, '/')), 'dd/MM/yyyy');
-const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const printReport = () => {
+  window.print();
+};
 
-const hasCostData = computed(() => Object.keys(props.report.costs_by_category).length > 0);
+const costChartSeries = computed(() => [{
+  name: 'Custo (R$)',
+  data: Object.values(props.report.costs_by_category || {})
+}]);
 
-const costsForChart = computed(() => {
-  return Object.entries(props.report.costs_by_category).map(([type, amount]) => ({
-    cost_type: type,
-    amount: amount,
-  }));
-});
-
-function exportToPDF() {
-  const doc = new jsPDF() as jsPDFWithPlugin;
-  const report = props.report;
-  
-  doc.setFontSize(18);
-  doc.text('Relatório Gerencial de Produção', 14, 22);
-  doc.setFontSize(11);
-  doc.setTextColor(100);
-  doc.text(`Período: ${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`, 14, 30);
-
-  const summaryBody = [
-    ['Custo Total da Fábrica', formatCurrency(report.summary.total_cost)],
-    ['Atividade Total (h/km)', `${report.summary.total_distance_km.toFixed(2)}`],
-    ['Custo Médio Unitário', `${formatCurrency(report.summary.overall_cost_per_km)}`],
-  ];
-  autoTable(doc, { startY: 40, head: [['Métrica', 'Valor']], body: summaryBody });
-
-  const createRankingBody = (data: VehicleRankingEntry[]) => data.map(item => [item.vehicle_identifier, `${item.value.toFixed(2)} ${item.unit}`]);
-
-  // Tabela 1
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 10,
-    head: [['Top 5 - Maiores Custos (R$)']],
-    body: createRankingBody(report.top_5_most_expensive_vehicles),
-    theme: 'grid', headStyles: { fillColor: '#c0392b' }
-  });
-
-  // Tabela 2
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 5,
-    head: [['Top 5 - Maior Custo Unitário']],
-    body: createRankingBody(report.top_5_highest_cost_per_km_vehicles),
-    theme: 'grid', headStyles: { fillColor: '#f39c12' }
-  });
-
-  // Tabela 3
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 5,
-    head: [['Top 5 - Mais Eficientes']],
-    body: createRankingBody(report.top_5_most_efficient_vehicles),
-    theme: 'grid', headStyles: { fillColor: '#27ae60' }
-  });
-
-  doc.save('relatorio_gerencial_producao.pdf');
-}
-
-function exportToXLSX() {
-  const report = props.report;
-  const wb = XLSX.utils.book_new();
-
-  const summaryData = [
-    ["Relatório Gerencial de Produção"], [],
-    ["Período", `${formatDate(report.report_period_start)} a ${formatDate(report.report_period_end)}`], [],
-    ["Resumo Geral"],
-    ["Custo Total (R$)", report.summary.total_cost],
-    ["Atividade Total", report.summary.total_distance_km],
-    ["Custo Médio Unitário", report.summary.overall_cost_per_km],
-  ];
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
-  
-  const rankingsData = [
-    ...report.top_5_most_expensive_vehicles.map(v => ({ Ranking: "Maiores Custos (R$)", Máquina: v.vehicle_identifier, Valor: v.value })),
-    ...report.top_5_highest_cost_per_km_vehicles.map(v => ({ Ranking: "Maior Custo Unitário", Máquina: v.vehicle_identifier, Valor: v.value })),
-    ...report.top_5_most_efficient_vehicles.map(v => ({ Ranking: "Mais Eficientes", Máquina: v.vehicle_identifier, Valor: v.value })),
-  ];
-  const wsRankings = XLSX.utils.json_to_sheet(rankingsData);
-  XLSX.utils.book_append_sheet(wb, wsRankings, "Rankings");
-
-  XLSX.writeFile(wb, "relatorio_gerencial_producao.xlsx");
-}
+const costChartOptions = computed(() => ({
+  chart: { type: 'bar', toolbar: { show: false } },
+  xaxis: { categories: Object.keys(props.report.costs_by_category || {}) },
+  colors: ['#3F51B5'],
+  plotOptions: { bar: { borderRadius: 4, horizontal: true } }
+}));
 </script>
+
+<style scoped>
+.report-container { font-family: 'Inter', sans-serif; max-width: 1200px; margin: 0 auto; }
+.report-logo { height: 50px; object-fit: contain; }
+.border-bottom { border-bottom: 2px solid #f0f0f0; }
+
+@media print {
+  .print-hide { display: none !important; }
+  .report-container { width: 100% !important; max-width: none !important; padding: 0 !important; box-shadow: none !important; }
+  .q-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .bg-indigo-1 { background-color: #e8eaf6 !important; -webkit-print-color-adjust: exact; }
+  .page-break-inside-avoid { break-inside: avoid; }
+}
+</style>

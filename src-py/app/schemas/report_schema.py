@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 
 from .vehicle_cost_schema import VehicleCostPublic
@@ -42,15 +42,24 @@ class VehicleReportRequest(BaseModel):
 # --- SCHEMAS DE RESPOSTA ATUALIZADOS ---
 
 class VehicleReportPerformanceSummary(BaseModel):
-    """Resumo de performance para o relatório."""
-    # Totais do Veículo
-    vehicle_total_activity: float = 0.0   # <-- CAMPO ADICIONADO
+    vehicle_total_activity: float
+    period_total_activity: float
+    activity_unit: str
+    period_total_fuel: float
+    average_consumption: float
     
-    # Totais do Período
-    period_total_activity: float = 0.0  # Renomeado de total_activity_value
-    activity_unit: str = "km"           # Renomeado de total_activity_unit
-    period_total_fuel: float = 0.0      # Renomeado de total_fuel_liters
-    average_consumption: float = 0.0
+    # --- NOVOS CAMPOS PARA OEE & CONFIABILIDADE ---
+    oee_percent: float = 0.0
+    availability_percent: float = 0.0
+    performance_percent: float = 0.0
+    quality_percent: float = 0.0
+    
+    mtbf_hours: float = 0.0
+    mttr_hours: float = 0.0
+    
+    # Dados para Gráficos
+    time_distribution: Dict[str, float] = {} # Ex: {"total": 720, "running": 500...}
+    stop_reasons: List[Dict[str, Any]] = []  # Ex: [{"reason": "Quebra", "duration": 200}]
 
 class VehicleReportFinancialSummary(BaseModel):
     """Resumo financeiro para o relatório."""
@@ -88,17 +97,22 @@ class VehicleConsolidatedReport(BaseModel):
 # --- Schemas de outros relatórios (sem alteração) ---
 
 class DriverPerformanceEntry(BaseModel):
-    """Representa a linha de dados para um único motorista no relatório."""
     driver_id: int
     driver_name: str
+    
+    # Campos Logísticos (Legado/Híbrido)
     total_journeys: int = 0
-    total_distance_km: float = 0.0
-    total_fuel_liters: float = 0.0
-    average_consumption: float = 0.0
-    total_fuel_cost: float = 0.0
-    cost_per_km: float = 0.0
+    total_distance_km: float = 0
+    total_fuel_liters: float = 0
+    average_consumption: float = 0
+    total_fuel_cost: float = 0
+    cost_per_km: float = 0
     maintenance_requests: int = 0
-
+    
+    # NOVOS CAMPOS MES (Chão de Fábrica)
+    productive_hours: float = 0.0
+    efficiency_percent: float = 0.0 # OEE Pessoal
+    items_produced: int = 0
 class DriverPerformanceReport(BaseModel):
     """Schema principal para o Relatório de Desempenho de Motoristas."""
     report_period_start: date
@@ -110,17 +124,24 @@ class DriverPerformanceReport(BaseModel):
         from_attributes = True
 
 class FleetReportSummary(BaseModel):
-    """Resumo geral da frota no período."""
-    total_cost: float = 0.0
-    total_distance_km: float = 0.0
-    overall_cost_per_km: float = 0.0
+    total_cost: float
+    total_distance_km: float # Mantido para compatibilidade
+    overall_cost_per_km: float
+    
+    # NOVOS CAMPOS MES
+    global_oee: float = 0.0
+    global_availability: float = 0.0
+    total_production_hours: float = 0.0
+    total_downtime_hours: float = 0.0
+    active_machines_count: int = 0
     
 class VehicleRankingEntry(BaseModel):
-    """Entrada para os rankings de veículos."""
     vehicle_id: int
     vehicle_identifier: str
     value: float
     unit: str
+    secondary_value: Optional[float] = None # Ex: Custo (Principal) + OEE (Secundário)
+    secondary_unit: Optional[str] = None
 
 class FleetManagementReport(BaseModel):
     """Schema principal para o Relatório Gerencial da Frota."""

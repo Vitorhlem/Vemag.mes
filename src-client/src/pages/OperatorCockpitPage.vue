@@ -1326,7 +1326,6 @@ async function handleSetupClick() {
       }
   }
 }
-
 let scanBuffer = '';
 let scanTimeout: any = null;
 

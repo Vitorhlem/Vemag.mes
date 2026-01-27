@@ -36,12 +36,12 @@
 
         <q-card-section class="text-center q-pt-lg">
           <div class="logo-container q-mb-md">
-            <img src="~assets/trucar-logo-white.png" class="login-logo" style="height: 70px;" />
+            <img src="/Logo-Oficial.png" class="login-logo" style="height: 70px;" />
           </div>
           <div class="text-h5 text-weight-bolder text-white tracking-widest font-mono">
-            VEMAG<span class="text-primary">.MES</span>
+            VEMAG<span class="text-vemag-primary">.MES</span>
           </div>
-          <div class="text-caption text-teal-4 text-uppercase q-mt-xs text-weight-bold letter-spacing-1">
+          <div class="text-caption text-vemag-muted text-uppercase q-mt-xs text-weight-bold letter-spacing-1">
             Intelligent Manufacturing Access
           </div>
         </q-card-section>
@@ -55,12 +55,12 @@
               dark
               outlined
               dense
-              color="primary"
+              color="teal"
               class="industrial-input"
               :disable="isLoading"
             >
               <template v-slot:prepend>
-                <q-icon name="badge" color="primary" />
+                <q-icon name="badge" class="text-vemag-primary" />
               </template>
             </q-input>
 
@@ -71,20 +71,20 @@
               dark
               outlined
               dense
-              color="primary"
+              color="teal"
               class="industrial-input"
               :disable="isLoading"
             >
               <template v-slot:prepend>
-                <q-icon name="lock" color="primary" />
+                <q-icon name="lock" class="text-vemag-primary" />
               </template>
             </q-input>
 
             <div class="row justify-between items-center q-mt-sm">
-                <q-checkbox v-model="remember" label="Manter conectado" dark dense color="teal-4" size="sm" class="text-grey-5" />
+                <q-checkbox v-model="remember" label="Manter conectado" dark dense color="teal" size="sm" class="text-grey-5" />
                 
                 <div 
-                    class="text-teal-4 text-caption cursor-pointer link-hover" 
+                    class="text-vemag-primary text-caption cursor-pointer link-hover" 
                     @click="goToForgotPassword"
                 >
                     Esqueceu a senha?
@@ -93,13 +93,11 @@
 
             <q-btn
               type="submit"
-              color="primary"
-              text-color="white"
-              label="INICIAR SISTEMA"
-              class="full-width q-mt-lg text-weight-bold tracking-widest industrial-btn shadow-green"
+              class="full-width q-mt-lg text-weight-bold tracking-widest industrial-btn shadow-vemag"
               :loading="isLoading"
               unelevated
             >
+                <span class="text-white">INICIAR SISTEMA</span>
                 <template v-slot:loading>
                     <q-spinner-gears class="on-left" /> Validando Protocolos...
                 </template>
@@ -111,9 +109,8 @@
                     dense
                     no-caps
                     size="sm"
-                    color="teal-4" 
+                    class="opacity-80 font-inter text-vemag-muted"
                     label="Não tem acesso? Solicite aqui (Registrar)" 
-                    class="opacity-80 font-inter"
                     @click="goToRegister"
                 />
             </div>
@@ -124,7 +121,7 @@
         <q-card-section class="text-center q-pb-lg">
             <div class="status-indicator row items-center justify-center q-gutter-x-sm">
                 <div class="led-light"></div>
-                <span class="text-caption text-teal-8 text-weight-medium font-mono">SISTEMA ONLINE • VEMAG V.2.0</span>
+                <span class="text-caption text-vemag-dark text-weight-medium font-mono">SISTEMA ONLINE • VEMAG V.2.0</span>
             </div>
         </q-card-section>
       </q-card>
@@ -134,7 +131,6 @@
 </template>
 
 <script setup lang="ts">
-/* LÓGICA ORIGINAL MANTIDA INTEGRALMENTE */
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from 'stores/auth-store';
@@ -184,7 +180,7 @@ async function handleLogin() {
           void router.push('/dashboard');
       }
       
-      $q.notify({ type: 'positive', message: 'Autenticação bem-sucedida. Bem-vindo à Trucar!' });
+      $q.notify({ type: 'positive', message: 'Autenticação bem-sucedida. Bem-vindo à VEMAG!' });
 
   } catch (error: any) {
       console.error(error);
@@ -201,7 +197,8 @@ async function handleLogin() {
 }
 
 onMounted(() => {
-    setCssVar('primary', '#128c7e');
+    // Configura a cor primária globalmente para o verde da VEMAG
+    setCssVar('primary', '#008478');
     if (typeof window !== 'undefined') {
         mouseX.value = window.innerWidth / 2;
         mouseY.value = window.innerHeight / 2;
@@ -210,15 +207,20 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* --- CONFIGURAÇÃO DE CORES TRUCAR --- */
-$trucar-green: #128c7e;
-$trucar-mint: #70c0b0;
+/* --- CORES VEMAG --- */
+$vemag-dark: #003D38;
+$vemag-primary: #008478;
+$vemag-muted: #00665E;
+
+.text-vemag-primary { color: $vemag-primary !important; }
+.text-vemag-muted { color: $vemag-muted !important; }
+.text-vemag-dark { color: #002925 !important; } /* Um tom ainda mais escuro para texto sobre fundo claro se necessário, ou igual */
 
 /* --- CONTAINER E FUNDO --- */
 .industrial-login-container {
     width: 100vw;
     height: 100vh;
-    background-color: #060d0d; /* Fundo levemente esverdeado escuro */
+    background-color: #121212; /* Preto Industrial neutro */
     overflow: hidden;
     position: relative;
     cursor: crosshair;
@@ -234,9 +236,10 @@ $trucar-mint: #70c0b0;
     left: 0;
     width: 100%;
     height: 100%;
+    /* Grid em verde VEMAG muito sutil */
     background-image: 
-        linear-gradient(rgba(18, 140, 126, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(18, 140, 126, 0.08) 1px, transparent 1px);
+        linear-gradient(rgba(0, 132, 120, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 132, 120, 0.05) 1px, transparent 1px);
     background-size: 50px 50px;
     z-index: 0;
 }
@@ -248,12 +251,13 @@ $trucar-mint: #70c0b0;
     left: 0;
     width: 100%;
     height: 60px;
-    background: linear-gradient(to bottom, transparent, rgba(112, 192, 176, 0.15) 50%, transparent);
-    border-bottom: 2px solid #008f7266;
+    /* Scanner verde */
+    background: linear-gradient(to bottom, transparent, rgba(0, 132, 120, 0.15) 50%, transparent);
+    border-bottom: 2px solid rgba(0, 132, 120, 0.3);
     z-index: 1;
     pointer-events: none;
     animation: scan 8s linear infinite;
-    box-shadow: 0 5px 20px rgba(18, 140, 126, 0.1);
+    box-shadow: 0 5px 20px rgba(0, 132, 120, 0.1);
 }
 
 @keyframes scan {
@@ -266,24 +270,24 @@ $trucar-mint: #70c0b0;
 /* --- EIXOS --- */
 .axis-x, .axis-y {
     position: absolute;
-    background-color: rgba(112, 192, 176, 0.25);
+    background-color: rgba(0, 102, 94, 0.25);
     pointer-events: none;
     z-index: 1;
 }
 
 .axis-x {
     top: 0; left: 0; width: 100%; height: 1px;
-    border-bottom: 1px dashed rgba(18, 140, 126, 0.4);
+    border-bottom: 1px dashed rgba(0, 132, 120, 0.3);
 }
 
 .axis-y {
     top: 0; left: 0; width: 1px; height: 100%;
-    border-right: 1px dashed rgba(18, 140, 126, 0.4);
+    border-right: 1px dashed rgba(0, 132, 120, 0.3);
 }
 
 .axis-label {
     position: absolute;
-    background: $trucar-green;
+    background: $vemag-primary;
     color: #fff;
     font-size: 10px;
     font-family: 'JetBrains Mono', monospace;
@@ -304,7 +308,7 @@ $trucar-mint: #70c0b0;
 .head-spinner {
     position: absolute;
     top: -20px; left: -20px; width: 40px; height: 40px;
-    border: 1px solid $trucar-mint;
+    border: 1px solid $vemag-muted;
     border-radius: 50%;
     border-top-color: transparent;
     animation: spin 2s linear infinite;
@@ -313,9 +317,9 @@ $trucar-mint: #70c0b0;
 .head-glow {
     position: absolute;
     top: -5px; left: -5px; width: 10px; height: 10px;
-    background-color: $trucar-mint;
+    background-color: $vemag-primary;
     border-radius: 50%;
-    box-shadow: 0 0 20px 8px rgba(112, 192, 176, 0.6);
+    box-shadow: 0 0 20px 8px rgba(0, 132, 120, 0.4);
 }
 
 /* --- CARD GLASS --- */
@@ -327,10 +331,10 @@ $trucar-mint: #70c0b0;
 }
 
 .login-card {
-    background: rgba(10, 26, 26, 0.7); /* Vidro Escuro */
+    background: rgba(15, 20, 20, 0.8); /* Fundo escuro levemente esverdeado */
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(112, 192, 176, 0.15);
+    border: 1px solid rgba(0, 132, 120, 0.2);
     border-radius: 12px;
     position: relative;
     overflow: hidden;
@@ -338,10 +342,11 @@ $trucar-mint: #70c0b0;
 
 .safety-stripe {
     height: 5px;
+    /* Listras VEMAG Primary e Preto */
     background: repeating-linear-gradient(
         45deg,
-        $trucar-green,
-        $trucar-green 15px,
+        $vemag-primary,
+        $vemag-primary 15px,
         #000 15px,
         #000 30px
     );
@@ -355,6 +360,10 @@ $trucar-mint: #70c0b0;
     background: rgba(0, 0, 0, 0.4);
     border-radius: 6px;
     transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.industrial-input:hover :deep(.q-field__control) {
+    border-color: $vemag-muted;
 }
 
 .industrial-input :deep(.q-field__label) {
@@ -368,19 +377,20 @@ $trucar-mint: #70c0b0;
     border-radius: 6px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     height: 48px;
-    background: linear-gradient(135deg, $trucar-green, $trucar-mint) !important;
+    /* Gradiente VEMAG */
+    background: linear-gradient(135deg, $vemag-primary, $vemag-muted) !important;
 }
 
 .industrial-btn:hover {
     filter: brightness(1.1);
     transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(18, 140, 126, 0.3);
+    box-shadow: 0 10px 20px rgba(0, 132, 120, 0.3);
 }
 
 .link-hover:hover {
     color: #fff !important;
     text-decoration: underline;
-    text-shadow: 0 0 8px rgba(112, 192, 176, 0.8);
+    text-shadow: 0 0 8px rgba(0, 132, 120, 0.8);
 }
 
 .led-light {
@@ -391,7 +401,7 @@ $trucar-mint: #70c0b0;
     animation: pulse-green 2s infinite;
 }
 
-.shadow-green { box-shadow: 0 4px 15px rgba(18, 140, 126, 0.2); }
+.shadow-vemag { box-shadow: 0 4px 15px rgba(0, 132, 120, 0.2); }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
 @keyframes spin { 100% { transform: rotate(360deg); } }

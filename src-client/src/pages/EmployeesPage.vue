@@ -97,7 +97,7 @@
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-green shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-teal-9 opacity-80">Produção (Operador)</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-teal-9 opacity-80">Produção humana</div>
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-teal-10">{{ machineStats?.formatted_running_operator || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo efetivo logado.</div>
                             </q-card-section>
@@ -116,9 +116,9 @@
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-purple shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-purple-9 opacity-80">Setup / Preparação</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-purple-9 opacity-80">Setup (OPP)</div>
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-purple-10">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
-                                <div class="text-caption text-grey-8">Tempo de ajuste.</div>
+                                <div class="text-caption text-grey-8">Tempo de ajuste. (Ordem De Parada Produtiva)</div>
                             </q-card-section>
                         </q-card>
                     </div>
@@ -126,9 +126,9 @@
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-orange shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-orange-9 opacity-80">Pausa (Perda)</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-orange-9 opacity-80">Pausa (OPI)</div>
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-orange-10">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
-                                <div class="text-caption text-grey-8">Logado mas parado.</div>
+                                <div class="text-caption text-grey-8">Logado mas parado. (Ordem De Parada Improdutiva)</div>
                             </q-card-section>
                         </q-card>
                     </div>
@@ -136,9 +136,9 @@
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-red shadow-sm">
                             <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-red-9 opacity-80">Manutenção / Quebra</div>
+                                <div class="text-caption text-uppercase text-weight-bold text-red-9 opacity-80">Manutenção / Quebra (OPM)</div>
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-red-10">{{ machineStats?.formatted_maintenance || '00:00:00' }}</div>
-                                <div class="text-caption text-grey-8">Tempo indisponível.</div>
+                                <div class="text-caption text-grey-8">Tempo indisponível. (Ordem De Parada Manutenção)</div>
                             </q-card-section>
                         </q-card>
                     </div>
@@ -230,7 +230,7 @@
                                 </div>
                             </div>
                             <q-separator class="q-my-md opacity-10" />
-                            <div class="text-caption text-grey-6 italic">Comparativo entre Ciclo Padrão vs Realizado. <br><em>(Requer cadastro de tempos de ciclo)</em></div>
+                            <div class="text-caption text-grey-6 italic">Carga horária vs Horas produtivas<br>(Cracha e apontamento maquina)<em></em></div>
                         </q-card-section>
                         </q-card>
                     </div>
@@ -554,7 +554,7 @@ function getEfficiencyColor(val: number) {
 
 function getOeeLabel(val?: number) {
     if (val === undefined || val === null) return 'N/A';
-    if (val >= 85) return 'World Class';
+    if (val >= 85) return 'Excelente';
     if (val >= 65) return 'Aceitável';
     return 'Crítico';
 }

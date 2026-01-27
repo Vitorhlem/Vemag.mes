@@ -107,7 +107,7 @@ async def create_vehicle(
             details_data = {"plate": vehicle.license_plate, "model": vehicle.model}
             
             await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-                action="CREATE", resource_type="Veículos", resource_id=str(vehicle.id),
+                action="CREATE", resource_type="Máquinario", resource_id=str(vehicle.id),
                 user_id=current_user.id, organization_id=current_user.organization_id,
                 details=jsonable_encoder(details_data)
             ))
@@ -148,7 +148,7 @@ async def update_vehicle(
         log_details = jsonable_encoder(vehicle_in.model_dump(exclude_unset=True))
         
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-            action="UPDATE", resource_type="Veículos", resource_id=str(updated_vehicle.id),
+            action="UPDATE", resource_type="Máquinario", resource_id=str(updated_vehicle.id),
             user_id=current_user.id, organization_id=current_user.organization_id,
             details={"updates": log_details}
         ))
@@ -209,7 +209,7 @@ async def delete_vehicle(
 
     try:
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-            action="DELETE", resource_type="Veículos", resource_id=str(vehicle_id),
+            action="DELETE", resource_type="Máquinario", resource_id=str(vehicle_id),
             user_id=current_user.id, organization_id=current_user.organization_id,
             details={"deleted_plate": db_vehicle.license_plate}
         ))

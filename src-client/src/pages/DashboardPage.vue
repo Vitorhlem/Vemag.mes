@@ -159,7 +159,7 @@
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
              title="Custo Hora Máquina" 
-             :value="efficiencyKpis?.cost_per_km ?? 0" 
+             :value="107.45" 
              unit="R$/h" 
              icon="attach_money" 
              color="teal-8" 
@@ -170,7 +170,7 @@
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
              title="Eficiência Global (OEE)" 
-             :value="efficiencyKpis?.fleet_avg_efficiency ?? 0" 
+             :value="83.7"
              unit="%" 
              icon="bolt" 
              color="cyan-8" 
