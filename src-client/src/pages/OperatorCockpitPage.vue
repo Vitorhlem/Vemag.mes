@@ -745,39 +745,49 @@ function openDrawing() {
   isDrawingDialogOpen.value = true;
 }
 async function handleMainButtonClick() {
+  // CENÁRIO 1: RETOMAR (Se já estiver pausado)
   if (isPaused.value) {
     await finishPauseAndResume();
     return;
   }
+
+  // CENÁRIO 2: PAUSAR (Se estiver produzindo)
+  // ✅ AQUI FALTAVA A LÓGICA: Se está rodando, abre o menu de parada
+  if (normalizedStatus.value === 'EM OPERAÇÃO') {
+      isStopDialogOpen.value = true;
+      return;
+  }
   
-  // 1. Pega a etapa que o operador está vendo (Garantindo que vem da @LGLCROTCollection)
+  // CENÁRIO 3: INICIAR (Se estiver parado/disponível)
+  // 1. Pega a etapa que o operador está vendo
   const step = currentViewedStep.value; 
 
-  // 2. MONTAGEM DO PAYLOAD (Nomes devem ser iguais ao Python acima)
+  // 2. MONTAGEM DO PAYLOAD
   const payload = {
-    op_number: String(productionStore.activeOrder.code), // O código do item
-    step_seq: String(step.seq || ''),                   // A posição (ex: 010)
+    op_number: String(productionStore.activeOrder.code),
+    step_seq: String(step.seq || ''),
     machine_id: Number(productionStore.machineId),
     operator_badge: String(productionStore.currentOperatorBadge || authStore.user?.employee_id)
   };
 
-  // LOG PARA VOCÊ VER NO F12
-  console.log("📤 [MES] Enviando para o Servidor:", payload);
+  console.log("📤 [MES] Enviando Start para o Servidor:", payload);
 
   isLoadingAction.value = true;
   try {
-    // 3. Chamada direta para a rota que estava dando 422
-    const response = await api.post('/api/v1/production/session/start', payload);
+    const response = await api.post('/production/session/start', payload);
     
     if (response.data.status === 'success') {
       statusStartTime.value = new Date();
       if (activeOrder.value) activeOrder.value.status = 'RUNNING';
+      
+      // Força atualização do status na Store para o botão mudar de cor
+      await productionStore.setMachineStatus('RUNNING');
+      
       $q.notify({ type: 'positive', message: 'Produção Iniciada!' });
     }
   } catch (e) {
-    // Se der 422 aqui, o log abaixo vai te mostrar EXATAMENTE o campo errado
-    console.error("❌ Erro 422 - Detalhes do Servidor:", e.response?.data);
-    $q.notify({ type: 'negative', message: 'Erro de validação nos dados enviados.' });
+    console.error("❌ Erro Start:", e.response?.data);
+    $q.notify({ type: 'negative', message: 'Erro ao iniciar produção.' });
   } finally {
     isLoadingAction.value = false;
   }
