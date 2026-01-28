@@ -151,7 +151,7 @@ export const useProductionStore = defineStore('production', () => {
 
   const currentActiveStep = computed(() => {
     if (!activeOrder.value?.steps || currentStepIndex.value === -1) return null;
-    return activeOrder.value.steps[currentStepIndex.value];
+    return activeOrder.value?.steps?.[currentStepIndex.value] || null;
   });
   
   const isMachineBroken = computed(() => {
@@ -439,7 +439,11 @@ export const useProductionStore = defineStore('production', () => {
           data.steps = JSON.parse(JSON.stringify(MOCK_OP_STEPS));
       }
 
-      activeOrder.value = { ...data };
+      activeOrder.value = { 
+        ...activeOrder.value, // Mantém o que já tinha (Meta, Nome, Código)
+        ...data,              // Adiciona o que veio da API (Roteiro, Desenho)
+        status: data.status || 'PENDING'
+      };
       
       // Pega o recurso da máquina configurada no Kiosk
       const myResource = machineResource.value; 
@@ -469,22 +473,22 @@ export const useProductionStore = defineStore('production', () => {
           });
       }
 
-      activeOrder.value = { ...data };
-      currentStepIndex.value = 0;
-      
       if (currentOperatorBadge.value && machineId.value) {
-         await api.post('/production/session/start', {
-            machine_id: machineId.value, 
-            operator_badge: currentOperatorBadge.value, 
-            order_code: qrCode
-         });
-         
-         // Só muda status para SETUP se a etapa identificada for de setup, 
-         // ou se for a lógica padrão. Com o roteamento inteligente, 
-         // talvez você queira manter PENDING até o operador clicar em Iniciar.
-         // Mantive sua lógica original aqui:
-         activeOrder.value.status = 'SETUP';
-         await setMachineStatus('SETUP');
+          // Pegamos a sequência da etapa que o roteamento identificou
+          const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
+          const stageStr = currentStep ? String(currentStep.seq) : '010';
+
+          console.log("📡 [STORE] Iniciando Sessão Automática via loadOrder...");
+          
+          await api.post('/production/session/start', {
+    machine_id: machineId.value, 
+    operator_badge: currentOperatorBadge.value, 
+    op_number: String(qrCode),
+    step_seq: stageStr
+});
+          
+          activeOrder.value.status = 'SETUP';
+          await setMachineStatus('SETUP');
       }
 
     } catch (e) { 

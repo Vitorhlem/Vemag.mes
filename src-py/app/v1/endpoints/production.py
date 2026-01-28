@@ -678,36 +678,49 @@ async def start_session(
     payload: SessionStart, 
     db: AsyncSession = Depends(deps.get_db)
 ):
-    """
-    Inicia o cronômetro para uma operação específica no Cockpit.
-    """
-    print(f"🚀 [MES] Iniciando OP {payload.op_number} - Etapa {payload.step_seq}")
+    # --- ADICIONE ESTA LINHA AQUI ---
+    op_code_str = str(payload.op_number)
+    # --------------------------------
+    
+    print(f"🚀 [MES] Iniciando OP {op_code_str} - Etapa {payload.step_seq}")
     
     # 1. Busca a Máquina (Vehicle)
-    machine_q = await db.execute(select(Vehicle).where(Vehicle.id == payload.machine_id))
-    machine = machine_q.scalars().first()
+    machine = await db.get(Vehicle, payload.machine_id)
     if not machine: 
         raise HTTPException(status_code=404, detail="Máquina não encontrada")
 
-    # 2. Busca o Operador pelo Crachá (Badge)
+    # 2. Busca o Operador
     user_q = await db.execute(select(User).where(or_(
         User.employee_id == payload.operator_badge,
         User.email == payload.operator_badge
     )))
     operator = user_q.scalars().first()
     if not operator: 
-        raise HTTPException(status_code=404, detail="Operador não encontrado (Crachá inválido)")
+        raise HTTPException(status_code=404, detail="Operador não encontrado")
 
-    # 3. Busca ou Cria a Ordem de Produção Local
-    order_q = await db.execute(select(ProductionOrder).where(ProductionOrder.code == str(payload.op_number)))
+    # 3. Busca ou Cria a Ordem de Produção Local (Onde o op_code_str é usado)
+    order_q = await db.execute(select(ProductionOrder).where(ProductionOrder.code == op_code_str))
     order = order_q.scalars().first()
     
     if not order:
-        print(f"📝 [MES] Criando registro local para OP {payload.op_number}")
-        order = ProductionOrder(code=str(payload.op_number), status="SETUP")
+        # Se não existe, busca no SAP para preencher o part_name (evitando o erro anterior)
+        sap_service = SAPIntegrationService(db, organization_id=1)
+        sap_op_data = await sap_service.get_production_order_by_code(op_code_str)
+        
+        part_name = "Item SAP"
+        if sap_op_data:
+            # Tenta pegar de objeto ou dicionário
+            part_name = getattr(sap_op_data, 'part_name', sap_op_data.get('part_name', 'Item SAP'))
+
+        order = ProductionOrder(
+            code=op_code_str, 
+            part_name=part_name, 
+            status="SETUP",
+            produced_quantity=0,
+            scrap_quantity=0
+        )
         db.add(order)
         await db.flush()
-
     # 4. Encerra qualquer sessão anterior pendente
     active_session_q = await db.execute(select(ProductionSession).where(
         ProductionSession.vehicle_id == machine.id,

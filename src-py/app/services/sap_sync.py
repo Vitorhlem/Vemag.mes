@@ -1,12 +1,12 @@
 import httpx
 import asyncio
 import urllib3
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import timedelta, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-# Imports do Módulo CRUD
+# Imports do Módulo CRUD e Models
 from app.crud import crud_vehicle
 from app.schemas.vehicle_schema import VehicleCreate, VehicleStatus
 from app.models.vehicle_model import Vehicle
@@ -42,6 +42,12 @@ class SAPIntegrationService:
         except Exception as e:
             print(f"❌ [SAP] Erro Conexão: {str(e)}")
             return False
+
+    # Helper interno para verificar existência de veículo
+    async def _find_vehicle_by_identifier(self, identifier: str) -> Optional[Vehicle]:
+        query = select(Vehicle).where(Vehicle.identifier == identifier)
+        result = await self.db.execute(query)
+        return result.scalars().first()
 
     # =========================================================================
     # 1. SINCRONIZAÇÃO DE MÁQUINAS
@@ -97,8 +103,8 @@ class SAPIntegrationService:
                         elif "STANKPORT" in sap_desc.upper(): brand = "STANKPORT"
                         elif "FRANHO" in sap_desc.upper(): brand = "FRANHO"
 
-                        # [CORREÇÃO] Truncar strings para evitar erro "value too long for type varchar(50)"
-                        safe_model = sap_desc[:50] # Corta nos primeiros 50 caracteres
+                        # Truncar strings para evitar erro "value too long"
+                        safe_model = sap_desc[:50]
                         safe_brand = brand[:50]
 
                         vehicle_in = VehicleCreate(
@@ -117,7 +123,6 @@ class SAPIntegrationService:
                             print(f"      ✅ Sucesso!")
                         except Exception as e:
                             print(f"      ❌ Erro ao salvar no banco: {e}")
-                            # [IMPORTANTE] Rollback para não travar a próxima iteração
                             await self.db.rollback()
                     else:
                         print(f"      ℹ️ Máquina já existe no banco.")
@@ -126,7 +131,6 @@ class SAPIntegrationService:
 
             except Exception as e:
                 print(f"      ❌ Exceção ao processar {target_code}: {str(e)}")
-                # Garante rollback se o erro foi de banco de dados
                 try:
                     await self.db.rollback()
                 except:
@@ -135,14 +139,14 @@ class SAPIntegrationService:
         print("🏁 [SAP] Sincronização de máquinas concluída.")
 
     # =========================================================================
-    # 2. LISTAGEM DE OPs
+    # 2. LISTAGEM DE OPs (LISTA GERAL)
     # =========================================================================
     async def get_released_production_orders(self) -> List[dict]:
         if not self.cookies:
             if not await self.login(): return []
 
         try:
-            # 1. Busca as OPs Liberadas
+            # 1. Busca as OPs Liberadas no SAP
             fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,U_LGO_DocEntryOPsFather,U_Desenho"
             query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'&$top=20&$orderby=DocumentNumber desc"
             
@@ -166,34 +170,33 @@ class SAPIntegrationService:
                 route_res = await self.client.get(route_url, cookies=self.cookies)
                 
                 if route_res.status_code == 200:
-                    routes = route_res.json().get('value', [])
-                    if routes and routes[0].get('LGLCROTCollection'):
-                        raw_steps = routes[0]['LGLCROTCollection']
+                    route_data = route_res.json().get('value', [])
+                    
+                    # Verifica se o roteiro existe e possui a coleção de linhas
+                    if route_data and 'LGLCROTCollection' in route_data[0]:
+                        collection = route_data[0]['LGLCROTCollection']
+                        print(f"🔍 [DEBUG SAP] OP {op_id}: Processando {len(collection)} etapas...")
                         
-                        for s in raw_steps:
-                            # --- NOVO: Cálculo de tempo para satisfazer o Pydantic ---
-                            # Somamos Setup + Máquina + Mão de Obra
-                            total_time = (
-                                float(s.get('U_TempoSet') or 0) + 
-                                float(s.get('U_TempoMaq') or 0) + 
-                                float(s.get('U_TempoMO') or 0)
-                            )
-
+                        for s in collection:
+                            # ✅ CORREÇÃO: Captura a instrução específica desta linha/etapa
+                            raw_instr = s.get('U_Instrucoes')
+                            instr_formatada = str(raw_instr).strip() if raw_instr else "Consulte o desenho técnico para esta etapa."
+                            
                             steps.append({
-                                "seq": s.get('U_Posicao') or str(s.get('LineId')),
-                                "resource": s.get('U_Operacao') or "",
-                                "name": s.get('U_Descr') or "Operação sem nome",
-                                "description": f"Centro de Trabalho: {s.get('U_CentroTra')}",
+                                "seq": s.get('U_Posicao'),
+                                "resource": s.get('U_Operacao'), 
+                                "name": s.get('U_Descr'),      
+                                "description": instr_formatada,  # ✅ AGORA VAI O TEXTO CERTO DA LINHA
                                 "status": "PENDING",
-                                "timeEst": total_time  # <--- FIX: Agora o campo obrigatório existe!
+                                "timeEst": float(s.get('U_TempoMaq') or 0)
                             })
                         print(f"✅ [LOG] OP {op_id}: {len(steps)} operações carregadas.")
                     else:
-                        print(f"⚠️  [LOG] OP {op_id}: Roteiro '{item_code}' sem operações.")
+                        print(f"⚠️  [LOG] OP {op_id}: Roteiro '{item_code}' sem operações cadastradas.")
                 else:
-                    print(f"❌ [LOG] OP {op_id}: Falha LGCROT ({route_res.status_code}).")
+                    print(f"❌ [LOG] OP {op_id}: Falha ao acessar LGCROT (Status: {route_res.status_code}).")
 
-                # 3. Montagem do objeto final
+                # 3. Montagem do objeto final para o Frontend
                 cleaned_ops.append({
                     "op_number": op_id,
                     "item_code": item_code,
@@ -213,68 +216,94 @@ class SAPIntegrationService:
             print(f"💥 [MES CRITICAL ERROR] {str(e)}")
             return []
 
-   
     # =========================================================================
-    # 3. BUSCA DE OP ÚNICA
+    # 3. BUSCA DE OP ÚNICA (ATUALIZADA COM ROTEIRO MESTRE)
     # =========================================================================
     async def get_production_order_by_code(self, op_code: str) -> Optional[dict]:
         if not self.cookies:
             if not await self.login(): return None
 
+        # Limpeza do código da OP (ex: remove prefixos e espaços)
         clean_code = str(op_code).replace("OP-", "").strip()
         if not clean_code.isdigit(): return None
 
         try:
-            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,ProductionOrderLines"
-            query = f"$select={fields}&$filter=DocumentNumber eq {clean_code}"
+            # 1. BUSCA DADOS BÁSICOS DA O.P. (Para localizar o ItemCode)
+            print(f"🔄 [SAP] Buscando Cabeçalho da OP {clean_code}...")
+            fields_op = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,U_Desenho"
+            query_op = f"$select={fields_op}&$filter=DocumentNumber eq {clean_code}"
             
-            print(f"🔄 [SAP] Buscando OP {clean_code} e Roteiro...")
-            response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
+            resp_op = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query_op}", cookies=self.cookies)
             
-            if response.status_code == 200:
-                items = response.json().get('value', [])
-                if items:
-                    item = items[0]
-                    steps = []
-                    raw_lines = item.get('ProductionOrderLines', [])
+            if resp_op.status_code != 200:
+                print(f"❌ [SAP] Erro ao buscar OP {clean_code}: {resp_op.status_code}")
+                return None
+
+            items = resp_op.json().get('value', [])
+            if not items: return None
+            
+            op_data = items[0]
+            item_code = op_data.get('ItemNo')
+            
+            print(f"✅ [SAP] OP Encontrada. Item: {item_code}. Buscando Roteiro de Engenharia (LGCROT)...")
+
+            # 2. BUSCA O ROTEIRO NA TABELA MESTRE (LGCROT)
+            # Nota: O campo U_Instrucoes vive dentro da LGLCROTCollection
+            query_rot = f"$select=Code,Name,LGLCROTCollection&$filter=Code eq '{item_code}'"
+            resp_rot = await self.client.get(f"{SAP_BASE_URL}/LGCROT?{query_rot}", cookies=self.cookies)
+            
+            steps = []
+            
+            if resp_rot.status_code == 200:
+                rot_items = resp_rot.json().get('value', [])
+                if rot_items:
+                    roteiro = rot_items[0]
+                    etapas_raw = roteiro.get('LGLCROTCollection', [])
                     
-                    for line in raw_lines:
-                        item_code = line.get('ItemCode') or ""
-                        seq_num = line.get('VisualOrder', 0) * 10
+                    for etapa in etapas_raw:
+                        # ✅ CORREÇÃO: Captura a instrução específica da linha
+                        raw_instr = etapa.get('U_Instrucoes')
+                        # Fallback inteligente: se não houver instrução, mostra ao menos o Centro de Trabalho
+                        instr_formatada = str(raw_instr).strip() if raw_instr else f"Recurso: {etapa.get('U_CentroTra')}"
+                        
+                        try:
+                            seq = int(etapa.get('U_Posicao', 0))
+                        except:
+                            seq = 0
                         
                         steps.append({
-                            "seq": seq_num,
-                            "resource": item_code,
-                            "name": line.get('ItemName') or "Etapa de Produção",
-                            "description": f"Operação SAP: {item_code} - {line.get('ItemName')}",
-                            "timeEst": line.get('PlannedQuantity') or 0,
+                            "seq": seq,
+                            "resource": etapa.get('U_Operacao', ''),  # Chave para o matchmaker do Front
+                            "name": etapa.get('U_Descr', 'Etapa sem nome'),
+                            "description": instr_formatada,           # ✅ AGORA MAPEADO CORRETAMENTE
+                            "timeEst": float(etapa.get('U_TempoMaq') or 0),
                             "status": "PENDING"
                         })
                     
+                    # Garante a ordem correta das etapas pelo número da sequência
                     steps.sort(key=lambda x: x['seq'])
+                    print(f"✅ [SAP] Roteiro carregado com {len(steps)} etapas para a OP {clean_code}.")
+                else:
+                    print(f"⚠️ [SAP] Roteiro de Engenharia não encontrado para o item {item_code}.")
+            else:
+                print(f"❌ [SAP] Erro ao buscar LGCROT: {resp_rot.status_code}")
 
-                    return {
-                        "op_number": item.get('DocumentNumber'),
-                        "status": item.get('ProductionOrderStatus'),
-                        "item_code": item.get('ItemNo'),
-                        "part_name": item.get('ProductDescription'),
-                        "planned_qty": item.get('PlannedQuantity'),
-                        "uom": item.get('InventoryUOM'),
-                        "custom_ref": item.get('U_LGO_DocEntryOPsFather') or "",
-                        "steps": steps
-                    }
-            return None
+            # 3. RETORNA O OBJETO COMPLETO PARA O FRONTEND
+            return {
+                "op_number": op_data.get('DocumentNumber'),
+                "status": op_data.get('ProductionOrderStatus'),
+                "item_code": item_code,
+                "part_name": op_data.get('ProductDescription'),
+                "planned_qty": op_data.get('PlannedQuantity'), 
+                "uom": op_data.get('InventoryUOM'),
+                "custom_ref": op_data.get('U_LGO_DocEntryOPsFather') or "",
+                "drawing": str(op_data.get('U_Desenho') or ""),
+                "steps": steps
+            }
+
         except Exception as e:
-            print(f"❌ [SAP] Erro Busca OP Única: {e}")
+            print(f"❌ [SAP] Erro Crítico na busca por código: {e}")
             return None
-        
-    async def _find_vehicle_by_identifier(self, identifier: str) -> Optional[Vehicle]:
-        stmt = select(Vehicle).where(
-            Vehicle.identifier == identifier, 
-            Vehicle.organization_id == self.org_id
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().first()
 
     # =========================================================================
     # 4. APONTAMENTO DE PRODUÇÃO
@@ -286,6 +315,7 @@ class SAPIntegrationService:
         dt_ini = appointment_data['start_time']
         dt_fim = appointment_data['end_time']
 
+        # Ajuste de Fuso (Hardcoded BRT -3 por segurança se vier UTC)
         if dt_ini.tzinfo: dt_ini_local = dt_ini
         else: dt_ini_local = dt_ini - timedelta(hours=3)
             
@@ -297,8 +327,13 @@ class SAPIntegrationService:
         sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
         sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
 
+        # Limpeza do ID do operador (remove zeros a esquerda se não for email)
         raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
-        sap_operator_id = raw_id[:-1] if len(raw_id) > 1 else raw_id
+        sap_operator_id = raw_id # Padrão
+        
+        # Logica especifica de crachá se necessário (ex: remover ultimo digito verificador)
+        if len(raw_id) > 1 and raw_id.isdigit():
+             sap_operator_id = raw_id[:-1] 
         
         is_setup_val = "N"
         full_text = (str(appointment_data.get('stop_description', '')) + " " + 

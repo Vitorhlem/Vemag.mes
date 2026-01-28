@@ -65,64 +65,19 @@ export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
 };
 
 
-// Alterado para Record<string, ...> para suportar chaves "010"
+// Mapeamento sequencial legado (mantido para compatibilidade, mas simplificado)
 export const SAP_OPERATIONS: Record<string, SapOperationMap> = {
   // --- ROTEIRO PADRÃO ---
   '010': { ...SAP_OPERATIONS_MAP['701'] },
   '020': { ...SAP_OPERATIONS_MAP['414'] },
   '030': { ...SAP_OPERATIONS_MAP['410'] },
   '040': { ...SAP_OPERATIONS_MAP['406'] },
-  '050': { ...SAP_OPERATIONS_MAP['703'] },
+  '050': { ...SAP_OPERATIONS_MAP['413'] },
   '060': { ...SAP_OPERATIONS_MAP['414'] },
   '070': { ...SAP_OPERATIONS_MAP['202'] },
   '080': { ...SAP_OPERATIONS_MAP['701'] },
-
-  // --- POSIÇÃO 999 (LISTA COMPLETA) ---
-  '999': { ...SAP_OPERATIONS_MAP['416'] },
-  '999': { ...SAP_OPERATIONS_MAP['411'] },
-  '999': { ...SAP_OPERATIONS_MAP['417'] },
-  '999': { ...SAP_OPERATIONS_MAP['409'] },
-  '999': { ...SAP_OPERATIONS_MAP['408'] },
-  '999': { ...SAP_OPERATIONS_MAP['407'] },
-  '999': { ...SAP_OPERATIONS_MAP['419'] },
-  '999': { ...SAP_OPERATIONS_MAP['423'] },
-  '999': { ...SAP_OPERATIONS_MAP['403'] },
-  '999': { ...SAP_OPERATIONS_MAP['412'] },
-  '999': { ...SAP_OPERATIONS_MAP['418'] },
-  '999': { ...SAP_OPERATIONS_MAP['401'] },
-  '999': { ...SAP_OPERATIONS_MAP['302'] },
-  '999': { ...SAP_OPERATIONS_MAP['301'] },
-  '999': { ...SAP_OPERATIONS_MAP['503'] },
-  '999': { ...SAP_OPERATIONS_MAP['213'] },
-  '999': { ...SAP_OPERATIONS_MAP['212'] },
-  '999': { ...SAP_OPERATIONS_MAP['303'] },
-  '999': { ...SAP_OPERATIONS_MAP['211'] },
-  '999': { ...SAP_OPERATIONS_MAP['502'] },
-  '999': { ...SAP_OPERATIONS_MAP['210'] },
-  '999': { ...SAP_OPERATIONS_MAP['304'] },
-  '999': { ...SAP_OPERATIONS_MAP['402'] },
-  '999': { ...SAP_OPERATIONS_MAP['207'] },
-  '999': { ...SAP_OPERATIONS_MAP['404'] },
-  '999': { ...SAP_OPERATIONS_MAP['413'] },
-  '999': { ...SAP_OPERATIONS_MAP['601'] },
-  '999': { ...SAP_OPERATIONS_MAP['305'] },
-  '999': { ...SAP_OPERATIONS_MAP['206'] },
-  '999': { ...SAP_OPERATIONS_MAP['425'] },
-  '999': { ...SAP_OPERATIONS_MAP['205'] },
-  '999': { ...SAP_OPERATIONS_MAP['204'] },
-  '999': { ...SAP_OPERATIONS_MAP['702'] },
-  '999': { ...SAP_OPERATIONS_MAP['203'] },
-  '999': { ...SAP_OPERATIONS_MAP['201'] },
-  '999': { ...SAP_OPERATIONS_MAP['101'] },
-  '999': { ...SAP_OPERATIONS_MAP['208'] },
-  '999': { ...SAP_OPERATIONS_MAP['424'] },
-  '999': { ...SAP_OPERATIONS_MAP['501'] },
-  '999': { ...SAP_OPERATIONS_MAP['209'] },
-  '999': { ...SAP_OPERATIONS_MAP['405'] },
-  '999': { ...SAP_OPERATIONS_MAP['415'] },
-  '999': { ...SAP_OPERATIONS_MAP['422'] },
-  '999': { ...SAP_OPERATIONS_MAP['421'] },
-  '999': { ...SAP_OPERATIONS_MAP['420'] }
+  // Removido as chaves '999' duplicadas para evitar erro de linter/runtime.
+  // Se precisar de fallback genérico, use a função getSapOperation.
 };
 
 export function getSapOperation(stageSeq: number | string): SapOperationMap {
@@ -142,26 +97,30 @@ export function getSapOperation(stageSeq: number | string): SapOperationMap {
 // --- NOVA FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
 export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
   if (!machineResourceCode || !steps || steps.length === 0) return 0;
-  const myResource = machineResourceCode.trim();
+  
+  const myResource = machineResourceCode.trim(); // Ex: '4.18.01'
 
-  // 1. Tenta Match pelo Código do Recurso (Ex: '4.12.01')
-  const indexByResource = steps.findIndex(step => {
-      const stepRes = String(step.resource || step.resource_code || '').trim();
-      const match = (myResource.startsWith(stepRes) || stepRes.startsWith(myResource));
-      return match && step.status !== 'COMPLETED';
-  });
-  if (indexByResource !== -1) return indexByResource;
+  const index = steps.findIndex(step => {
+      // O Backend atualizado agora envia o CÓDIGO DA OPERAÇÃO (Ex: '418') 
+      // no campo 'resource' do passo.
+      const opCode = String(step.resource || '').trim();
+      
+      // Busca no mapa global quem faz essa operação
+      const config = SAP_OPERATIONS_MAP[opCode];
 
-  // 2. Tenta Match pelo Código da Operação (Ex: '412' -> olha no mapa -> '4.12.01')
-  const indexByOperation = steps.findIndex(step => {
-      const opCode = String(step.operation || step.code || '').trim();
-      const mappedConfig = SAP_OPERATIONS_MAP[opCode];
-      if (mappedConfig) {
-          return mappedConfig.resourceCode === myResource && step.status !== 'COMPLETED';
+      if (config) {
+          // Verifica se a minha máquina é compatível com o recurso exigido pela operação
+          // Ex: Operação 418 exige recurso '4.18.01'. Minha máquina é '4.18.01'. Match!
+          const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
+          
+          return match && step.status !== 'COMPLETED';
       }
+
+      // Fallback: Tenta match direto string-a-string se o backend mandar o recurso full
+      if (opCode === myResource) return step.status !== 'COMPLETED';
+
       return false;
   });
-  if (indexByOperation !== -1) return indexByOperation;
 
-  return -1;
+  return index !== -1 ? index : 0;
 }

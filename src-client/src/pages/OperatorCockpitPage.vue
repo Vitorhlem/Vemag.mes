@@ -89,44 +89,44 @@
           </q-card>
         </div>
 
-        <div v-else class="col row q-col-gutter-sm items-stretch content-stretch">
+        <div v-else class="col row q-col-gutter-md items-stretch content-stretch">
+  
+  <div class="col-12 col-md-8 column no-wrap full-height q-gutter-y-md">
+    
+    <q-card class="col column relative-position overflow-hidden shadow-6 bg-white" style="border-radius: 20px; border-left: 10px solid #008C7A;">
+      
+      <div class="col-auto relative-position bg-vemag-gradient text-white q-pa-lg shadow-3">
+          <q-img :src="customOsBackgroundImage" class="absolute-full opacity-10" fit="cover" />
           
-          <div class="col-12 col-md-8 column no-wrap full-height q-gutter-y-sm">
-            
-            <q-card class="col column relative-position overflow-hidden shadow-4 bg-white" style="border-radius: 16px; border-left: 8px solid #008C7A;">
-              
-              <div class="col-auto relative-position bg-vemag-gradient text-white q-pa-sm shadow-2">
-                  <q-img :src="customOsBackgroundImage" class="absolute-full opacity-20" fit="cover" />
-                  
-                  <div class="row items-center justify-between relative-position z-top">
-                      <div class="col-grow">
-                          <div class="row items-center q-gutter-x-sm q-mb-xs">
-                              <q-badge color="orange-9" label="P1" class="text-caption text-bold" />
-                              <q-badge outline color="white" class="text-caption text-bold" :label="productionStore.activeOrder.code" />
-                              <q-badge v-if="productionStore.activeOrder.part_code" color="blue-grey" class="text-caption" :label="productionStore.activeOrder.part_code" />
-                          </div>
-                          <div class="text-h5 text-weight-bolder ellipsis">{{ productionStore.activeOrder.part_name }}</div>
-                          <div class="text-caption text-grey-3">Meta: <strong>{{ productionStore.activeOrder.target_quantity }} un</strong></div>
-                      </div>
+          <div class="row items-center justify-between relative-position z-top">
+              <div class="col-grow">
+                  <div class="row items-center q-gutter-x-sm q-mb-xs">
+                      <q-badge color="orange-10" class="text-bold shadow-2 q-px-sm" label="PRODUÇÃO" />
+                    <q-badge outline color="white" class="text-bold" :label="`OP #${productionStore.activeOrder?.code || '---'}`" />
+                    <q-chip v-if="productionStore.activeOrder?.drawing" dense square color="blue-grey-9" text-color="white" icon="architecture" size="sm">
+                      DESENHO: {{ productionStore.activeOrder.drawing }}
+                    </q-chip>
+                  </div>
+                  <div class="text-h4 text-weight-bolder ellipsis q-mt-sm">{{ productionStore.activeOrder.part_name }}</div>
+                  <div class="text-subtitle2 text-grey-3 q-mt-xs">Cód. Item: <span class="text-white text-bold">{{ productionStore.activeOrder.part_code }}</span></div>
+              </div>
 
                       <div class="column items-end q-gutter-y-xs">
-                          <div class="row items-center bg-black-transparent q-px-sm q-py-xs rounded-borders">
-                              <div class="column items-end q-mr-sm">
-                                  <div class="text-caption text-grey-4 text-uppercase" style="font-size: 10px;">Produzidas</div>
-                                  <div class="text-h6 text-weight-bold lh-small">{{ productionStore.activeOrder.produced_quantity }}<span class="text-caption text-grey-5">/{{ productionStore.activeOrder.target_quantity }}</span></div>
-                              </div>
+                          <div class="row items-center bg-black-transparent q-px-md q-py-sm rounded-borders shadow-1">
+                  <div class="column items-end q-mr-md">
+                      <div class="text-overline text-grey-4" style="line-height: 1;">META TOTAL</div>
+                      <div class="text-h5 text-weight-bolder">
+                        {{ productionStore.activeOrder.produced_quantity }} 
+                        <span class="text-subtitle1 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}</span>
+                      </div>
+                  </div>
                               <q-circular-progress
-                                  show-value
-                                  font-size="10px"
-                                  :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
-                                  size="36px"
-                                  :thickness="0.25"
-                                  color="orange-5"
-                                  track-color="grey-8"
-                                  class="text-white text-bold"
-                              >
-                                  {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
-                              </q-circular-progress>
+                      show-value font-size="12px"
+                      :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
+                      size="55px" :thickness="0.25" color="orange-5" track-color="grey-9" class="text-white text-bold shadow-2"
+                  >
+                      {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
+                  </q-circular-progress>
                           </div>
                           <q-btn 
                               push color="blue-grey-9" text-color="white" 
@@ -138,30 +138,34 @@
                   </div>
               </div>
 
-              <div class="col-auto bg-grey-2 q-px-md q-py-sm border-bottom-light row items-center justify-between" v-if="currentViewedStep">
-                  <div class="row items-center">
-                      <div class="text-subtitle1 text-grey-7 q-mr-sm text-weight-bold">#{{ currentViewedStep.seq }}</div>
-                      <div class="text-h6 text-weight-bold ellipsis" style="line-height: 1.1;">{{ currentViewedStep.name }}</div>
-                  </div>
-                  <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="currentViewedStep.resource" class="text-caption text-weight-bold" />
-              </div>
+              <div class="col-auto bg-grey-2 q-px-md q-py-sm border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
+    <div class="row items-center">
+        <div class="text-subtitle1 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
+        <div class="text-h6 text-weight-bold ellipsis" style="line-height: 1.1;">{{ productionStore.currentActiveStep.name }}</div>
+    </div>
+    <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption text-weight-bold" />
+</div>
 
-              <q-card-section class="col scroll q-pa-md">
-                  <div v-if="currentViewedStep" class="column full-height">
-                    <div class="text-dark" style="white-space: pre-line; font-size: 1.1rem; line-height: 1.4; font-weight: 500;">
-                       {{ currentViewedStep.description }}
-                    </div>
+<div class="text-dark bg-grey-1 q-pa-md rounded-borders" 
+     style="white-space: pre-line; font-size: 1.3rem; line-height: 1.6; border: 2px dashed #008C7A; min-height: 250px;">
+   
+   <div class="text-weight-bold text-primary q-mb-sm">
+      <q-icon name="menu_book" size="sm" /> INSTRUÇÕES DE TRABALHO:
+   </div>
 
-                    <div class="row justify-end text-grey-8 items-center q-mt-auto q-pt-md">
-                       <q-icon name="schedule" size="24px" class="q-mr-sm" />
-                       <span class="text-subtitle1">Est: <strong>{{ currentViewedStep.timeEst || 0 }}h</strong></span>
-                    </div>
-                  </div>
-                  <div v-else class="text-center text-grey-5 q-pa-lg column flex-center h-100">
-                    <q-icon name="sentiment_dissatisfied" size="4em" />
-                    <div class="text-h6 q-mt-sm">Nenhum passo encontrado.</div>
-                  </div>
-              </q-card-section>
+   {{ productionStore.currentActiveStep?.description || 'Carregando instruções técnicas do SAP...' }}
+</div>
+
+<div class="row justify-between items-center q-mt-auto q-pt-md">
+   <div class="text-caption text-grey-7">
+      <q-icon name="info" /> Centro de Trabalho: 
+      <strong class="text-dark">{{ productionStore.currentActiveStep?.resource_name || 'Geral' }}</strong>
+   </div>
+   
+   <q-chip outline color="primary" icon="timer">
+      Tempo Est: <strong>{{ productionStore.currentActiveStep?.timeEst || 0 }}h</strong>
+   </q-chip>
+</div>
 
               <q-separator />
               
@@ -541,10 +545,18 @@ const opColumns = [
 const viewedStepIndex = ref(0);
 
 const currentViewedStep = computed(() => {
-    if (!activeOrder.value?.steps || activeOrder.value.steps.length === 0) {
-        return { seq: 10, name: 'USINAGEM GERAL', description: 'Operação Padrão', resource: 'MÁQUINA', timeEst: 0 };
+    // Se a OP ativa tem passos carregados do SAP
+    if (activeOrder.value?.steps && activeOrder.value.steps.length > 0) {
+        return activeOrder.value.steps[viewedStepIndex.value];
     }
-    return activeOrder.value.steps[viewedStepIndex.value];
+    // Caso contrário, mostra um estado de "Carregando" ou "Vazio"
+    return { 
+        seq: '---', 
+        name: 'Aguardando Roteiro', 
+        description: 'Buscando operações no SAP...', 
+        resource: '---', 
+        timeEst: 0 
+    };
 });
 
 function nextStepView() {
@@ -659,57 +671,62 @@ async function openOpListDialog() {
   }
 }
 
-function selectOp(op: any) {
-  // 1. Configura o objeto inicial com os dados da lista
+async function selectOp(op: any) {
+  console.log(`🎯 [MES] Selecionando OP: ${op.op_number} - ${op.part_name}`);
+
+  // 1. Configura o objeto inicial (Dados rápidos da lista)
   productionStore.activeOrder = {
-    code: String(op.op_number),           
-    part_name: op.part_name,      
-    part_code: op.item_code,      
+    code: String(op.op_number),
+    part_name: op.part_name,
+    part_code: op.item_code,
     target_quantity: Number(op.planned_qty),
+    uom: op.uom || 'pç',
     produced_quantity: 0,
     scrap_quantity: 0,
     status: 'PENDING',
-    custom_ref: op.custom_ref,
-    technical_drawing_url: '', 
+    custom_ref: op.custom_ref || '',
+    drawing: op.drawing || '',
     steps: [] 
   };
 
-  // 2. Tenta carregar o roteiro completo (Steps) da API
-  // A lista 'op' não tem os steps, então chamamos o loadOrderFromQr 
-  // que faz o fetch completo e já deve ter sua lógica de store.
-  // Se não quiser depender da store, o bloco abaixo faz o roteamento localmente.
-  void (async () => {
-    try {
-        // Recarrega dados completos para ter os steps
-        await productionStore.loadOrderFromQr(String(op.op_number));
-        
-        // 3. Aplica o Roteamento Inteligente
-        if (productionStore.activeOrder?.steps && productionStore.activeOrder.steps.length > 0) {
-            const myRes = productionStore.machineResource;
-            const idx = findBestStepIndex(myRes, productionStore.activeOrder.steps);
-            
-            if (idx !== -1) {
-                viewedStepIndex.value = idx;
-                productionStore.currentStepIndex = idx;
-                
-                $q.notify({ 
-                    type: 'positive', 
-                    icon: 'gps_fixed', 
-                    message: `Roteiro posicionado na etapa correta: #${(idx+1)*10}`,
-                    timeout: 2000
-                });
-            } else {
-                viewedStepIndex.value = 0;
-            }
-        }
-    } catch (error) {
-        console.warn("Não foi possível carregar detalhes completos para roteamento.", error);
-    }
-  })();
+  try {
+    $q.loading.show({ 
+      message: `Buscando roteiro técnico para ${op.op_number}...`,
+      backgroundColor: 'teal-10'
+    });
 
-  showOpList.value = false;
-  resetTimer();
-  $q.notify({ type: 'positive', message: `OP ${op.op_number} selecionada!` });
+    await productionStore.loadOrderFromQr(String(op.op_number));
+    
+    // 3. Roteamento Inteligente
+    if (productionStore.activeOrder?.steps && productionStore.activeOrder.steps.length > 0) {
+      const myRes = productionStore.machineResource;
+      const idx = findBestStepIndex(myRes, productionStore.activeOrder.steps);
+      
+      if (idx !== -1) {
+        // ✅ ATUALIZAÇÃO AUTOMÁTICA
+        // Definimos o índice na Store; o template (currentActiveStep) mudará sozinho
+        productionStore.currentStepIndex = idx;
+        
+        // Sincroniza a visualização local se você ainda usar viewedStepIndex
+        if (typeof viewedStepIndex !== 'undefined') {
+          viewedStepIndex.value = idx;
+        }
+
+        console.log(`✅ [MES] Máquina identificada na etapa: ${productionStore.activeOrder.steps[idx].name}`);
+      } else {
+        productionStore.currentStepIndex = 0;
+        console.warn("⚠️ [MES] Máquina não encontrada no roteiro. Iniciando na etapa 010.");
+      }
+    }
+
+  } catch (error) {
+    console.error("❌ [MES] Falha ao carregar roteiro:", error);
+    $q.notify({ type: 'negative', message: 'Erro de comunicação com o SAP.' });
+  } finally {
+    showOpList.value = false;
+    $q.loading.hide();
+    if (typeof resetTimer === 'function') resetTimer();
+  }
 }
 // --- FUNÇÃO PARA ABRIR O DESENHO (CORRIGIDA) ---
 function openDrawing() {
@@ -727,37 +744,42 @@ function openDrawing() {
   
   isDrawingDialogOpen.value = true;
 }
-
 async function handleMainButtonClick() {
   if (isPaused.value) {
     await finishPauseAndResume();
     return;
   }
-  if (normalizedStatus.value === 'EM OPERAÇÃO') {
-    isStopDialogOpen.value = true; 
-    stopSearch.value = '';
-    return;
-  }
-
-  // --- NOVA LÓGICA: Capturar dados da etapa selecionada ---
-  const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
-  // Garante formato "010", "020" para o SAP
-  const stageStr = Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
   
+  // 1. Pega a etapa que o operador está vendo (Garantindo que vem da @LGLCROTCollection)
+  const step = currentViewedStep.value; 
+
+  // 2. MONTAGEM DO PAYLOAD (Nomes devem ser iguais ao Python acima)
+  const payload = {
+    op_number: String(productionStore.activeOrder.code), // O código do item
+    step_seq: String(step.seq || ''),                   // A posição (ex: 010)
+    machine_id: Number(productionStore.machineId),
+    operator_badge: String(productionStore.currentOperatorBadge || authStore.user?.employee_id)
+  };
+
+  // LOG PARA VOCÊ VER NO F12
+  console.log("📤 [MES] Enviando para o Servidor:", payload);
+
   isLoadingAction.value = true;
   try {
-      // Envia os metadados extras para o productionStore
-      // Certifique-se que sua store repassa isso no body do POST /session/start
-      await productionStore.startProduction({
-          sap_operation: stageStr,
-          sap_operation_desc: currentViewedStep.value.name,
-          sap_position: stageStr
-      });
+    // 3. Chamada direta para a rota que estava dando 422
+    const response = await api.post('/api/v1/production/session/start', payload);
+    
+    if (response.data.status === 'success') {
       statusStartTime.value = new Date();
+      if (activeOrder.value) activeOrder.value.status = 'RUNNING';
+      $q.notify({ type: 'positive', message: 'Produção Iniciada!' });
+    }
   } catch (e) {
-      $q.notify({type: 'negative', message: 'Erro ao iniciar produção.'});
-  } finally { 
-      isLoadingAction.value = false; 
+    // Se der 422 aqui, o log abaixo vai te mostrar EXATAMENTE o campo errado
+    console.error("❌ Erro 422 - Detalhes do Servidor:", e.response?.data);
+    $q.notify({ type: 'negative', message: 'Erro de validação nos dados enviados.' });
+  } finally {
+    isLoadingAction.value = false;
   }
 }
 

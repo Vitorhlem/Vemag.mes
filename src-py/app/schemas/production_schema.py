@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 from datetime import datetime
 
 # ============================================================================
@@ -78,10 +78,10 @@ class ProductionLogRead(BaseModel):
 # 5. SESSÕES & KPI
 # ============================================================================
 class SessionStartSchema(BaseModel):
-    machine_id: int
+    op_number: Union[str, int]  # Aceita '3430' ou '03.000...'
+    step_seq: str               # Ex: '010'
+    machine_id: int             # ID numérico da máquina
     operator_badge: str
-    order_code: str
-
 class SessionStopSchema(BaseModel):
     machine_id: int
     operator_badge: str
@@ -202,10 +202,22 @@ class MachineDailyStats(BaseModel):
 
 
 class SessionStart(BaseModel):
-    op_number: int
-    step_seq: str
+    # Aceita '3430' ou '03.000.1' e ignora se vier como string ou int
+    op_number: Union[str, int]
+    
+    # Se o front enviar 'seq' ou 'step_seq', o backend vai aceitar
+    step_seq: str               # Ex: '010', '020'
+    
+    # IDs de sistema
     machine_id: int
     operator_badge: str
+    
+    # Campos opcionais para não dar erro se o front não enviar
+    resource_code: Optional[str] = None
+    description: Optional[str] = None
+
+    class Config:
+        populate_by_name = True # Permite usar o nome do campo ou o alias
 
 class SessionResponse(BaseModel):
     status: str
