@@ -14,9 +14,7 @@ from app.models.user_model import User
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from app.schemas import production_schema, vehicle_schema, user_schema
-from app.schemas.production_schema import EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats
-
-# Import do Modelo Vehicle (com fallback de nome)
+from app.schemas.production_schema import SessionStart, SessionResponse, EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats# Import do Modelo Vehicle (com fallback de nome)
 try:
     from app.models.vehicle_model import Vehicle, VehicleStatus
 except ImportError:
@@ -54,12 +52,16 @@ class MachineDailyStats(BaseModel):
 # ============================================================================
 # 0. ESTATÍSTICAS DE FUNCIONÁRIOS (MOVIDO PARA CIMA PARA EVITAR ERRO 422)
 
+
 @router.post("/closing/force")
 async def force_daily_closing(
     target_date: date = None, 
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ):
+    """
+    Força o cálculo e persistência das métricas para uma data específica.
+    """
     if not target_date: target_date = date.today()
     
     # Roda ambos os processos
@@ -71,27 +73,6 @@ async def force_daily_closing(
         "date": target_date, 
         "processed": {"users": users_count, "machines": machines_count}
     }
-
-@router.post("/closing/force")
-async def force_daily_closing(
-    target_date: date = None, 
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user)
-):
-    """
-    Força o cálculo e persistência das métricas para uma data específica.
-    Útil para regenerar histórico ou testar o fechamento.
-    """
-    if not current_user.is_superuser: # Opcional: Proteger rota
-        pass 
-
-    if not target_date:
-        target_date = date.today() # Padrão: Fecha o dia de hoje (parcial)
-        
-    count = await ProductionService.consolidate_daily_metrics(db, target_date)
-    
-    return {"message": "Fechamento executado com sucesso", "date": target_date, "processed_users": count}
-
 @router.get("/reports/daily-closing", response_model=List[Any]) # Usando List[Any] para flexibilidade ou crie um Schema
 async def get_daily_closing_report(
     target_date: date,
@@ -692,42 +673,52 @@ async def get_machine_history(
 # ============================================================================
 # 8. SESSÕES (START/STOP) COM INTEGRAÇÃO MES
 # ============================================================================
-@router.post("/session/start")
+@router.post("/session/start", response_model=SessionResponse)
 async def start_session(
-    data: production_schema.SessionStartSchema,
+    payload: SessionStart, 
     db: AsyncSession = Depends(deps.get_db)
 ):
-    print(f"🚀 [DEBUG KIOSK] Iniciando Sessão. Badge: '{data.operator_badge}'") 
-    machine = await db.get(Vehicle, data.machine_id)
-    if not machine: raise HTTPException(404, "Invalid Machine")
+    """
+    Inicia o cronômetro para uma operação específica no Cockpit.
+    """
+    print(f"🚀 [MES] Iniciando OP {payload.op_number} - Etapa {payload.step_seq}")
+    
+    # 1. Busca a Máquina (Vehicle)
+    machine_q = await db.execute(select(Vehicle).where(Vehicle.id == payload.machine_id))
+    machine = machine_q.scalars().first()
+    if not machine: 
+        raise HTTPException(status_code=404, detail="Máquina não encontrada")
 
-    res = await db.execute(select(User).where(or_(
-        User.employee_id == data.operator_badge,
-        User.email == data.operator_badge
+    # 2. Busca o Operador pelo Crachá (Badge)
+    user_q = await db.execute(select(User).where(or_(
+        User.employee_id == payload.operator_badge,
+        User.email == payload.operator_badge
     )))
-    operator = res.scalars().first()
-    if operator:
-        print(f"👤 [DEBUG KIOSK] Usuário: {operator.full_name}")
-    else:
-        print(f"❌ [DEBUG KIOSK] Usuário não encontrado!")
-        raise HTTPException(404, "Invalid Badge")
+    operator = user_q.scalars().first()
+    if not operator: 
+        raise HTTPException(status_code=404, detail="Operador não encontrado (Crachá inválido)")
 
-    res_ord = await db.execute(select(ProductionOrder).where(ProductionOrder.code == data.order_code))
-    order = res_ord.scalars().first()
-    if not order: raise HTTPException(404, "P.O. not found")
+    # 3. Busca ou Cria a Ordem de Produção Local
+    order_q = await db.execute(select(ProductionOrder).where(ProductionOrder.code == str(payload.op_number)))
+    order = order_q.scalars().first()
+    
+    if not order:
+        print(f"📝 [MES] Criando registro local para OP {payload.op_number}")
+        order = ProductionOrder(code=str(payload.op_number), status="SETUP")
+        db.add(order)
+        await db.flush()
 
-    # 1. Encerra sessão anterior (Segurança)
+    # 4. Encerra qualquer sessão anterior pendente
     active_session_q = await db.execute(select(ProductionSession).where(
         ProductionSession.vehicle_id == machine.id,
         ProductionSession.end_time == None
     ))
     old_session = active_session_q.scalars().first()
     if old_session:
-        await ProductionService.close_current_slice(db, machine.id)
         old_session.end_time = datetime.now()
         db.add(old_session)
 
-    # 2. Cria Nova Sessão
+    # 5. Cria a Nova Sessão de Trabalho
     new_session = ProductionSession(
         vehicle_id=machine.id,
         user_id=operator.id,
@@ -735,27 +726,29 @@ async def start_session(
         start_time=datetime.now()
     )
     db.add(new_session)
-    await db.commit()
-    await db.refresh(new_session)
+    await db.flush() 
     
-    # 3. MES: Abre primeira fatia como SETUP
+    # 6. MES: Abre fatia de tempo
     await ProductionService.open_new_slice(
         db, 
         vehicle_id=machine.id, 
         category="PLANNED_STOP", 
-        reason="Setup Inicial de Sessão", 
+        reason=f"Setup: {payload.step_seq}", 
         session_id=new_session.id,
         order_id=order.id
     )
     
-    # 4. Atualiza Status Visual
-    machine.status = VehicleStatus.MAINTENANCE.value
+    # 7. Atualiza Status
+    machine.status = "Em manutenção" 
     order.status = "SETUP"
-    db.add(machine)
-    db.add(order)
-
+    
     await db.commit()
-    return {"status": "success", "session_id": new_session.id}
+    
+    return {
+        "status": "success",
+        "message": f"Sessão iniciada: {payload.step_seq}",
+        "session_id": str(new_session.id)
+    }
 
 
 @router.post("/session/stop")

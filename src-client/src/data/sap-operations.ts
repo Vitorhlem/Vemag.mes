@@ -138,3 +138,30 @@ export function getSapOperation(stageSeq: number | string): SapOperationMap {
 
   return { code: '', description: '', resourceCode: '', resourceName: '' };
 }
+
+// --- NOVA FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
+export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
+  if (!machineResourceCode || !steps || steps.length === 0) return 0;
+  const myResource = machineResourceCode.trim();
+
+  // 1. Tenta Match pelo Código do Recurso (Ex: '4.12.01')
+  const indexByResource = steps.findIndex(step => {
+      const stepRes = String(step.resource || step.resource_code || '').trim();
+      const match = (myResource.startsWith(stepRes) || stepRes.startsWith(myResource));
+      return match && step.status !== 'COMPLETED';
+  });
+  if (indexByResource !== -1) return indexByResource;
+
+  // 2. Tenta Match pelo Código da Operação (Ex: '412' -> olha no mapa -> '4.12.01')
+  const indexByOperation = steps.findIndex(step => {
+      const opCode = String(step.operation || step.code || '').trim();
+      const mappedConfig = SAP_OPERATIONS_MAP[opCode];
+      if (mappedConfig) {
+          return mappedConfig.resourceCode === myResource && step.status !== 'COMPLETED';
+      }
+      return false;
+  });
+  if (indexByOperation !== -1) return indexByOperation;
+
+  return -1;
+}

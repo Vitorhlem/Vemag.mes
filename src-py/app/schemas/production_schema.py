@@ -199,3 +199,15 @@ class MachineDailyStats(BaseModel):
     formatted_running_autonomous: Optional[str] = "00:00:00"
     formatted_paused_operator: Optional[str] = "00:00:00"
     formatted_maintenance: Optional[str] = "00:00:00"
+
+
+class SessionStart(BaseModel):
+    op_number: int
+    step_seq: str
+    machine_id: int
+    operator_badge: str
+
+class SessionResponse(BaseModel):
+    status: str
+    message: str
+    session_id: str

@@ -5,6 +5,7 @@ import { Notify, Loading } from 'quasar';
 import { api } from 'boot/axios';
 import {AndonService} from 'src/services/andon-service'; // Importe o novo serviço
 import type { AndonCallCreate } from 'src/services/andon-service';
+import { findBestStepIndex } from 'src/data/sap-operations'; // <--- IMPORT NOVO
 
 // --- INTERFACES ---
 export interface Machine {
@@ -439,20 +440,59 @@ export const useProductionStore = defineStore('production', () => {
       }
 
       activeOrder.value = { ...data };
+      
+      // Pega o recurso da máquina configurada no Kiosk
+      const myResource = machineResource.value; 
+
+      // Chama nossa função matchmaker
+      const bestIndex = findBestStepIndex(myResource, activeOrder.value.steps || []);
+
+      if (bestIndex !== -1) {
+          currentStepIndex.value = bestIndex;
+          
+          // Feedback visual chique
+          const stepName = activeOrder.value.steps![bestIndex].name;
+          Notify.create({ 
+              type: 'positive', 
+              icon: 'gps_fixed',
+              message: `Etapa identificada para esta máquina: #${(bestIndex+1)*10} - ${stepName}`,
+              timeout: 4000
+          });
+      } else {
+          // Fallback: Se não achou nada, vai pro início, mas avisa
+          currentStepIndex.value = 0;
+          Notify.create({ 
+              type: 'warning', 
+              icon: 'warning',
+              message: 'Atenção: Nenhuma etapa deste roteiro parece ser para esta máquina.',
+              timeout: 6000
+          });
+      }
+
+      activeOrder.value = { ...data };
       currentStepIndex.value = 0;
       
       if (currentOperatorBadge.value && machineId.value) {
          await api.post('/production/session/start', {
-            machine_id: machineId.value, operator_badge: currentOperatorBadge.value, order_code: qrCode
+            machine_id: machineId.value, 
+            operator_badge: currentOperatorBadge.value, 
+            order_code: qrCode
          });
+         
+         // Só muda status para SETUP se a etapa identificada for de setup, 
+         // ou se for a lógica padrão. Com o roteamento inteligente, 
+         // talvez você queira manter PENDING até o operador clicar em Iniciar.
+         // Mantive sua lógica original aqui:
          activeOrder.value.status = 'SETUP';
          await setMachineStatus('SETUP');
       }
-      Notify.create({ type: 'positive', message: 'O.P. Carregada!' });
-    } catch { 
+
+    } catch (e) { 
       Notify.create({ type: 'negative', message: 'Erro crítico ao carregar.' }); 
       activeOrder.value = null;
-    } finally { Loading.hide(); }
+    } finally { 
+      Loading.hide(); 
+    }
   }
 
   async function startProduction() { 

@@ -142,33 +142,78 @@ class SAPIntegrationService:
             if not await self.login(): return []
 
         try:
-            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,U_Desenho"
-            query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'"
+            # 1. Busca as OPs Liberadas
+            fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,U_LGO_DocEntryOPsFather,U_Desenho"
+            query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'&$top=20&$orderby=DocumentNumber desc"
             
-            print("🔄 [SAP] Buscando lista de OPs Liberadas...")
+            print(f"\n🚀 [MES] Iniciando carga de OPs e Roteiros B1Plus...")
             response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
             
-            if response.status_code == 200:
-                items = response.json().get('value', [])
-                cleaned = []
-                for item in items:
-                    cleaned.append({
-                        "op_number": item.get('DocumentNumber'),
-                        "item_code": item.get('ItemNo'),
-                        "part_name": item.get('ProductDescription'),
-                        "planned_qty": item.get('PlannedQuantity'),
-                        "uom": item.get('InventoryUOM'),
-                        "type": "Standard",
-                        "custom_ref": item.get('U_LGO_DocEntryOPsFather') or "",
-                        "drawing": item.get('U_Desenho') or ""
-                    })
-                print(f"📦 [SAP] Sucesso! {len(cleaned)} OPs liberadas encontradas.")
-                return cleaned
-            return []
+            if response.status_code != 200:
+                print(f"❌ [SAP] Erro ao buscar OPs: {response.status_code}")
+                return []
+
+            ops_raw = response.json().get('value', [])
+            cleaned_ops = []
+
+            for op in ops_raw:
+                op_id = op.get('DocumentNumber')
+                item_code = op.get('ItemNo')
+                steps = []
+
+                # 2. BUSCA O ROTEIRO NA ENGENHARIA (LGCROT)
+                route_url = f"{SAP_BASE_URL}/LGCROT?$filter=Code eq '{item_code}'&$select=LGLCROTCollection"
+                route_res = await self.client.get(route_url, cookies=self.cookies)
+                
+                if route_res.status_code == 200:
+                    routes = route_res.json().get('value', [])
+                    if routes and routes[0].get('LGLCROTCollection'):
+                        raw_steps = routes[0]['LGLCROTCollection']
+                        
+                        for s in raw_steps:
+                            # --- NOVO: Cálculo de tempo para satisfazer o Pydantic ---
+                            # Somamos Setup + Máquina + Mão de Obra
+                            total_time = (
+                                float(s.get('U_TempoSet') or 0) + 
+                                float(s.get('U_TempoMaq') or 0) + 
+                                float(s.get('U_TempoMO') or 0)
+                            )
+
+                            steps.append({
+                                "seq": s.get('U_Posicao') or str(s.get('LineId')),
+                                "resource": s.get('U_Operacao') or "",
+                                "name": s.get('U_Descr') or "Operação sem nome",
+                                "description": f"Centro de Trabalho: {s.get('U_CentroTra')}",
+                                "status": "PENDING",
+                                "timeEst": total_time  # <--- FIX: Agora o campo obrigatório existe!
+                            })
+                        print(f"✅ [LOG] OP {op_id}: {len(steps)} operações carregadas.")
+                    else:
+                        print(f"⚠️  [LOG] OP {op_id}: Roteiro '{item_code}' sem operações.")
+                else:
+                    print(f"❌ [LOG] OP {op_id}: Falha LGCROT ({route_res.status_code}).")
+
+                # 3. Montagem do objeto final
+                cleaned_ops.append({
+                    "op_number": op_id,
+                    "item_code": item_code,
+                    "part_name": op.get('ProductDescription'),
+                    "planned_qty": op.get('PlannedQuantity'),
+                    "uom": op.get('InventoryUOM'),
+                    "type": "Standard",
+                    "custom_ref": str(op.get('U_LGO_DocEntryOPsFather') or ""),
+                    "drawing": str(op.get('U_Desenho') or ""),
+                    "steps": steps 
+                })
+
+            print(f"\n✨ [MES] Carga finalizada com sucesso.")
+            return cleaned_ops
+
         except Exception as e:
-            print(f"❌ [SAP] Exceção na listagem de OPs: {e}")
+            print(f"💥 [MES CRITICAL ERROR] {str(e)}")
             return []
 
+   
     # =========================================================================
     # 3. BUSCA DE OP ÚNICA
     # =========================================================================
@@ -213,9 +258,9 @@ class SAPIntegrationService:
                         "status": item.get('ProductionOrderStatus'),
                         "item_code": item.get('ItemNo'),
                         "part_name": item.get('ProductDescription'),
-                        "quantity": item.get('PlannedQuantity'),
+                        "planned_qty": item.get('PlannedQuantity'),
                         "uom": item.get('InventoryUOM'),
-                        "custom_name": item.get('U_LGO_DocEntryOPsFather') or "",
+                        "custom_ref": item.get('U_LGO_DocEntryOPsFather') or "",
                         "steps": steps
                     }
             return None
@@ -262,6 +307,9 @@ class SAPIntegrationService:
         
         if "setup" in full_text or "prepara" in full_text: is_setup_val = "S"
 
+        stop_reason = appointment_data.get('stop_reason', "")
+        is_apto_parada = "S" if (stop_reason or is_setup_val == "S") else "N"
+
         payload = {
             "U_NumeroDocumento": str(appointment_data['op_number']),
             "U_Posicao": str(appointment_data['position']),
@@ -278,9 +326,10 @@ class SAPIntegrationService:
             "U_HoraFimAp": sap_hora_fim,
             "U_MotivoParada": appointment_data.get('stop_reason', ""),
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
-            "U_setup": is_setup_val 
+            "U_setup": is_setup_val,
+            "U_TipoDocumento": "1",
+            "U_AptoParada": is_apto_parada
         }
-
         try:
             print(f"🏭 [SAP] Enviando Apontamento... Payload: {payload}")
             target_url = f"{SAP_BASE_URL}/LGO_CAPONTAMENTO"

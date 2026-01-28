@@ -486,6 +486,7 @@ import { useAuthStore } from 'stores/auth-store';
 import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
 
 // --- IMPORTAÇÕES DE DADOS ---
+import { findBestStepIndex } from 'src/data/sap-operations';
 import { getOperatorName } from 'src/data/operators'; 
 import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
@@ -659,6 +660,7 @@ async function openOpListDialog() {
 }
 
 function selectOp(op: any) {
+  // 1. Configura o objeto inicial com os dados da lista
   productionStore.activeOrder = {
     code: String(op.op_number),           
     part_name: op.part_name,      
@@ -671,11 +673,44 @@ function selectOp(op: any) {
     technical_drawing_url: '', 
     steps: [] 
   };
+
+  // 2. Tenta carregar o roteiro completo (Steps) da API
+  // A lista 'op' não tem os steps, então chamamos o loadOrderFromQr 
+  // que faz o fetch completo e já deve ter sua lógica de store.
+  // Se não quiser depender da store, o bloco abaixo faz o roteamento localmente.
+  void (async () => {
+    try {
+        // Recarrega dados completos para ter os steps
+        await productionStore.loadOrderFromQr(String(op.op_number));
+        
+        // 3. Aplica o Roteamento Inteligente
+        if (productionStore.activeOrder?.steps && productionStore.activeOrder.steps.length > 0) {
+            const myRes = productionStore.machineResource;
+            const idx = findBestStepIndex(myRes, productionStore.activeOrder.steps);
+            
+            if (idx !== -1) {
+                viewedStepIndex.value = idx;
+                productionStore.currentStepIndex = idx;
+                
+                $q.notify({ 
+                    type: 'positive', 
+                    icon: 'gps_fixed', 
+                    message: `Roteiro posicionado na etapa correta: #${(idx+1)*10}`,
+                    timeout: 2000
+                });
+            } else {
+                viewedStepIndex.value = 0;
+            }
+        }
+    } catch (error) {
+        console.warn("Não foi possível carregar detalhes completos para roteamento.", error);
+    }
+  })();
+
   showOpList.value = false;
   resetTimer();
   $q.notify({ type: 'positive', message: `OP ${op.op_number} selecionada!` });
 }
-
 // --- FUNÇÃO PARA ABRIR O DESENHO (CORRIGIDA) ---
 function openDrawing() {
   if (!productionStore.activeOrder?.part_code) {
@@ -1257,28 +1292,27 @@ async function handleSetupClick() {
               const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
               if (foundEntry) resourceDescription = foundEntry.description;
 
-              // 2. Payload Inteligente
-              const setupPayload = {
-                  op_number: activeOrder.value?.code || '',
-                  position: '', 
-                  operation: '', 
-                  operation_desc: 'PREPARAÇÃO',
-                  part_description: 'SETUP DE MÁQUINA',
-                  item_code: activeOrder.value?.part_code || '',
-                  service_code: '',
-                  resource_code: machineRes,
-                  resource_name: resourceDescription,
-                  operator_name: operatorName || '',
-                  operator_id: String(badge),
-                  vehicle_id: productionStore.machineId || 0,
-                  
-                  start_time: startSetup.toISOString(),
-                  end_time: now.toISOString(),
-                  
-                  stop_reason: 'SETUP', 
-                  // Gatilho para U_setup='Y' no Python
-                  stop_description: 'Setup e Preparação de Máquina' 
-              };
+const setupPayload = {
+    op_number: '',         
+    position: '', 
+    operation: '', 
+    operation_desc: '',    
+    part_description: '',  
+    item_code: '',         
+    service_code: '',
+    resource_code: machineRes,
+    resource_name: resourceDescription,
+    operator_name: operatorName || '',
+    operator_id: String(badge),
+    vehicle_id: productionStore.machineId || 0,
+    
+    start_time: startSetup.toISOString(),
+    end_time: now.toISOString(),
+    
+    // O backend usará este '52' para definir U_AptoParada = 'S'
+    stop_reason: '52',     
+    stop_description: 'Setup' 
+};
 
               console.log("📤 [SETUP] Enviando apontamento:", setupPayload);
               await ProductionService.sendAppointment(setupPayload);
