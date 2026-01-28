@@ -180,7 +180,11 @@ class SAPIntegrationService:
                         for s in collection:
                             # ✅ CORREÇÃO: Captura a instrução específica desta linha/etapa
                             raw_instr = s.get('U_Instrucoes')
-                            instr_formatada = str(raw_instr).strip() if raw_instr else "Consulte o desenho técnico para esta etapa."
+                            if raw_instr:
+                                instr_formatada = str(raw_instr).replace('\r\n', '\n').replace('\r', '\n').strip()
+                            else:
+                                instr_formatada = f"Recurso: {s.get('U_CentroTra')}"
+                                instr_formatada = str(raw_instr).strip() if raw_instr else "Consulte o desenho técnico para esta etapa."
                             
                             steps.append({
                                 "seq": s.get('U_Posicao'),

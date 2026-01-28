@@ -147,8 +147,7 @@
 </div>
 
 <div class="text-dark bg-grey-1 q-pa-md rounded-borders" 
-     style="white-space: pre-line; font-size: 1.3rem; line-height: 1.6; border: 2px dashed #008C7A; min-height: 250px;">
-   
+    style="white-space: pre-wrap; font-size: 1.3rem; line-height: 1.6; border: 2px dashed #008C7A; min-height: 250px; font-family: monospace;">   
    <div class="text-weight-bold text-primary q-mb-sm">
       <q-icon name="menu_book" size="sm" /> INSTRUÇÕES DE TRABALHO:
    </div>
