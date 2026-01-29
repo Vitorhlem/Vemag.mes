@@ -157,8 +157,8 @@
 
 <div class="row justify-between items-center q-mt-auto q-pt-md">
    <div class="text-caption text-grey-7">
-      <q-icon name="info" /> Centro de Trabalho: 
-      <strong class="text-dark">{{ productionStore.currentActiveStep?.resource_name || 'Geral' }}</strong>
+      <q-icon name="info" /> 
+      <strong class="text-dark">{{}}</strong>
    </div>
    
    <q-chip outline color="primary" icon="timer">
@@ -505,7 +505,23 @@ const isShiftChangeDialogOpen = ref(false); // NOVO
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
 const customOsBackgroundImage = ref('/a.jpg');
+const opNumberToSend = computed(() => {
+  if (!productionStore.activeOrder) return '';
+  
+  const order = productionStore.activeOrder;
 
+  // CENÁRIO 1: Ordem de Serviço (O.S.)
+  // Enviamos o código completo (ex: OS-4595-1). 
+  // O backend Python já está programado para extrair apenas o "4595"
+  if (order.is_service) {
+    return String(order.code); 
+  }
+
+  // CENÁRIO 2: Ordem de Produção (O.P.)
+  // Enviamos o custom_ref que contém o formato esperado pelo SAP (ex: 4152/0)
+  // Se por acaso estiver vazio, usamos o code como fallback.
+  return order.custom_ref || order.code;
+});
 // --- Estados ---
 const isPaused = ref(false);
 const currentPauseObj = ref<{
@@ -673,7 +689,7 @@ async function openOpListDialog() {
 async function selectOp(op: any) {
   console.log(`🎯 [MES] Selecionando OP: ${op.op_number} - ${op.part_name}`);
 
-  // 1. Configura o objeto inicial (Dados rápidos da lista)
+  // 1. Configura o objeto inicial
   productionStore.activeOrder = {
     code: String(op.op_number),
     part_name: op.part_name,
@@ -685,7 +701,11 @@ async function selectOp(op: any) {
     status: 'PENDING',
     custom_ref: op.custom_ref || '',
     drawing: op.drawing || '',
-    steps: [] 
+    
+    // ✅ ADIÇÃO RECOMENDADA: Flag explícita para o Frontend
+    is_service: String(op.op_number).startsWith('OS-'),
+    
+    steps: op.steps || [] 
   };
 
   try {
@@ -694,23 +714,19 @@ async function selectOp(op: any) {
       backgroundColor: 'teal-10'
     });
 
+    // 2. Carrega detalhes do Backend (Garante que U_Instrucoes venha atualizado)
     await productionStore.loadOrderFromQr(String(op.op_number));
     
-    // 3. Roteamento Inteligente
+    // 3. Roteamento Inteligente (Mantido igual)
     if (productionStore.activeOrder?.steps && productionStore.activeOrder.steps.length > 0) {
       const myRes = productionStore.machineResource;
       const idx = findBestStepIndex(myRes, productionStore.activeOrder.steps);
       
       if (idx !== -1) {
-        // ✅ ATUALIZAÇÃO AUTOMÁTICA
-        // Definimos o índice na Store; o template (currentActiveStep) mudará sozinho
         productionStore.currentStepIndex = idx;
-        
-        // Sincroniza a visualização local se você ainda usar viewedStepIndex
         if (typeof viewedStepIndex !== 'undefined') {
           viewedStepIndex.value = idx;
         }
-
         console.log(`✅ [MES] Máquina identificada na etapa: ${productionStore.activeOrder.steps[idx].name}`);
       } else {
         productionStore.currentStepIndex = 0;
@@ -744,51 +760,79 @@ function openDrawing() {
   isDrawingDialogOpen.value = true;
 }
 async function handleMainButtonClick() {
-  // CENÁRIO 1: RETOMAR (Se já estiver pausado)
+  // CENÁRIO 1: RETOMAR (Pausa manual)
   if (isPaused.value) {
     await finishPauseAndResume();
     return;
   }
 
-  // CENÁRIO 2: PAUSAR (Se estiver produzindo)
-  // ✅ AQUI FALTAVA A LÓGICA: Se está rodando, abre o menu de parada
+  // CENÁRIO 2: PAUSAR (Se já estiver produzindo)
   if (normalizedStatus.value === 'EM OPERAÇÃO') {
       isStopDialogOpen.value = true;
       return;
   }
+
+  // --- CORREÇÃO: TRANSITANDO DE SETUP PARA PRODUÇÃO ---
+  if (productionStore.isInSetup) {
+    $q.loading.show({ message: 'Encerrando Setup e iniciando produção...' });
+    
+    try {
+      const now = new Date();
+      const startSetup = statusStartTime.value;
+      
+      let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+      if (!badge && authStore.user?.employee_id) badge = authStore.user.employee_id;
+      
+      const operatorName = getOperatorName(String(badge).trim());
+      const machineRes = productionStore.machineResource || '4.02.01';
+      
+      // 1. Envia o fechamento do SETUP para o SAP (Motivo 52)
+      const setupPayload = {
+          op_number: '', 
+          position: '', operation: '', operation_desc: '',    
+          resource_code: machineRes,
+          resource_name: productionStore.machineName,
+          operator_name: operatorName,
+          operator_id: String(badge),
+          vehicle_id: productionStore.machineId || 0,
+          start_time: startSetup.toISOString(),
+          end_time: now.toISOString(),
+          stop_reason: '52', 
+          stop_description: 'Setup' 
+      };
+      
+      await ProductionService.sendAppointment(setupPayload);
+      
+      // 2. Desativa a flag de Setup na Store
+      // IMPORTANTE: toggleSetup sem enviar evento, pois enviaremos o RUNNING logo abaixo
+      productionStore.activeOrder.status = 'PENDING'; 
+      
+    } catch (error) {
+      console.error("Erro ao finalizar setup:", error);
+      $q.notify({ type: 'negative', message: 'Falha ao encerrar setup no SAP.' });
+      $q.loading.hide();
+      return;
+    }
+  }
   
-  // CENÁRIO 3: INICIAR (Se estiver parado/disponível)
-  // 1. Pega a etapa que o operador está vendo
-  const step = currentViewedStep.value; 
-
-  // 2. MONTAGEM DO PAYLOAD
-  const payload = {
-    op_number: String(productionStore.activeOrder.code),
-    step_seq: String(step.seq || ''),
-    machine_id: Number(productionStore.machineId),
-    operator_badge: String(productionStore.currentOperatorBadge || authStore.user?.employee_id)
-  };
-
-  console.log("📤 [MES] Enviando Start para o Servidor:", payload);
-
+  // --- INICIAR PRODUÇÃO (Para novos inícios ou após Setup) ---
   isLoadingAction.value = true;
   try {
-    const response = await api.post('/production/session/start', payload);
+    // 1. Chama a ação da Store que envia o evento 'RUNNING'
+    // Isso fecha a fatia de Setup/Idle e abre a de Produção no Banco Local
+    await productionStore.startProduction();
     
-    if (response.data.status === 'success') {
-      statusStartTime.value = new Date();
-      if (activeOrder.value) activeOrder.value.status = 'RUNNING';
-      
-      // Força atualização do status na Store para o botão mudar de cor
-      await productionStore.setMachineStatus('RUNNING');
-      
-      $q.notify({ type: 'positive', message: 'Produção Iniciada!' });
-    }
+    // 2. Atualiza os cronômetros visuais
+    statusStartTime.value = new Date();
+    isPaused.value = false;
+    
+    $q.notify({ type: 'positive', message: 'Produção Iniciada!', icon: 'play_arrow' });
   } catch (e) {
-    console.error("❌ Erro Start:", e.response?.data);
-    $q.notify({ type: 'negative', message: 'Erro ao iniciar produção.' });
+    console.error("Erro ao iniciar produção:", e);
+    $q.notify({ type: 'negative', message: 'Erro ao registrar início de produção.' });
   } finally {
     isLoadingAction.value = false;
+    $q.loading.hide();
   }
 }
 
@@ -818,87 +862,58 @@ function handleSapPause(stopReason: SapStopReason) {
   }
 }
 async function applyNormalPause() {
-    // Fecha os diálogos
     isStopDialogOpen.value = false;
     isMaintenanceConfirmOpen.value = false;
     
-    $q.loading.show({ message: 'Encerrando lote de produção no SAP...' });
+    $q.loading.show({ message: 'Enviando produção e registrando parada...' });
 
     try {
         const now = new Date();
-        const productionStart = statusStartTime.value; // Hora que começou a produzir
-        
-        // --- 1. PREPARAÇÃO DOS DADOS DA O.P. (IGUAL AO FINALIZAR) ---
+        const prodStart = statusStartTime.value;
+        const reason = currentPauseObj.value;
+
+        let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+        const machineRes = productionStore.machineResource || '4.02.01';
+
+        // 1. FECHA PRODUÇÃO
         if (activeOrder.value?.code) {
-            let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
-            if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
-            const operatorName = getOperatorName(String(badge).trim());
-            const machineRes = productionStore.machineResource || '4.02.01';
-            
-            // Calcula etapa (010, 020...)
-            const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
-            const stageStr = Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
-            const sapData = getSapOperation(stageStr);
-            
-            let resourceDescription = sapData.resourceName || '';
-            const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
-            if (foundEntry) resourceDescription = foundEntry.description;
-
-            let opNumberToSend = activeOrder.value.code;
-            if (activeOrder.value.custom_ref) opNumberToSend = activeOrder.value.custom_ref;
-
-            // Payload de PRODUÇÃO (Encerrando o tempo trabalhado até agora)
-            const productionPayload = {
-                op_number: String(opNumberToSend),
-                position: stageStr,
-                operation: sapData.code || '',
-                operation_desc: sapData.description || '',
-                part_description: activeOrder.value.part_name || '',
-                item_code: activeOrder.value.part_code || '',
-                service_code: '',
-                
+            const prodPayload = {
+                op_number: String(opNumberToSend.value),
+                service_code: activeOrder.value.is_service ? activeOrder.value.part_code : '',
+                position: currentViewedStep.value?.seq?.toString().padStart(3, '0') || '010',
+                operation: '', // opcional aqui
+                operation_desc: '',
                 resource_code: machineRes,
-                resource_name: resourceDescription,
-                operator_name: operatorName || '',
                 operator_id: String(badge),
-                vehicle_id: productionStore.machineId || 0,
-
-                start_time: productionStart.toISOString(),
-                end_time: now.toISOString(), // Hora exata do clique em Pausar
-
+                start_time: prodStart.toISOString(),
+                end_time: now.toISOString(),
                 stop_reason: '', 
-                stop_description: '' 
+                stop_description: ''
             };
-
-            console.log("📤 [PAUSA] Fechando fatia de produção:", productionPayload);
-            await ProductionService.sendAppointment(productionPayload);
+            await ProductionService.sendAppointment(prodPayload);
         }
 
-        // --- 2. ATUALIZA ESTADO LOCAL PARA PAUSA ---
+        // 2. REGISTRA PARADA
+        const stopPayload = {
+            op_number: '',
+            resource_code: machineRes,
+            operator_id: String(badge),
+            start_time: now.toISOString(),
+            end_time: now.toISOString(),
+            stop_reason: reason?.reasonCode || '100',
+            stop_description: reason?.reasonLabel || 'Pausa'
+        };
+        await ProductionService.sendAppointment(stopPayload);
+
+        // Estado local
         isPaused.value = true;
-    if (activeOrder.value) activeOrder.value.status = 'PAUSED';
-    
-    // Define o tempo de INÍCIO DA PAUSA como AGORA
-    statusStartTime.value = new Date(); 
-    
-    // Notifica backend apenas para log/dashboard em tempo real
-    const reason = currentPauseObj.value?.reasonLabel || 'Pausa Genérica';
-    
-    // 1. Chama a store para registrar o evento de pausa
-    await productionStore.pauseProduction(reason);
+        if (activeOrder.value) activeOrder.value.status = 'PAUSED';
+        await productionStore.setMachineStatus('STOPPED'); 
+        statusStartTime.value = new Date(); // Reinicia cronômetro para contar tempo da PAUSA
 
-    // 2. ADICIONE ESTA LINHA AQUI:
-    // Força explicitamente o status 'STOPPED' (Parada) para o backend,
-    // garantindo que não fique 'AVAILABLE' mesmo se a store tiver lógica antiga.
-    await productionStore.setMachineStatus('STOPPED'); 
-
-    $q.notify({ type: 'warning', message: `Produção salva. Pausa iniciada: ${reason}`, icon: 'pause' });
+        $q.notify({ type: 'warning', message: 'Produção salva. Máquina em Pausa.' });
     } catch (error) {
         console.error("Erro ao pausar:", error);
-        $q.notify({ type: 'negative', message: 'Erro ao salvar produção no SAP.' });
-        // Força a pausa mesmo com erro para não travar o operador
-        isPaused.value = true;
-        statusStartTime.value = new Date();
     } finally {
         $q.loading.hide();
     }
@@ -913,70 +928,82 @@ async function executeShiftChange(keepRunning: boolean) {
     isShiftChangeDialogOpen.value = false;
     const now = new Date();
     
-    // Se o operador escolheu parar a máquina, apenas aplicamos a pausa normal
+    // Se o operador escolheu parar a máquina, tratamos como uma pausa normal
     if (!keepRunning) {
+        // Configuramos o motivo manualmente para Troca de Turno
+        currentPauseObj.value = {
+            startTime: now,
+            reasonCode: '111',
+            reasonLabel: 'Troca de Turno'
+        };
         void applyNormalPause();
         return;
     }
 
-    $q.loading.show({ message: 'Encerrando turno do operador...' });
+    $q.loading.show({ message: 'Processando Troca de Turno no SAP...' });
 
     try {
         let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
-        if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+        if (!badge && authStore.user?.employee_id) badge = authStore.user.employee_id;
+        
         const operatorName = getOperatorName(String(badge).trim());
+        const machineRes = productionStore.machineResource || '4.02.01';
         
-        // --- CORREÇÃO: Calcular dados da Etapa/Operação (Igual ao Finalizar O.P.) ---
+        // --- Cálculo de Etapa ---
         const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
-        const cleanSeq = Math.floor(rawSeq / 10) * 10;
-        const stageStr = cleanSeq.toString().padStart(3, '0'); 
+        const stageStr = Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
         const sapData = getSapOperation(stageStr);
-        // -----------------------------------------------------------------------------
 
-        // Dados da máquina
-        const machineRes = productionStore.machineResource || sapData.resourceCode || '4.02.01';
-        let resourceDescription = sapData.resourceName || '';
-        
-        // Payload completo e validado
-        const payload = {
-             op_number: String(activeOrder.value?.code),
-             position: stageStr, // Agora envia a posição correta (ex: "010")
-             operation: sapData.code || '', // Agora envia o código da operação
-             operation_desc: sapData.description || '', // Agora envia a descrição
-             
-             resource_code: machineRes,
-             resource_name: resourceDescription,
-             
-             part_description: activeOrder.value?.part_name || '',
-             item_code: (activeOrder.value as any)?.part_code || '',
-             service_code: '', // Serviço vazio se não aplicável
-             
-             operator_name: operatorName || '',
-             operator_id: String(badge),
-             
-             start_time: statusStartTime.value.toISOString(),
-             end_time: now.toISOString(),
-             
-             stop_reason: '', 
-             stop_description: '',
-             vehicle_id: productionStore.machineId || 0
+        // 1. PRIMEIRO PASSO: FECHAR A O.P. (APONTAMENTO DE PRODUÇÃO)
+        if (activeOrder.value?.code) {
+            const prodPayload = {
+                op_number: String(opNumberToSend.value), // Envia formatado (ex: 4152/0)
+                service_code: activeOrder.value.is_service ? activeOrder.value.part_code : '',
+                position: stageStr,
+                operation: sapData.code || '',
+                operation_desc: sapData.description || '',
+                resource_code: machineRes,
+                resource_name: productionStore.machineName,
+                part_description: activeOrder.value.part_name || '',
+                item_code: activeOrder.value.part_code || '',
+                operator_name: operatorName,
+                operator_id: String(badge),
+                start_time: statusStartTime.value.toISOString(),
+                end_time: now.toISOString(),
+                stop_reason: '', // Sem motivo = Produção
+                stop_description: ''
+            };
+            console.log("📤 [1/2] Fechando Produção (Troca Turno):", prodPayload);
+            await ProductionService.sendAppointment(prodPayload);
+        }
+
+        // 2. SEGUNDO PASSO: CRIAR A ORDEM DE PARADA (APONTAMENTO DE RECURSO)
+        const stopPayload = {
+            op_number: '', // Parada de recurso não vincula O.P.
+            service_code: '',
+            position: '',
+            operation: '',
+            operation_desc: '',
+            resource_code: machineRes,
+            resource_name: productionStore.machineName,
+            operator_name: operatorName,
+            operator_id: String(badge),
+            start_time: now.toISOString(),
+            end_time: now.toISOString(), // Início e fim iguais registram o evento de parada
+            stop_reason: '111', // Código SAP para Troca de Turno
+            stop_description: 'Troca de Turno'
         };
+        console.log("📤 [2/2] Registrando Parada (Troca Turno):", stopPayload);
+        await ProductionService.sendAppointment(stopPayload);
 
-        console.log("📤 Fechamento de Turno (Máquina Rodando):", payload);
-        
-        // Envia o apontamento para o backend (que salva no SAP)
-        await ProductionService.sendAppointment(payload);
-
-        // Faz logout mantendo a ordem ativa no Front (flag true)
-        await productionStore.logoutOperator(undefined, true); 
-
-        // Redireciona para o Kiosk
+        // Finalização local
+        await productionStore.logoutOperator(undefined, true); // Mantém O.P. no cache
         await router.push({ name: 'machine-kiosk' });
-        $q.notify({ type: 'positive', message: 'Turno encerrado. Máquina continua em operação.' });
+        $q.notify({ type: 'positive', message: 'Turno encerrado e parada registrada.' });
 
     } catch (error) {
         console.error("Erro na Troca de Turno:", error);
-        $q.notify({ type: 'negative', message: 'Erro ao registrar troca de turno.' });
+        $q.notify({ type: 'negative', message: 'Erro ao sincronizar troca de turno com SAP.' });
     } finally {
         $q.loading.hide();
     }
@@ -1020,11 +1047,9 @@ async function triggerCriticalBreakdown() {
             const stageStr = cleanSeq.toString().padStart(3, '0'); 
             const sapData = getSapOperation(stageStr);
 
-            let opNumberToSend = activeOrder.value.code;
-            if (activeOrder.value.custom_ref) opNumberToSend = activeOrder.value.custom_ref;
 
             const productionPayload = {
-                op_number: String(opNumberToSend),
+                op_number: String(opNumberToSend.value),
                 position: stageStr,
                 operation: sapData.code || '',
                 operation_desc: sapData.description || '',
@@ -1218,8 +1243,6 @@ function confirmFinishOp() {
        const stageStr = cleanSeq.toString().padStart(3, '0'); 
        const sapData = getSapOperation(stageStr);
 
-       let opNumberToSend = activeOrder.value?.code;
-       if (activeOrder.value?.custom_ref) opNumberToSend = activeOrder.value.custom_ref;
 
        // Dados da máquina/operador
        const machineRes = productionStore.machineResource || sapData.resourceCode || '4.02.01';
@@ -1228,7 +1251,7 @@ function confirmFinishOp() {
        if (foundEntry) resourceDescription = foundEntry.description;
 
        const payload = {
-         op_number: String(opNumberToSend),
+         op_number: String(opNumberToSend.value),
          service_code: '', 
          position: stageStr, 
          operation: sapData.code || '', 
@@ -1296,26 +1319,25 @@ async function confirmAndonCall(sector: string) {
 
 
 async function handleSetupClick() {
-  // --- CENÁRIO 1: FINALIZAR SETUP (Salvar e Enviar para SAP) ---
+  // --- CENÁRIO 1: FINALIZAR SETUP E REABRIR A O.P. AUTOMATICAMENTE ---
   if (productionStore.isInSetup) {
       $q.dialog({
           title: 'Finalizar Setup',
-          message: 'Confirmar o fim da preparação da máquina?',
+          message: 'Deseja encerrar a preparação e VOLTAR A PRODUZIR agora?',
           cancel: true,
           persistent: true,
-          ok: { label: 'Finalizar', color: 'positive' }
+          ok: { label: 'Finalizar e Iniciar O.P.', color: 'positive', push: true }
       }).onOk(async () => {
-          $q.loading.show({ message: 'Registrando Setup no SAP...' });
+          $q.loading.show({ message: 'Enviando Setup e reiniciando produção...' });
           isLoadingAction.value = true;
           
           try {
               const now = new Date();
-              const startSetup = statusStartTime.value; // Hora que o setup começou
+              const startSetup = statusStartTime.value; 
 
-              // 1. Preparar dados para o SAP
+              // 1. Prepara dados comuns
               let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
               if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
-              
               const operatorName = getOperatorName(String(badge).trim());
               const machineRes = productionStore.machineResource || '4.02.01';
               
@@ -1323,45 +1345,47 @@ async function handleSetupClick() {
               const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
               if (foundEntry) resourceDescription = foundEntry.description;
 
-const setupPayload = {
-    op_number: '',         
-    position: '', 
-    operation: '', 
-    operation_desc: '',    
-    part_description: '',  
-    item_code: '',         
-    service_code: '',
-    resource_code: machineRes,
-    resource_name: resourceDescription,
-    operator_name: operatorName || '',
-    operator_id: String(badge),
-    vehicle_id: productionStore.machineId || 0,
-    
-    start_time: startSetup.toISOString(),
-    end_time: now.toISOString(),
-    
-    // O backend usará este '52' para definir U_AptoParada = 'S'
-    stop_reason: '52',     
-    stop_description: 'Setup' 
-};
-
-              console.log("📤 [SETUP] Enviando apontamento:", setupPayload);
+              // 2. Envia o Apontamento de SETUP finalizado para o SAP (Motivo 52)
+              const setupPayload = {
+                  op_number: '', // Setup não vincula OP no recurso
+                  position: '', operation: '', operation_desc: '',    
+                  part_description: '', item_code: '', service_code: '',
+                  resource_code: machineRes,
+                  resource_name: resourceDescription,
+                  operator_name: operatorName || '',
+                  operator_id: String(badge),
+                  vehicle_id: productionStore.machineId || 0,
+                  start_time: startSetup.toISOString(),
+                  end_time: now.toISOString(),
+                  stop_reason: '52', // Código de Setup configurado no seu SAP
+                  stop_description: 'Setup' 
+              };
               await ProductionService.sendAppointment(setupPayload);
 
-              // 3. Atualizar Estado Local (CORREÇÃO AQUI)
-              // O toggleSetup() já muda o status para 'AVAILABLE' internamente.
-              // Não precisamos (e não devemos) chamar setMachineStatus('STOPPED') depois.
+              // 3. Desativa o modo Setup na Store
               await productionStore.toggleSetup();
+
+              // 4. AUTOMAÇÃO: Abre novamente o apontamento da O.P. no Servidor
+              const step = currentViewedStep.value; 
+              const startPayload = {
+                op_number: String(productionStore.activeOrder.code),
+                step_seq: String(step.seq || ''),
+                machine_id: Number(productionStore.machineId),
+                operator_badge: String(badge)
+              };
+
+              const response = await api.post('/production/session/start', startPayload);
               
-              // Reinicia o relógio visual (agora contando tempo ocioso/disponível)
-              resetTimer(); 
-              $q.notify({ type: 'positive', message: 'Setup registrado com sucesso!' });
+              if (response.data.status === 'success') {
+                statusStartTime.value = new Date();
+                if (activeOrder.value) activeOrder.value.status = 'RUNNING';
+                await productionStore.setMachineStatus('RUNNING');
+                $q.notify({ type: 'positive', message: 'Setup registrado. Produção retomada!', icon: 'play_arrow' });
+              }
 
           } catch (error) {
-              console.error("Erro Setup:", error);
-              $q.notify({ type: 'negative', message: 'Erro ao registrar setup no SAP.' });
-              // Tenta destravar mesmo com erro para não prender o operador
-              await productionStore.toggleSetup();
+              console.error("Erro na transição de Setup:", error);
+              $q.notify({ type: 'negative', message: 'Erro ao processar fim de Setup.' });
           } finally {
               $q.loading.hide();
               isLoadingAction.value = false;
@@ -1369,24 +1393,59 @@ const setupPayload = {
       });
   } 
   
-  // --- CENÁRIO 2: INICIAR SETUP ---
+  // --- CENÁRIO 2: INICIAR SETUP (FECHA A O.P. SE ESTIVER RODANDO) ---
   else {
       isLoadingAction.value = true;
       try {
-          // 1. Inicia o modo Setup na Store
+          const now = new Date();
+          
+          // Se a máquina estiver EM OPERAÇÃO, finalizamos a fatia de produção antes do setup
+          if (normalizedStatus.value === 'EM OPERAÇÃO' && activeOrder.value?.code) {
+              $q.loading.show({ message: 'Encerrando produção para iniciar Setup...' });
+              
+              const productionStart = statusStartTime.value;
+              let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
+              if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
+              
+              const operatorName = getOperatorName(String(badge).trim());
+              const machineRes = productionStore.machineResource || '4.02.01';
+              const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
+              const stageStr = Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
+              const sapData = getSapOperation(stageStr);
+
+              const productionPayload = {
+                  op_number: String(opNumberToSend.value), // Usa o número formatado 4152/0
+                  position: stageStr,
+                  operation: sapData.code || '',
+                  operation_desc: sapData.description || '',
+                  part_description: activeOrder.value.part_name || '',
+                  item_code: activeOrder.value.part_code || '',
+                  service_code: '',
+                  resource_code: machineRes,
+                  resource_name: sapData.description || '',
+                  operator_name: operatorName || '',
+                  operator_id: String(badge),
+                  vehicle_id: productionStore.machineId || 0,
+                  start_time: productionStart.toISOString(),
+                  end_time: now.toISOString(),
+                  stop_reason: '', 
+                  stop_description: '' 
+              };
+              
+              await ProductionService.sendAppointment(productionPayload);
+          }
+
+          // Ativa o modo Setup e altera status visual
           await productionStore.toggleSetup();
-          
-          // 2. Envia status visual para o Dashboard (Roxo/Manutenção)
           await productionStore.setMachineStatus('MAINTENANCE'); 
+          statusStartTime.value = new Date(); // Inicia cronômetro do Setup
           
-          // 3. Reinicia o relógio para contar o tempo de setup
-          statusStartTime.value = new Date(); 
-          resetTimer();
-          
-          $q.notify({ type: 'info', message: 'Modo Setup Iniciado. Cronômetro rodando.' });
+          $q.notify({ type: 'info', message: 'Produção salva. Modo Setup Iniciado.', icon: 'build' });
       } catch (e) {
-          console.error(e);
+          console.error("Erro ao iniciar setup:", e);
+          $q.notify({ type: 'negative', message: 'Erro ao iniciar Setup.' });
       } finally {
+          $q.loading.hide();
           isLoadingAction.value = false;
       }
   }

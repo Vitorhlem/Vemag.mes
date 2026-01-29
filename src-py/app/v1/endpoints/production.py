@@ -929,25 +929,38 @@ async def get_open_orders(
     db: AsyncSession = Depends(deps.get_db)
 ):
     """
-    Retorna a lista de OPs liberadas direto do SAP.
+    Retorna a lista unificada de OPs e OSs liberadas do SAP.
     """
     sap_service = SAPIntegrationService(db, organization_id=1)
-    orders = await sap_service.get_released_production_orders()
-    return orders
+    
+    # 1. Busca Produção Padrão (O.P.)
+    ops = await sap_service.get_released_production_orders()
+    
+    # 2. Busca Serviços (O.S.)
+    oss = await sap_service.get_open_service_orders()
+    
+    # 3. Retorna a união das duas listas
+    # O Frontend vai receber tudo junto e diferenciar pelo campo 'type' se necessário
+    return ops + oss
 
 @router.get("/orders/{code}", response_model=production_schema.ProductionOrderRead)
 async def get_production_order(
     code: str, 
     db: AsyncSession = Depends(deps.get_db)
 ):
-    print(f"🔎 Buscando OP {code} no SAP...")
+    """
+    Busca detalhes de uma O.P. ou O.S. pelo código (aceita 'OS-...' ou número puro).
+    """
+    print(f"🔎 [API] Buscando Ordem {code} no SAP...")
     sap_service = SAPIntegrationService(db, organization_id=1)
+    
+    # A função abaixo já possui a lógica híbrida (O.P. vs O.S.)
     sap_data = await sap_service.get_production_order_by_code(code)
     
     if sap_data:
         return sap_data
         
-    raise HTTPException(status_code=404, detail="OP não encontrada no SAP")
+    raise HTTPException(status_code=404, detail="Ordem não encontrada no SAP (O.P. ou O.S.)")
 
 @router.get("/reports/daily-closing/employees", response_model=List[Any])
 async def get_daily_employee_report(

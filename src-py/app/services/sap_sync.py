@@ -2,7 +2,7 @@ import httpx
 import asyncio
 import urllib3
 from typing import List, Optional, Dict, Any
-from datetime import timedelta, datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -227,6 +227,76 @@ class SAPIntegrationService:
         if not self.cookies:
             if not await self.login(): return None
 
+        # --- LÓGICA PARA ORDEM DE SERVIÇO (O.S.) ---
+        if str(op_code).startswith("OS-"):
+            try:
+                # Formato esperado: OS-{DocNum}-{LineId} (Ex: OS-4595-1)
+                parts = str(op_code).split('-')
+                if len(parts) < 3: return None
+                
+                doc_num = parts[1]
+                target_line_id = int(parts[2])
+
+                print(f"🔄 [SAP] Buscando O.S. #{doc_num} (Linha {target_line_id})...")
+                
+                # Busca a O.S. específica pelo Número do Documento
+                query = f"$select=DocEntry,DocNum,U_CardName,LGLDOS2Collection&$filter=DocNum eq {doc_num}"
+                res = await self.client.get(f"{SAP_BASE_URL}/LGDOS?{query}", cookies=self.cookies)
+                
+                if res.status_code == 200:
+                    data = res.json().get('value', [])
+                    if data:
+                        os_doc = data[0]
+                        client_name = os_doc.get('U_CardName') or "Cliente"
+                        
+                        # Procura a linha correta dentro da coleção
+                        for line in os_doc.get('LGLDOS2Collection', []):
+                            if line.get('LineId') == target_line_id:
+                                # ✅ AQUI ESTÁ A CORREÇÃO: Pegamos o nome real do serviço
+                                item_code = line.get('U_ItemCode')
+                                item_name = line.get('U_ItemName') # O valor para U_DescricaoServico
+                                roteiro_code = line.get('U_Roteiro') or item_code
+                                
+                                # Busca o roteiro dessa linha (igual fazemos na lista)
+                                steps = []
+                                if roteiro_code:
+                                    rot_url = f"{SAP_BASE_URL}/LGCROT?$filter=Code eq '{roteiro_code}'&$select=LGLCROTCollection"
+                                    rot_res = await self.client.get(rot_url, cookies=self.cookies)
+                                    if rot_res.status_code == 200:
+                                        rot_data = rot_res.json().get('value', [])
+                                        if rot_data and 'LGLCROTCollection' in rot_data[0]:
+                                            for s in rot_data[0]['LGLCROTCollection']:
+                                                raw_instr = s.get('U_Instrucoes')
+                                                instr = str(raw_instr).replace('\r\n', '\n').replace('\r', '\n').strip() if raw_instr else f"Recurso: {s.get('U_CentroTra')}"
+                                                steps.append({
+                                                    "seq": s.get('U_Posicao'),
+                                                    "resource": s.get('U_Operacao'),
+                                                    "name": s.get('U_Descr'),
+                                                    "description": instr,
+                                                    "status": "PENDING",
+                                                    "timeEst": float(s.get('U_TempoMaq') or 0)
+                                                })
+
+                                # Retorna o objeto formatado com o nome correto
+                                print(f"✅ [SAP] O.S. encontrada: {item_name}")
+                                return {
+                                    "op_number": op_code,
+                                    "status": "Released", # O.S. aberta consideramos liberada
+                                    "item_code": item_code,
+                                    "part_name": item_name, # ✅ Corrigido (LGLDOS2 -> U_ItemName)
+                                    "planned_qty": line.get('U_Qtde'),
+                                    "uom": "UN",
+                                    "custom_ref": f"Cliente: {client_name}",
+                                    "type": "Service",
+                                    "drawing": "",
+                                    "steps": steps
+                                }
+                print(f"❌ [SAP] O.S. {op_code} não encontrada ou sem linha correspondente.")
+                return None
+            except Exception as e:
+                print(f"❌ [SAP] Erro ao buscar O.S: {e}")
+                return None
+
         # Limpeza do código da OP (ex: remove prefixos e espaços)
         clean_code = str(op_code).replace("OP-", "").strip()
         if not clean_code.isdigit(): return None
@@ -316,41 +386,61 @@ class SAPIntegrationService:
         if not self.cookies:
             if not await self.login(): return False
 
-        dt_ini = appointment_data['start_time']
-        dt_fim = appointment_data['end_time']
+        # --- PREPARAÇÃO DOS DADOS ---
+        op_number_raw = str(appointment_data['op_number'])
+        
+        # Detecção de Tipo: É Serviço (O.S.)?
+        is_os = op_number_raw.startswith("OS-")
+        # Detecção de Tipo: É Parada? (Tem motivo de parada)
+        is_stop = bool(appointment_data.get('stop_reason'))
 
-        # Ajuste de Fuso (Hardcoded BRT -3 por segurança se vier UTC)
-        if dt_ini.tzinfo: dt_ini_local = dt_ini
-        else: dt_ini_local = dt_ini - timedelta(hours=3)
-            
-        if dt_fim.tzinfo: dt_fim_local = dt_fim
-        else: dt_fim_local = dt_fim - timedelta(hours=3)
+        # Se for O.S., limpa o número para enviar apenas o DocNum ao SAP
+        # Ex: "OS-4595-1" vira "4595"
+        final_doc_num = op_number_raw.split('-')[1] if is_os and '-' in op_number_raw else op_number_raw
+        
+        # --- REGRAS DE NEGÓCIO ---
+        # 1. Origem sempre 'S'
+        u_origem = "S"
+        
+        # 2. Tipo de Documento: 2 para O.S. ou Parada, 1 para O.P. normal
+        u_tipo_doc = "2" if (is_os or is_stop) else "1"
+        
+        # 3. Campo Serviço: Se for O.S., envia o ItemCode. Se for O.P., vazio.
+        u_servico = appointment_data.get('item_code', '') if is_os else ""
 
+        # Datas e Horas (Mantido igual)
+        dt_ini = appointment_data.get('start_time')
+        dt_fim = appointment_data.get('end_time')
+        
+        # Garante que sejam objetos datetime (caso venham como string)
+        if isinstance(dt_ini, str):
+            dt_ini = datetime.fromisoformat(dt_ini.replace('Z', '+00:00'))
+        if isinstance(dt_fim, str):
+            dt_fim = datetime.fromisoformat(dt_fim.replace('Z', '+00:00'))
+
+        # Define Brasília explicitamente
+        br_tz = timezone(timedelta(hours=-3))
+
+        # Converte para o horário local de Brasília
+        dt_ini_local = dt_ini.astimezone(br_tz) if dt_ini.tzinfo else dt_ini.replace(tzinfo=timezone.utc).astimezone(br_tz)
+        dt_fim_local = dt_fim.astimezone(br_tz) if dt_fim.tzinfo else dt_fim.replace(tzinfo=timezone.utc).astimezone(br_tz)
+
+        # Formata para o SAP
         sap_data_ini = dt_ini_local.strftime("%Y-%m-%d")
         sap_data_fim = dt_fim_local.strftime("%Y-%m-%d")
         sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
         sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
-
-        # Limpeza do ID do operador (remove zeros a esquerda se não for email)
+        
+        # Limpeza Operador
         raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
-        sap_operator_id = raw_id # Padrão
-        
-        # Logica especifica de crachá se necessário (ex: remover ultimo digito verificador)
-        if len(raw_id) > 1 and raw_id.isdigit():
-             sap_operator_id = raw_id[:-1] 
-        
-        is_setup_val = "N"
-        full_text = (str(appointment_data.get('stop_description', '')) + " " + 
-                     str(appointment_data.get('operation_desc', '')) + " " +
-                     str(appointment_data.get('stop_reason', ''))).lower()
-        
-        if "setup" in full_text or "prepara" in full_text: is_setup_val = "S"
+        sap_operator_id = raw_id[:-1] if len(raw_id) > 1 and raw_id.isdigit() else raw_id
 
-        stop_reason = appointment_data.get('stop_reason', "")
-        is_apto_parada = "S" if (stop_reason or is_setup_val == "S") else "N"
+        # Flag Setup
+        is_setup_val = "S" if "setup" in str(appointment_data.get('stop_description', '')).lower() else "N"
+        is_apto_parada = "S" if (appointment_data.get('stop_reason') or is_setup_val == "S") else "N"
 
         payload = {
-            "U_NumeroDocumento": str(appointment_data['op_number']),
+            "U_NumeroDocumento": final_doc_num,
             "U_Posicao": str(appointment_data['position']),
             "U_Operacao": str(appointment_data['operation']),
             "U_DescricaoOperacao": appointment_data.get('operation_desc', ''),
@@ -366,11 +456,16 @@ class SAPIntegrationService:
             "U_MotivoParada": appointment_data.get('stop_reason', ""),
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
             "U_setup": is_setup_val,
-            "U_TipoDocumento": "1",
-            "U_AptoParada": is_apto_parada
+            "U_AptoParada": is_apto_parada,
+            
+            # --- NOVOS CAMPOS AUTOMÁTICOS ---
+            "U_OrigemApontamento": u_origem,  # Sempre S
+            "U_TipoDocumento": u_tipo_doc,    # 1 ou 2
+            "U_Servico": u_servico            # Codigo do Item na O.S.
         }
+
         try:
-            print(f"🏭 [SAP] Enviando Apontamento... Payload: {payload}")
+            print(f"🏭 [SAP] Payload ({'OS' if is_os else 'OP'}): {payload}")
             target_url = f"{SAP_BASE_URL}/LGO_CAPONTAMENTO"
             response = await self.client.post(target_url, json=payload, cookies=self.cookies)
             
@@ -384,3 +479,78 @@ class SAPIntegrationService:
         except Exception as e:
             print(f"❌ [SAP] Erro de envio: {str(e)}")
             return False
+
+    async def get_open_service_orders(self) -> List[dict]:
+        if not self.cookies:
+            if not await self.login(): return []
+
+        try:
+            # Busca O.S. com Status 'O' (Open) e suas linhas (@LGLDOS2)
+            query = "$select=DocEntry,DocNum,U_CardName,LGLDOS2Collection&$filter=Status eq 'O'"
+            print(f"\n🛠️ [MES] Buscando Ordens de Serviço (O.S.) abertas...")
+            
+            res = await self.client.get(f"{SAP_BASE_URL}/LGDOS?{query}", cookies=self.cookies)
+            if res.status_code != 200:
+                print(f"❌ [SAP] Erro ao buscar O.S: {res.status_code}")
+                return []
+
+            service_orders = []
+            raw_data = res.json().get('value', [])
+
+            for os in raw_data:
+                doc_num = os.get('DocNum')
+                client_name = os.get('U_CardName') or "Cliente Diversos"
+                
+                # Processa cada LINHA da O.S. como uma ordem selecionável
+                for line in os.get('LGLDOS2Collection', []):
+                    item_code = line.get('U_ItemCode')
+                    item_name = line.get('U_ItemName') or "Serviço sem descrição"
+                    qty = line.get('U_Qtde')
+                    roteiro_code = line.get('U_Roteiro') or item_code # Fallback para o item se roteiro vazio
+                    line_id = line.get('LineId')
+
+                    # Identificador único Híbrido: OS-{DocNum}-{LineId}
+                    unique_op_id = f"OS-{doc_num}-{line_id}"
+                    
+                    # Busca o Roteiro na LGCROT (Igual à O.P.)
+                    steps = []
+                    if roteiro_code:
+                        rot_url = f"{SAP_BASE_URL}/LGCROT?$filter=Code eq '{roteiro_code}'&$select=LGLCROTCollection"
+                        rot_res = await self.client.get(rot_url, cookies=self.cookies)
+                        
+                        if rot_res.status_code == 200:
+                            rot_data = rot_res.json().get('value', [])
+                            if rot_data and 'LGLCROTCollection' in rot_data[0]:
+                                for s in rot_data[0]['LGLCROTCollection']:
+                                    raw_instr = s.get('U_Instrucoes')
+                                    # Formatação do texto
+                                    instr = str(raw_instr).replace('\r\n', '\n').replace('\r', '\n').strip() if raw_instr else f"Recurso: {s.get('U_CentroTra')}"
+                                    
+                                    steps.append({
+                                        "seq": s.get('U_Posicao'),
+                                        "resource": s.get('U_Operacao'),
+                                        "name": s.get('U_Descr'),
+                                        "description": instr,
+                                        "status": "PENDING",
+                                        "timeEst": float(s.get('U_TempoMaq') or 0)
+                                    })
+
+                    # Adiciona à lista final
+                    service_orders.append({
+                        "op_number": unique_op_id,  # O Front vai ver "OS-4595-1"
+                        "item_code": item_code,     # Importante para o U_Servico
+                        "part_name": f"[OS] {item_name}",
+                        "planned_qty": qty,
+                        "uom": "UN",
+                        "type": "Service",          # Flag interna
+                        "custom_ref": f"Cliente: {client_name}",
+                        "drawing": "",
+                        "steps": steps
+                    })
+
+            print(f"✅ [MES] {len(service_orders)} itens de serviço carregados.")
+            return service_orders
+
+        except Exception as e:
+            print(f"💥 [MES ERROR] Falha ao buscar O.S: {str(e)}")
+            return []

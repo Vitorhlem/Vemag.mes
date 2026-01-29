@@ -33,6 +33,7 @@ export interface ProductionOrder {
   code: string;
   client?: string;
   product?: string;
+  is_service?: boolean; // <-- ADICIONE ESTA LINHA
   deliveryDate?: string;
   part_name: string;
   part_image_url: string;

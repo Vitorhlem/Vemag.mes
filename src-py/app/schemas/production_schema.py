@@ -143,7 +143,7 @@ class AndonCreate(BaseModel):
 # ============================================================================
 class ProductionAppointmentCreate(BaseModel):
     op_number: str
-    service_code: str          # U_Servico
+    service_code: Optional[str] = ""  # <-- Altere para opcional com padrão vazio        # U_Servico
     position: str
     operation: str
     operation_desc: str
@@ -172,7 +172,9 @@ class OperationStepSchema(BaseModel):
     status: str = "PENDING"
 
 class ProductionOrderRead(BaseModel):
-    op_number: int          # DocNum
+    # ✅ CORREÇÃO: Aceita '4152' (O.P.) e 'OS-4595-1' (O.S.)
+    op_number: Union[str, int]  
+    
     item_code: str          # ItemCode
     part_name: str          # ProdName
     planned_qty: float      # PlannedQty
