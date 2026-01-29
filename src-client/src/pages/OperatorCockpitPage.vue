@@ -370,42 +370,102 @@
             <div class="col scroll q-px-md q-pb-md">
                <div class="row q-col-gutter-md">
                   <div v-for="(reason, idx) in filteredStopReasons" :key="idx" class="col-12 col-sm-6 col-md-4">
-                      <q-btn color="white" text-color="dark" class="full-width shadow-2" padding="md" align="left" no-caps style="border-radius: 12px; min-height: 80px;" @click="handleSapPause(reason)">
-                         <div class="row items-center no-wrap full-width">
-                            <q-avatar :color="reason.requiresMaintenance ? 'red-9' : 'blue-grey'" text-color="white" :icon="reason.requiresMaintenance ? 'build' : 'priority_high'" size="40px" font-size="24px" class="q-mr-md" />
-                            <div class="column">
-                              <div class="text-subtitle1 text-weight-bold leading-tight">{{ reason.label }}</div>
-                              <div class="text-caption text-grey-7">Cód: {{ reason.code }}</div>
-                              <div v-if="reason.requiresMaintenance" class="text-caption text-red-9 text-weight-bold">CRÍTICO: REQUER MANUTENÇÃO</div>
-                            </div>
-                         </div>
-                      </q-btn>
-                  </div>
+    <q-btn 
+      flat 
+      bordered
+      class="full-width reason-card" 
+      :class="{ 'special-active': reason.isSpecial }"
+      @click="handleSapPause(reason)"
+    >
+      <div class="row items-center no-wrap full-width q-pa-sm">
+        <q-avatar 
+          size="48px"
+          :color="reason.code === '111' ? 'blue-8' : (reason.requiresMaintenance ? 'red-8' : 'grey-3')" 
+          :text-color="reason.requiresMaintenance || reason.code === '111' ? 'white' : 'grey-9'"
+          :class="{ 'pulse-animation': reason.isSpecial }"
+        >
+          <q-icon :name="reason.code === '111' ? 'sync_alt' : (reason.requiresMaintenance ? 'engineering' : 'pause')" size="28px" />
+        </q-avatar>
+
+        <div class="column q-ml-md text-left">
+          <div class="text-subtitle1 text-weight-bold lh-tight" :class="reason.isSpecial ? 'text-dark' : 'text-grey-9'">
+            {{ reason.label }}
+          </div>
+          <div class="text-caption text-grey-6">Cód: {{ reason.code }}</div>
+        </div>
+      </div>
+    </q-btn>
+  </div>
                </div>
             </div>
         </q-card-section>
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isMaintenanceConfirmOpen" persistent>
-       <q-card class="bg-red-9 text-white" style="width: 500px; max-width: 95vw; border-radius: 20px;">
-          <q-card-section class="row items-center q-pa-md">
-             <q-avatar icon="warning" color="white" text-color="red-9" size="50px" />
-             <div class="text-h6 q-ml-md text-weight-bold">Parada Crítica Detectada</div>
-          </q-card-section>
-          
-          <q-card-section class="q-px-lg q-py-sm">
-             <p class="text-subtitle1">Motivo: <span class="text-weight-bolder text-yellow-3">"{{ currentPauseObj?.reasonLabel }}"</span>.</p>
-             <p class="text-body2 opacity-80">Este motivo geralmente requer intervenção técnica.</p>
-             <p class="text-h6 q-mt-md text-center">O que deseja fazer?</p>
-          </q-card-section>
-          
-          <q-card-actions align="center" class="q-pa-md q-gutter-md">
-             <q-btn push color="white" text-color="red-9" size="lg" class="col-grow" label="SÓ PAUSAR" @click="confirmPauseOnly" />
-             <q-btn push color="red-10" text-color="white" size="lg" class="col-grow" style="border: 2px solid white;" label="ABRIR O.M. (QUEBRADA)" @click="triggerCriticalBreakdown" />
-          </q-card-actions>
-       </q-card>
-    </q-dialog>
+    <q-dialog v-model="isMaintenanceConfirmOpen" persistent transition-show="slide-up" transition-hide="slide-down">
+  <q-card class="maintenance-card shadow-24">
+    <q-card-section class="bg-red-10 text-white row items-center q-py-lg">
+      <q-avatar icon="engineering" color="white" text-color="red-10" size="50px" class="q-mr-md shadow-3" />
+      <div class="column">
+        <div class="text-h5 text-weight-bolder uppercase letter-spacing-1">Registrar Quebra</div>
+        <div class="text-caption opacity-80">A máquina será bloqueada e uma O.M. será aberta.</div>
+      </div>
+      <q-space />
+      <q-btn icon="close" flat round dense v-close-popup @click="cancelMaintenanceSelection" />
+    </q-card-section>
+
+    <q-card-section class="q-pa-lg">
+      <div class="text-overline text-grey-7 q-mb-sm">Onde está o problema?</div>
+      <div class="row q-col-gutter-sm q-mb-lg">
+        <div v-for="opt in subReasonOptions" :key="opt.value" class="col-6 col-sm-4">
+          <q-btn 
+            flat 
+            bordered 
+            class="full-width sub-reason-btn" 
+            :class="{ 'sub-reason-active': maintenanceSubReason === opt.value }"
+            @click="maintenanceSubReason = opt.value"
+          >
+            <div class="column items-center">
+              <q-icon :name="opt.icon" size="24px" class="q-mb-xs" />
+              <div class="text-caption text-weight-bold">{{ opt.label }}</div>
+            </div>
+          </q-btn>
+        </div>
+      </div>
+
+      <div class="text-overline text-grey-7 q-mb-sm">Descreva o que aconteceu:</div>
+      <q-input
+        v-model="maintenanceNote"
+        filled
+        type="textarea"
+        placeholder="Ex: Mangueira de óleo estourou no eixo X..."
+        bg-color="grey-2"
+        rows="3"
+        class="text-subtitle1"
+      />
+    </q-card-section>
+
+    <q-card-actions align="between" class="q-px-lg q-pb-lg">
+      <q-btn 
+        flat 
+        label="CANCELAR" 
+        color="grey-7" 
+        size="lg" 
+        @click="cancelMaintenanceSelection" 
+      />
+      <q-btn 
+        push 
+        rounded
+        label="ABRIR O.M. AGORA" 
+        color="red-10" 
+        icon-right="send"
+        size="lg" 
+        class="q-px-xl text-weight-bolder" 
+        @click="triggerCriticalBreakdown" 
+      />
+    </q-card-actions>
+  </q-card>
+</q-dialog>
 
     <q-dialog v-model="isShiftChangeDialogOpen" persistent>
       <q-card class="q-pa-md text-center" style="width: 400px; border-radius: 16px;">
@@ -504,6 +564,15 @@ const { activeOrder } = storeToRefs(productionStore);
 const isShiftChangeDialogOpen = ref(false); // NOVO
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
+const maintenanceSubReason = ref('Mecânica'); // Padrão
+const maintenanceNote = ref('');
+const subReasonOptions = [
+  { label: 'Falha Mecânica', value: 'Mecânica', icon: 'settings' },
+  { label: 'Falha Elétrica', value: 'Elétrica', icon: 'bolt' },
+  { label: 'Hidráulica / Vazamento', value: 'Hidráulica', icon: 'water_drop' },
+  { label: 'Pneumática / Ar', value: 'Pneumática', icon: 'air' },
+  { label: 'Erro de Software / CNC', value: 'Software', icon: 'terminal' }
+];
 const customOsBackgroundImage = ref('/a.jpg');
 const opNumberToSend = computed(() => {
   if (!productionStore.activeOrder) return '';
@@ -578,6 +647,14 @@ function nextStepView() {
     if (activeOrder.value?.steps && viewedStepIndex.value < activeOrder.value.steps.length - 1) {
         viewedStepIndex.value++;
     }
+}
+
+function cancelMaintenanceSelection() {
+  isMaintenanceConfirmOpen.value = false;
+  maintenanceNote.value = '';
+  maintenanceSubReason.value = 'Mecânica';
+  currentPauseObj.value = null;
+  isStopDialogOpen.value = true; // Reabre a lista principal
 }
 
 function prevStepView() {
@@ -1012,7 +1089,7 @@ async function executeShiftChange(keepRunning: boolean) {
 // --- FUNÇÃO DE QUEBRA DE MÁQUINA (ABRIR O.M.) ---
 async function triggerCriticalBreakdown() {
     if (!currentPauseObj.value) return;
-    
+    const finalDesc = `[${maintenanceSubReason.value}] ${maintenanceNote.value}`.trim();
     isMaintenanceConfirmOpen.value = false;
     $q.loading.show({ 
         message: '🚨 Processando Quebra e Finalizando O.P...', 
@@ -1200,6 +1277,8 @@ async function finishPauseAndResume() {
     $q.loading.hide(); 
   }
 }
+
+
 
 function confirmFinishOp() {
   let badge = productionStore.currentOperatorBadge;
@@ -1514,7 +1593,91 @@ onUnmounted(() => {
 </style>
 
 <style scoped>
+.reason-card {
+  border-radius: 12px;
+  background: white;
+  transition: all 0.3s ease;
+  border: 1px solid #e0e0e0;
+  min-height: 85px;
+}
+
+.reason-card:hover {
+  background: #f5f5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* Destaque para os itens Especiais (Troca de Turno e Manutenção) */
+.special-active {
+  border: 2px solid #008C7A !important; /* Borda cor da marca */
+  background: #f0fdfa !important;
+}
+
+/* Animação de pulsação discreta no ícone sinalizado */
+.pulse-animation {
+  animation: pulse-shadow 2s infinite;
+}
+
+@keyframes pulse-shadow {
+  0% { box-shadow: 0 0 0 0 rgba(0, 140, 122, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 140, 122, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 140, 122, 0); }
+}
+
+.lh-tight {
+  line-height: 1.2;
+}
 .font-inter { font-family: 'Roboto', sans-serif; }
+.maintenance-dialog {
+  width: 550px; 
+  max-width: 95vw; 
+  border-radius: 24px; 
+  overflow: hidden;
+  background: #ffffff;
+}
+
+/* Pulsação do ícone de aviso para atrair atenção */
+.pulse-animation {
+  animation: pulse-red 2s infinite;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* Botão de confirmação com destaque */
+.q-btn--push.text-weight-bolder {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.maintenance-card {
+  width: 600px;
+  max-width: 95vw;
+  border-radius: 20px;
+}
+
+.sub-reason-btn {
+  border-radius: 12px;
+  height: 80px;
+  border: 1px solid #e0e0e0;
+  color: #616161;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.sub-reason-active {
+  background: #ffebee !important;
+  border: 2px solid #b71c1c !important;
+  color: #b71c1c !important;
+  transform: scale(1.03);
+}
+
+.letter-spacing-1 {
+  letter-spacing: 1px;
+}
 .font-monospace { font-family: 'Courier New', monospace; letter-spacing: -1px; }
 .lh-small { line-height: 1.1; }
 .col-grow { flex-grow: 1; }
