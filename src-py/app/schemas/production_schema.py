@@ -142,21 +142,32 @@ class AndonCreate(BaseModel):
 # 8. INTEGRAÇÃO SAP (APONTAMENTO)
 # ============================================================================
 class ProductionAppointmentCreate(BaseModel):
-    op_number: str
-    service_code: Optional[str] = ""  # <-- Altere para opcional com padrão vazio        # U_Servico
-    position: str
-    operation: str
-    operation_desc: str
-    part_description: Optional[str] = ""  # Vai para U_DescricaoServico
-    operator_name: Optional[str] = ""     # Vai para U_DescricaoOperador
-    operator_id: str           # Crachá
-    resource_code: str
-    resource_name: Optional[str] = ""# Recurso (ex: "4.02.01")
-    start_time: datetime
-    end_time: datetime
-    item_code: Optional[str] = "" 
-    stop_reason: Optional[str] = ""
-    stop_description: Optional[str] = None  # <--- ADICIONE ESTA LINHA
+    # Tornando campos opcionais com padrão "" para aceitar o payload de Parada
+    op_number: Optional[str] = ""          # U_NumeroDocumento
+    service_code: Optional[str] = ""       # U_Servico / U_Servico
+    position: Optional[str] = ""           # U_Posicao
+    operation: Optional[str] = ""          # U_Operacao
+    operation_desc: Optional[str] = ""     # U_DescricaoOperacao
+    
+    # Campos que você definiu como necessários para Parada
+    stop_reason: Optional[str] = ""        # MOTIVO DA PARADA
+    resource_code: str                     # RECURSO (Obrigatório em todos)
+    operator_id: str                       # OPERADOR (Obrigatório em todos)
+    start_time: datetime                   # DATA/HORA INI
+    end_time: datetime                     # DATA/HORA FIM
+    stop_description: Optional[str] = None # DESCRICAO DA PARADA
+    resource_name: Optional[str] = ""      # DESCRICAO DO RECURSO
+    operator_name: Optional[str] = ""      # NOME DO OPERADOR
+    
+    # Campos de contexto O.P. / O.S.
+    part_description: Optional[str] = ""   # DESCRICAO ITEM
+    item_code: Optional[str] = ""          # CODIGO ITEM
+    
+    # Controle Interno
+    vehicle_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 # ============================================================================
 # 9. LEITURA DE O.P. E ROTEIRO

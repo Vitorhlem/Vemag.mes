@@ -552,6 +552,7 @@ import { ANDON_OPTIONS } from 'src/data/andon-options';
 
 const router = useRouter();
 const $q = useQuasar();
+const isMaintenanceConfirmOpen = ref(false);
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
@@ -933,65 +934,84 @@ function handleSapPause(stopReason: SapStopReason) {
   }
 }
 async function applyNormalPause() {
-    isStopDialogOpen.value = false;
-    isMaintenanceConfirmOpen.value = false;
-    
-    $q.loading.show({ message: 'Enviando produção e registrando parada...' });
+  if (!currentPauseObj.value) return;
 
-    try {
-        const now = new Date();
-        const prodStart = statusStartTime.value;
-        const reason = currentPauseObj.value;
+  $q.loading.show({ message: 'Encerrando apontamento atual...' });
 
-        let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
-        const machineRes = productionStore.machineResource || '4.02.01';
+  try {
+    const now = new Date();
+    const prodStart = new Date(statusStartTime.value);
+    const order = productionStore.activeOrder;
 
-        // 1. FECHA PRODUÇÃO
-        if (activeOrder.value?.code) {
-            const prodPayload = {
-                op_number: String(opNumberToSend.value),
-                service_code: activeOrder.value.is_service ? activeOrder.value.part_code : '',
-                position: currentViewedStep.value?.seq?.toString().padStart(3, '0') || '010',
-                operation: '', // opcional aqui
-                operation_desc: '',
-                resource_code: machineRes,
-                operator_id: String(badge),
-                start_time: prodStart.toISOString(),
-                end_time: now.toISOString(),
-                stop_reason: '', 
-                stop_description: ''
-            };
-            await ProductionService.sendAppointment(prodPayload);
-        }
+    // Dados de Identidade
+    const badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
+    const operatorName = getOperatorName(String(badge || ''));
+    const machineRes = productionStore.machineResource || '4.02.01';
+    const machineName = productionStore.machineName || '';
 
-        // 2. REGISTRA PARADA
-        const stopPayload = {
-            op_number: '',
-            resource_code: machineRes,
-            operator_id: String(badge),
-            start_time: now.toISOString(),
-            end_time: now.toISOString(),
-            stop_reason: reason?.reasonCode || '100',
-            stop_description: reason?.reasonLabel || 'Pausa'
+    // Dados de Roteiro
+    const position = currentViewedStep.value?.seq?.toString().padStart(3, '0') || '010';
+    const sapData = getSapOperation(position);
+
+    if (order && order.code) {
+      let payload = {};
+
+      if (order.is_service) {
+        // --- PAYLOAD ESPECÍFICO PARA O.S. ---
+        payload = {
+          op_number: String(opNumberToSend.value),
+          item_code: order.part_code || '', // CODIGO ITEM
+          position: position,              // ETAPA
+          operation: sapData.code || '',    // OPERACAO
+          resource_code: machineRes,        // RECURSO
+          operator_id: String(badge || '0'),// OPERADOR
+          start_time: prodStart.toISOString(), // DATA/HORA INI
+          end_time: now.toISOString(),         // DATA/HORA FIM
+          part_description: order.part_name || '', // DESCRICAO ITEM
+          operation_desc: sapData.description || '', // DESCRICAO DA OPERACAO
+          resource_name: machineName,       // DESCRICAO DO RECURSO
+          operator_name: operatorName,      // NOME OPERADOR
+          vehicle_id: productionStore.machineId // Interno para o BD
         };
-        await ProductionService.sendAppointment(stopPayload);
+      } else {
+        // --- PAYLOAD ESPECÍFICO PARA O.P. ---
+        payload = {
+          op_number: String(opNumberToSend.value),
+          position: position,              // ETAPA
+          operation: sapData.code || '',    // OPERACAO
+          resource_code: machineRes,        // RECURSO
+          operator_id: String(badge || '0'),// OPERADOR
+          start_time: prodStart.toISOString(), // DATA/HORA INI
+          end_time: now.toISOString(),         // DATA/HORA FIM
+          part_description: order.part_name || '', // DESCRICAO ITEM
+          operation_desc: sapData.description || '', // DESCRICAO DA OPERACAO
+          resource_name: machineName,       // DESCRICAO DO RECURSO
+          operator_name: operatorName,      // NOME OPERADOR
+          vehicle_id: productionStore.machineId // Interno para o BD
+        };
+      }
 
-        // Estado local
-        isPaused.value = true;
-        if (activeOrder.value) activeOrder.value.status = 'PAUSED';
-        await productionStore.setMachineStatus('STOPPED'); 
-        statusStartTime.value = new Date(); // Reinicia cronômetro para contar tempo da PAUSA
-
-        $q.notify({ type: 'warning', message: 'Produção salva. Máquina em Pausa.' });
-    } catch (error) {
-        console.error("Erro ao pausar:", error);
-    } finally {
-        $q.loading.hide();
+      console.log(`📤 Enviando fechamento de ${order.is_service ? 'O.S' : 'O.P'}:`, payload);
+      await ProductionService.sendAppointment(payload);
     }
-}
 
-function confirmPauseOnly() {
-    applyNormalPause();
+    // Atualiza estados locais (A parada começa a contar agora)
+    isPaused.value = true;
+    if (activeOrder.value) activeOrder.value.status = 'PAUSED';
+    await productionStore.setMachineStatus('STOPPED');
+    
+    // IMPORTANTE: statusStartTime agora marca o INÍCIO da parada
+    statusStartTime.value = new Date(); 
+
+    $q.notify({ type: 'warning', message: 'Produção encerrada. Máquina em Pausa.' });
+    isStopDialogOpen.value = false;
+
+  } catch (error) {
+    console.error("Erro ao pausar:", error);
+    $q.notify({ type: 'negative', message: 'Erro ao comunicar com o servidor.' });
+  } finally {
+    $q.loading.hide();
+  }
 }
 
 
@@ -1203,72 +1223,53 @@ async function triggerCriticalBreakdown() {
 async function finishPauseAndResume() {
   if (!currentPauseObj.value) return;
   
-  $q.loading.show({ message: 'Enviando parada e retomando...' });
+  $q.loading.show({ message: 'Registrando tempo de parada...' });
   
   try {
-    const endTime = new Date(); // Hora da retomada
-    const pauseStart = currentPauseObj.value.startTime; // Hora que a pausa começou
+    const now = new Date();
+    const pauseStart = new Date(statusStartTime.value); // Quando a parada começou
     
-    // --- 1. DADOS PARA O APONTAMENTO DE PARADA ---
-    let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
-    if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') badge = authStore.user.employee_id;
-    const operatorName = getOperatorName(String(badge).trim());
-    const machineRes = productionStore.machineResource || '4.02.01'; 
-    let resourceDescription = '';
-    const foundEntry = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineRes);
-    if (foundEntry) resourceDescription = foundEntry.description; 
+    const badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
+    const operatorName = getOperatorName(String(badge || ''));
+    const machineRes = productionStore.machineResource || '4.02.01';
+    const machineName = productionStore.machineName || '';
 
+    // --- PAYLOAD ESPECÍFICO PARA PARADA (O.P E O.S) ---
     const stopPayload = {
-      op_number: '', // Parada não tem OP no apontamento de Recurso (geralmente)
-      position: '', operation: '', operation_desc: '', 
-      part_description: '', item_code: '', service_code: '',
-      
-      resource_code: machineRes, 
-      resource_name: resourceDescription, 
-      operator_name: operatorName || '', 
-      operator_id: String(badge),
-      vehicle_id: productionStore.machineId || 0,
-      
-      start_time: pauseStart.toISOString(), 
-      end_time: endTime.toISOString(),
-      
-      stop_reason: currentPauseObj.value.reasonCode, 
-      stop_description: currentPauseObj.value.reasonLabel
+      stop_reason: String(currentPauseObj.value.reasonCode), // MOTIVO DA PARADA
+      resource_code: machineRes,                             // RECURSO
+      operator_id: String(badge || '0'),                    // OPERADOR
+      start_time: pauseStart.toISOString(),                 // DATA/HORA INI
+      end_time: now.toISOString(),                          // DATA/HORA FIM
+      stop_description: currentPauseObj.value.reasonLabel,   // DESCRICAO DA PARADA
+      resource_name: machineName,                           // DESCRICAO DO RECURSO
+      operator_name: operatorName,                          // NOME DO OPERADOR
+      vehicle_id: productionStore.machineId                 // Interno
     };
 
-    // --- 2. ENVIA O APONTAMENTO DE PARADA PRO SAP ---
-    console.log("📤 [RETOMADA] Enviando apontamento de parada:", stopPayload);
+    console.log("📤 Enviando Apontamento de Parada:", stopPayload);
     await ProductionService.sendAppointment(stopPayload);
 
-    // --- 3. REABRE A PRODUÇÃO (LOCAL E BACKEND) ---
-    // Envia evento para o backend saber que voltou a rodar
+    // Reabre a nova fatia de produção
     await productionStore.sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' });
     await productionStore.setMachineStatus('RUNNING'); 
 
-    // Reseta visual
     isPaused.value = false;
-    currentPauseObj.value = null;
-    if (productionStore.activeOrder) {
-        productionStore.activeOrder.status = 'RUNNING';
-    }
+    currentPauseObj.value = null; 
+    if (activeOrder.value) activeOrder.value.status = 'RUNNING';
     
-    // Zera o relógio. O tempo começa a contar a partir de AGORA para a nova fatia de produção.
+    // Zera o cronômetro para a NOVA produção
     statusStartTime.value = new Date(); 
     
-    $q.notify({ type: 'positive', message: 'Parada registrada. Produção Iniciada!', icon: 'play_circle' });
+    $q.notify({ type: 'positive', message: 'Parada registrada. Produção retomada!' });
 
   } catch (error) {
     console.error("Erro ao retomar:", error);
-    $q.notify({ type: 'negative', message: 'Erro ao enviar parada para o SAP.' });
-    // Destrava visualmente
-    isPaused.value = false;
-    statusStartTime.value = new Date();
-  } finally { 
-    $q.loading.hide(); 
+    $q.notify({ type: 'negative', message: 'Erro ao registrar fim da parada.' });
+  } finally {
+    $q.loading.hide();
   }
 }
-
-
 
 function confirmFinishOp() {
   let badge = productionStore.currentOperatorBadge;
