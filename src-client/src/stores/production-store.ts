@@ -68,7 +68,7 @@ export const useProductionStore = defineStore('production', () => {
   
   // --- ESTADO ---
   const machinesList = ref<Machine[]>([]);
-  const machineId = ref<number | null>(null);
+  const machineId = ref<number | null>(Number(sessionStorage.getItem('TRU_MACHINE_ID')) || null);
   const machineResource = ref<string>('');
   const currentMachine = ref<Machine | null>(null);
   const machineName = ref<string>('Não Configurado');
@@ -201,7 +201,7 @@ export const useProductionStore = defineStore('production', () => {
     console.log(`[STORE] Máquina Configurada: ${machineName.value} | Recurso SAP: ${machineResource.value}`);
   }
   async function loadKioskConfig() {
-    const savedId = localStorage.getItem('TRU_MACHINE_ID');
+    const savedId = sessionStorage.getItem('TRU_MACHINE_ID');
     if (savedId) {
       machineId.value = Number(savedId);
       try {
@@ -246,10 +246,16 @@ export const useProductionStore = defineStore('production', () => {
     try {
       const { data } = await api.get<Machine>(`/vehicles/${id}`);
       _setMachineData(data);
-      localStorage.setItem('TRU_MACHINE_ID', String(data.id));
-      Notify.create({ type: 'positive', message: 'Terminal Configurado!' });
-    } catch { Notify.create({ type: 'negative', message: 'Erro ao configurar terminal.' }); }
-  }
+      
+      // MUDANÇA AQUI: sessionStorage isola por aba
+      sessionStorage.setItem('TRU_MACHINE_ID', String(data.id)); 
+      // localStorage.setItem('TRU_MACHINE_ID', String(data.id)); // REMOVA ISSO SE EXISTIR
+      
+      Notify.create({ type: 'positive', message: 'Terminal Configurado (Sessão)!' });
+    } catch { 
+      Notify.create({ type: 'negative', message: 'Erro ao configurar terminal.' }); 
+    }
+}
 
   async function setMachineStatus(status: string) {
       if (!machineId.value) return;

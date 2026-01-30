@@ -139,64 +139,58 @@
               </div>
 
               <div class="col-auto bg-grey-2 q-px-md q-py-sm border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
-    <div class="row items-center">
-        <div class="text-subtitle1 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
-        <div class="text-h6 text-weight-bold ellipsis" style="line-height: 1.1;">{{ productionStore.currentActiveStep.name }}</div>
-    </div>
-    <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption text-weight-bold" />
-</div>
+                <div class="row items-center">
+                    <div class="text-subtitle1 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
+                    <div class="text-h6 text-weight-bold ellipsis" style="line-height: 1.1;">{{ productionStore.currentActiveStep.name }}</div>
+                </div>
+                <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption text-weight-bold" />
+              </div>
 
-<div class="text-dark bg-grey-1 q-pa-md rounded-borders" 
-    style="white-space: pre-wrap; font-size: 1.3rem; line-height: 1.6; border: 2px dashed #008C7A; min-height: 250px; font-family: monospace;">   
-   <div class="text-weight-bold text-primary q-mb-sm">
-      <q-icon name="menu_book" size="sm" /> INSTRUÇÕES DE TRABALHO:
-   </div>
+              <div class="col scroll bg-grey-1 q-pa-md relative-position">
+                  <div class="bg-white q-pa-lg rounded-borders shadow-1" style="border-left: 5px solid #008C7A; min-height: 100%;">   
+                     
+                     <div class="row items-center q-mb-md border-bottom-light q-pb-sm">
+                        <q-icon name="menu_book" size="sm" class="text-primary q-mr-sm" /> 
+                        <div class="text-subtitle1 text-weight-bold text-primary letter-spacing-1">INSTRUÇÕES DE TRABALHO</div>
+                     </div>
 
-   {{ productionStore.currentActiveStep?.description || 'Carregando instruções técnicas do SAP...' }}
-</div>
-
-<div class="row justify-between items-center q-mt-auto q-pt-md">
-   <div class="text-caption text-grey-7">
-      <q-icon name="info" /> 
-      <strong class="text-dark">{{}}</strong>
-   </div>
-   
-   <q-chip outline color="primary" icon="timer">
-      Tempo Est: <strong>{{ productionStore.currentActiveStep?.timeEst || 0 }}h</strong>
-   </q-chip>
-</div>
+                     <div class="text-body1 text-grey-9 q-pl-sm" style="white-space: pre-wrap; line-height: 1.6; font-family: 'Roboto', sans-serif;">{{ productionStore.currentActiveStep?.description || 'Nenhuma instrução disponível para esta etapa.' }}</div>
+                  </div>
+              </div>
 
               <q-separator />
-              
-              <q-card-actions align="between" class="col-auto q-pa-sm bg-grey-1">
-                  <div class="row q-gutter-x-sm col-8">
-                    <q-btn 
-                       push color="white" text-color="primary" 
-                       icon="arrow_back" label="ANTERIOR" 
-                       size="md" class="col-grow shadow-1"
-                       @click="prevStepView" 
-                       :disable="viewedStepIndex === 0" 
-                    />
-                    <q-btn 
-                       push color="primary" text-color="white" 
-                       icon-right="arrow_forward" label="PRÓXIMO" 
-                       size="md" class="col-grow shadow-2"
-                       @click="nextStepView" 
-                       :disable="!productionStore.activeOrder.steps || viewedStepIndex === productionStore.activeOrder.steps.length - 1" 
-                    />
+
+              <q-card-actions class="col-auto q-pa-md bg-white row no-wrap items-center justify-between">
+                  
+                  <div style="width: 110px;"></div>
+
+                  <div class="column items-center bg-grey-2 q-px-xl q-py-sm rounded-borders">
+                      <div class="text-caption text-grey-7 text-uppercase text-weight-bold letter-spacing-1" style="font-size: 0.7rem;">
+                          Tempo Estimado
+                      </div>
+                      <div class="row items-center text-primary q-mt-xs">
+                          <q-icon name="timer" size="28px" class="q-mr-sm" />
+                          <div class="text-h4 text-weight-bolder font-monospace">
+                              {{ productionStore.currentActiveStep?.timeEst || 0 }}<span class="text-h6 text-grey-6">h</span>
+                          </div>
+                      </div>
                   </div>
 
-                  <q-btn 
-                    flat color="negative" icon="delete_outline" 
-                    label="Refugo" 
-                    size="md"
-                    class="bg-red-1"
-                    @click="productionStore.addProduction(1, true)"
-                  />
+                  <div style="width: 110px;" class="row justify-end">
+                      <q-btn 
+                        flat 
+                        color="negative" 
+                        icon="delete_outline" 
+                        label="Refugo" 
+                        class="bg-red-1 hover-scale"
+                        padding="sm lg"
+                        @click="productionStore.addProduction(1, true)"
+                      />
+                  </div>
+
               </q-card-actions>
             </q-card>
           </div>
-
           <div class="col-12 col-md-4 column no-wrap full-height justify-between">
             
             <q-card class="col-auto bg-white text-center q-py-sm relative-position shadow-3" style="border-radius: 16px;">
@@ -243,7 +237,7 @@
   <div class="column items-center justify-center">
       <q-icon :name="productionStore.isInSetup ? 'check_circle' : 'build'" size="28px" class="q-mb-xs" />
       
-      <div class="text-subtitle1 text-weight-bold">
+      <div class="text-subtitle1text-weight-bold">
           {{ productionStore.isInSetup ? 'FIM SETUP' : 'SETUP' }}
       </div>
 

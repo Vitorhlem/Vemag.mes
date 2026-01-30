@@ -192,7 +192,7 @@ class SAPIntegrationService:
                                 "name": s.get('U_Descr'),      
                                 "description": instr_formatada,  # ✅ AGORA VAI O TEXTO CERTO DA LINHA
                                 "status": "PENDING",
-                                "timeEst": float(s.get('U_TempoMaq') or 0)
+                                "timeEst": float(s.get('U_TMMOPU') or 0)
                             })
                         print(f"✅ [LOG] OP {op_id}: {len(steps)} operações carregadas.")
                     else:
@@ -274,7 +274,7 @@ class SAPIntegrationService:
                                                     "name": s.get('U_Descr'),
                                                     "description": instr,
                                                     "status": "PENDING",
-                                                    "timeEst": float(s.get('U_TempoMaq') or 0)
+                                                    "timeEst": float(s.get('U_TMMOPU') or 0)
                                                 })
 
                                 # Retorna o objeto formatado com o nome correto
@@ -350,7 +350,7 @@ class SAPIntegrationService:
                             "resource": etapa.get('U_Operacao', ''),  # Chave para o matchmaker do Front
                             "name": etapa.get('U_Descr', 'Etapa sem nome'),
                             "description": instr_formatada,           # ✅ AGORA MAPEADO CORRETAMENTE
-                            "timeEst": float(etapa.get('U_TempoMaq') or 0),
+                            "timeEst": float(etapa.get('U_TMMOPU') or 0),
                             "status": "PENDING"
                         })
                     
@@ -532,7 +532,7 @@ class SAPIntegrationService:
                                         "name": s.get('U_Descr'),
                                         "description": instr,
                                         "status": "PENDING",
-                                        "timeEst": float(s.get('U_TempoMaq') or 0)
+                                        "timeEst": float(s.get('U_TMMOPU') or 0)
                                     })
 
                     # Adiciona à lista final

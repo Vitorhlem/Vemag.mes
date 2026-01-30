@@ -89,12 +89,21 @@
                 :disable="!productionStore.isKioskConfigured"
                 style="border-radius: 16px;"
               >
+              
                 <div class="row items-center no-wrap">
                     <q-icon name="qr_code_scanner" size="36px" class="q-mr-md" />
                     <div class="text-weight-bold">LER CRACHÁ</div>
                 </div>
                 <div class="shine-effect"></div>
               </q-btn>
+              <q-btn 
+  flat 
+  color="white" 
+  icon="keyboard" 
+  label="Digitar Crachá (Dev/Manual)" 
+  class="q-mt-sm full-width"
+  @click="openManualLogin"
+/>
               
               <q-btn flat color="grey-6" label="Configuração / Supervisor" size="sm" class="q-mt-sm opacity-50 hover-opacity-100" @click="openConfigDialog" />
             </div>
@@ -108,6 +117,35 @@
         </q-card>
       </q-page>
     </q-page-container>
+    <q-dialog v-model="isManualLoginOpen" backdrop-filter="blur(4px)">
+  <q-card style="min-width: 350px; border-radius: 16px;">
+    <q-card-section class="bg-vemag-green text-white row items-center">
+      <div class="text-h6">Acesso Manual</div>
+      <q-space />
+      <q-btn icon="close" flat round dense v-close-popup />
+    </q-card-section>
+
+    <q-card-section class="q-pt-lg">
+      <q-input 
+        outlined 
+        v-model="manualBadgeInput" 
+        label="Número do Crachá/Matrícula" 
+        autofocus
+        @keyup.enter="submitManualLogin"
+        color="teal"
+      >
+        <template v-slot:prepend>
+          <q-icon name="badge" />
+        </template>
+      </q-input>
+    </q-card-section>
+
+    <q-card-actions align="right" class="text-primary">
+      <q-btn flat label="Cancelar" color="grey" v-close-popup />
+      <q-btn push label="Entrar" color="teal-9" @click="submitManualLogin" />
+    </q-card-actions>
+  </q-card>
+</q-dialog>
 
     <q-dialog v-model="isConfigOpen" backdrop-filter="blur(8px)">
       <q-card style="width: 450px; border-radius: 16px;" class="shadow-24">
@@ -435,15 +473,44 @@ async function switchCamera() {
     await startScanner();
 }
 
+
+const isManualLoginOpen = ref(false);
+const manualBadgeInput = ref('');
+
+function openManualLogin() {
+  manualBadgeInput.value = '';
+  isManualLoginOpen.value = true;
+}
+
+async function submitManualLogin() {
+  if (!manualBadgeInput.value || manualBadgeInput.value.length < 3) {
+    $q.notify({ type: 'warning', message: 'Digite um código válido.' });
+    return;
+  }
+  
+  // Fecha o diálogo antes de tentar logar para evitar conflitos visuais
+  isManualLoginOpen.value = false;
+  
+  // Reutiliza a função de login existente
+  await handleLogin(manualBadgeInput.value);
+}
+
 // --- LEITOR USB (TECLADO) ---
 let keyBuffer = '';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let keyTimeout: any = null;
 
 function handleKeydown(event: KeyboardEvent) {
+    // 1. CORREÇÃO: Ignora se o foco estiver em um campo de texto (como a senha do supervisor)
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return; 
+    }
+
     if (isMaintenanceMode.value) return;
 
     if (event.key === 'Enter') {
+        // Só processa se tiver acumulado caracteres suficientes (evita Enter acidental)
         if (keyBuffer.length > 2) {
             const code = keyBuffer;
             keyBuffer = ''; 
@@ -451,10 +518,12 @@ function handleKeydown(event: KeyboardEvent) {
         }
         keyBuffer = '';
     } else {
+        // Filtra teclas de controle para não sujar o buffer
         if (event.key.length === 1) {
             keyBuffer += event.key;
             clearTimeout(keyTimeout);
-            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000);
+            // Zera o buffer se demorar muito (simula a velocidade de um scanner)
+            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000); // Aumentei um pouco o timeout por segurança
         }
     }
 }
