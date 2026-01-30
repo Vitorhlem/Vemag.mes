@@ -144,38 +144,84 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isMaintenanceDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
-       <q-card class="bg-red-50 text-dark">
-          <q-toolbar class="bg-red-10 text-white">
-             <q-icon name="report_problem" size="30px" class="q-mr-md" />
-             <q-toolbar-title class="text-h6 text-weight-bold">Abertura de O.M. - Corretiva</q-toolbar-title>
-             <q-btn flat round icon="close" size="lg" v-close-popup />
-          </q-toolbar>
-          
-          <q-card-section class="q-pa-lg column flex-center h-100">
-             <div class="full-width" style="max-width: 600px;">
-                 <div class="text-h6 text-grey-8 q-mb-xs">Equipamento</div>
-                 <div class="text-h4 text-weight-bold text-dark q-mb-lg">{{ productionStore.machineName }}</div>
-                 
-                 <div class="text-subtitle1 text-grey-8 q-mb-xs">Descrição do Problema</div>
-                 <q-input 
-                    v-model="omDescription" 
-                    type="textarea" 
-                    outlined 
-                    rows="5" 
-                    placeholder="Descreva o detalhe da quebra aqui..." 
-                    class="text-body1 bg-white shadow-1"
-                    autofocus 
-                 />
-                 
-                 <div class="row q-mt-lg q-gutter-md">
-                     <q-btn flat label="Cancelar" color="grey-8" size="lg" class="col" v-close-popup />
-                     <q-btn push color="red-10" label="CONFIRMAR" icon="send" size="lg" class="col shadow-5" :loading="isLoading" @click="submitMaintenance" :disable="!omDescription" />
-                 </div>
-             </div>
-          </q-card-section>
-       </q-card>
-    </q-dialog>
+    <q-dialog v-model="isMaintenanceDialogOpen" persistent transition-show="slide-up" transition-hide="slide-down">
+  <q-card class="maintenance-card shadow-24 bg-white text-dark">
+    <q-card-section class="bg-red-10 text-white row items-center q-py-lg">
+      <q-avatar icon="engineering" color="white" text-color="red-10" size="50px" class="q-mr-md shadow-3" />
+      <div class="column">
+        <div class="text-h5 text-weight-bolder uppercase letter-spacing-1">Solicitar Técnico</div>
+        <div class="text-caption opacity-80">Informe o problema para agilizar o reparo.</div>
+      </div>
+      <q-space />
+      <q-btn icon="close" flat round dense v-close-popup />
+    </q-card-section>
+
+    <q-card-section class="q-pa-lg">
+  <div class="text-overline text-grey-7 q-mb-sm">Onde está o problema?</div>
+  <div class="row q-col-gutter-sm q-mb-lg">
+    <div v-for="opt in subReasonOptions" :key="opt.value" class="col-6 col-sm-4">
+      <q-btn 
+        flat 
+        bordered 
+        class="full-width sub-reason-btn" 
+        :class="{ 'sub-reason-active': maintenanceSubReason === opt.value }"
+        @click="maintenanceSubReason = opt.value"
+      >
+        <div class="column items-center">
+          <q-icon :name="opt.icon" size="24px" class="q-mb-xs" />
+          <div class="text-caption text-weight-bold">{{ opt.label }}</div>
+        </div>
+      </q-btn>
+    </div>
+  </div>
+
+  <div class="bg-grey-2 q-pa-md rounded-borders q-mb-md border-left-info">
+      <div class="row items-center q-mb-xs">
+          <q-icon name="person" size="xs" class="text-grey-7 q-mr-xs" />
+          <span class="text-caption text-weight-bold text-grey-8">Solicitante:</span>
+          <span class="text-caption q-ml-xs">{{ maintenanceOperatorName }}</span>
+      </div>
+      <div class="row items-center">
+          <q-icon name="event" size="xs" class="text-grey-7 q-mr-xs" />
+          <span class="text-caption text-weight-bold text-grey-8">Data/Hora:</span>
+          <span class="text-caption q-ml-xs">{{ maintenanceTime }}</span>
+      </div>
+  </div>
+
+  <div class="text-overline text-grey-7 q-mb-sm">Detalhes da Ocorrência:</div>
+  <q-input
+    v-model="maintenanceNote"
+    filled
+    type="textarea"
+    placeholder="Descreva o defeito aqui..."
+    bg-color="white"
+    rows="3"
+    class="text-subtitle1 shadow-1"
+  />
+</q-card-section>
+
+    <q-card-actions align="between" class="q-px-lg q-pb-lg">
+      <q-btn 
+        flat 
+        label="CANCELAR" 
+        color="grey-7" 
+        size="lg" 
+        @click="cancelMaintenance" 
+      />
+      <q-btn 
+        push 
+        rounded
+        :loading="isLoading"
+        label="CONFIRMAR CHAMADO" 
+        color="red-10" 
+        icon-right="send"
+        size="lg" 
+        class="q-px-xl text-weight-bolder" 
+        @click="submitMaintenance" 
+      />
+    </q-card-actions>
+  </q-card>
+</q-dialog>
 
     <q-dialog v-model="showScanner" maximized transition-show="slide-up" transition-hide="slide-down">
       <q-card class="bg-black text-white column">
@@ -217,6 +263,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useProductionStore } from 'stores/production-store';
 import { useQuasar } from 'quasar';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { useAuthStore } from 'stores/auth-store'; // Se ainda não tiver
+import { getOperatorName } from 'src/data/operators';
 
 const router = useRouter();
 const route = useRoute();
@@ -229,9 +277,19 @@ const isLoadingList = ref(false);
 const isConfigOpen = ref(false);
 const adminPassword = ref('');
 const selectedMachineOption = ref<number | null>(null);
-
+const authStore = useAuthStore();
 const isMaintenanceDialogOpen = ref(false);
-const omDescription = ref('');
+const maintenanceSubReason = ref('Mecânica');
+const maintenanceOperatorName = ref(''); // Nome do solicitante (Fixo)
+const maintenanceTime = ref(''); // Hora da abertura (Fixa)
+const maintenanceNote = ref('');
+const subReasonOptions = [
+  { label: 'Falha Mecânica', value: 'Mecânica', icon: 'settings' },
+  { label: 'Falha Elétrica', value: 'Elétrica', icon: 'bolt' },
+  { label: 'Hidráulica / Vazamento', value: 'Hidráulica', icon: 'water_drop' },
+  { label: 'Pneumática / Ar', value: 'Pneumática', icon: 'air' },
+  { label: 'Erro de Software / CNC', value: 'Software', icon: 'terminal' }
+];
 let pollingTimer: ReturnType<typeof setInterval>;
 
 const forcedMaintenance = ref(false); // Estado local para forçar visualmente
@@ -448,20 +506,72 @@ async function saveConfig() {
 
 // --- MANUTENÇÃO (ABRIR O.M.) ---
 function openMaintenanceDialog() {
-    const now = new Date().toLocaleString('pt-BR');
-    omDescription.value = `Parada reportada em ${now}.\nMotivo: Falha no equipamento detectada pelo operador.`;
+    // 1. TENTA PEGAR DA URL (Prioridade: Quem acabou de reportar a quebra)
+    let badge = route.query.last_operator;
+
+    // 2. Se não tiver na URL, tenta da store (Operador ativo no momento)
+    if (!badge) {
+        badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
+    }
+    
+    // 3. Se ainda não tiver, tenta o usuário do sistema (Auth)
+    if (!badge && authStore.user?.employee_id) {
+        badge = authStore.user.employee_id;
+    }
+    
+    // --- Resolução do Nome ---
+    let displayName = '';
+    
+    if (badge) {
+        // Tenta converter o crachá em nome
+        const nameFromList = getOperatorName(String(badge));
+        
+        // Se achou o nome, usa. Se não, mostra o crachá.
+        displayName = nameFromList || `Crachá: ${badge}`;
+    }
+    
+    // Define o valor final
+    maintenanceOperatorName.value = displayName || 'Operador não identificado';
+    
+    // Configurações restantes
+    maintenanceTime.value = new Date().toLocaleString('pt-BR');
+    maintenanceSubReason.value = 'Mecânica';
+    maintenanceNote.value = '';
+    
     isMaintenanceDialogOpen.value = true;
+}
+
+function cancelMaintenance() {
+    isMaintenanceDialogOpen.value = false;
+    maintenanceNote.value = '';
 }
 
 async function submitMaintenance() {
     isLoading.value = true;
-    await productionStore.createMaintenanceOrder(omDescription.value);
-    isMaintenanceDialogOpen.value = false;
-    omDescription.value = '';
-    isLoading.value = false;
-    $q.notify({ type: 'positive', message: 'O.M. Aberta com sucesso! Aguarde o técnico.' });
-}
+    
+    // Monta um relatório estruturado para o SAP / Equipe de Manutenção
+    const finalDescription = `
+[SOLICITAÇÃO DE MANUTENÇÃO]
+👤 Solicitante: ${maintenanceOperatorName.value}
+📅 Abertura: ${maintenanceTime.value}
+⚠️ Categoria: ${maintenanceSubReason.value}
+-----------------------------------
+📝 Relato: ${maintenanceNote.value || 'Sem detalhes adicionais.'}
+`.trim();
 
+    try {
+        await productionStore.createMaintenanceOrder(finalDescription);
+        
+        isMaintenanceDialogOpen.value = false;
+        maintenanceNote.value = '';
+        $q.notify({ type: 'positive', icon: 'check_circle', message: 'O.M. Enviada com sucesso!' });
+    } catch (e) {
+        console.error(e);
+        $q.notify({ type: 'negative', message: 'Erro ao criar O.M.' });
+    } finally {
+        isLoading.value = false;
+    }
+}
 async function executePolling() {
     // Se por acaso ainda for chamado com scanner aberto, aborta
     if (showScanner.value) return; 
@@ -591,6 +701,34 @@ function unlockMachine() {
     box-shadow: 0 0 8px #008C7A;
     animation: scanMove 2s infinite linear;
 }
+.maintenance-card {
+  width: 600px;
+  max-width: 95vw;
+  border-radius: 20px;
+}
+
+.border-left-info {
+  border-left: 4px solid #008C7A; /* Cor Vemag ou Azul Info */
+}
+
+.sub-reason-btn {
+  border-radius: 12px;
+  height: 80px;
+  border: 1px solid #e0e0e0;
+  color: #616161;
+  background: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.sub-reason-active {
+  background: #ffebee !important;
+  border: 2px solid #b71c1c !important;
+  color: #b71c1c !important;
+  transform: scale(1.03);
+}
+
+.letter-spacing-1 { letter-spacing: 1px; }
+.opacity-80 { opacity: 0.8; }
 
 /* SHINE EFFECT */
 .shine-effect {

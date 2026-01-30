@@ -564,15 +564,6 @@ const { activeOrder } = storeToRefs(productionStore);
 const isShiftChangeDialogOpen = ref(false); // NOVO
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
-const maintenanceSubReason = ref('Mecânica'); // Padrão
-const maintenanceNote = ref('');
-const subReasonOptions = [
-  { label: 'Falha Mecânica', value: 'Mecânica', icon: 'settings' },
-  { label: 'Falha Elétrica', value: 'Elétrica', icon: 'bolt' },
-  { label: 'Hidráulica / Vazamento', value: 'Hidráulica', icon: 'water_drop' },
-  { label: 'Pneumática / Ar', value: 'Pneumática', icon: 'air' },
-  { label: 'Erro de Software / CNC', value: 'Software', icon: 'terminal' }
-];
 const customOsBackgroundImage = ref('/a.jpg');
 const opNumberToSend = computed(() => {
   if (!productionStore.activeOrder) return '';
@@ -601,7 +592,6 @@ const currentPauseObj = ref<{
 
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
-const isMaintenanceConfirmOpen = ref(false); // NOVO DIALOGO
 const isDrawingDialogOpen = ref(false);
 const drawingUrl = ref(''); // NOVA URL DINÂMICA
 const showOpList = ref(false);
@@ -916,25 +906,35 @@ async function handleMainButtonClick() {
 // --- LÓGICA DE SELEÇÃO DE MOTIVO (CRÍTICO) ---
 function handleSapPause(stopReason: SapStopReason) {
   const now = new Date();
-  
-  currentPauseObj.value = {
-    startTime: now,
-    reasonCode: stopReason.code,
-    reasonLabel: stopReason.label
+  currentPauseObj.value = { 
+    startTime: now, 
+    reasonCode: stopReason.code, 
+    reasonLabel: stopReason.label 
   };
 
-  // 1. DETECÇÃO DE TROCA DE TURNO
+  // 1. Troca de Turno (Mantém igual)
   if (stopReason.label.toLowerCase().includes('troca de turno') || stopReason.code === '111') {
       isStopDialogOpen.value = false;
-      isShiftChangeDialogOpen.value = true; // Abre Dialog Pergunta
+      isShiftChangeDialogOpen.value = true; 
       return;
   }
 
-  // 2. VERIFICAÇÃO CRÍTICA (QUEBRA)
+  // 2. MANUTENÇÃO (Alterado: Confirmação Simples)
   if (stopReason.requiresMaintenance) {
       isStopDialogOpen.value = false;
-      isMaintenanceConfirmOpen.value = true; 
+      
+      $q.dialog({
+        title: 'Confirmar Manutenção',
+        message: 'A máquina será parada e você será redirecionado para abrir a O.M. Deseja continuar?',
+        cancel: true,
+        persistent: true,
+        ok: { label: 'Sim, Parar', color: 'red-10', push: true }
+      }).onOk(() => {
+        // Chama a função existente (com lógica nova)
+        triggerCriticalBreakdown();
+      });
   } else {
+      // Pausa normal
       applyNormalPause();
   }
 }
@@ -1089,10 +1089,12 @@ async function executeShiftChange(keepRunning: boolean) {
 // --- FUNÇÃO DE QUEBRA DE MÁQUINA (ABRIR O.M.) ---
 async function triggerCriticalBreakdown() {
     if (!currentPauseObj.value) return;
-    const finalDesc = `[${maintenanceSubReason.value}] ${maintenanceNote.value}`.trim();
-    isMaintenanceConfirmOpen.value = false;
+    
+    // NÃO usamos mais maintenanceNote ou SubReason aqui. 
+    // O detalhe será preenchido no Kiosk.
+    
     $q.loading.show({ 
-        message: '🚨 Processando Quebra e Finalizando O.P...', 
+        message: '🚨 Parando Máquina no SAP...', 
         backgroundColor: 'red-10'
     });
 
@@ -1114,16 +1116,13 @@ async function triggerCriticalBreakdown() {
         if (foundEntry) resourceDescription = foundEntry.description;
 
         // =================================================================
-        // PASSO 1: ENVIAR APONTAMENTO DE PRODUÇÃO (FINALIZAR A O.P.)
+        // PASSO 1: FECHAR A O.P. (Se houver)
         // =================================================================
-        
         if (activeOrder.value?.code) {
-            // Recalcula dados da etapa atual para garantir precisão
             const rawSeq = currentViewedStep.value?.seq || (viewedStepIndex.value + 1) * 10;
             const cleanSeq = Math.floor(rawSeq / 10) * 10;
             const stageStr = cleanSeq.toString().padStart(3, '0'); 
             const sapData = getSapOperation(stageStr);
-
 
             const productionPayload = {
                 op_number: String(opNumberToSend.value),
@@ -1147,23 +1146,17 @@ async function triggerCriticalBreakdown() {
                 stop_description: '' 
             };
 
-            console.log("📤 [1/2] Enviando Produção Final (Pré-Quebra):", productionPayload);
-            // MANTIDO: Envio manual para garantir o fechamento antes da quebra
+            console.log("📤 [1/2] Fechando Produção (Antes da Quebra):", productionPayload);
             await ProductionService.sendAppointment(productionPayload);
         }
 
         // =================================================================
-        // PASSO 2: ENVIAR APONTAMENTO DE PARADA (REGISTRAR A QUEBRA)
+        // PASSO 2: REGISTRAR PARADA DO RECURSO (Sem detalhes da O.M. ainda)
         // =================================================================
-        
         const stopPayload = {
             op_number: '',
-            position: '',
-            operation: '',
-            operation_desc: '',
-            part_description: '',
-            item_code: '',
-            service_code: '',
+            position: '', operation: '', operation_desc: '',
+            part_description: '', item_code: '', service_code: '',
 
             resource_code: machineRes,
             resource_name: resourceDescription,
@@ -1172,38 +1165,41 @@ async function triggerCriticalBreakdown() {
             vehicle_id: productionStore.machineId || 0,
 
             start_time: eventTime,
-            end_time: eventTime, // No SAP, início e fim iguais marcam o evento
+            end_time: eventTime, 
 
-            stop_reason: currentPauseObj.value.reasonCode,
-            stop_description: currentPauseObj.value.reasonLabel
+            stop_reason: currentPauseObj.value.reasonCode, // Ex: '21'
+            stop_description: 'Manutenção' // Descrição Genérica
         };
 
-        console.log("📤 [2/2] Enviando Registro de Quebra:", stopPayload);
+        console.log("📤 [2/2] Registrando Parada Genérica:", stopPayload);
         await ProductionService.sendAppointment(stopPayload);
 
         // =================================================================
-        // PASSO 3: BLOQUEIO E LOGOUT
+        // PASSO 3: MUDANÇA DE ESTADO E REDIRECIONAMENTO
         // =================================================================
 
-        // Atualiza status visual e banco local
+        // Atualiza status para MANUTENÇÃO
         await productionStore.setMachineStatus('MAINTENANCE');
         
-        // Finaliza sessão localmente
+        // Finaliza sessão de produção local
         await productionStore.finishSession();
         
-        // Logout forçado com status de manutenção
+        // Logout preservando o estado visual de manutenção
         await productionStore.logoutOperator('MAINTENANCE');
 
+        // Redireciona para o Kiosk (Onde estará o botão vermelho para abrir a O.M.)
         await router.push({ 
             name: 'machine-kiosk', 
-            query: { state: 'maintenance' } 
+            query: { 
+                state: 'maintenance',
+                last_operator: String(badge) // <--- O PULO DO GATO
+            } 
         });
-        
-        $q.notify({ type: 'negative', icon: 'build', message: 'Máquina parada. O.M. solicitada.', timeout: 5000 });
+        $q.notify({ type: 'warning', icon: 'build', message: 'Máquina parada. Solicite a O.M. no terminal.' });
 
     } catch (error) {
         console.error("Erro fatal:", error);
-        $q.notify({ type: 'negative', message: 'Erro ao registrar quebra.' });
+        $q.notify({ type: 'negative', message: 'Erro ao registrar parada.' });
     } finally {
         $q.loading.hide();
     }
