@@ -37,7 +37,10 @@ export default defineConfig((/* ctx */) => {
     },
 
     devServer: {
-      open: true,
+      https: false,
+      port: 9000,
+      open: true, // Abre o navegador automaticamente
+      host: '0.0.0.0', // <--- ADICIONE ISSO (Permite acesso externo/celular)
     },
 
     framework: {

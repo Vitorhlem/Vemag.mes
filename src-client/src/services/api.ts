@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Esta função determina a URL base da API com base no ambiente
 const getBaseURL = () => {
-    return import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    return import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1', 'http://192.168.15.8:8000/api/v1';
 };
 
 const api = axios.create({

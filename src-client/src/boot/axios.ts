@@ -5,6 +5,7 @@ import { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from 'stores/auth-store';
 import api from 'src/services/api';
 
+
 declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
     $api: AxiosInstance;

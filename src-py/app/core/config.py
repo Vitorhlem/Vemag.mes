@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         case_sensitive=True
     )
 
-    PROJECT_NAME: str = "TruCar"
+    PROJECT_NAME: str = "Lytix"
     API_V1_STR: str = "/api/v1"
     FRONTEND_URL: str = "http://localhost:9000"
 
@@ -21,15 +21,10 @@ class Settings(BaseSettings):
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Any) -> Any:
-        # Caso 1: String separada por vírgula
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",") if i.strip()]
-        
-        # Caso 2: Lista (se já vier processada ou do JSON)
         elif isinstance(v, (list, tuple)):
-            # Filtra strings vazias dentro da lista para evitar o erro de validação
             return [i for i in v if isinstance(i, str) and i.strip()]
-            
         return v
 
     # --- SUPERUSERS ---
@@ -42,9 +37,21 @@ class Settings(BaseSettings):
             return {i.strip() for i in v.split(",") if i.strip()}
         return v
     
-    # --- INTEGRAÇÕES ---
+    # --- INTEGRAÇÕES GERAIS ---
     OPENWEATHER_API_KEY: Optional[str] = None
     REDIS_URL: Optional[str] = None
+
+    # =========================================================================
+    # 🔌 INTEGRAÇÃO SAP B1 (NOVO)
+    # =========================================================================
+    SAP_API_URL: str = "https://sap-vemag-sl.skyinone.net:50000/b1s/v1"
+    SAP_COMPANY_DB: str = "SBOPRODVEM_0601"
+    SAP_USER: str = "manager"
+    SAP_PASSWORD: str = "Lago287*"  
+
+    # Se True, todas as chamadas ao SAP retornam dados falsos (Mock)
+    SAP_USE_MOCK: bool = True 
+    # =========================================================================
 
     # --- BANCO DE DADOS ---
     POSTGRES_USER: Optional[str] = None
@@ -53,34 +60,24 @@ class Settings(BaseSettings):
     POSTGRES_DB: Optional[str] = None
     
     database_url_from_env: Optional[str] = Field(None, alias="DATABASE_URL")
-    
-    # CORREÇÃO AQUI: Renomeado de SQLALCHEMY_DATABASE_URI para DATABASE_URI
-    # para bater com o que o session.py espera.
     DATABASE_URI: Optional[str] = None
     
     @model_validator(mode='after')
     def assemble_db_uri(self) -> 'Settings':
         uri = None
-        
         if self.database_url_from_env:
             uri = self.database_url_from_env
-            # Ajuste para asyncpg no Render
             if uri.startswith("postgres://"):
                 uri = uri.replace("postgres://", "postgresql+asyncpg://", 1)
             elif uri.startswith("postgresql://") and not uri.startswith("postgresql+asyncpg://"):
                 uri = uri.replace("postgresql://", "postgresql+asyncpg://", 1)
-        
         elif self.POSTGRES_USER and self.POSTGRES_SERVER and self.POSTGRES_DB:
              uri = (
                 f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
                 f"{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
              )
-        
         if not uri:
-             # Fallback para SQLite local
              uri = "sqlite+aiosqlite:///./test.db" 
-
-        # Atribui ao nome correto
         self.DATABASE_URI = uri
         return self
 
@@ -103,36 +100,25 @@ class Settings(BaseSettings):
 
     # --- LIMITES DEMO ---
     DEMO_TOTAL_LIMITS: Dict[str, int] = {
-        "vehicles": 3,
-        "users": 2,
-        "parts": 15,
-        "clients": 5,
-        "implements": 2,
-        "vehicle_components": 10,
+        "vehicles": 3, "users": 2, "parts": 15, "clients": 5,
+        "implements": 2, "vehicle_components": 10,
     }
     
     @field_validator("DEMO_TOTAL_LIMITS", mode="before")
     @classmethod
     def parse_demo_total_limits(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return json.loads(v)
+        if isinstance(v, str): return json.loads(v)
         return v
 
     DEMO_MONTHLY_LIMITS: Dict[str, int] = {
-        "reports": 5,
-        "fines": 3,
-        "documents": 10,
-        "freight_orders": 10,
-        "maintenance_requests": 5,
-        "fuel_logs": 20,
-        "costs": 15
+        "reports": 5, "fines": 3, "documents": 10, "freight_orders": 10,
+        "maintenance_requests": 5, "fuel_logs": 20, "costs": 15
     }
 
     @field_validator("DEMO_MONTHLY_LIMITS", mode="before")
     @classmethod
     def parse_demo_monthly_limits(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return json.loads(v)
+        if isinstance(v, str): return json.loads(v)
         return v
 
 settings = Settings()
