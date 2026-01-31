@@ -303,7 +303,7 @@ function getManagerMenu(): MenuCategory[] {
       label: 'PCP & Manutenção', 
       children: [
           { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
-          { title: 'Roteiros de Produção', icon: 'fact_check', to: '/journeys' },
+          { title: 'Manutenção Industrial', icon: 'fact_check', to: '/manutencao' },
       ]
   });
 

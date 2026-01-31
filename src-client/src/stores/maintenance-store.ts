@@ -57,6 +57,27 @@ export const useMaintenanceStore = defineStore('maintenance', {
         return false;
       }
     },
+    async createIndustrialOS(payload: any) {
+  this.isLoading = true;
+  try {
+    const response = await api.post('/maintenance/industrial-os', payload);
+    const isDraft = payload.status === 'RASCUNHO';
+    
+    Notify.create({
+      type: 'positive',
+      message: isDraft ? 'Rascunho atualizado!' : 'Documento finalizado e arquivado!',
+      icon: isDraft ? 'save' : 'verified'
+    });
+    
+    await this.fetchMaintenanceRequests();
+    return true;
+  } catch (error) {
+    Notify.create({ type: 'negative', message: 'Erro ao processar OS Industrial.' });
+    return false;
+  } finally {
+    this.isLoading = false;
+  }
+},
 
     async fetchRequestById(requestId: number) {
       this.isLoading = true;

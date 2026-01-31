@@ -10,6 +10,7 @@ from .vehicle_model import Vehicle
 from .vehicle_component_model import VehicleComponent 
 
 class MaintenanceStatus(str, enum.Enum):
+    RASCUNHO = "RASCUNHO"
     PENDENTE = "PENDENTE"
     APROVADA = "APROVADA"
     REJEITADA = "REJEITADA"
@@ -34,7 +35,13 @@ class MaintenanceRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
     manager_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
+    manager_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # AQUI VAI O JSON
+    cost_center: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    returned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_mechanical: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
+    is_electrical: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
+    maintenance_type: Mapped[Optional[str]] = mapped_column(String, default="Mecânica", nullable=True)
     reported_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
@@ -109,7 +116,8 @@ class MaintenanceServiceItem(Base):
     provider_name = Column(String(255), nullable=True) # Ex: "Mecânica do Zé"
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    quantity: Mapped[float] = mapped_column(Float, default=1.0) # CORREÇÃO: quantity
+    item_type: Mapped[str] = mapped_column(String) # LABOR, MATERIAL, THIRD_PARTY
     maintenance_request_id = Column(Integer, ForeignKey("maintenance_requests.id"), nullable=False)
     added_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 

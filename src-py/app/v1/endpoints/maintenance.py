@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from typing import List, Optional
 from datetime import datetime
 import uuid
 import shutil
+from sqlalchemy.orm import selectinload
+import json
 
 from app import crud, deps
 from app.core.config import settings 
@@ -17,14 +19,14 @@ from app.schemas.maintenance_schema import (
     MaintenanceCommentPublic, MaintenanceCommentCreate,
     ReplaceComponentPayload, ReplaceComponentResponse, InstallComponentResponse,
     InstallComponentPayload,
-    MaintenanceServiceItemCreate, MaintenanceServiceItemPublic
+    MaintenanceServiceItemCreate, MaintenanceServiceItemPublic, MaintenanceRequestPublic
 )
 from app.schemas.audit_log_schema import AuditLogCreate
 
 # Models e CRUDs
 from app.crud import crud_audit_log
 from app.crud.crud_demo_usage import demo_usage as demo_usage_crud
-from app.models.maintenance_model import MaintenanceServiceItem 
+from app.models.maintenance_model import MaintenanceComment, MaintenancePartChange, MaintenanceServiceItem, MaintenanceRequest, MaintenanceCategory, MaintenanceServiceItem
 from app.models.vehicle_cost_model import VehicleCost, CostType 
 from app.models.notification_model import NotificationType
 
@@ -64,6 +66,90 @@ def send_email_background_task(manager_emails: List[str], request_id: int, repor
 # ============================================================================
 # ROTAS (HÍBRIDAS: Aceitam /requests e /raiz)
 # ============================================================================
+
+def parse_dt(dt_str: Optional[str]) -> Optional[datetime]:
+    if not dt_str or dt_str.strip() == "": return None
+    try: return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+    except: return None
+
+def safe_float(v, default=0.0):
+    try: return float(v) if v else default
+    except: return default
+
+@router.post("/industrial-os", response_model=MaintenanceRequestPublic)
+async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.get_db), current_user = Depends(deps.get_current_active_user)):
+    try:
+        os_id = payload.get("id")
+        v_id = int(payload.get("vehicle_id"))
+
+        metadata = json.dumps({
+            "elaborated_by": payload.get("elaborated_by", ""),
+            "supervisor": payload.get("supervisor", ""),
+            "responsible": payload.get("responsible", ""),
+            "labor_total": safe_float(payload.get("labor_total")),
+            "material_total": safe_float(payload.get("material_total")),
+            "services_total": safe_float(payload.get("services_total")),
+            "others_total": safe_float(payload.get("others_total"))
+        }, ensure_ascii=False)
+
+        common = {
+            "vehicle_id": v_id, "cost_center": payload.get("cost_center"),
+            "stopped_at": parse_dt(payload.get("stopped_at")),
+            "returned_at": parse_dt(payload.get("returned_at")),
+            "maintenance_type": payload.get("maintenance_type"),
+            "problem_description": payload.get("executed_services"),
+            "status": payload.get("status"), "manager_notes": metadata,
+            "category": MaintenanceCategory.MECHANICAL if payload.get("is_mechanical") else MaintenanceCategory.OTHER
+        }
+
+        if os_id:
+            db_os = await db.get(MaintenanceRequest, os_id)
+            for k, v in common.items(): setattr(db_os, k, v)
+            await db.execute(delete(MaintenanceServiceItem).where(MaintenanceServiceItem.maintenance_request_id == os_id))
+            new_os = db_os
+        else:
+            new_os = MaintenanceRequest(**common, organization_id=current_user.organization_id, reported_by_id=current_user.id)
+            db.add(new_os)
+
+        await db.flush()
+        for key, itype in [("labor_rows", "LABOR"), ("material_rows", "MATERIAL"), ("third_party_rows", "THIRD_PARTY")]:
+            for row in payload.get(key, []):
+                if row.get("description"):
+                    db.add(MaintenanceServiceItem(
+                        description=row["description"], quantity=safe_float(row.get("qty"), 1.0),
+                        cost=safe_float(row.get("price")), item_type=itype,
+                        maintenance_request_id=new_os.id, added_by_id=current_user.id
+                    ))
+
+        if new_os.status == "CONCLUIDA":
+            v = await db.get(Vehicle, v_id)
+            if v: v.status = VehicleStatus.AVAILABLE.value
+
+        await db.commit()
+        stmt = select(MaintenanceRequest).where(MaintenanceRequest.id == new_os.id).options(
+            selectinload(MaintenanceRequest.vehicle),
+            selectinload(MaintenanceRequest.services),
+            selectinload(MaintenanceRequest.comments).selectinload(MaintenanceComment.user),
+            selectinload(MaintenanceRequest.part_changes).selectinload(MaintenancePartChange.user),
+            selectinload(MaintenanceRequest.part_changes).selectinload(MaintenancePartChange.component_removed),
+            selectinload(MaintenanceRequest.part_changes).selectinload(MaintenancePartChange.component_installed),
+            selectinload(MaintenanceRequest.reporter),
+            selectinload(MaintenanceRequest.approver)
+        )
+        res = await db.execute(stmt)
+        return res.scalars().first()
+    except Exception as e:
+        await db.rollback()
+        traceback.print_exc() # type: ignore
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/industrial-os/{os_id}")
+async def delete_industrial_os(os_id: int, db: AsyncSession = Depends(deps.get_db)):
+    os_req = await db.get(MaintenanceRequest, os_id)
+    if os_req:
+        await db.delete(os_req)
+        await db.commit()
+    return {"ok": True}
 
 # 1. CRIAR CHAMADO
 @router.post("/requests", response_model=MaintenanceRequestPublic, status_code=status.HTTP_201_CREATED)

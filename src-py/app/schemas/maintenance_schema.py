@@ -89,10 +89,18 @@ class MaintenanceRequestPublic(MaintenanceRequestBase):
     vehicle: VehiclePublic
     manager_notes: Optional[str] = None
     services: List[MaintenanceServiceItemPublic] = []
-    comments: List[MaintenanceCommentPublic] = []
-    maintenance_type: Optional[str] = "CORRETIVA"
-    part_changes: List[MaintenancePartChangePublic] = []
+    problem_description: str
+    category: MaintenanceCategory
+    cost_center: Optional[str] = None
+    stopped_at: Optional[datetime] = None
+    returned_at: Optional[datetime] = None
+    maintenance_type: Optional[str] = None
+    is_mechanical: bool = False
+    is_electrical: bool = False
     
+    # Relações para evitar MissingGreenlet
+    comments: List[dict] = []
+    part_changes: List[dict] = []
     model_config = { "from_attributes": True }
 
 class MaintenanceServiceItemBase(BaseModel):
@@ -106,6 +114,10 @@ class MaintenanceServiceItemCreate(MaintenanceServiceItemBase):
 
 class MaintenanceServiceItemPublic(MaintenanceServiceItemBase):
     id: int
+    description: str
+    cost: float
+    quantity: float
+    item_type: str
     created_at: datetime
     added_by_id: int
     model_config = { "from_attributes": True }
