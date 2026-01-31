@@ -93,8 +93,16 @@
       <q-card class="bg-grey-4">
         <q-toolbar class="bg-dark text-white print-hide">
           <q-btn flat round icon="close" v-close-popup />
-          <q-toolbar-title>OS Industrial #{{ form.id || 'Nova' }}</q-toolbar-title>
+          <q-toolbar-title>OS Industrial #{{ form.id || 'Nova' }}</q-toolbar-title>    
           <q-btn flat icon="delete" label="Excluir" @click="confirmDelete" v-if="form.id && !isReadOnly" />
+                    <q-btn 
+    flat 
+    color="white" 
+    icon="picture_as_pdf" 
+    label="Salvar PDF" 
+    class="q-ml-sm" 
+    @click="saveAsPDF" 
+  />
           <q-btn outline color="white" icon="print" label="Imprimir" @click="printDocument" class="q-ml-sm" />
           <q-btn unelevated color="teal-7" icon="save" label="Salvar" @click="submitOS('RASCUNHO')" v-if="!isReadOnly" class="q-ml-sm" />
           <q-btn unelevated color="positive" icon="check" label="Finalizar" @click="submitOS('CONCLUIDA')" v-if="!isReadOnly" class="q-ml-sm" />
@@ -207,7 +215,7 @@
 
             <div class="row justify-around q-mt-xl text-center">
               <div class="col-5">
-                <div class="signature-font">{{ form.elaborated_by || '...' }}</div>
+                <div class="signature-font text-no-wrap">{{ form.elaborated_by || '...' }}</div>
                 <div class="signature-line"></div>
                 <q-input v-model="form.elaborated_by" outlined dense label="Elaborador" class="print-hide q-mt-sm" :readonly="isReadOnly" />
                 <div class="text-caption text-weight-bold q-mt-xs">Elaborador</div>
@@ -229,6 +237,7 @@
 </template>
 
 <script setup lang="ts">
+import html2pdf from 'html2pdf.js'; // Adicione no topo das importações
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar, date } from 'quasar';
 import { api } from 'boot/axios';
@@ -249,7 +258,26 @@ const columns = [
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
   { name: 'actions', label: 'Ações', align: 'right' }
 ];
+const saveAsPDF = () => {
+  const element = document.querySelector('.printable-area');
+  
+  // Configurações do PDF para bater com seu layout A4
+  const opt = {
+    margin: 0,
+    filename: `OS_Industrial_${form.value.id || 'Nova'}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { 
+      scale: 3, // Alta resolução
+      useCORS: true, 
+      letterRendering: true,
+      logging: false 
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
 
+  // Gera o PDF
+  html2pdf().set(opt).from(element).save();
+};
 const activeTab = ref('concluida');
 const showForm = ref(false);
 const search = ref('');
@@ -298,6 +326,7 @@ function openEdit(os: any) {
     id: os.id,
     vehicle_id: os.vehicle_id,
     cost_center: os.cost_center,
+    supervisor: meta.supervisor || '', // <--- O Frontend busca do JSON aqui
     status: os.status,
     stopped_at: os.stopped_at?.substring(0, 16),
     returned_at: os.returned_at?.substring(0, 16),
@@ -340,72 +369,128 @@ onMounted(async () => { await Promise.all([maintenanceStore.fetchMaintenanceRequ
 <style scoped lang="scss">
 @import url('https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&display=swap');
 
-.bg-industrial-layout { background: #e0e4e8; min-height: 100vh; }
-
-/* KPI ESTILO */
-.kpi-card { border-radius: 8px; border: 1px solid #ddd; }
-.border-left-teal { border-left: 6px solid #00897b; }
-.border-left-amber { border-left: 6px solid #ffb300; }
-
-/* FORMULÁRIO A4 ESTILO IMAGEM */
-.a4-sheet { 
-  width: 210mm; 
-  min-height: 297mm; 
-  margin: 20px auto; 
-  color: #263238;
+/* REMOVER BARRA DE ROLAGEM DA PÁGINA */
+:deep(.q-panel), :deep(.q-tab-panel), :deep(.q-page), :deep(html), :deep(body) {
+  overflow: hidden !important;
+  height: 100vh;
 }
 
+.bg-industrial-layout { 
+  background: #e0e4e8; 
+  height: 100vh;
+  overflow: hidden; /* Garante que a página não role */
+}
+
+/* FORMULÁRIO A4 - AJUSTE EXATO DA IMAGEM */
+.a4-sheet { 
+  width: 210mm; 
+  /* Mudamos de height para max-height e ajustamos para 296mm (1mm a menos que o A4) */
+  max-height: 296mm; 
+  min-height: 296mm;
+  margin: 0 auto; 
+  padding: 12mm !important;
+  color: #263238;
+  position: relative;
+  box-sizing: border-box; /* Garante que o padding não aumente o tamanho total */
+  overflow: hidden; /* Corta qualquer micro-transbordamento */
+  display: block;
+}
+.printable-area *:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
 .section-title { 
-  background: #263238; 
+  background: #37474f; /* Cor Slate Dark da imagem */
   color: white; 
-  padding: 4px 10px; 
+  padding: 6px 12px; 
   font-weight: bold; 
-  font-size: 11px; 
-  margin-top: 10px;
+  font-size: 10px; 
+  margin-top: 15px;
+  text-transform: uppercase;
 }
 
 .os-table {
-  border: 1px solid #263238;
-  thead th { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #444; }
-  tbody td { padding: 0 4px !important; }
+  border: 1px solid #cfd8dc;
+  thead th { 
+    font-size: 9px; 
+    font-weight: bold; 
+    text-transform: capitalize; 
+    color: #263238;
+    background-color: #f5f5f5 !important;
+  }
+  tbody td { padding: 0 4px !important; border-bottom: 1px solid #eceff1; }
 }
 
 .totals-box {
-  background: #f4f6f7;
-  border-left: 8px solid #00897b;
+  background: #f1f3f4;
+  border-left: 6px solid #00897b; /* Barra teal da imagem */
   border-radius: 4px;
+  margin-top: 20px;
 }
-
 .signature-font { 
   font-family: 'Mrs Saint Delafield', cursive; 
-  font-size: 3.5rem; 
+  font-size: 2.8rem; /* Reduzido de 3.5 para caber em uma linha */
   color: #1a237e; 
   height: 50px; 
   display: flex; 
   align-items: flex-end; 
   justify-content: center;
+  line-height: 1;
+  white-space: nowrap; /* Garante que fique em uma linha */
 }
 
-.signature-line { border-top: 1.5px solid #263238; width: 100%; margin-top: 5px; }
+.signature-line { border-top: 1.2px solid #263238; width: 100%; }
 
-/* REGRAS DE IMPRESSÃO */
-@media print {
-  body * { visibility: hidden; }
-  .printable-area, .printable-area * { visibility: visible; }
-  .printable-area { position: absolute; left: 0; top: 0; width: 100% !important; margin: 0 !important; padding: 5mm !important; }
-  .print-hide { display: none !important; }
-  .bg-grey-4, .bg-grey-5 { background: white !important; }
-  .a4-sheet { box-shadow: none !important; border: none !important; }
-}
 .logo-container {
   background: white;
-  padding: 10px;
-  border-radius: 12px;
-  /* Adicione as regras abaixo para a imagem dentro do container */
-  .logo-img {
-    max-height: 60px; /* Define uma altura máxima */
-    width: auto;      /* Mantém a proporção da imagem */
-    max-width: 100%;  /* Garante que não ultrapasse o container */
+  padding: 8px;
+  border-radius: 8px;
+  .logo-img { max-height: 50px; width: auto; }
+}
+
+/* AJUSTES DE IMPRESSÃO PARA SAIR EXATAMENTE COMO A FOTO */
+@media print {
+  @page {
+    size: A4;
+    margin: 0; /* Remove margens do navegador (cabeçalhos/rodapés) */
   }
+
+  /* Esconde TUDO que for do navegador ou devtools (inclusive os ícones de erro ❗️⚠️) */
+  body * { visibility: hidden; }
+  .printable-area, .printable-area * { visibility: visible; }
+  
+  /* Remove especificamente o rodapé de erros que aparece em alguns ambientes de dev */
+  div[style*="fixed"], .q-notifications, .v-debug, #webpack-dev-server-client-overlay {
+    display: none !important;
+  }
+
+  .printable-area { 
+    position: fixed; 
+    left: 0; 
+    top: 0; 
+    width: 210mm !important; 
+    height: 297mm !important;
+    margin: 0 !important; 
+    padding: 10mm !important; 
+    overflow: hidden !important; /* Mata a barra de rolagem na impressão */
+  }
+
+  .print-hide { display: none !important; }
+  
+  /* Garante as cores de fundo */
+  .section-title, .totals-box, thead {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+.printable-area {
+  background-color: white;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Esconde qualquer overlay de erro/debug durante a captura do PDF */
+.html2canvas-container {
+  display: none !important;
 }
 </style>

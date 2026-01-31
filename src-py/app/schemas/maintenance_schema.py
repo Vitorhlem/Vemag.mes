@@ -97,11 +97,12 @@ class MaintenanceRequestPublic(MaintenanceRequestBase):
     maintenance_type: Optional[str] = None
     is_mechanical: bool = False
     is_electrical: bool = False
-    
+    supervisor: Optional[str] = None
     # Relações para evitar MissingGreenlet
     comments: List[dict] = []
     part_changes: List[dict] = []
     model_config = { "from_attributes": True }
+    
 
 class MaintenanceServiceItemBase(BaseModel):
     description: str
