@@ -1,5 +1,10 @@
 {
-  "appId": "org.capacitor.quasar.app",
-  "appName": "TruCar",
-  "webDir": "www"
+  "appId": "com.trumachine.app",
+  "appName": "VemagMes",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "url": "http://192.168.0.22:9000",
+    "cleartext": true
+  }
 }
