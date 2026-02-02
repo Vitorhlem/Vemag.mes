@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, or_
+from sqlalchemy import select, desc, func, or_, and_
 from sqlalchemy.orm import selectinload
 from datetime import datetime, date, time, timedelta
 from typing import Any, List, Optional
@@ -9,12 +9,12 @@ from pydantic import BaseModel
 # Imports do Projeto
 from app.db.session import get_db
 from app import deps
-from app.models.production_model import VehicleDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
+from app.models.production_model import ProductionAppointment, VehicleDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
 from app.models.user_model import User
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from app.schemas import production_schema, vehicle_schema, user_schema
-from app.schemas.production_schema import SessionStart, SessionResponse, EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats# Import do Modelo Vehicle (com fallback de nome)
+from app.schemas.production_schema import SessionStart, SessionResponse, AppointmentCreate, EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats# Import do Modelo Vehicle (com fallback de nome)
 try:
     from app.models.vehicle_model import Vehicle, VehicleStatus
 except ImportError:
@@ -899,27 +899,72 @@ async def create_appointment(
     data: ProductionAppointmentCreate,
     db: AsyncSession = Depends(deps.get_db)
 ):
+    """
+    Recebe apontamento, envia para o SAP e SALVA no banco local para histórico.
+    """
     resource_code = data.resource_code
     sap_employee_id = data.operator_id
+    
     if "@" in sap_employee_id:
         print(f"⚠️ AVISO: Recebido email no operador ({sap_employee_id}).") 
         
     sap_service = SAPIntegrationService(db, organization_id=1)
     
+    # Converte Pydantic para Dict de forma segura
     try:
         appointment_dict = data.model_dump()
     except AttributeError:
         appointment_dict = data.dict()
     
+    # 1. ENVIA PARA O SAP
+    print(f"📡 [API] Enviando para SAP: OP {data.op_number}...")
     success = await sap_service.create_production_appointment(
         appointment_dict, 
         sap_resource_code=resource_code
     )
     
     if not success:
+        print("❌ [API] Falha no envio ao SAP.")
         raise HTTPException(status_code=500, detail="Erro ao registrar no SAP")
-    
-    return {"message": "Apontamento realizado!"}
+
+    # 2. SALVA NO BANCO LOCAL (CORREÇÃO DE TIMEZONE AQUI)
+    try:
+        appt_type = "STOP" if data.stop_reason else "PRODUCTION"
+        
+        # --- CORREÇÃO DO ERRO DE DATA ---
+        # Removemos o tzinfo (UTC) para gravar como Naive no Postgres
+        # Isso resolve o "can't subtract offset-naive and offset-aware datetimes"
+        start_t = data.start_time.replace(tzinfo=None) if data.start_time else None
+        end_t = data.end_time.replace(tzinfo=None) if data.end_time else None
+        
+        new_appointment = ProductionAppointment(
+            op_number=data.op_number,
+            operator_id=data.operator_id,
+            vehicle_id=data.vehicle_id,
+            
+            start_time=start_t, # Usando a data limpa
+            end_time=end_t,     # Usando a data limpa
+            
+            position=data.position,
+            operation_code=data.operation,
+            
+            appointment_type=appt_type,
+            stop_reason=data.stop_reason,
+            
+            sap_status="SENT",
+            sap_message="Sincronizado via /appoint"
+        )
+        
+        db.add(new_appointment)
+        await db.commit()
+        await db.refresh(new_appointment)
+        print(f"✅ [API] Histórico local salvo com ID: {new_appointment.id}")
+        
+    except Exception as e:
+        print(f"⚠️ [API] Erro ao salvar histórico local: {str(e)}")
+        # Não damos raise aqui para não retornar erro pro tablet, já que o SAP foi sucesso.
+
+    return {"message": "Apontamento realizado e salvo!"}
 
 # ============================================================================
 # 11. OPs DO SAP
@@ -1028,3 +1073,64 @@ async def get_daily_vehicle_report(
             "top_reasons": row.top_reasons_snapshot
         })
     return report
+
+@router.get("/history/user/{user_id}")
+async def get_user_production_history(
+    user_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Retorna histórico APENAS de produção efetiva (exclui paradas/setups).
+    """
+    user = await db.get(User, user_id)
+    if not user or not user.employee_id:
+        return []
+
+    badge = str(user.employee_id)
+
+    # Busca apenas apontamentos do tipo PRODUCTION
+    stmt = (
+        select(ProductionAppointment, Vehicle)
+        .outerjoin(Vehicle, ProductionAppointment.vehicle_id == Vehicle.id)
+        .where(
+            and_(
+                ProductionAppointment.operator_id == badge,
+                ProductionAppointment.appointment_type == "PRODUCTION" # <--- FILTRO DE TIPO
+            )
+        )
+        .order_by(desc(ProductionAppointment.start_time))
+        .limit(2000)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    history = []
+
+    for appointment, vehicle in rows:
+        duration_min = 0
+        if appointment.start_time and appointment.end_time:
+            delta = appointment.end_time - appointment.start_time
+            duration_min = int(delta.total_seconds() / 60)
+        
+        mach_name = f"{vehicle.brand} {vehicle.model}" if vehicle else f"Máquina #{appointment.vehicle_id}"
+
+        efficiency = 100
+        if appointment.target_qty and appointment.target_qty > 0:
+             if appointment.produced_qty:
+                 efficiency = int((appointment.produced_qty / appointment.target_qty) * 100)
+                 if efficiency > 150: efficiency = 150
+
+        history.append({
+            "id": appointment.id,
+            "machine_name": mach_name,
+            "op_number": appointment.op_number or "N/A",
+            "step": appointment.position or "", # <--- CAMPO NOVO (ETAPA)
+            "start_time": appointment.start_time.isoformat() if appointment.start_time else None,
+            "end_time": appointment.end_time.isoformat() if appointment.end_time else None,
+            "duration_minutes": duration_min,
+            "efficiency": efficiency
+        })
+
+    return history

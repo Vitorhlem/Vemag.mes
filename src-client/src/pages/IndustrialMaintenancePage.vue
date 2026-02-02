@@ -7,7 +7,7 @@
           <img src="/vemagdark.png" class="logo-img">
         </div>
         <div>
-          <div class="text-h4 text-weight-bolder text-dark">Gestão de Engenharia</div>
+          <div class="text-h4 text-weight-bolder text-dark">Gestão de Manutenção</div>
           <div class="text-subtitle1 text-grey-7">Centro de Controle de Manutenção (MES)</div>
         </div>
       </div>
@@ -291,11 +291,24 @@ const tableConfigs = [
 ];
 
 const initialForm = () => ({
-  id: null, vehicle_id: null, cost_center: '', stopped_at: '', returned_at: '',
-  responsible: authStore.user?.full_name || '', maintenance_type: 'Mecânica', executed_services: '',
-  elaborated_by: authStore.user?.full_name || '', supervisor: '', status: 'RASCUNHO',
-  labor_rows: [], material_rows: [], third_party_rows: [],
-  labor_total: 0, material_total: 0, services_total: 0, others_total: 0
+  id: null, 
+  vehicle_id: null, 
+  cost_center: '', 
+  stopped_at: '', 
+  returned_at: '',
+  responsible: '', // Começa vazio para ser preenchido pelo banco ou pelo login
+  maintenance_type: 'Mecânica', 
+  executed_services: '',
+  elaborated_by: authStore.user?.full_name || '', 
+  supervisor: '', 
+  status: 'RASCUNHO',
+  labor_rows: [], 
+  material_rows: [], 
+  third_party_rows: [],
+  labor_total: 0, 
+  material_total: 0, 
+  services_total: 0, 
+  others_total: 0
 });
 
 const form = ref(initialForm());
@@ -304,8 +317,26 @@ const isReadOnly = computed(() => form.value.status === 'CONCLUIDA');
 const filteredOrders = computed(() => maintenanceStore.maintenances.filter(m => m.status === activeTab.value.toUpperCase()));
 const countConcluidas = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'CONCLUIDA').length);
 const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'RASCUNHO').length);
-const totalMonthCost = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'CONCLUIDA').reduce((acc, m) => acc + (m.total_cost || 0), 0));
-const vehicleOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
+const totalMonthCost = computed(() => {
+  return maintenanceStore.maintenances
+    .filter(m => m.status === 'CONCLUIDA')
+    .reduce((acc, m) => {
+      // Tenta pegar da coluna total_cost, se não existir, tenta extrair do manager_notes
+      let cost = m.total_cost;
+      
+      if (!cost && m.manager_notes) {
+        try {
+          const meta = JSON.parse(m.manager_notes);
+          cost = (Number(meta.labor_total) || 0) + 
+                 (Number(meta.material_total) || 0) + 
+                 (Number(meta.services_total) || 0) + 
+                 (Number(meta.others_total) || 0);
+        } catch (e) { cost = 0; }
+      }
+      
+      return acc + (Number(cost) || 0);
+    }, 0);
+});const vehicleOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
 const grandTotal = computed(() => (Number(form.value.labor_total)||0) + (Number(form.value.material_total)||0) + (Number(form.value.services_total)||0) + (Number(form.value.others_total)||0));
 
 // Ações
@@ -318,39 +349,97 @@ function addRow(type: string) {
 
 function newOS() { form.value = initialForm(); showForm.value = true; }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function openEdit(os: any) {
   let meta: any = {};
-  try { meta = JSON.parse(os.manager_notes || '{}'); } catch (e) {}
+  try { 
+    // Tenta ler o JSON. Se falhar ou for nulo, usa objeto vazio.
+    meta = os.manager_notes ? JSON.parse(os.manager_notes) : {}; 
+  } catch (e) { 
+    console.error("Erro ao ler manager_notes:", e);
+    meta = {};
+  }
+
   form.value = {
     ...initialForm(),
     id: os.id,
     vehicle_id: os.vehicle_id,
-    cost_center: os.cost_center,
-    supervisor: meta.supervisor || '', // <--- O Frontend busca do JSON aqui
+    cost_center: os.cost_center || '',
+    responsible: os.responsible || meta.responsible || '', 
+    supervisor: os.supervisor || meta.supervisor || '',
+    elaborated_by: meta.elaborated_by || '',
     status: os.status,
-    stopped_at: os.stopped_at?.substring(0, 16),
-    returned_at: os.returned_at?.substring(0, 16),
-    maintenance_type: os.maintenance_type,
-    executed_services: os.problem_description,
+    // Ajuste de data para o formato do input datetime-local
+    stopped_at: os.stopped_at ? os.stopped_at.substring(0, 16) : '',
+    returned_at: os.returned_at ? os.returned_at.substring(0, 16) : '',
+    maintenance_type: os.maintenance_type || 'Mecânica',
+    executed_services: os.problem_description || '',
+    
     labor_total: meta.labor_total || 0,
     material_total: meta.material_total || 0,
     services_total: meta.services_total || 0,
     others_total: meta.others_total || 0,
-    labor_rows: os.services?.filter((s:any) => s.item_type === 'LABOR').map((s:any) => ({ date: s.created_at?.split('T')[0], description: s.description, qty: s.quantity, responsible: s.responsible })) || []
-    // ... mapear demais linhas conforme sua lógica de API
+    
+    // CARREGANDO AS TABELAS:
+    // Se meta.labor_rows não existir, mantém o array vazio do initialForm
+    labor_rows: meta.labor_rows || [],
+    material_rows: meta.material_rows || [],
+    third_party_rows: meta.third_party_rows || []
   };
+  
   showForm.value = true;
 }
 
 async function submitOS(status: string) {
-  $q.loading.show();
+  $q.loading.show({ message: 'Salvando O.S. Industrial...' });
+  
   form.value.status = status;
-  const success = await maintenanceStore.createIndustrialOS({ ...form.value, manager_notes: JSON.stringify({ 
-    labor_total: form.value.labor_total, material_total: form.value.material_total, 
-    services_total: form.value.services_total, others_total: form.value.others_total,
-    elaborated_by: form.value.elaborated_by, supervisor: form.value.supervisor
-  })});
-  if (success) { showForm.value = false; await refreshData(); }
+
+  // CORREÇÃO: Montamos o metaData com TUDO o que precisa ser persistido (incluindo as linhas)
+  const metaData = { 
+    labor_total: form.value.labor_total, 
+    material_total: form.value.material_total, 
+    services_total: form.value.services_total, 
+    others_total: form.value.others_total,
+    elaborated_by: form.value.elaborated_by, 
+    supervisor: form.value.supervisor,
+    responsible: form.value.responsible, // Garante que o nome do responsável vá no JSON
+    // SALVANDO AS LINHAS DAS TRÊS TABELAS AQUI:
+    labor_rows: form.value.labor_rows,
+    material_rows: form.value.material_rows,
+    third_party_rows: form.value.third_party_rows
+  };
+
+ const payload = {
+    ...form.value,
+    labor_total: Number(form.value.labor_total) || 0,
+    material_total: Number(form.value.material_total) || 0,
+    services_total: Number(form.value.services_total) || 0,
+    others_total: Number(form.value.others_total) || 0,
+    executed_services: form.value.executed_services,
+    // Enviamos o manager_notes com os arrays das tabelas (para não perder o "a" da descrição)
+    manager_notes: JSON.stringify({
+      labor_total: form.value.labor_total,
+      material_total: form.value.material_total,
+      services_total: form.value.services_total,
+      others_total: form.value.others_total,
+      labor_rows: form.value.labor_rows,
+      material_rows: form.value.material_rows,
+      third_party_rows: form.value.third_party_rows,
+      elaborated_by: form.value.elaborated_by,
+      supervisor: form.value.supervisor,
+      responsible: form.value.responsible
+    })
+  };
+
+  const success = await maintenanceStore.createIndustrialOS(payload);
+  
+  if (success) { 
+    showForm.value = false; 
+    await refreshData(); 
+    $q.notify({ type: 'positive', message: 'Ordem de Serviço salva com sucesso!' });
+  }
+  
   $q.loading.hide();
 }
 

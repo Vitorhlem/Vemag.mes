@@ -34,8 +34,9 @@ class MaintenanceRequest(Base):
     category: Mapped[MaintenanceCategory] = mapped_column(SAEnum(MaintenanceCategory), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    responsible: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # <--- ADICIONE ESTA LINHA
+    total_cost: Mapped[float] = mapped_column(Float, default=0.0) # <--- ESSENCIAL PARA O VALOR APARECER
     manager_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    manager_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # AQUI VAI O JSON
     cost_center: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     returned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

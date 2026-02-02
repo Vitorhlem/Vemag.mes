@@ -68,15 +68,30 @@ class MaintenanceRequestBase(BaseModel):
     problem_description: str
     vehicle_id: int
     category: MaintenanceCategory
-    maintenance_type: str = "CORRETIVA" 
+    maintenance_type: str = "CORRETIVA"
+    # --- NOVOS CAMPOS ADICIONADOS AQUI ---
+    cost_center: Optional[str] = None
+    responsible: Optional[str] = None  # <--- Faltava este!
+    supervisor: Optional[str] = None
+    stopped_at: Optional[datetime] = None
+    returned_at: Optional[datetime] = None
+    manager_notes: Optional[str] = None # Para salvar as tabelas JSON
 
 class MaintenanceRequestCreate(MaintenanceRequestBase):
     pass
 
 class MaintenanceRequestUpdate(BaseModel):
+    status: Optional[MaintenanceStatus] = None
     next_maintenance_date: Optional[date] = None
     next_maintenance_km: Optional[float] = None
-    status: MaintenanceStatus
+    # --- REPETIR CAMPOS AQUI PARA PERMITIR ATUALIZAÇÃO ---
+    problem_description: Optional[str] = None
+    maintenance_type: Optional[str] = None
+    cost_center: Optional[str] = None
+    responsible: Optional[str] = None
+    supervisor: Optional[str] = None
+    stopped_at: Optional[datetime] = None
+    returned_at: Optional[datetime] = None
     manager_notes: Optional[str] = None
 
 class MaintenanceRequestPublic(MaintenanceRequestBase):

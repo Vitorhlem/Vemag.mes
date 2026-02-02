@@ -148,11 +148,9 @@ class SAPIntegrationService:
         try:
             # 1. Busca as OPs Liberadas no SAP
             fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,U_LGO_DocEntryOPsFather,U_Desenho"
-            query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'&$top=20&$orderby=DocumentNumber desc"
-            
+            query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'&$orderby=DocumentNumber desc"            
             print(f"\n🚀 [MES] Iniciando carga de OPs e Roteiros B1Plus...")
-            response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)
-            
+            response = await self.client.get(f"{SAP_BASE_URL}/ProductionOrders?{query}", cookies=self.cookies)            
             if response.status_code != 200:
                 print(f"❌ [SAP] Erro ao buscar OPs: {response.status_code}")
                 return []
@@ -452,6 +450,7 @@ class SAPIntegrationService:
             "U_DataInicioAp": sap_data_ini,
             "U_DataFimAp": sap_data_fim,
             "U_HoraInicioAp": sap_hora_ini,
+            "DataSource": "I",
             "U_HoraFimAp": sap_hora_fim,
             "U_MotivoParada": appointment_data.get('stop_reason', ""),
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
@@ -486,7 +485,7 @@ class SAPIntegrationService:
 
         try:
             # Busca O.S. com Status 'O' (Open) e suas linhas (@LGLDOS2)
-            query = "$select=DocEntry,DocNum,U_CardName,LGLDOS2Collection&$filter=Status eq 'O'"
+            query = "$select=DocEntry,DocNum,U_CardName,LGLDOS2Collection&$filter=Status eq 'O'&$orderby=DocNum desc"
             print(f"\n🛠️ [MES] Buscando Ordens de Serviço (O.S.) abertas...")
             
             res = await self.client.get(f"{SAP_BASE_URL}/LGDOS?{query}", cookies=self.cookies)
@@ -508,6 +507,9 @@ class SAPIntegrationService:
                     qty = line.get('U_Qtde')
                     roteiro_code = line.get('U_Roteiro') or item_code # Fallback para o item se roteiro vazio
                     line_id = line.get('LineId')
+                    line_status = line.get('U_Status') # Ou line.get('LineStatus')
+                    if line_status in ['C', 'Fechado', 'Encerrado']:
+                        continue
 
                     # Identificador único Híbrido: OS-{DocNum}-{LineId}
                     unique_op_id = f"OS-{doc_num}-{line_id}"

@@ -82,23 +82,37 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
         os_id = payload.get("id")
         v_id = int(payload.get("vehicle_id"))
 
+        l_total = safe_float(payload.get("labor_total"))
+        m_total = safe_float(payload.get("material_total"))
+        s_total = safe_float(payload.get("services_total"))
+        o_total = safe_float(payload.get("others_total"))
+        grand_total = l_total + m_total + s_total + o_total
+
         metadata = json.dumps({
             "elaborated_by": payload.get("elaborated_by", ""),
             "supervisor": payload.get("supervisor", ""),
-            "responsible": payload.get("responsible", ""),
+            "responsible": payload.get("responsible", ""), # Salva o responsável aqui
             "labor_total": safe_float(payload.get("labor_total")),
             "material_total": safe_float(payload.get("material_total")),
             "services_total": safe_float(payload.get("services_total")),
-            "others_total": safe_float(payload.get("others_total"))
+            "others_total": safe_float(payload.get("others_total")),
+            # IMPORTANTE: Salva os arrays para o Frontend ler depois
+            "labor_rows": payload.get("labor_rows", []),
+            "material_rows": payload.get("material_rows", []),
+            "third_party_rows": payload.get("third_party_rows", [])
         }, ensure_ascii=False)
 
         common = {
-            "vehicle_id": v_id, "cost_center": payload.get("cost_center"),
+            "vehicle_id": v_id, 
+            "cost_center": payload.get("cost_center"),
+            "responsible": payload.get("responsible"), # Salva na coluna oficial
             "stopped_at": parse_dt(payload.get("stopped_at")),
             "returned_at": parse_dt(payload.get("returned_at")),
             "maintenance_type": payload.get("maintenance_type"),
             "problem_description": payload.get("executed_services"),
-            "status": payload.get("status"), "manager_notes": metadata,
+            "status": payload.get("status"), 
+            "manager_notes": metadata, # O JSON completo com as tabelas
+            "total_cost": grand_total, # <--- SALVA O VALOR NUMÉRICO TOTAL AQUI
             "category": MaintenanceCategory.MECHANICAL if payload.get("is_mechanical") else MaintenanceCategory.OTHER
         }
 
@@ -115,10 +129,16 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
         for key, itype in [("labor_rows", "LABOR"), ("material_rows", "MATERIAL"), ("third_party_rows", "THIRD_PARTY")]:
             for row in payload.get(key, []):
                 if row.get("description"):
+                    # CORREÇÃO: Tenta pegar 'price' ou 'cost' para garantir compatibilidade
+                    item_cost = safe_float(row.get("price") if row.get("price") is not None else row.get("cost"))
+                    
                     db.add(MaintenanceServiceItem(
-                        description=row["description"], quantity=safe_float(row.get("qty"), 1.0),
-                        cost=safe_float(row.get("price")), item_type=itype,
-                        maintenance_request_id=new_os.id, added_by_id=current_user.id
+                        description=row["description"], 
+                        quantity=safe_float(row.get("qty") if row.get("qty") is not None else row.get("quantity"), 1.0),
+                        cost=item_cost, # <--- Agora o valor será salvo corretamente
+                        item_type=itype,
+                        maintenance_request_id=new_os.id, 
+                        added_by_id=current_user.id
                     ))
 
         if new_os.status == "CONCLUIDA":
@@ -140,6 +160,7 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
         return res.scalars().first()
     except Exception as e:
         await db.rollback()
+        import traceback
         traceback.print_exc() # type: ignore
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -258,53 +279,40 @@ async def delete_maintenance_request(
 
 # 4. ATUALIZAR STATUS (CORREÇÃO DA LIBERAÇÃO)
 @router.put("/requests/{request_id}/status", response_model=MaintenanceRequestPublic)
-@router.put("/{request_id}/status", response_model=MaintenanceRequestPublic)
 async def update_request_status(
     *,
     db: AsyncSession = Depends(deps.get_db),
     background_tasks: BackgroundTasks,
     request_id: int,
-    update_data: MaintenanceRequestUpdate,
+    request_in: MaintenanceRequestUpdate, # Use o Schema correto aqui
     current_user: User = Depends(deps.get_current_active_manager)
 ):
     db_obj = await crud.maintenance.get_request(db, request_id=request_id, organization_id=current_user.organization_id)
     if not db_obj: raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
     
-    updated = await crud.maintenance.update_request_status(db=db, db_obj=db_obj, update_data=update_data, manager_id=current_user.id)
+    # Converte o schema para dict
+    update_data = request_in.model_dump(exclude_unset=True)
     
-    # --- LÓGICA ROBUSTA DE LIBERAÇÃO DA MÁQUINA ---
-    # Converte o status para string MAIÚSCULA para evitar erro de Enum
-    new_status_val = str(updated.status.value if hasattr(updated.status, 'value') else updated.status).upper()
+    # Atualiza o objeto
+    for field in update_data:
+        if hasattr(db_obj, field):
+            setattr(db_obj, field, update_data[field])
     
-    print(f"[DEBUG] Status da O.M. #{request_id} alterado para: {new_status_val}")
-
-    # Lista de palavras que indicam fim
+    db.add(db_obj)
+    
+    # --- LÓGICA DE LIBERAÇÃO DA MÁQUINA (Igual ao seu) ---
+    new_status_val = str(db_obj.status.value if hasattr(db_obj.status, 'value') else db_obj.status).upper()
     finished_keywords = ["COMPLETED", "CONCLUIDO", "CONCLUIDA","CONCLUÍDA", "CLOSED", "FECHADO", "CANCELED", "CANCELADO", "REJECTED"]
     
-    # Se o novo status está na lista de finalizados
     if any(k in new_status_val for k in finished_keywords):
         vehicle = await db.get(Vehicle, db_obj.vehicle_id)
         if vehicle:
-            print(f"[DEBUG] O.M. Finalizada. Forçando veículo {vehicle.id} para {VehicleStatus.AVAILABLE.value}")
-            # FORÇA PARA DISPONÍVEL (Sem checar o status anterior)
             vehicle.status = VehicleStatus.AVAILABLE.value
             db.add(vehicle)
-    # ----------------------------------------------
 
-    response = MaintenanceRequestPublic.model_validate(updated)
-    
-    msg = f"Status do chamado #{updated.id} atualizado para: {updated.status.value}."
-    if updated.reported_by_id:
-        background_tasks.add_task(crud.notification.create_notification, db=db, message=msg, notification_type=NotificationType.MAINTENANCE_REQUEST_STATUS_UPDATE, user_id=updated.reported_by_id, organization_id=current_user.organization_id, related_entity_type="maintenance_request", related_entity_id=updated.id)
-    
-    await crud_audit_log.create(db=db, log_in=AuditLogCreate(
-        action="UPDATE", resource_type="Chamado de Manutenção", resource_id=str(updated.id),
-        user_id=current_user.id, organization_id=current_user.organization_id,
-        details={"new_status": update_data.status}
-    ))
-    
     await db.commit()
-    return response
+    await db.refresh(db_obj)
+    return db_obj
 
 # 5. SERVIÇOS
 @router.post("/requests/{request_id}/services", response_model=MaintenanceServiceItemPublic)

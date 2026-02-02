@@ -1,6 +1,6 @@
 import json
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional, Set, List, Dict, Any, Union
+from typing import Optional, Set, List, Dict, Any
 from pydantic import model_validator, Field, AnyHttpUrl, field_validator
 
 class Settings(BaseSettings):
@@ -21,15 +21,10 @@ class Settings(BaseSettings):
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Any) -> Any:
-        # Caso 1: String separada por vírgula
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",") if i.strip()]
-        
-        # Caso 2: Lista (se já vier processada ou do JSON)
         elif isinstance(v, (list, tuple)):
-            # Filtra strings vazias dentro da lista para evitar o erro de validação
             return [i for i in v if isinstance(i, str) and i.strip()]
-            
         return v
 
     # --- SUPERUSERS ---
@@ -47,40 +42,45 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
 
     # --- BANCO DE DADOS ---
-    POSTGRES_USER: Optional[str] = None
-    POSTGRES_PASSWORD: Optional[str] = None
-    POSTGRES_SERVER: Optional[str] = None
-    POSTGRES_DB: Optional[str] = None
+    POSTGRES_USER: Optional[str] = "postgres"
+    POSTGRES_PASSWORD: Optional[str] = "Admin123"
+    POSTGRES_SERVER: Optional[str] = "localhost"
+    POSTGRES_DB: Optional[str] = "Trucar"
     
+    # Render/Heroku env variable
     database_url_from_env: Optional[str] = Field(None, alias="DATABASE_URL")
     
-    # CORREÇÃO AQUI: Renomeado de SQLALCHEMY_DATABASE_URI para DATABASE_URI
-    # para bater com o que o session.py espera.
+    # Esta é a variável principal usada pelo Alembic e pela Session
     DATABASE_URI: Optional[str] = None
-    
+
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        """Alias para manter compatibilidade com scripts antigos"""
+        return self.DATABASE_URI or ""
+
     @model_validator(mode='after')
     def assemble_db_uri(self) -> 'Settings':
         uri = None
         
+        # 1. Tenta usar DATABASE_URL do ambiente (Render/Heroku)
         if self.database_url_from_env:
             uri = self.database_url_from_env
-            # Ajuste para asyncpg no Render
             if uri.startswith("postgres://"):
                 uri = uri.replace("postgres://", "postgresql+asyncpg://", 1)
             elif uri.startswith("postgresql://") and not uri.startswith("postgresql+asyncpg://"):
                 uri = uri.replace("postgresql://", "postgresql+asyncpg://", 1)
         
+        # 2. Constrói a partir das variáveis POSTGRES_*
         elif self.POSTGRES_USER and self.POSTGRES_SERVER and self.POSTGRES_DB:
              uri = (
                 f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
                 f"{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
              )
         
+        # 3. Fallback para SQLite local
         if not uri:
-             # Fallback para SQLite local
              uri = "sqlite+aiosqlite:///./test.db" 
 
-        # Atribui ao nome correto
         self.DATABASE_URI = uri
         return self
 
@@ -101,38 +101,25 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: Optional[str] = None
     EMAILS_FROM_NAME: Optional[str] = None
 
-    # --- LIMITES DEMO ---
+    # --- LIMITES ---
     DEMO_TOTAL_LIMITS: Dict[str, int] = {
-        "vehicles": 3,
-        "users": 2,
-        "parts": 15,
-        "clients": 5,
-        "implements": 2,
-        "vehicle_components": 10,
+        "vehicles": 3, "users": 2, "parts": 15, "clients": 5, "implements": 2, "vehicle_components": 10,
     }
     
     @field_validator("DEMO_TOTAL_LIMITS", mode="before")
     @classmethod
     def parse_demo_total_limits(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return json.loads(v)
+        if isinstance(v, str): return json.loads(v)
         return v
 
     DEMO_MONTHLY_LIMITS: Dict[str, int] = {
-        "reports": 5,
-        "fines": 3,
-        "documents": 10,
-        "freight_orders": 10,
-        "maintenance_requests": 5,
-        "fuel_logs": 20,
-        "costs": 15
+        "reports": 5, "fines": 3, "documents": 10, "freight_orders": 10, "maintenance_requests": 5, "fuel_logs": 20, "costs": 15
     }
 
     @field_validator("DEMO_MONTHLY_LIMITS", mode="before")
     @classmethod
     def parse_demo_monthly_limits(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return json.loads(v)
+        if isinstance(v, str): return json.loads(v)
         return v
 
 settings = Settings()

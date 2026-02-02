@@ -236,3 +236,24 @@ class SessionResponse(BaseModel):
     status: str
     message: str
     session_id: str
+
+
+class AppointmentCreate(BaseModel):
+    op_number: str
+    operator_id: str  # Crachá
+    vehicle_id: Optional[int] = None
+    DataSource: Optional[str] = "I"
+    start_time: datetime
+    end_time: datetime
+    
+    position: Optional[str] = None      # Etapa (010, 020...)
+    operation: Optional[str] = None     # Código da operação
+    operation_desc: Optional[str] = None
+    
+    item_code: Optional[str] = None
+    part_description: Optional[str] = None
+    
+    stop_reason: Optional[str] = None   # Se for parada
+    stop_description: Optional[str] = None
+    
+    resource_code: Optional[str] = None

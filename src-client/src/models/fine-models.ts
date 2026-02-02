@@ -26,6 +26,4 @@ export interface FineCreate {
   infraction_code?: string | null;
 }
 
-// --- CORREÇÃO DO ESLINT ---
-// Usamos 'type' em vez de 'interface' para evitar o aviso de interface vazia.
 export type FineUpdate = Partial<FineCreate>;

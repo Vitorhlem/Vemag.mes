@@ -72,12 +72,10 @@ export const SAP_OPERATIONS: Record<string, SapOperationMap> = {
   '020': { ...SAP_OPERATIONS_MAP['414'] },
   '030': { ...SAP_OPERATIONS_MAP['410'] },
   '040': { ...SAP_OPERATIONS_MAP['406'] },
-  '050': { ...SAP_OPERATIONS_MAP['413'] },
+  '050': { ...SAP_OPERATIONS_MAP['703'] },
   '060': { ...SAP_OPERATIONS_MAP['414'] },
   '070': { ...SAP_OPERATIONS_MAP['202'] },
   '080': { ...SAP_OPERATIONS_MAP['701'] },
-  // Removido as chaves '999' duplicadas para evitar erro de linter/runtime.
-  // Se precisar de fallback genérico, use a função getSapOperation.
 };
 
 export function getSapOperation(stageSeq: number | string): SapOperationMap {

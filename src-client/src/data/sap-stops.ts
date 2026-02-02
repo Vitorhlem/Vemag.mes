@@ -8,28 +8,37 @@ export interface SapStopReason {
 }
 
 export const SAP_STOP_REASONS: SapStopReason[] = [
-  // --- ESPECIAIS (Destaque Visual) ---
+  // --- ITENS MANTIDOS (CONFORME SOLICITADO) ---
   { code: '111', label: 'Troca de Turno', category: 'Operacional', requiresMaintenance: false, isProductive: false, isSpecial: true },
   { code: '21', label: 'Manutenção / Conserto', category: 'Manutenção', requiresMaintenance: true, isProductive: false, isSpecial: true },
 
-  // --- PRODUÇÃO / SETUP ---
-  { code: '100', label: 'Setup / Preparação', category: 'Operacional', requiresMaintenance: false, isProductive: true },
-  { code: '101', label: 'Ajuste de Parâmetros', category: 'Operacional', requiresMaintenance: false, isProductive: true },
-  { code: '112', label: 'Reunião / DDS', category: 'Operacional', requiresMaintenance: false, isProductive: true },
+  // --- OPERACIONAL / PRODUÇÃO (LISTA SAP) ---
+  { code: '52', label: 'Setup', category: 'Operacional', requiresMaintenance: false, isProductive: true, isSpecial: true },
+  { code: '42', label: 'Elaboração de Programa CNC', category: 'Operacional', requiresMaintenance: false, isProductive: true },
+  { code: '22', label: 'Falta de Energia Elétrica', category: 'Operacional', requiresMaintenance: false, isProductive: false },
+  { code: '28', label: 'Aguardando Serviço', category: 'Operacional', requiresMaintenance: false, isProductive: false },
+  { code: '38', label: 'Assistência do Cliente', category: 'Operacional', requiresMaintenance: false, isProductive: false },
+  { code: '60005', label: 'Fabricação de dispositivos', category: 'Operacional', requiresMaintenance: false, isProductive: true },
 
   // --- LOGÍSTICA ---
-  { code: '26', label: 'Aguardando Material', category: 'Logística', requiresMaintenance: false, isProductive: false },
-  { code: '20', label: 'Aguardando Ponte', category: 'Logística', requiresMaintenance: false, isProductive: false },
-  { code: '504', label: 'Aguardando PCP', category: 'Logística', requiresMaintenance: false, isProductive: false },
-  { code: '24', label: 'Informação Técnica', category: 'Logística', requiresMaintenance: false, isProductive: false },
+  { code: '20', label: 'Aguardando ponte rolante', category: 'Logística', requiresMaintenance: false, isProductive: false },
+  { code: '23', label: 'Aguardando ferramenta/instrumento', category: 'Logística', requiresMaintenance: false, isProductive: false },
+  { code: '24', label: 'Aguardando informação técnica', category: 'Logística', requiresMaintenance: false, isProductive: false },
+  { code: '26', label: 'Aguardando peça/material', category: 'Logística', requiresMaintenance: false, isProductive: false },
 
   // --- QUALIDADE ---
-  { code: '25', label: 'Aguardando Inspeção', category: 'Qualidade', requiresMaintenance: false, isProductive: false },
-  { code: '401', label: 'Inspeção 1ª Peça', category: 'Qualidade', requiresMaintenance: false, isProductive: true },
-  { code: '27', label: 'Limpeza / 5S', category: 'Qualidade', requiresMaintenance: false, isProductive: true },
+  { code: '25', label: 'Aguardando inspeção', category: 'Qualidade', requiresMaintenance: false, isProductive: false },
+  { code: '27', label: 'Arrumação/limpeza', category: 'Qualidade', requiresMaintenance: false, isProductive: true },
+  { code: '39', label: 'Rastreabilidade de materiais', category: 'Qualidade', requiresMaintenance: false, isProductive: true },
+  { code: '40', label: 'Organização de Instrumentos', category: 'Qualidade', requiresMaintenance: false, isProductive: true },
 
-  // --- PESSOAL / OUTROS ---
-  { code: '600', label: 'Refeição / Café', category: 'Pessoal', requiresMaintenance: false, isProductive: false },
+  // --- PESSOAL / MANUTENÇÃO EXTRA ---
   { code: '30', label: 'Treinamento', category: 'Pessoal', requiresMaintenance: false, isProductive: true },
+  { code: '31', label: 'Exame médico', category: 'Pessoal', requiresMaintenance: false, isProductive: false },
+  { code: '34', label: 'Manutenção predial', category: 'Manutenção', requiresMaintenance: false, isProductive: false },
+  { code: '50', label: 'Particular Vanderci Escudeiro', category: 'Pessoal', requiresMaintenance: false, isProductive: false },
+  { code: '51', label: 'Particular Cesar Valochi', category: 'Pessoal', requiresMaintenance: false, isProductive: false },
+
+  // --- GENÉRICO ---
   { code: '999', label: 'Outros Motivos', category: 'Outros', requiresMaintenance: false, isProductive: false }
 ];

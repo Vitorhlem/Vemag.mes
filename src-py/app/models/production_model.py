@@ -198,3 +198,44 @@ class AndonAlert(Base):
 
     vehicle = relationship("Vehicle", back_populates="andon_alerts")
     operator = relationship("User")
+
+class ProductionAppointment(Base):
+    """
+    Registra os apontamentos oficiais de produção/parada.
+    Estes são os registros que compõem o histórico do operador e são enviados ao SAP.
+    """
+    __tablename__ = "production_appointments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Vínculos
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    # Armazenamos o CRACHÁ (String) ou ID do usuário, conforme sua lógica de negócio
+    operator_id = Column(String(50), index=True, nullable=False) 
+    
+    # Dados da Ordem
+    op_number = Column(String(50), index=True)
+    position = Column(String(10), nullable=True) # Etapa/Operação (Ex: 010)
+    operation_code = Column(String(20), nullable=True)
+    
+    # Tempos
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    
+    # Quantidades (Se houver)
+    produced_qty = Column(Float, default=0.0)
+    scrap_qty = Column(Float, default=0.0)
+    target_qty = Column(Float, default=0.0) # Meta esperada para o período (para cálculo de eficiência)
+    
+    # Tipificação
+    appointment_type = Column(String(20), default="PRODUCTION") # PRODUCTION, STOP, SETUP
+    stop_reason = Column(String(255), nullable=True) # Se for parada
+    
+    # Status de Sincronização SAP
+    sap_status = Column(String(20), default="PENDING") # PENDING, SENT, ERROR
+    sap_message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.now)
+
+    # Relacionamentos
+    vehicle = relationship("Vehicle")

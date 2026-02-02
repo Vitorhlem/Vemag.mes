@@ -20,14 +20,14 @@
                     <q-avatar size="100px" font-size="44px" class="shadow-5" style="background: linear-gradient(135deg, #263238 0%, #37474F 100%); color: white;">
                         {{ user?.full_name?.charAt(0).toUpperCase() }}
                     </q-avatar>
-                    <q-badge floating color="green-5" rounded style="border: 2px solid white; width: 16px; height: 16px; bottom: 5px; right: 5px; top: auto;" />
+                    <q-badge floating :color="user?.is_active ? 'green-5' : 'red'" rounded style="border: 2px solid white; width: 16px; height: 16px; bottom: 5px; right: 5px; top: auto;" />
                 </div>
 
                 <div class="col">
                     <div class="text-h4 text-weight-bolder text-blue-grey-10">{{ user?.full_name }}</div>
                     <div class="text-subtitle1 text-grey-7 row items-center q-mt-xs">
                         <q-icon name="badge" size="18px" class="q-mr-xs text-primary" /> 
-                        <span class="text-weight-medium">ID: #{{ user?.id }}</span>
+                        <span class="text-weight-medium">ID: #{{ user?.employee_id || user?.id }}</span>
                         <span class="q-mx-md text-grey-4">|</span>
                         <q-icon name="email" size="18px" class="q-mr-xs text-primary" /> 
                         {{ user?.email }}
@@ -36,7 +36,7 @@
                     <div class="row q-gutter-x-md q-mt-md">
                         <q-badge color="blue-grey-1" text-color="blue-grey-9" class="q-py-sm q-px-md text-subtitle2 text-weight-bold shadow-1">
                             <q-icon name="engineering" class="q-mr-sm" />
-                            {{ user?.role || 'OPERADOR LÍDER' }}
+                            {{ user?.role || 'OPERADOR' }}
                         </q-badge>
                         <q-badge :color="getEfficiencyColor(globalStats.efficiency)" class="q-py-sm q-px-md text-subtitle2 text-weight-bold shadow-1">
                             <q-icon name="trending_up" class="q-mr-sm" />
@@ -51,7 +51,7 @@
                         <div class="text-h3 text-weight-bolder text-blue-grey-9 lh-small">{{ globalStats.sessions }}</div>
                     </div>
                     <div class="column items-end">
-                        <div class="text-caption text-grey-6 text-weight-bold text-uppercase letter-spacing-1">Horas Apontadas</div>
+                        <div class="text-caption text-grey-6 text-weight-bold text-uppercase letter-spacing-1">Horas Totais</div>
                         <div class="text-h3 text-weight-bolder text-primary lh-small">{{ globalStats.hours }}h</div>
                     </div>
                 </div>
@@ -128,7 +128,7 @@
                                 <div class="row items-center">
                                     <q-avatar color="blue-grey-1" text-color="blue-grey-8" icon="schedule" size="50px" class="q-mr-md" />
                                     <div class="column">
-                                        <span class="text-caption text-grey-6 text-uppercase">Horas Totais</span>
+                                        <span class="text-caption text-grey-6 text-uppercase">Horas no Ano</span>
                                         <span class="text-h5 text-weight-bold text-dark">{{ currentYearStats.hours }}h</span>
                                     </div>
                                 </div>
@@ -144,7 +144,6 @@
                         class="shadow-1 overflow-hidden transition-hover" 
                         style="border-radius: 12px; border: 1px solid #f0f0f0;"
                     >
-                        
                         <q-expansion-item
                             group="months"
                             header-class="bg-white text-blue-grey-9 q-py-md"
@@ -164,14 +163,13 @@
                                             />
                                             <div>
                                                 <div class="text-h6 text-weight-bold line-height-1">{{ monthNames[index] }}</div>
-                                                <div class="text-caption text-grey-6" v-if="monthData.sessions.length">{{ monthData.sessions.length }} entradas</div>
+                                                <div class="text-caption text-grey-6" v-if="monthData.sessions.length">{{ monthData.sessions.length }} registros</div>
                                                 <div class="text-caption text-grey-5" v-else>Sem atividade</div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="col-9 row items-center justify-end q-gutter-x-xl q-pr-md" v-if="monthData.sessions.length > 0">
-                                        
                                         <div class="column items-end" style="min-width: 100px;">
                                             <span class="text-caption text-grey-6 text-uppercase text-weight-bold" style="font-size: 0.65rem;">Horas Prod.</span>
                                             <div class="row items-baseline">
@@ -202,7 +200,7 @@
                                             <q-card flat bordered class="full-height bg-white">
                                                 <q-card-section>
                                                     <div class="text-subtitle2 text-uppercase text-grey-7 q-mb-lg row items-center">
-                                                        <q-icon name="pie_chart" class="q-mr-sm" /> Distribuição de Tempo
+                                                        <q-icon name="pie_chart" class="q-mr-sm" /> Máquinas Utilizadas
                                                     </div>
                                                     <div v-for="(usage, mName) in monthData.machineStats" :key="mName" class="q-mb-md">
                                                         <div class="row justify-between text-caption q-mb-xs">
@@ -210,7 +208,7 @@
                                                                 <q-icon name="precision_manufacturing" size="14px" class="q-mr-xs text-grey-6" />
                                                                 <span class="text-weight-bold text-dark">{{ mName }}</span>
                                                             </div>
-                                                            <span class="text-weight-bold">{{ usage.count }} sessões ({{ (usage.percent * 100).toFixed(0) }}%)</span>
+                                                            <span class="text-weight-bold">{{ usage.count }}x</span>
                                                         </div>
                                                         <q-linear-progress :value="usage.percent" color="secondary" size="10px" rounded track-color="grey-2" />
                                                     </div>
@@ -220,7 +218,7 @@
 
                                         <div class="col-12 col-md-8">
                                             <q-table
-                                                title="Registro Detalhado de Sessões"
+                                                title="Diário de Bordo"
                                                 :rows="monthData.sessions"
                                                 :columns="sessionColumns"
                                                 row-key="id"
@@ -229,17 +227,6 @@
                                                 :pagination="{ rowsPerPage: 10 }"
                                                 dense
                                             >
-                                                <template v-slot:top>
-                                                    <div class="row items-center full-width justify-between">
-                                                        <div class="text-subtitle2 text-uppercase text-grey-7 row items-center">
-                                                            <q-icon name="list_alt" class="q-mr-sm" /> Diário de Bordo
-                                                        </div>
-                                                        <q-btn flat dense round color="primary" icon="download" size="sm">
-                                                            <q-tooltip>Baixar CSV do Mês</q-tooltip>
-                                                        </q-btn>
-                                                    </div>
-                                                </template>
-                                                
                                                 <template v-slot:body-cell-efficiency="props">
                                                     <q-td :props="props">
                                                         <q-badge :color="getEfficiencyColorName(props.value)" class="q-px-sm text-weight-bold shadow-1">
@@ -260,10 +247,13 @@
                                                 </template>
 
                                                 <template v-slot:body-cell-order_code="props">
-                                                    <q-td :props="props">
-                                                        <q-badge outline color="blue-grey" :label="props.value" class="text-weight-medium" />
-                                                    </q-td>
-                                                </template>
+    <q-td :props="props">
+        <div class="row items-center justify-center">
+            <q-badge outline color="blue-grey" :label="props.row.order_code" class="text-weight-bold q-mr-xs" />
+            <q-badge v-if="props.row.step" color="grey-3" text-color="grey-9" :label="'ET: ' + props.row.step" class="text-caption" />
+        </div>
+    </q-td>
+</template>
                                             </q-table>
                                         </div>
                                     </div>
@@ -272,7 +262,6 @@
                                 <div v-else class="column flex-center q-pa-xl text-grey-5">
                                     <q-icon name="folder_off" size="60px" class="q-mb-md opacity-50" />
                                     <div class="text-h6">Nenhuma atividade registrada.</div>
-                                    <div>O colaborador não realizou apontamentos neste mês.</div>
                                 </div>
                             </q-card-section>
                         </q-expansion-item>
@@ -288,24 +277,41 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useMesStore } from 'stores/mes-store';
-import type { SessionDetail } from 'stores/mes-store';
+import { useUserStore } from 'stores/user-store'; // ✅ STORE DE USUÁRIOS
+import { api } from 'boot/axios'; // ✅ AXIOS
+import { Notify } from 'quasar';
 import type { QTableColumn } from 'quasar';
 
 const route = useRoute();
 const router = useRouter();
-const mesStore = useMesStore();
+const userStore = useUserStore();
 
 const userId = Number(route.params.id);
 
+// --- TIPOS ---
 interface UserProfile {
     id: number;
     full_name: string;
     email: string;
+    employee_id?: string;
     role: string;
     is_active: boolean;
 }
+
+interface SessionData {
+    id: number;
+    machine_name: string;
+    order_code: string;
+    step?: string; // <--- CAMPO NOVO
+    start_time: string;
+    end_time?: string;
+    duration_minutes: number;
+    efficiency: number; // 0-100
+}
+
+// --- ESTADOS ---
 const user = ref<UserProfile | null>(null);
+const userSessions = ref<SessionData[]>([]);
 const isLoading = ref(true);
 
 const currentSysYear = new Date().getFullYear();
@@ -319,8 +325,13 @@ const monthNames = [
 const sessionColumns: QTableColumn[] = [
   { name: 'start_time', label: 'Dia / Hora', field: 'start_time', align: 'left', sortable: true },
   { name: 'machine_name', label: 'Equipamento', field: 'machine_name', align: 'left' },
-  { name: 'order_code', label: 'O.P.', field: 'order_code', align: 'center' },
-  { name: 'duration', label: 'Duração', field: 'duration', align: 'center' },
+  { name: 'order_code', label: 'O.P. / Etapa', field: 'order_code', align: 'center' }, // Label alterado
+  { 
+    name: 'duration', 
+    label: 'Duração', 
+    field: (row: SessionData) => formatDuration(row.duration_minutes), 
+    align: 'center' 
+  },
   { name: 'efficiency', label: 'Eficiência', field: 'efficiency', align: 'center', sortable: true }
 ];
 
@@ -328,80 +339,86 @@ function goBack() {
     router.go(-1);
 }
 
-function generateMockData() {
-    user.value = {
-        id: userId,
-        full_name: 'Carlos Eduardo Silva',
-        email: 'carlos.silva@vemag.com.br',
-        role: 'OPERADOR LÍDER',
-        is_active: true
-    };
-
-    const sessions: SessionDetail[] = [];
-    const machines = ['CNC Mazak #01', 'CNC Mazak #02', 'Torno Romi GL', 'Centro Usinagem', 'Prensa Hidráulica 50T'];
-    const opCodes = ['OP-4590', 'OP-4610', 'OP-4700', 'OP-4820', 'OP-5001'];
-
-    [2023, 2024].forEach(year => {
-        for (let month = 0; month < 12; month++) {
-            if (year === 2024 && month > new Date().getMonth()) break;
-            if (year === 2023 && month === 6) continue;
-
-            const numSessions = Math.floor(Math.random() * 10) + 15;
-
-            for (let i = 0; i < numSessions; i++) {
-                const day = Math.floor(Math.random() * 28) + 1;
-                const hour = Math.floor(Math.random() * 8) + 8;
-                const durationMin = Math.floor(Math.random() * 180) + 60;
-                
-                let eff = Math.floor(Math.random() * 30) + 70;
-                if (Math.random() > 0.8) eff = Math.floor(Math.random() * 20) + 50;
-
-                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:00:00`;
-
-                // Validações para evitar undefined
-                const machine = machines[Math.floor(Math.random() * machines.length)] || 'Desconhecido';
-                const opCode = opCodes[Math.floor(Math.random() * opCodes.length)] || 'N/A';
-
-                sessions.push({
-                    id: Math.floor(Math.random() * 10000),
-                    machine_name: machine,
-                    order_code: opCode,
-                    start_time: dateStr,
-                    end_time: null,
-                    duration: `${Math.floor(durationMin/60)}h ${durationMin%60}m`,
-                    efficiency: eff
-                });
-            }
-        }
-    });
-
-    mesStore.userSessions = sessions;
+function formatDuration(minutes: number) {
+    if (minutes === 0) return '< 1m'; // Mostra que foi rápido, mas existiu
+    if (!minutes) return '--';
+    
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    
+    if (h === 0) return `${m}m`; // Ex: "45m"
+    return `${h}h ${m}m`;        // Ex: "1h 30m"
 }
 
-// --- LOGICA COMPUTADA ---
+// --- CARREGAMENTO DE DADOS REAIS ---
+async function loadUserData() {
+    try {
+        isLoading.value = true;
+        
+        // 1. Busca perfil do usuário
+        const foundUser = userStore.users.find(u => u.id === userId);
+        if (foundUser) {
+            user.value = foundUser;
+        } else {
+            const { data } = await api.get(`/users/${userId}`);
+            user.value = data;
+        }
+
+        // 2. Busca histórico de sessões do usuário
+        // Rota que criamos no backend: /production/history/user/{id}
+        const historyRes = await api.get(`/production/history/user/${userId}`);
+        
+        // Mapeia para o formato local
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        userSessions.value = historyRes.data.map((item: any) => ({
+            id: item.id,
+            machine_name: item.machine_name || `Máquina #${item.machine_id}`,
+            order_code: item.op_number || 'N/A',
+            step: item.step, // <--- MAPEANDO ETAPA
+            start_time: item.start_time,
+            end_time: item.end_time,
+            duration_minutes: item.duration_minutes || 0,
+            efficiency: item.efficiency || 100
+        }));
+
+        console.log("Dados carregados:", userSessions.value.length, "sessões");
+
+    } catch (error) {
+        console.error('Erro ao carregar dados do usuário:', error);
+        Notify.create({ type: 'negative', message: 'Falha ao carregar histórico do colaborador.' });
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+// --- LÓGICA COMPUTADA (MANTIDA MAS ADAPTADA PARA userSessions REF) ---
 
 const availableYears = computed(() => {
-    if (!mesStore.userSessions.length) return [currentSysYear];
+    if (!userSessions.value.length) return [currentSysYear];
     const years = new Set<number>();
-    mesStore.userSessions.forEach(s => years.add(new Date(s.start_time).getFullYear()));
+    userSessions.value.forEach(s => {
+        if(s.start_time) years.add(new Date(s.start_time).getFullYear());
+    });
     return Array.from(years).sort((a, b) => b - a); 
 });
 
 const currentYearData = computed(() => {
     const year = selectedYear.value;
     
-    // Inicialização correta de array com objetos complexos
+    // Inicializa 12 meses vazios
     const months = Array.from({ length: 12 }, () => ({
-        sessions: [] as SessionDetail[],
+        sessions: [] as SessionData[],
         totalHours: 0,
         avgEfficiency: 0,
         machineStats: {} as Record<string, { count: number, percent: number }>
     }));
 
-    const yearSessions = mesStore.userSessions.filter(s => 
-        new Date(s.start_time).getFullYear() === year
+    // Filtra pelo ano selecionado
+    const yearSessions = userSessions.value.filter(s => 
+        s.start_time && new Date(s.start_time).getFullYear() === year
     );
 
+    // Distribui nos meses
     yearSessions.forEach(session => {
         const date = new Date(session.start_time);
         const targetMonth = months[date.getMonth()];
@@ -410,6 +427,7 @@ const currentYearData = computed(() => {
         }
     });
 
+    // Calcula estatísticas mensais
     months.forEach(m => {
         if (m.sessions.length === 0) return;
         
@@ -418,13 +436,8 @@ const currentYearData = computed(() => {
         const totalEff = m.sessions.reduce((sum, s) => sum + s.efficiency, 0);
         m.avgEfficiency = Math.round(totalEff / m.sessions.length);
 
-        const totalHours = m.sessions.reduce((sum, s) => {
-            // CORREÇÃO: Verificação segura antes do parseInt
-            const matches = (s.duration || '').match(/(\d+)h/);
-            const hourPart = matches ? matches[1] : null;
-            return sum + (hourPart ? parseInt(hourPart) : 1);
-        }, 0);
-        m.totalHours = totalHours;
+        const totalMinutes = m.sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        m.totalHours = Math.round(totalMinutes / 60);
 
         const machineCounts: Record<string, number> = {};
         m.sessions.forEach(s => {
@@ -456,10 +469,11 @@ const currentYearStats = computed(() => {
 });
 
 const globalStats = computed(() => {
-    const all = mesStore.userSessions;
+    const all = userSessions.value;
     const count = all.length;
     const eff = count ? Math.round(all.reduce((acc, s) => acc + s.efficiency, 0) / count) : 0;
-    const hours = Math.round(count * 2.5); 
+    const totalMinutes = all.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
+    const hours = Math.round(totalMinutes / 60);
     return { hours, efficiency: eff, sessions: count };
 });
 
@@ -486,12 +500,8 @@ function getEfficiencyLabel(val: number) {
 }
 
 // --- INIT ---
-onMounted(() => {
-    // Simula delay de rede para loading
-    setTimeout(() => {
-        generateMockData();
-        isLoading.value = false;
-    }, 800);
+onMounted(async () => {
+    await loadUserData();
 });
 </script>
 

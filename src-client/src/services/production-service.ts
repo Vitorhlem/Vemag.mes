@@ -23,6 +23,7 @@ export interface AppointmentPayload {
   operation: string;
   operation_desc: string;
   part_description: string;
+  DataSource?: string; // Adicione esta linha
   item_code: string;
   service_code: string;
   resource_code: string;
@@ -56,6 +57,7 @@ export class ProductionService {
     const response = await api.post('/production/appoint', payload);
     return response.data;
   }
+  
 
   // --- O MÉTODO NOVO DEVE FICAR AQUI, DENTRO DA CLASSE ---
   static async getMachineStats(machineId: number, date?: string): Promise<MachineStats> {

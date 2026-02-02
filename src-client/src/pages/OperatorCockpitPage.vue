@@ -965,6 +965,7 @@ async function applyNormalPause() {
           operation: sapData.code || '',    // OPERACAO
           resource_code: machineRes,        // RECURSO
           operator_id: String(badge || '0'),// OPERADOR
+          DataSource: 'I',
           start_time: prodStart.toISOString(), // DATA/HORA INI
           end_time: now.toISOString(),         // DATA/HORA FIM
           part_description: order.part_name || '', // DESCRICAO ITEM
@@ -980,6 +981,7 @@ async function applyNormalPause() {
           position: position,              // ETAPA
           operation: sapData.code || '',    // OPERACAO
           resource_code: machineRes,        // RECURSO
+          DataSource: 'I',
           operator_id: String(badge || '0'),// OPERADOR
           start_time: prodStart.toISOString(), // DATA/HORA INI
           end_time: now.toISOString(),         // DATA/HORA FIM
@@ -1054,6 +1056,7 @@ async function executeShiftChange(keepRunning: boolean) {
                 operation: sapData.code || '',
                 operation_desc: sapData.description || '',
                 resource_code: machineRes,
+                DataSource: 'I',
                 resource_name: productionStore.machineName,
                 part_description: activeOrder.value.part_name || '',
                 item_code: activeOrder.value.part_code || '',
@@ -1075,6 +1078,7 @@ async function executeShiftChange(keepRunning: boolean) {
             position: '',
             operation: '',
             operation_desc: '',
+            DataSource: 'I',
             resource_code: machineRes,
             resource_name: productionStore.machineName,
             operator_name: operatorName,
@@ -1146,7 +1150,7 @@ async function triggerCriticalBreakdown() {
                 part_description: activeOrder.value.part_name || '',
                 item_code: activeOrder.value.part_code || '',
                 service_code: '',
-                
+                DataSource: 'I',
                 resource_code: machineRes,
                 resource_name: resourceDescription,
                 operator_name: operatorName || '',
@@ -1177,7 +1181,7 @@ async function triggerCriticalBreakdown() {
             operator_name: operatorName || '',
             operator_id: String(badge),
             vehicle_id: productionStore.machineId || 0,
-
+            DataSource: 'I',
             start_time: eventTime,
             end_time: eventTime, 
 
@@ -1327,6 +1331,7 @@ function confirmFinishOp() {
          operation: sapData.code || '', 
          operation_desc: sapData.description || '',
          resource_code: machineRes, 
+         DataSource: 'I',
          resource_name: resourceDescription,
          part_description: activeOrder.value?.part_name || '', 
          operator_name: operatorName || '', 
@@ -1422,6 +1427,7 @@ async function handleSetupClick() {
                   part_description: '', item_code: '', service_code: '',
                   resource_code: machineRes,
                   resource_name: resourceDescription,
+                  DataSource: 'I',
                   operator_name: operatorName || '',
                   operator_id: String(badge),
                   vehicle_id: productionStore.machineId || 0,
@@ -1491,6 +1497,7 @@ async function handleSetupClick() {
                   part_description: activeOrder.value.part_name || '',
                   item_code: activeOrder.value.part_code || '',
                   service_code: '',
+                  DataSource: 'I',
                   resource_code: machineRes,
                   resource_name: sapData.description || '',
                   operator_name: operatorName || '',
