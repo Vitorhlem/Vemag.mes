@@ -1,22 +1,26 @@
 <template>
-  <q-layout view="hHh lpR fFf" :class="$q.screen.gt.sm ? 'window-height overflow-hidden' : ''" class="bg-grey-2 text-dark font-inter">
+  <q-layout view="hHh lpR fFf" class="bg-grey-2 text-dark font-inter window-height overflow-hidden">
     
-    <q-header bordered class="q-py-xs shadow-3 text-white" style="background-color: #008C7A;">
+    <q-header bordered class="q-py-xs shadow-3 text-white" style="height: 65px; background-color: #008C7A;">
       <q-toolbar class="full-height q-px-md"> 
+        
         <div class="row items-center no-wrap">
-          <img :src="logoPath" alt="Logo" :style="$q.screen.lt.md ? 'height: 30px' : 'height: 40px'" style="max-width: 180px; object-fit: contain; filter: brightness(0) invert(1);" />
+          <img :src="logoPath" alt="Logo" 
+            :style="$q.screen.lt.md ? 'height: 30px' : 'height: 40px'" 
+            style="max-width: 150px; object-fit: contain; filter: brightness(0) invert(1);" 
+          />
           
           <q-separator vertical inset class="q-mx-md mobile-hide bg-white opacity-50" /> 
           
-          <div class="column justify-center mobile-hide">
-            <div class="text-caption text-uppercase text-grey-3 letter-spacing-1" style="line-height: 1;">
+          <div class="column justify-center mobile-hide" style="max-width: 250px;">
+            <div class="text-caption text-uppercase text-grey-3 letter-spacing-1 ellipsis" style="line-height: 1; font-size: 0.6rem;">
               {{ productionStore.machineSector }}
             </div>
-            <div class="row items-center q-mt-xs">
-              <div class="text-h6 text-weight-bolder lh-small text-white q-mr-sm">
+            <div class="row items-center no-wrap q-mt-xs">
+              <div class="text-h6 text-weight-bolder lh-small text-white q-mr-sm ellipsis">
                 {{ productionStore.machineName }}
               </div>
-              <q-badge rounded :class="statusBgClass" class="shadow-2 text-white q-py-xs q-px-sm text-caption">
+              <q-badge rounded :class="statusBgClass" class="shadow-2 text-white q-py-xs q-px-sm text-caption no-wrap">
                 <q-icon :name="statusIcon" color="white" class="q-mr-xs" size="14px" />
                 {{ displayStatus }}
               </q-badge>
@@ -26,35 +30,39 @@
         
         <q-space />
         
-        <div class="row items-center q-gutter-x-sm">
-          <div class="row items-center bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
+        <div class="row items-center no-wrap q-gutter-x-sm">
+          
+          <div class="row items-center no-wrap bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
             <q-avatar size="28px" class="shadow-1 vemag-bg-primary text-white" icon="person" font-size="18px" />
             
-            <div class="column items-start justify-center q-ml-sm mobile-hide" style="line-height: 1.1;">
-              <div class="text-caption text-weight-bold vemag-text-primary text-uppercase" style="font-size: 0.6rem;">OP</div>
-              <div class="text-caption text-grey-9 text-weight-bold">
+            <div class="column items-start justify-center q-ml-sm mobile-hide" style="line-height: 1.1; max-width: 120px;">
+              <div class="text-caption text-weight-bold vemag-text-primary text-uppercase" style="font-size: 0.55rem;">OPERADOR</div>
+              <div class="text-caption text-grey-9 text-weight-bold ellipsis full-width">
                 {{ productionStore.currentOperator?.full_name || productionStore.currentOperatorBadge || '---' }}
               </div>
             </div>
             
             <q-separator vertical inset class="q-mx-sm bg-grey-4" />
             
-            <div class="text-h6 font-monospace vemag-text-primary text-weight-bold" style="margin-top: 1px;">
+            <div class="text-h6 font-monospace vemag-text-primary text-weight-bold no-wrap" style="margin-top: 1px;">
               {{ timeDisplay }}
             </div>
           </div>
           
-          <q-btn flat round icon="logout" class="text-white" size="md" padding="xs" @click="handleLogout" />
+          <q-btn flat round icon="logout" class="text-white" size="md" padding="xs" @click="handleLogout">
+             <q-tooltip>Sair do Sistema</q-tooltip>
+          </q-btn>
         </div>
+
       </q-toolbar>
       <q-linear-progress :value="1" color="green" class="q-mt-none" size="4px" />
     </q-header>
 
-    <q-page-container :class="$q.screen.gt.sm ? 'full-height' : ''">
-      <q-page class="q-pa-sm column no-wrap" :class="$q.screen.gt.sm ? 'full-height' : ''">
+    <q-page-container class="full-height">
+      <q-page class="q-pa-sm full-height column no-wrap">
         
         <div v-if="!productionStore.activeOrder" class="col flex flex-center column">
-          <q-card class="q-pa-lg text-center shadow-10 bg-white" style="border-radius: 20px; max-width: 500px; width: 95%;">
+          <q-card class="q-pa-lg text-center shadow-10 bg-white" style="border-radius: 20px; max-width: 500px; width: 90%;">
             <div class="vemag-bg-light q-pa-md rounded-borders inline-block q-mb-md">
                <q-icon name="qr_code_scanner" size="60px" class="vemag-text-primary" />
             </div>
@@ -69,99 +77,91 @@
           </q-card>
         </div>
 
-        <div v-else class="row q-col-gutter-md" :class="$q.screen.gt.sm ? 'col items-stretch content-stretch' : 'q-pb-lg'">
-          
-          <div class="col-12 col-md-8 column no-wrap q-gutter-y-md" :class="$q.screen.gt.sm ? 'full-height' : ''">
+        <div v-else class="col row q-col-gutter-sm no-wrap items-stretch content-stretch">
+  
+          <div class="col-9 column no-wrap q-gutter-y-sm">
             
-            <q-card class="column relative-position overflow-hidden shadow-6 bg-white" :class="$q.screen.gt.sm ? 'col' : ''" style="border-radius: 20px; border-left: 10px solid #008C7A; min-height: 450px;">
-              
-              <div class="col-auto relative-position bg-vemag-gradient text-white q-pa-lg shadow-3">
-    <q-img :src="customOsBackgroundImage" class="absolute-full opacity-10" fit="cover" />
-    
-    <div class="row items-center justify-between relative-position">
-        <div class="col-grow">
-            <div class="row items-center q-gutter-x-sm q-mb-xs">
-                <q-badge color="orange-10" class="text-bold shadow-2 q-px-sm" label="PRODUÇÃO" />
-                <q-badge outline color="white" class="text-bold" :label="`OP #${productionStore.activeOrder?.code || '---'}`" />
-                <q-chip v-if="productionStore.activeOrder?.drawing" dense square color="blue-grey-9" text-color="white" icon="architecture" size="sm">
-                    DESENHO: {{ productionStore.activeOrder.drawing }}
-                </q-chip>
-            </div>
-            <div :class="$q.screen.lt.md ? 'text-h5' : 'text-h4'" class="text-weight-bolder ellipsis q-mt-sm">
-                {{ productionStore.activeOrder.part_name }}
-            </div>
-            <div class="text-subtitle2 text-grey-3 q-mt-xs">Cód. Item: <span class="text-white text-bold">{{ productionStore.activeOrder.part_code }}</span></div>
-        </div>
+            <q-card class="col-auto q-px-md q-py-sm bg-white shadow-2" style="border-radius: 12px; border-top: 5px solid #008C7A;">
+                <div class="row items-center justify-between no-wrap">
+                    <div class="row items-center q-gutter-x-sm">
+                        <q-badge color="orange-10" label="PRODUÇÃO" class="text-bold shadow-1" />
+                        <div class="text-h6 text-weight-bolder text-primary ellipsis" style="max-width: 350px;">
+                            {{ productionStore.activeOrder.part_name }}
+                        </div>
+                        <q-badge outline color="primary" :label="`OP #${productionStore.activeOrder?.code || '---'}`" />
+                    </div>
 
-        <div class="column items-end q-gutter-y-xs" :class="$q.screen.lt.md ? 'full-width row justify-between items-center q-mt-md' : ''">
-            <div class="row items-center bg-black-transparent q-px-md q-py-sm rounded-borders shadow-1">
-                <div class="column items-end q-mr-md">
-                    <div class="text-overline text-grey-4" style="line-height: 1;">META TOTAL</div>
-                    <div class="text-h5 text-weight-bolder">
-                        {{ productionStore.activeOrder.produced_quantity }} 
-                        <span class="text-subtitle1 text-grey-5">/ {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}</span>
+                    <div class="row items-center q-gutter-x-md">
+                        <div class="column items-end">
+                            <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
+                            <div class="text-subtitle1 text-weight-bold">
+                                {{ productionStore.activeOrder.produced_quantity }} / {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}
+                            </div>
+                        </div>
+                        <q-circular-progress
+                            show-value font-size="10px"
+                            :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
+                            size="35px" :thickness="0.25" color="orange-8" track-color="grey-3" class="text-bold"
+                        >
+                            {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
+                        </q-circular-progress>
+                        <q-btn push color="blue-grey-9" text-color="white" icon="image" size="sm" padding="xs sm" @click="openDrawing">
+                           <q-tooltip>Abrir Desenho</q-tooltip>
+                        </q-btn>
                     </div>
                 </div>
-                <q-circular-progress
-                    show-value font-size="12px"
-                    :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
-                    size="55px" :thickness="0.25" color="orange-5" track-color="grey-9" class="text-white text-bold shadow-2"
-                >
-                    {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
-                </q-circular-progress>
-            </div>
-            <q-btn push color="blue-grey-9" text-color="white" icon="image" label="DESENHO" size="sm" padding="xs sm" @click="openDrawing" />
-        </div>
-    </div>
-</div>
+            </q-card>
 
-              <div class="col-auto bg-grey-2 q-px-md q-py-sm border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
+            <q-card class="col column no-wrap overflow-hidden shadow-6 bg-white" style="border-radius: 12px; border-left: 10px solid #008C7A;">
+              
+              <div class="col-auto bg-grey-2 q-px-md q-py-xs border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
                 <div class="row items-center">
-                    <div class="text-subtitle1 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
-                    <div class="text-h6 text-weight-bold ellipsis" style="line-height: 1.1;">{{ productionStore.currentActiveStep.name }}</div>
+                    <div class="text-subtitle2 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
+                    <div class="text-subtitle1 text-weight-bold ellipsis">{{ productionStore.currentActiveStep.name }}</div>
                 </div>
-                <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption text-weight-bold" />
+                <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption" />
               </div>
 
-              <div class="col scroll bg-grey-1 q-pa-md relative-position">
-                  <div class="bg-white q-pa-lg rounded-borders shadow-1" style="border-left: 5px solid #008C7A; min-height: 100%;">   
-                     <div class="row items-center q-mb-md border-bottom-light q-pb-sm">
-                        <q-icon name="menu_book" size="sm" class="text-primary q-mr-sm" /> 
-                        <div class="text-subtitle1 text-weight-bold text-primary letter-spacing-1">INSTRUÇÕES DE TRABALHO</div>
-                     </div>
-                     <div class="text-body1 text-grey-9 q-pl-sm" style="white-space: pre-wrap; line-height: 1.6; font-family: 'Roboto', sans-serif;">
-                        {{ productionStore.currentActiveStep?.description || 'Nenhuma instrução disponível para esta etapa.' }}
-                     </div>
-                  </div>
+              <div class="col scroll bg-white q-pa-md relative-position">
+                 <div class="row items-center q-mb-sm border-bottom-light q-pb-xs">
+                    <q-icon name="menu_book" size="20px" class="text-primary q-mr-sm" /> 
+                    <div class="text-subtitle2 text-weight-bold text-primary">INSTRUÇÕES DE TRABALHO</div>
+                 </div>
+                 <div class="text-body1 text-grey-10" style="white-space: pre-wrap; line-height: 1.6;">
+                    {{ productionStore.currentActiveStep?.description || 'Nenhuma instrução disponível para esta etapa.' }}
+                 </div>
               </div>
 
               <q-separator />
 
-              <q-card-actions class="col-auto q-pa-md bg-white row wrap items-center justify-between q-gutter-y-sm">
-                  <div class="mobile-hide" style="width: 110px;"></div>
-
-                  <div class="column items-center bg-grey-2 q-px-xl q-py-sm rounded-borders col-12 col-sm-auto">
-                      <div class="text-caption text-grey-7 text-uppercase text-weight-bold letter-spacing-1" style="font-size: 0.7rem;">
-                          Tempo Estimado
-                      </div>
-                      <div class="row items-center text-primary q-mt-xs">
-                          <q-icon name="timer" size="28px" class="q-mr-sm" />
-                          <div class="text-h4 text-weight-bolder font-monospace">
-                              {{ productionStore.currentActiveStep?.timeEst || 0 }}<span class="text-h6 text-grey-6">h</span>
-                          </div>
+              <q-card-actions class="col-auto q-pa-sm bg-grey-1 row items-center justify-between">
+                  <div class="row items-center q-gutter-x-md q-ml-sm">
+                      <div class="column">
+                        <div class="text-caption text-grey-7 text-uppercase text-weight-bold" style="font-size: 0.6rem; line-height: 1;">Tempo Estimado</div>
+                        <div class="row items-center text-primary">
+                            <q-icon name="timer" size="18px" class="q-mr-xs" />
+                            <div class="text-h6 text-weight-bolder font-monospace">
+                                {{ productionStore.currentActiveStep?.timeEst || 0 }}h
+                            </div>
+                        </div>
                       </div>
                   </div>
-
-                  <div class="row justify-end col-12 col-sm-auto" :style="$q.screen.gt.xs ? 'width: 110px;' : ''">
-                      <q-btn flat color="negative" icon="delete_outline" label="Refugo" class="bg-red-1 hover-scale full-width" padding="sm lg" @click="productionStore.addProduction(1, true)" />
-                  </div>
+                  
+                  <q-btn 
+                    flat dense
+                    color="negative" 
+                    icon="delete_outline" 
+                    label="Refugo" 
+                    class="bg-red-1 q-px-md"
+                    @click="productionStore.addProduction(1, true)"
+                  />
               </q-card-actions>
             </q-card>
           </div>
 
-          <div class="col-12 col-md-4 column no-wrap q-gutter-y-sm" :class="$q.screen.gt.sm ? 'full-height justify-between' : ''">
+          <div class="col-3 column no-wrap q-gutter-y-sm">
             
-            <q-card class="col-auto bg-white text-center q-py-sm relative-position shadow-3" style="border-radius: 16px;">
+            <q-card class="col-auto bg-white text-center q-py-sm relative-position shadow-3" style="border-radius: 12px;">
                <div class="row items-center justify-center q-gutter-x-sm">
                   <q-icon name="timer" class="vemag-text-secondary" size="24px" />
                   <div class="text-subtitle1 vemag-text-primary text-uppercase font-weight-bold">Tempo no Estado</div>
@@ -170,41 +170,59 @@
                <q-linear-progress stripe query :class="statusTextClass" size="6px" class="q-mt-xs absolute-bottom" />
             </q-card>
 
-            <div class="col relative-position" style="min-height: 200px;">
-               <q-btn class="fit shadow-6 hover-scale-producing" :class="getButtonClass" push :loading="isLoadingAction" style="border-radius: 20px;" @click="handleMainButtonClick">
+            <div class="col relative-position">
+               <q-btn 
+                  class="fit shadow-6 hover-scale-producing" 
+                  :class="getButtonClass" 
+                  push :loading="isLoadingAction"
+                  style="border-radius: 20px;"
+                  @click="handleMainButtonClick"
+               >
                   <div class="column items-center justify-center full-height">
-                    <q-icon :size="$q.screen.lt.md ? '50px' : '60px'" :name="isPaused ? 'play_arrow' : (normalizedStatus === 'EM OPERAÇÃO' ? 'pause_circle' : 'play_circle_filled')" />
-                    <div :class="$q.screen.lt.md ? 'text-h4' : 'text-h3'" class="text-weight-bolder q-mt-sm">
+                    <q-icon size="60px" :name="isPaused ? 'play_arrow' : (normalizedStatus === 'EM OPERAÇÃO' ? 'pause_circle' : 'play_circle_filled')" />
+                    <div class="text-h3 text-weight-bolder q-mt-sm">
                         {{ isPaused ? 'RETOMAR' : (normalizedStatus === 'EM OPERAÇÃO' ? 'PAUSAR' : 'INICIAR') }}
-                    </div>
-                    <div class="text-subtitle2 text-uppercase letter-spacing-1 opacity-80 q-mt-xs">
-                        {{ isPaused ? 'VOLTAR A PRODUZIR' : (normalizedStatus === 'EM OPERAÇÃO' ? 'REGISTRAR PARADA' : 'INICIAR OPERAÇÃO') }}
                     </div>
                   </div>
                </q-btn>
             </div>
 
-            <div class="col-auto row q-col-gutter-sm" style="height: 90px;">
+            <div class="col-auto row q-col-gutter-x-sm" style="height: 90px;">
                <div class="col-6">
-                 <q-btn class="full-width full-height shadow-3 hover-scale" :class="productionStore.isInSetup ? 'bg-purple-9 text-white' : 'bg-blue-grey-2 text-blue-grey-9'" push style="border-radius: 16px;" :loading="isLoadingAction" @click="handleSetupClick">
+                  <q-btn 
+                    class="full-width full-height shadow-3 hover-scale"
+                    :class="productionStore.isInSetup ? 'bg-purple-9 text-white' : 'bg-blue-grey-2 text-blue-grey-9'"
+                    push style="border-radius: 12px;" 
+                    :loading="isLoadingAction"
+                    @click="handleSetupClick"
+                  >
                     <div class="column items-center justify-center">
                         <q-icon :name="productionStore.isInSetup ? 'check_circle' : 'build'" size="28px" class="q-mb-xs" />
-                        <div class="text-subtitle2 text-weight-bold">{{ productionStore.isInSetup ? 'FIM SETUP' : 'SETUP' }}</div>
+                        <div class="text-caption text-weight-bold">{{ productionStore.isInSetup ? 'FIM SETUP' : 'SETUP' }}</div>
                     </div>
-                 </q-btn>
+                  </q-btn>
                </div>
                <div class="col-6">
-                 <q-btn class="full-width full-height shadow-3 hover-scale vemag-bg-secondary text-white" push style="border-radius: 16px;" @click="isAndonDialogOpen = true">
+                  <q-btn 
+                    class="full-width full-height shadow-3 hover-scale vemag-bg-secondary text-white"
+                    push style="border-radius: 12px;"
+                    @click="isAndonDialogOpen = true"
+                  >
                     <div class="column items-center justify-center">
                         <q-icon name="notifications_active" size="28px" class="q-mb-xs" />
-                        <div class="text-subtitle2 text-weight-bold">AJUDA</div>
+                        <div class="text-caption text-weight-bold">AJUDA</div>
                     </div>
-                 </q-btn>
+                  </q-btn>
                </div>
             </div>
 
             <div class="col-auto">
-               <q-btn class="full-width shadow-4" color="red-10" text-color="white" push size="lg" icon="stop_circle" label="FINALIZAR O.P." style="border-radius: 16px; min-height: 60px;" @click="confirmFinishOp" />
+               <q-btn 
+                  class="full-width shadow-4" color="red-10" text-color="white"
+                  push size="lg" icon="stop_circle" label="FINALIZAR O.P."
+                  style="border-radius: 16px; min-height: 65px;"
+                  @click="confirmFinishOp"
+               />
             </div>
           </div>
         </div>
@@ -225,11 +243,9 @@
               <q-tr @click="selectOp(props.row)" class="cursor-pointer hover-bg-grey-3">
                 <q-td key="op_number" :props="props">
                   <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
-                  <div class="text-caption text-grey-7" v-if="props.row.custom_ref">Ref: {{ props.row.custom_ref }}</div>
                 </q-td>
                 <q-td key="part_name" :props="props">
                   <div class="text-weight-medium">{{ props.row.part_name }}</div>
-                  <div class="text-caption text-blue-grey">{{ props.row.item_code }}</div>
                 </q-td>
                 <q-td key="planned_qty" :props="props" class="text-center text-weight-bold">
                   {{ props.row.planned_qty }} {{ props.row.uom }}
@@ -238,12 +254,6 @@
                   <q-btn round color="secondary" icon="arrow_forward" size="sm" />
                 </q-td>
               </q-tr>
-            </template>
-            <template v-slot:no-data>
-                <div class="full-width row flex-center q-pa-md text-grey">
-                    <q-icon name="warning" size="sm" class="q-mr-sm" />
-                    Nenhuma O.P. liberada encontrada no SAP.
-                </div>
             </template>
           </q-table>
         </q-card-section>
@@ -255,13 +265,10 @@
             <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
                 <q-icon name="picture_as_pdf" size="24px" />
                 <div class="text-h6 q-ml-md">Desenho: {{ productionStore.activeOrder?.part_code }}</div>
-                <q-space />
-                <q-btn flat icon="refresh" label="Recarregar" @click="openDrawing" class="q-mr-sm" />
-                <q-btn dense flat icon="close" size="20px" v-close-popup />
+                <q-space /><q-btn dense flat icon="close" size="20px" v-close-popup />
             </q-bar>
-            <q-card-section class="col q-pa-none relative-position bg-grey-3">
+            <q-card-section class="col q-pa-none bg-grey-3">
                 <iframe v-if="drawingUrl" :src="drawingUrl" class="fit" style="border: none;"></iframe>
-                <div v-else class="absolute-full flex flex-center text-grey-8">Carregando visualizador...</div>
             </q-card-section>
         </q-card>
     </q-dialog>
@@ -270,29 +277,21 @@
       <q-card class="bg-grey-2 column">
         <q-toolbar class="bg-white text-dark q-py-md shadow-2 z-top">
           <q-toolbar-title class="text-weight-bold text-h6 row items-center">
-            <q-icon name="warning" color="warning" size="30px" class="q-mr-md"/> 
-            SELECIONE O MOTIVO
+            <q-icon name="warning" color="warning" size="30px" class="q-mr-md"/> SELECIONE O MOTIVO
           </q-toolbar-title>
           <q-btn flat round icon="close" size="lg" v-close-popup />
         </q-toolbar>
         <q-card-section class="col column q-pa-none">
-            <div class="q-pa-md">
-               <q-input v-model="stopSearch" outlined bg-color="white" placeholder="Pesquisar..." class="text-subtitle1" dense autofocus clearable>
-                  <template v-slot:prepend><q-icon name="search" /></template>
-               </q-input>
-            </div>
+            <div class="q-pa-md"><q-input v-model="stopSearch" outlined bg-color="white" placeholder="Pesquisar..." dense autofocus clearable /></div>
             <div class="col scroll q-px-md q-pb-md">
                <div class="row q-col-gutter-md">
                   <div v-for="(reason, idx) in filteredStopReasons" :key="idx" class="col-12 col-sm-6 col-md-4">
-                    <q-btn flat bordered class="full-width reason-card" :class="{ 'special-active': reason.isSpecial }" @click="handleSapPause(reason)">
+                    <q-btn flat bordered class="full-width reason-card" @click="handleSapPause(reason)">
                       <div class="row items-center no-wrap full-width q-pa-sm">
-                        <q-avatar size="48px" :color="reason.code === '111' ? 'blue-8' : (reason.requiresMaintenance ? 'red-8' : 'grey-3')" :text-color="reason.requiresMaintenance || reason.code === '111' ? 'white' : 'grey-9'" :class="{ 'pulse-animation': reason.isSpecial }">
-                          <q-icon :name="reason.code === '111' ? 'sync_alt' : (reason.requiresMaintenance ? 'engineering' : 'pause')" size="28px" />
+                        <q-avatar size="42px" :color="reason.requiresMaintenance ? 'red-8' : 'grey-3'" :text-color="reason.requiresMaintenance ? 'white' : 'grey-9'">
+                          <q-icon :name="reason.requiresMaintenance ? 'engineering' : 'pause'" size="24px" />
                         </q-avatar>
-                        <div class="column q-ml-md text-left">
-                          <div class="text-subtitle1 text-weight-bold lh-tight" :class="reason.isSpecial ? 'text-dark' : 'text-grey-9'">{{ reason.label }}</div>
-                          <div class="text-caption text-grey-6">Cód: {{ reason.code }}</div>
-                        </div>
+                        <div class="column q-ml-md text-left"><div class="text-subtitle1 text-weight-bold">{{ reason.label }}</div></div>
                       </div>
                     </q-btn>
                   </div>
@@ -302,45 +301,10 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isMaintenanceConfirmOpen" persistent transition-show="slide-up" transition-hide="slide-down">
-      <q-card class="maintenance-card shadow-24">
-        <q-card-section class="bg-red-10 text-white row items-center q-py-lg">
-          <q-avatar icon="engineering" color="white" text-color="red-10" size="50px" class="q-mr-md shadow-3" />
-          <div class="column">
-            <div class="text-h5 text-weight-bolder uppercase letter-spacing-1">Registrar Quebra</div>
-          </div>
-          <q-space />
-          <q-btn icon="close" flat round dense v-close-popup @click="cancelMaintenanceSelection" />
-        </q-card-section>
-        <q-card-section class="q-pa-lg">
-          <div class="text-overline text-grey-7 q-mb-sm">Descreva o que aconteceu:</div>
-          <q-input v-model="maintenanceNote" filled type="textarea" placeholder="Ex: Mangueira de óleo estourou..." bg-color="grey-2" rows="3" class="text-subtitle1" />
-        </q-card-section>
-        <q-card-actions align="between" class="q-px-lg q-pb-lg">
-          <q-btn flat label="CANCELAR" color="grey-7" size="lg" @click="cancelMaintenanceSelection" />
-          <q-btn push rounded label="ABRIR O.M. AGORA" color="red-10" icon-right="send" size="lg" class="q-px-xl text-weight-bolder" @click="triggerCriticalBreakdown" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <q-dialog v-model="isShiftChangeDialogOpen" persistent>
-      <q-card class="q-pa-md text-center" style="width: 400px; border-radius: 16px;">
-        <q-icon name="groups" size="60px" color="primary" class="q-mb-sm" />
-        <div class="text-h5 text-weight-bold">Troca de Turno</div>
-        <div class="column q-gutter-y-md q-mt-md">
-           <q-btn push color="positive" size="lg" icon="autorenew" label="CONTINUA RODANDO" @click="executeShiftChange(true)" />
-           <q-separator />
-           <q-btn flat color="negative" icon="pause" label="VAI PARAR A MÁQUINA" @click="executeShiftChange(false)" />
-        </div>
-      </q-card>
-    </q-dialog>
-
     <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
       <q-card style="width: 700px; max-width: 95vw; border-radius: 20px;">
         <q-card-section class="vemag-bg-primary text-white row items-center justify-between q-pa-md">
-          <div class="text-h6 text-weight-bold row items-center">
-              <q-icon name="campaign" size="30px" class="q-mr-sm" /> Central de Ajuda (Andon)
-          </div>
+          <div class="text-h6 text-weight-bold row items-center"><q-icon name="campaign" size="30px" class="q-mr-sm" /> Central de Ajuda (Andon)</div>
           <q-btn icon="close" flat round size="md" v-close-popup />
         </q-card-section>
         <q-card-section class="q-pa-lg">
@@ -351,9 +315,6 @@
                 <div class="text-subtitle1 text-weight-bold">{{ opt.label }}</div>
               </q-btn>
             </div>
-          </div>
-          <div class="q-mt-lg">
-            <q-input v-model="andonNote" outlined label="Observação (Opcional)" dense class="text-subtitle1" bg-color="grey-1" />
           </div>
         </q-card-section>
       </q-card>
