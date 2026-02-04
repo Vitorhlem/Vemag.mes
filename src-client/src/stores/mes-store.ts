@@ -30,7 +30,8 @@ export interface TimelineBlock {
   start: string;
   end: string;
   duration_min: number;
-  reason?: string | null; // CORREÇÃO: Aceita null
+  reason?: string | null;
+  operator_name?: string | null; // Adicionado para separar Humana de Autônoma
   color: string;
 }
 
@@ -190,42 +191,53 @@ export const useMesStore = defineStore('mes', () => {
 
   // --- HELPERS ---
   function processTimeline(logs: ProductionLog[], targetDate: string) {
-    const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    const blocks: TimelineBlock[] = [];
-    const dayStart = new Date(targetDate + 'T00:00:00');
-    const dayEnd = new Date(targetDate + 'T23:59:59');
+  const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const blocks: TimelineBlock[] = [];
+  const dayStart = new Date(targetDate + 'T00:00:00');
+  const dayEnd = new Date(targetDate + 'T23:59:59');
+  
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i+1];
+    if (!current || !next) continue;
+
+    const startTime = new Date(current.timestamp);
+    const endTime = new Date(next.timestamp);
     
-    for (let i = 0; i < sorted.length - 1; i++) {
-        const current = sorted[i];
-        const next = sorted[i+1];
-        
-        // CORREÇÃO: Verificação de existência
-        if (!current || !next) continue;
+    if (startTime >= dayStart && startTime <= dayEnd) {
+      const durationMin = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
+      const status = (current.new_status || '').toUpperCase();
+      const reason = (current.reason || '').toUpperCase();
+      const opName = current.operator_name;
 
-        const startTime = new Date(current.timestamp);
-        const endTime = new Date(next.timestamp);
-        
-        if (startTime >= dayStart && startTime <= dayEnd) {
-            const durationMin = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
-            
-            let color = 'grey-4';
-            const s = (current.new_status || '').toUpperCase();
-            if (['RUNNING', 'EM OPERAÇÃO', 'EM USO'].includes(s)) color = 'positive';
-            else if (['STOPPED', 'PARADA', 'PAUSED'].includes(s)) color = 'negative';
-            else if (['SETUP', 'MANUTENÇÃO'].includes(s)) color = 'warning';
+      let finalType = 'OCIOSO';
 
-            blocks.push({
-                status: current.new_status || '?',
-                start: current.timestamp,
-                end: next.timestamp,
-                duration_min: Math.round(durationMin),
-                reason: current.reason || null, // CORREÇÃO: Passa null se undefined
-                color: color
-            });
-        }
+      // LÓGICA DE PENEIRA:
+      if (['RUNNING', 'EM OPERAÇÃO', 'EM USO', 'IN_USE'].includes(status)) {
+        // Se tem nome de operador, é Humana. Se não tem, é Autônoma.
+        finalType = opName ? 'RUNNING' : 'RUNNING_AUTO';
+      } 
+      else if (status === 'MAINTENANCE' || status === 'EM MANUTENÇÃO') {
+        // Se o motivo contém "SETUP", é Setup. Caso contrário, é Manutenção Real.
+        finalType = (reason.includes('SETUP') || reason.includes('PREPARAÇÃO')) ? 'SETUP' : 'MAINTENANCE';
+      }
+      else if (['STOPPED', 'PARADA', 'PAUSED', 'PAUSADA'].includes(status)) {
+        finalType = 'PAUSED';
+      }
+
+      blocks.push({
+        status: finalType, // Enviamos o tipo "peneirado" para o componente visual
+        start: current.timestamp,
+        end: next.timestamp,
+        duration_min: Math.round(durationMin),
+        reason: current.reason || null,
+        operator_name: opName || null,
+        color: '' // A cor será definida pela função getGanttColor na página
+      });
     }
-    timeline.value = blocks;
   }
+  timeline.value = blocks;
+}
 
   return {
     oeeData,

@@ -844,6 +844,10 @@ async function applyNormalPause() {
       console.log(`📤 Enviando fechamento de ${order.is_service ? 'O.S' : 'O.P'}:`, payload);
       await ProductionService.sendAppointment(payload);
     }
+    await productionStore.sendEvent('STATUS_CHANGE', { 
+        new_status: 'STOPPED', 
+        reason: currentPauseObj.value.reasonLabel 
+    });
 
     // Atualiza estados locais
     isPaused.value = true;

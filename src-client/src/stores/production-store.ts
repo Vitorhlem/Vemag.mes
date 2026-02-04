@@ -158,17 +158,37 @@ export const useProductionStore = defineStore('production', () => {
     
     console.log(`[STORE] Máquina Configurada: ${machineName.value} | Recurso SAP: ${machineResource.value}`);
   }
-  async function loadKioskConfig() {
+  async function fetchActiveSession() {
+    if (!machineId.value) return;
+    try {
+        // Busca os dados da sessão/ordem que o banco diz que está ativa para esta máquina
+        const { data } = await api.get(`/production/session/active/${machineId.value}`);
+        if (data && data.order) {
+            console.log("🟢 [STORE] Sessão ativa recuperada do banco:", data.order.code);
+            activeOrder.value = data.order; // Preenche a ordem
+            currentStepIndex.value = data.current_step_index;
+        }
+    } catch (e) {
+        console.warn("⚠️ [STORE] Nenhuma sessão ativa encontrada para esta máquina.");
+    }
+}
+
+// 2. Atualize o loadKioskConfig para chamar essa recuperação
+async function loadKioskConfig() {
     const savedId = sessionStorage.getItem('TRU_MACHINE_ID');
     if (savedId) {
-      machineId.value = Number(savedId);
-      try {
-        const { data } = await api.get<Machine>(`/vehicles/${savedId}`);
-        _setMachineData(data);
-        checkActiveSession();
-      } catch { console.warn('Máquina offline.'); }
+        machineId.value = Number(savedId);
+        try {
+            const { data } = await api.get<Machine>(`/vehicles/${savedId}`);
+            _setMachineData(data);
+            
+            // NOVIDADE: Busca no banco se existe uma ordem rodando ANTES do login
+            await fetchActiveSession(); 
+            
+            checkActiveSession();
+        } catch { console.warn('Máquina offline.'); }
     }
-  }
+}
 
   function checkActiveSession() {
       const savedOp = localStorage.getItem('TRU_CURRENT_OPERATOR');
@@ -246,82 +266,74 @@ export const useProductionStore = defineStore('production', () => {
           console.error("Erro ao atualizar status da máquina:", e);
       }
   }
-  async function loginOperator(scannedCode: string) {
+async function loginOperator(scannedCode: string) {
     if (!machineId.value) return;
-    
-    console.log(`[DEBUG KIOSK] 1. Iniciando Login. Código Scaneado: "${scannedCode}"`); // LOG 1
-    
-    Loading.show({ message: 'Validando...' });
+    Loading.show({ message: 'Vinculando Operador...' });
     
     try {
-      // Chama a rota específica de identificação
-      console.log(`[DEBUG KIOSK] 2. Chamando API: /production/operator/${scannedCode}`); // LOG 2
       const { data: operator } = await api.get(`/production/operator/${scannedCode}`);
 
-      console.log('[DEBUG KIOSK] 3. Operador Retornado API:', operator); // LOG 3
-
-      // REGISTRA O LOGIN
-      const loginPayload = {
-        machine_id: machineId.value,
-        operator_badge: operator.employee_id, // Força uso do ID retornado
-        event_type: 'LOGIN',
-        new_status: 'IDLE',
-        reason: 'Início de Turno'
-      };
-      
-      console.log('[DEBUG KIOSK] 4. Enviando Evento Login:', loginPayload); // LOG 4
-      await api.post('/production/event', loginPayload);
-      await setMachineStatus('AVAILABLE');
-
-      // ATUALIZA ESTADO
+      // 1. Atualiza a memória local IMEDIATAMENTE
       currentOperator.value = operator;
-      currentOperatorBadge.value = operator.employee_id; // <--- O PULO DO GATO
-      
-      console.log('[DEBUG KIOSK] 5. Estado Atualizado. Badge Ativo:', currentOperatorBadge.value); // LOG 5
-
+      currentOperatorBadge.value = operator.employee_id;
       localStorage.setItem('TRU_CURRENT_OPERATOR', JSON.stringify(operator));
-      
-      if (!isMachineBroken.value && currentMachine.value) {
-          currentMachine.value = { ...currentMachine.value, status: 'Disponível' };
+
+      // 2. SEMPRE envia o evento de LOGIN (Independente se a máquina roda ou não)
+      // É este evento que "abre" a porta para o KPI humano.
+      await sendEvent('LOGIN', { 
+          new_status: activeOrder.value?.status || 'IDLE',
+          reason: 'Troca de Turno / Início' 
+      }, operator.employee_id);
+
+      // 3. Se a máquina já estava rodando, enviamos o STATUS_CHANGE logo em seguida
+      const machineIsWorking = activeOrder.value && 
+                               (['RUNNING', 'IN_USE'].includes(activeOrder.value.status));
+
+      if (machineIsWorking) {
+          console.log("⚡ [KPI] Máquina rodando. Convertendo Autônoma -> Humana.");
+          
+          await sendEvent('STATUS_CHANGE', { 
+              new_status: 'RUNNING', 
+              reason: 'Operador assumiu máquina em movimento' 
+          }, operator.employee_id);
+
+          await setMachineStatus('RUNNING');
+      } else {
+          await setMachineStatus('AVAILABLE');
       }
-      
-      Notify.create({ 
-        type: 'positive', 
-        message: `Bem-vindo, ${operator.full_name.split(' ')[0]}!`,
-        caption: `Matrícula: ${operator.employee_id}`
-      });
+
+      Notify.create({ type: 'positive', message: `Olá, ${operator.full_name.split(' ')[0]}!` });
 
     } catch (error: any) { 
-      console.error('[DEBUG KIOSK] ERRO:', error); 
-      const msg = error.response?.data?.detail || 'Crachá não identificado.';
-      Notify.create({ type: 'negative', message: msg }); 
+      console.error('Erro no login:', error); 
+      Notify.create({ type: 'negative', message: 'Falha ao processar crachá.' }); 
     } finally { 
       Loading.hide(); 
     }
-  }
+}
+  async function sendEvent(type: string, payload: Record<string, unknown> = {}, badgeOverride?: string) {
+    // Usa o badge que veio por parâmetro OU o que está na Store
+    const badge = badgeOverride || currentOperatorBadge.value;
 
-  async function sendEvent(type: string, payload: Record<string, unknown> = {}) {
-    if (!machineId.value || !currentOperatorBadge.value) {
-        console.warn('[DEBUG KIOSK] Tentativa de evento sem operador ou máquina!');
+    if (!machineId.value || !badge) {
+        console.warn(`[DEBUG KIOSK] Bloqueado: Evento ${type} sem operador identificado.`);
         return;
     }
     
     const eventPayload = { 
         machine_id: machineId.value, 
-        operator_badge: currentOperatorBadge.value, // <--- Verifica se isso é o Admin ou Operador
+        operator_badge: badge, 
         order_code: activeOrder.value?.code, 
         event_type: type, 
         ...payload 
     };
-
-    console.log(`[DEBUG KIOSK] Enviando Evento (${type}):`, eventPayload); // LOG EVENTOS
 
     try { 
         await api.post('/production/event', eventPayload); 
     } catch (e) { 
         console.error('Falha de sincronização MES', e); 
     }
-  }
+}
 
   async function logoutOperator(overrideStatus?: string, keepActiveOrder = false) {
     if (!machineId.value) return;
@@ -430,19 +442,26 @@ export const useProductionStore = defineStore('production', () => {
       }
 
       if (currentOperatorBadge.value && machineId.value) {
-          // Pegamos a sequência da etapa que o roteamento identificou
           const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
           const stageStr = currentStep ? String(currentStep.seq) : '010';
 
-          console.log("📡 [STORE] Iniciando Sessão Automática via loadOrder...");
+          console.log("📡 [STORE] Iniciando Sessão e Log de Setup...");
           
+          // 1. Inicia a sessão técnica
           await api.post('/production/session/start', {
-    machine_id: machineId.value, 
-    operator_badge: currentOperatorBadge.value, 
-    op_number: String(qrCode),
-    step_seq: stageStr
-});
+            machine_id: machineId.value, 
+            operator_badge: currentOperatorBadge.value, 
+            op_number: String(qrCode),
+            step_seq: stageStr
+          });
           
+          // 2. NOVA LINHA: Registra o evento de log para o KPI de Setup
+          // Sem isso, o painel de performance não "vê" que o setup começou
+          await sendEvent('STATUS_CHANGE', { 
+              new_status: 'SETUP', 
+              reason: 'Setup Inicial (Seleção de O.P.)' 
+          });
+
           activeOrder.value.status = 'SETUP';
           await setMachineStatus('SETUP');
       }

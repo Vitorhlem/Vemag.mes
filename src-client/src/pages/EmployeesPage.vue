@@ -114,24 +114,24 @@
                     </div>
                     
                     <div class="col-12 col-md">
-                        <q-card class="full-height glass-card border-left-purple shadow-sm">
-                            <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-purple-9 opacity-80">Setup (OPP)</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm text-purple-10">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
-                                <div class="text-caption text-grey-8">Tempo de ajuste. (Ordem De Parada Produtiva)</div>
-                            </q-card-section>
-                        </q-card>
-                    </div>
+    <q-card class="full-height glass-card border-left-purple shadow-sm">
+        <q-card-section>
+            <div class="text-caption text-uppercase text-weight-bold text-purple-9 opacity-80">Setup (OPP)</div>
+            <div class="text-h4 text-weight-bolder q-mt-sm text-purple-10">{{ machineStats?.formatted_setup || '00:00:00' }}</div>
+            <div class="text-caption text-grey-8">Tempo de ajuste técnico.</div>
+        </q-card-section>
+    </q-card>
+</div>
 
                     <div class="col-12 col-md">
-                        <q-card class="full-height glass-card border-left-orange shadow-sm">
-                            <q-card-section>
-                                <div class="text-caption text-uppercase text-weight-bold text-orange-9 opacity-80">Pausa (OPI)</div>
-                                <div class="text-h4 text-weight-bolder q-mt-sm text-orange-10">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
-                                <div class="text-caption text-grey-8">Logado mas parado. (Ordem De Parada Improdutiva)</div>
-                            </q-card-section>
-                        </q-card>
-                    </div>
+    <q-card class="full-height glass-card border-left-orange shadow-sm">
+        <q-card-section>
+            <div class="text-caption text-uppercase text-weight-bold text-orange-9 opacity-80">Pausa (OPI)</div>
+            <div class="text-h4 text-weight-bolder q-mt-sm text-orange-10">{{ machineStats?.formatted_pause || '00:00:00' }}</div>
+            <div class="text-caption text-grey-8">Logado mas parado (Motivos operacionais).</div>
+        </q-card-section>
+    </q-card>
+</div>
                     
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-red shadow-sm">
@@ -514,27 +514,30 @@ function goToUserProfile(userId: number) {
     }
 }
 
+function getGanttColor(block: any) {
+    const type = String(block.status || '').toUpperCase();
+    
+    switch (type) {
+        case 'RUNNING':  return 'green';     // Produção Autônoma
+        case 'SETUP':         return 'purple';   // Setup (OPP)
+        case 'PAUSED':         return 'orange';   // Pausa (OPI)
+        case 'MAINTENANCE': return 'red';
+        case 'STOPPED': return 'red';
+        case 'AVAILABLE': return 'purple'  // Manutenção Real (OPM)
+        default: return 'grey-4';                // Ocioso/Disponível
+    }
+}
+
 function translateStatus(status: string): string {
     const s = String(status || '').toUpperCase();
-    if (s.includes('RUNNING') || s.includes('OPERATION') || s.includes('EM USO')) return 'EM OPERAÇÃO';
-    if (s.includes('PAUSED') || s.includes('STOPPED')) return 'PAUSADA';
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'MANUTENÇÃO';
-    if (s.includes('IDLE')) return 'DISPONÍVEL';
-    if (s.includes('SETUP')) return 'EM SETUP';
-    if (s.includes('AVAILABLE')) return 'PARADA';
+    if (s === 'RUNNING')  return 'PRODUÇÃO / OPERAÇÃO';
+    if (s === 'SETUP')         return 'SETUP / PREPARAÇÃO';
+    if (s === 'PAUSED')         return 'MÁQUINA EM PAUSA';
+    if (s === 'MAINTENANCE') return 'MANUTENÇÃO CORRETIVA';
+    if (s === 'STOPPED')        return 'PARADA / OCIOSO';
+    if (s === 'AVAILABLE')      return 'DISPONÍVEL';
     return status;
 }
-
-function getGanttColor(block: any) {
-    const s = String(block.status || '').toUpperCase();
-    const r = String(block.reason || '').toUpperCase();
-    if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) return 'purple';
-    if (s.includes('RUNNING') || s.includes('PRODUCING')) return 'green';
-    if (s.includes('MAINTENANCE')) return 'red';
-    if (s.includes('PAUSED') || s.includes('STOPPED')) return 'orange';
-    return 'grey';
-}
-
 function getStatusColor(status: string) {
     const s = String(status).toUpperCase();
     if (s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('EM USO')) return 'positive';

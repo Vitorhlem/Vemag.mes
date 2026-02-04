@@ -8,15 +8,16 @@ export interface MachineStats {
   date: string;
   formatted_running_operator: string;
   formatted_running_autonomous: string;
-  formatted_paused_operator: string;
+  formatted_pause: string;          // <--- ALTERADO (Removido _operator)
+  formatted_setup: string;          // <--- ADICIONADO
   formatted_maintenance: string;
   total_running_operator_seconds: number;
   total_running_autonomous_seconds: number;
-  total_paused_operator_seconds: number;
+  total_pause_seconds: number;      // <--- ALTERADO
+  total_setup_seconds: number;      // <--- ADICIONADO
   total_maintenance_seconds: number;
   total_idle_seconds: number;
 }
-
 export interface AppointmentPayload {
   op_number: string;
   position: string;
