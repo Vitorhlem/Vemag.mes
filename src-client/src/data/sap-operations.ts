@@ -93,32 +93,51 @@ export function getSapOperation(stageSeq: number | string): SapOperationMap {
 }
 
 // --- NOVA FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
-export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
-  if (!machineResourceCode || !steps || steps.length === 0) return 0;
+
+export function findGlobalOpByResource(machineResource: string): SapOperationMap | null {
+  if (!machineResource) return null;
   
-  const myResource = machineResourceCode.trim(); // Ex: '4.18.01'
+  // Procura no SAP_OPERATIONS_MAP algum item cujo resourceCode bata com o da máquina
+  const found = Object.values(SAP_OPERATIONS_MAP).find(op => 
+    op.resourceCode === machineResource.trim()
+  );
 
-  const index = steps.findIndex(step => {
-      // O Backend atualizado agora envia o CÓDIGO DA OPERAÇÃO (Ex: '418') 
-      // no campo 'resource' do passo.
-      const opCode = String(step.resource || '').trim();
-      
-      // Busca no mapa global quem faz essa operação
-      const config = SAP_OPERATIONS_MAP[opCode];
+  return found || null;
+}
 
-      if (config) {
-          // Verifica se a minha máquina é compatível com o recurso exigido pela operação
-          // Ex: Operação 418 exige recurso '4.18.01'. Minha máquina é '4.18.01'. Match!
-          const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
-          
-          return match && step.status !== 'COMPLETED';
-      }
+export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
+  if (!machineResourceCode || !steps || steps.length === 0) return -1;
+  
+  const myResource = machineResourceCode.trim();
 
-      // Fallback: Tenta match direto string-a-string se o backend mandar o recurso full
-      if (opCode === myResource) return step.status !== 'COMPLETED';
+  // 1ª Tentativa: Buscar nas etapas PLANEJADAS (Diferentes de 999)
+  let index = steps.findIndex(step => {
+    const opCode = String(step.resource || '').trim();
+    const config = SAP_OPERATIONS_MAP[opCode];
+    const isPlanned = Number(step.seq) !== 999;
 
-      return false;
+    if (config && isPlanned) {
+      const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
+      return match && step.status !== 'COMPLETED';
+    }
+    return false;
   });
 
-  return index !== -1 ? index : 0;
+  // 2ª Tentativa: Se não achou planejada, busca nas etapas IMPREVISTAS (seq: 999)
+  if (index === -1) {
+    index = steps.findIndex(step => {
+      const opCode = String(step.resource || '').trim();
+      const config = SAP_OPERATIONS_MAP[opCode];
+      const isUnexpected = Number(step.seq) === 999;
+
+      if (config && isUnexpected) {
+        // Verifica se essa 999 serve para o recurso desta máquina
+        const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
+        return match;
+      }
+      return false;
+    });
+  }
+
+  return index;
 }

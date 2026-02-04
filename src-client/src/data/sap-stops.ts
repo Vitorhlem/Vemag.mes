@@ -13,7 +13,6 @@ export const SAP_STOP_REASONS: SapStopReason[] = [
   { code: '21', label: 'Manutenção / Conserto', category: 'Manutenção', requiresMaintenance: true, isProductive: false, isSpecial: true },
 
   // --- OPERACIONAL / PRODUÇÃO (LISTA SAP) ---
-  { code: '52', label: 'Setup', category: 'Operacional', requiresMaintenance: false, isProductive: true, isSpecial: true },
   { code: '42', label: 'Elaboração de Programa CNC', category: 'Operacional', requiresMaintenance: false, isProductive: true },
   { code: '22', label: 'Falta de Energia Elétrica', category: 'Operacional', requiresMaintenance: false, isProductive: false },
   { code: '28', label: 'Aguardando Serviço', category: 'Operacional', requiresMaintenance: false, isProductive: false },

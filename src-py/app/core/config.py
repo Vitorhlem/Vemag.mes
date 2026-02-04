@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "TruCar"
     API_V1_STR: str = "/api/v1"
-    FRONTEND_URL: str = "http://localhost:9500"
+    FRONTEND_URL: str = "http://localhost:9000"
 
     # --- CORS ---
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []

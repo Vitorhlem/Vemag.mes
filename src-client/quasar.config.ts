@@ -73,7 +73,7 @@ export default defineConfig((/* ctx */) => {
       inspectPort: 5858,
       bundler: 'packager',
       builder: {
-        appId: 'trucar',
+        appId: 'com.vemag.mes',
       },
     },
 

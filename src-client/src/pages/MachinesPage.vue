@@ -623,5 +623,4 @@ onMounted(() => {
 .hover-bg-blue:hover { background-color: #f0f9ff; transition: background-color 0.2s; }
 .animate-fade { animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-</style>const commonPayload = {
-            brand: ra
+</style>

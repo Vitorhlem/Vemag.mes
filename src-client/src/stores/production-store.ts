@@ -97,49 +97,7 @@ export const useProductionStore = defineStore('production', () => {
   const currentStepIndex = ref<number>(-1);
   const machineHistory = ref<ProductionLog[]>([]);
 
-  // --- DADOS MOCKADOS (Baseado na O.P. 3940/0 Real) ---
-  const MOCK_OP_STEPS: OperationStep[] = [
-      { 
-        seq: 10, 
-        resource: '2.13', 
-        name: 'SUPORTE TÉCNICO DA QUALIDADE', 
-        timeEst: 0.5, 
-        status: 'PENDING', 
-        description: `SUPORTE PARA MANGUEIRA DE DRENAGEM - DESENHO - 300232C-000-DW-5837-0002 - REV.0\n\n1. MATÉRIA-PRIMA FORNECIMENTO VEMAG.\n2. REALIZAR INSPEÇÃO DE RECEBIMENTO DA MATÉRIA-PRIMA.\n3. REGISTRAR NÚMERO DA (O.P.).` 
-      },
-      { 
-        seq: 20, 
-        resource: '3.01', 
-        name: 'OXICORTE', 
-        timeEst: 2.0, 
-        status: 'PENDING', 
-        description: `1. OXICORTAR AS PEÇAS DE ACORDO COM AS ESPECÍFICAS ESPESSURAS DAS CHAPAS E PROGRAMA CNC.\n2. IDENTIFICAR AS PEÇAS COM O NÚMERO DA (O.P.).` 
-      },
-      { 
-        seq: 30, 
-        resource: '3.05', 
-        name: 'REBARBAÇÃO DE CALDEIRARIA', 
-        timeEst: 0.5, 
-        status: 'PENDING', 
-        description: `1. REMOVER CAREPAS E REBARBAS DO OXICORTE.\n2. DAR ACABAMENTO EM TODO O CONTORNO DAS PEÇAS ATRAVÉS DE ESMERILHAMENTOS.\n3. MANTER O AUTO CONTROLE E A IDENTIFICAÇÕES DAS PEÇAS.` 
-      },
-      { 
-        seq: 40, 
-        resource: '4.10', 
-        name: 'TRAÇAGEM', 
-        timeEst: 1.0, 
-        status: 'PENDING', 
-        description: `(EXECUTAR AS TRAÇAGENS DAS COORDENADAS NAS CHAPAS OXICORTADAS, CONFORME OS RESPECTIVOS DESENHOS "DE")\n\nNOTAS:\n01- QUANTIDADES CONFORME DESENHO "DE"\n\nITENS POS. 4 - CHAPA OLHAL #5/8" x 40 mm x 50 mm x R20 mm - DESENHO - DE-1481.01.001\n- (1x) TRAÇAR FURO PASSANTE (Ø15 mm)\n\nITENS POS. 1 - CHAPA #1/2" x 100 mm x 250 mm - DESENHO - DE-1481.01.002\n- (4x) TRAÇAR FURO PASSANTE (Ø11 mm)\n\nITENS POS. 2 - CHAPA #3/4" x 670 mm x 930 mm - DESENHO - DE-1481.01.003\n- (4x) TRAÇAR ROSCA PASSANTES (M10 x 1,5)\n\n(MANTER AS IDENTIFICAÇÕES DAS PEÇAS).` 
-      },
-      { 
-        seq: 50, 
-        resource: '4.06', 
-        name: 'RADIAL P', 
-        timeEst: 2.0, 
-        status: 'PENDING', 
-        description: `(EXECUTAR AS FURAÇÕES DOS RESPECTIVOS ITENS ABAIXO, SEGUINDO AS MARCAÇÕES DAS TRAÇAGENS, CONFORME OS RESPECTIVOS DESENHOS "DE")\n\nNOTAS:\n01- QUANTIDADES CONFORME DESENHO "DE"` 
-      }
-  ];
+
 
   // --- GETTERS ---
   const isKioskConfigured = computed(() => !!machineId.value);
@@ -442,10 +400,6 @@ export const useProductionStore = defineStore('production', () => {
       
       if (!data.status) data.status = 'PENDING';
       
-      if (!data.steps || data.steps.length === 0) {
-          data.steps = JSON.parse(JSON.stringify(MOCK_OP_STEPS));
-      }
-
       activeOrder.value = { 
         ...activeOrder.value, // Mantém o que já tinha (Meta, Nome, Código)
         ...data,              // Adiciona o que veio da API (Roteiro, Desenho)
@@ -470,14 +424,9 @@ export const useProductionStore = defineStore('production', () => {
               timeout: 4000
           });
       } else {
-          // Fallback: Se não achou nada, vai pro início, mas avisa
-          currentStepIndex.value = 0;
-          Notify.create({ 
-              type: 'warning', 
-              icon: 'warning',
-              message: 'Atenção: Nenhuma etapa deste roteiro parece ser para esta máquina.',
-              timeout: 6000
-          });
+          // AGORA: Se não achar, não faz nada automaticamente. 
+          // A lógica de perguntar será na Página (Vue).
+          currentStepIndex.value = -1; 
       }
 
       if (currentOperatorBadge.value && machineId.value) {
@@ -607,6 +556,26 @@ export const useProductionStore = defineStore('production', () => {
     }
   }
 
+  function setImprovisedStep(sapOp: any) {
+    if (!activeOrder.value) return;
+
+    const newStep: OperationStep = {
+      seq: Number(sapOp.code),
+      resource: sapOp.code, // Código da operação para o roteamento
+      name: sapOp.description,
+      description: `ETAPA IMPROVISADA/IMPREVISTA: Execução realizada no recurso ${machineName.value} conforme necessidade de fábrica.`,
+      timeEst: 0,
+      status: 'PENDING'
+    };
+
+    // Injeta a etapa no roteiro atual
+    if (!activeOrder.value.steps) activeOrder.value.steps = [];
+    activeOrder.value.steps.push(newStep);
+    
+    // Define como a etapa atual (última adicionada)
+    currentStepIndex.value = activeOrder.value.steps.length - 1;
+  }
+
   function finishStep(index: number) {
     if (activeOrder.value?.steps && activeOrder.value.steps[index]) {
       activeOrder.value.steps[index].status = 'COMPLETED';
@@ -701,6 +670,6 @@ export const useProductionStore = defineStore('production', () => {
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
-    machineResource
+    machineResource, setImprovisedStep
   };
 });
