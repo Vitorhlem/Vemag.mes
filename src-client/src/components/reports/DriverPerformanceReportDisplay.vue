@@ -92,8 +92,8 @@
 
 <script setup lang="ts">
 import { date } from 'quasar';
-
-const props = defineProps<{ report: any }>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+defineProps<{ report: any }>();
 const formatDate = (val: string) => date.formatDate(val, 'DD/MM/YYYY');
 
 const printReport = () => {

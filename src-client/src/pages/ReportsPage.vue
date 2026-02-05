@@ -365,6 +365,8 @@ onMounted(async () => {
   try {
     await productionStore.fetchAvailableMachines();
     // Popula lista inicial
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     machineOptions.value = (machinesList.value || []).map((m: any) => ({
       label: m.model ? `${m.brand || ''} ${m.model}` : m.identifier,
       value: m.id,

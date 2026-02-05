@@ -1,8 +1,8 @@
 {
-  "name": "trucar",
+  "name": "VEMAG.mes",
   "version": "0.0.1",
-  "description": "Gerenciamento Veículos",
-  "productName": "TruCar",
+  "description": "MES",
+  "productName": "VEMAG.mes",
   "author": "Vitor",
   "type": "module",
   "private": true,

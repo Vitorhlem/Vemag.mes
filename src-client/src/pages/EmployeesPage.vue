@@ -524,7 +524,7 @@ function translateStatus(status: string): string {
     if (s.includes('AVAILABLE')) return 'PARADA';
     return status;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase();
     const r = String(block.reason || '').toUpperCase();

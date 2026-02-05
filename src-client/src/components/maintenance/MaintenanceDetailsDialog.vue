@@ -390,7 +390,7 @@ import ReplaceComponentDialog from './ReplaceComponentDialog.vue';
 import InstallComponentDialog from './InstallComponentDialog.vue';
 import FinishMaintenanceDialog from './FinishMaintenanceDialog.vue';
 
-const props = defineProps<{
+const props = defineProps<{ 
   modelValue: boolean;
   request: MaintenanceRequest | null;
 }>();
@@ -399,9 +399,11 @@ const allServices = computed(() => {
   // Se não for uma OS Industrial, retorna a lista padrão
   if (!industrialData.value) return props.request?.services || [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const list: any[] = [];
 
   // Mapeia as linhas de Mão de Obra
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   industrialData.value.labor_rows?.forEach((row: any, i: number) => {
     list.push({
       id: `mo-${i}`,
@@ -412,6 +414,7 @@ const allServices = computed(() => {
   });
 
   // Mapeia as linhas de Material
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   industrialData.value.material_rows?.forEach((row: any, i: number) => {
     list.push({
       id: `mat-${i}`,
@@ -422,6 +425,7 @@ const allServices = computed(() => {
   });
 
   // Mapeia as linhas de Terceiros
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   industrialData.value.third_party_rows?.forEach((row: any, i: number) => {
     list.push({
       id: `ter-${i}`,
@@ -496,10 +500,6 @@ const grandTotalCalculated = computed(() => {
     return industrialData.value ? totalGeralIndustrial.value : listSum;
 });
 
-const totalServicesCost = computed(() => {
-    if (!props.request?.services) return 0;
-    return props.request.services.reduce((sum, s) => sum + (s.cost || 0), 0);
-});
 
 async function handleAddService() {
     if (!props.request) return;

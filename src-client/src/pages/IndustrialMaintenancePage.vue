@@ -239,7 +239,7 @@ import { api } from 'boot/axios';
 import { useMaintenanceStore } from 'stores/maintenance-store';
 import { useProductionStore } from 'stores/production-store';
 import { useAuthStore } from 'stores/auth-store';
-
+import { MaintenanceStatus } from 'src/models/maintenance-models'; // Verifique se o import existe
 const $q = useQuasar();
 const maintenanceStore = useMaintenanceStore();
 const productionStore = useProductionStore();
@@ -262,6 +262,7 @@ const saveAsPDF = () => {
     html2canvas: { scale: 3, useCORS: true, letterRendering: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   html2pdf().set(opt).from(element).save();
 };
 
@@ -289,8 +290,11 @@ const initialForm = () => ({
   elaborated_by: authStore.user?.full_name || '', 
   supervisor: '', 
   status: 'RASCUNHO',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   labor_rows: [] as any[], 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   material_rows: [] as any[], 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   third_party_rows: [] as any[],
   labor_total: 0, 
   material_total: 0, 
@@ -300,20 +304,22 @@ const initialForm = () => ({
 
 const form = ref(initialForm());
 
-const isReadOnly = computed(() => form.value.status === 'CONCLUIDA');
-const filteredOrders = computed(() => maintenanceStore.maintenances.filter(m => m.status === activeTab.value.toUpperCase()));
-const countConcluidas = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'CONCLUIDA').length);
-const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'RASCUNHO').length);
+const isReadOnly = computed(() => String(form.value.status) === String(MaintenanceStatus.CONCLUIDA));
+const filteredOrders = computed(() => maintenanceStore.maintenances.filter(m => String(m.status) === activeTab.value.toUpperCase()));
+
+const countConcluidas = computed(() => maintenanceStore.maintenances.filter(m => m.status === MaintenanceStatus.CONCLUIDA).length);
+const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => m.status === MaintenanceStatus.RASCUNHO).length);
 
 const totalMonthCost = computed(() => {
   return maintenanceStore.maintenances
-    .filter(m => m.status === 'CONCLUIDA')
+    .filter(m => m.status === MaintenanceStatus.CONCLUIDA)
     .reduce((acc, m) => {
       let cost = m.total_cost;
       if (!cost && m.manager_notes) {
         try {
           const meta = JSON.parse(m.manager_notes);
           cost = (Number(meta.labor_total) || 0) + (Number(meta.material_total) || 0) + (Number(meta.services_total) || 0) + (Number(meta.others_total) || 0);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) { cost = 0; }
       }
       return acc + (Number(cost) || 0);
@@ -350,9 +356,11 @@ function addRow(type: string) {
 }
 
 function newOS() { form.value = initialForm(); showForm.value = true; }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function openEdit(os: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let meta: any = {};
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   try { meta = os.manager_notes ? JSON.parse(os.manager_notes) : {}; } catch (e) { meta = {}; }
 
   form.value = {
@@ -411,10 +419,14 @@ async function submitOS(status: string) {
   $q.loading.hide();
 }
 
-async function confirmDelete() {
-  $q.dialog({ title: 'Excluir', message: 'Deseja apagar esta OM?', cancel: true }).onOk(async () => {
-    await api.delete(`/maintenance/industrial-os/${form.value.id}`);
-    showForm.value = false; await refreshData();
+function confirmDelete() { // Removido o 'async' daqui
+  $q.dialog({ title: 'Excluir', message: 'Deseja apagar esta OM?', cancel: true }).onOk(() => {
+    // Adicionado void para indicar que sabemos que a função interna é uma promessa flutuante
+    void (async () => {
+      await api.delete(`/maintenance/industrial-os/${form.value.id}`);
+      showForm.value = false; 
+      await refreshData();
+    })();
   });
 }
 

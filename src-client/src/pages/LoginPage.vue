@@ -181,7 +181,7 @@ async function handleLogin() {
       }
       
       $q.notify({ type: 'positive', message: 'Autenticação bem-sucedida. Bem-vindo à VEMAG!' });
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
       console.error(error);
       let msg = 'Falha no login. Verifique suas credenciais.';

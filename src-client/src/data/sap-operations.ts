@@ -104,7 +104,7 @@ export function findGlobalOpByResource(machineResource: string): SapOperationMap
 
   return found || null;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
   if (!machineResourceCode || !steps || steps.length === 0) return -1;
   

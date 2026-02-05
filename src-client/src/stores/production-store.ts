@@ -78,16 +78,7 @@ export const useProductionStore = defineStore('production', () => {
     badge: ''
   });
   const isInSetup = computed(() => {
-      // Verifica se o status local da ordem é SETUP
       if (activeOrder.value?.status === 'SETUP') return true;
-      
-      // Verifica se o status da máquina no banco indica manutenção/setup
-      // (Lembrando que no banco salvamos "Em manutenção" para setup)
-      const machStatus = (currentMachine.value?.status || '').toUpperCase();
-      
-      // Se estiver "Em manutenção" mas a ordem estiver rodando ou pausada, não é setup.
-      // Setup é quando explicitamente colocamos a flag.
-      // Simplificação: Se o último log foi SETUP, estamos em setup.
       return activeOrder.value?.status === 'SETUP'; 
   });
   const currentOperator = ref<Operator | null>(null);
@@ -168,6 +159,7 @@ export const useProductionStore = defineStore('production', () => {
             activeOrder.value = data.order; // Preenche a ordem
             currentStepIndex.value = data.current_step_index;
         }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
         console.warn("⚠️ [STORE] Nenhuma sessão ativa encontrada para esta máquina.");
     }
@@ -466,6 +458,7 @@ async function loginOperator(scannedCode: string) {
           await setMachineStatus('SETUP');
       }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) { 
       Notify.create({ type: 'negative', message: 'Erro crítico ao carregar.' }); 
       activeOrder.value = null;

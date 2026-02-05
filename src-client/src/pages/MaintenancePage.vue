@@ -289,7 +289,7 @@
 <script setup lang="ts">
 /* SCRIPTS MANTIDOS EXATAMENTE IGUAIS AOS SEUS ORIGINAIS */
 import { ref, onMounted, computed, watch } from 'vue';
-import { useQuasar, setCssVar } from 'quasar';
+import { setCssVar } from 'quasar';
 import { useMaintenanceStore } from 'stores/maintenance-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useDemoStore } from 'stores/demo-store';
@@ -298,7 +298,6 @@ import CreateRequestDialog from 'components/maintenance/CreateRequestDialog.vue'
 import MaintenanceDetailsDialog from 'components/maintenance/MaintenanceDetailsDialog.vue';
 import MaintenanceRequestCard from 'components/maintenance/MaintenanceRequestCard.vue';
 
-const $q = useQuasar();
 const maintenanceStore = useMaintenanceStore();
 const authStore = useAuthStore();
 const demoStore = useDemoStore();

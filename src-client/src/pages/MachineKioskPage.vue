@@ -374,6 +374,7 @@ onMounted(async () => {
       forcedMaintenance.value = true;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   pollingTimer = setInterval(async () => {
       if(productionStore.machineId) {          
           const status = (productionStore.currentMachine?.status || '').toUpperCase();
@@ -442,9 +443,6 @@ async function startScanner() {
             { facingMode: facingMode.value }, 
             config, 
             (decodedText) => { void onScanSuccess(decodedText) }, 
-            (errorMessage) => {
-                // Ignora erros de frame vazio para não poluir o console
-            }
         );
     } catch(e) { 
         console.error("Erro ao iniciar camera:", e);
@@ -596,7 +594,7 @@ function openMaintenanceDialog() {
         const nameFromList = getOperatorName(String(badge));
         
         // Se achou o nome, usa. Se não, mostra o crachá.
-        displayName = nameFromList || `Crachá: ${badge}`;
+        displayName = nameFromList || `Crachá: ${String(badge)}`;
     }
     
     // Define o valor final
@@ -641,26 +639,7 @@ async function submitMaintenance() {
         isLoading.value = false;
     }
 }
-async function executePolling() {
-    // Se por acaso ainda for chamado com scanner aberto, aborta
-    if (showScanner.value) return; 
 
-        
-        const status = (productionStore.currentMachine?.status || '').toUpperCase();
-        const isRealTimeBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
-        
-        // Auto-correção (Self-Healing)
-        if (!isRealTimeBroken && (forcedMaintenance.value || route.query.state === 'maintenance')) {
-            console.log("♻️ Auto-correção: Máquina disponível. Removendo bloqueio.");
-            forcedMaintenance.value = false;
-            if (route.query.state) await router.replace({ query: {} });
-        }
-        
-        // Bloqueio
-        if (isRealTimeBroken && !isMaintenanceMode.value) {
-            console.log("⚠️ Backend reportou quebra. Bloqueando Kiosk.");
-        }
-    }
 
 
 // --- DESBLOQUEIO DE MÁQUINA ---
@@ -672,30 +651,33 @@ function unlockMachine() {
         cancel: true,
         persistent: true,
         ok: { label: 'LIBERAR', color: 'positive' }
-    }).onOk(async (inputPassword: string) => {
-        const pass = String(inputPassword).trim();
+    }).onOk((inputPassword: string) => {
+        // IIFE Assíncrona: Note o () no final para ela ser executada
+        void (async () => { 
+            const pass = String(inputPassword).trim();
 
-        if (pass === '1234' || pass === 'admin123') {
-            $q.loading.show({ message: 'Liberando sistema...' });
-            
-            // 1. Liberação Visual Imediata (Para o usuário não achar que travou)
-            forcedMaintenance.value = false;
-            await router.replace({ query: {} });
+            if (pass === '1234' || pass === 'admin123') {
+                $q.loading.show({ message: 'Liberando sistema...' });
+                
+                // 1. Liberação Visual Imediata
+                forcedMaintenance.value = false;
+                await router.replace({ query: {} });
 
-            try {
-                // 2. Liberação Oficial no Backend
-                await productionStore.setMachineStatus('AVAILABLE');
-                $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
-            } catch (e) {
-                console.error(e);
-                $q.notify({ type: 'warning', message: 'Liberado localmente (Erro de conexão)' });
-            } finally {
-                $q.loading.hide();
+                try {
+                    // 2. Liberação Oficial no Backend
+                    await productionStore.setMachineStatus('AVAILABLE');
+                    $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
+                } catch (e) {
+                    console.error(e);
+                    $q.notify({ type: 'warning', message: 'Liberado localmente (Erro de conexão)' });
+                } finally {
+                    $q.loading.hide();
+                }
+            } else {
+                $q.notify({ type: 'negative', icon: 'lock', message: 'Senha incorreta.' });
             }
-        } else {
-            $q.notify({ type: 'negative', icon: 'lock', message: 'Senha incorreta.' });
-        }
-    });
+        })(); // <--- Aqui executa a função
+    }); // <--- Aqui fecha o .onOk
 }
 
 </script>

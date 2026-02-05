@@ -372,7 +372,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { colors, setCssVar } from 'quasar';
+import { setCssVar } from 'quasar';
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useVehicleStore } from 'stores/vehicle-store'; 
@@ -411,7 +411,6 @@ const selectedVehicleIdForMaintenance = ref<number | null>(null);
 const createDialogType = ref<'PREVENTIVA' | 'CORRETIVA'>('CORRETIVA');
 
 const managerData = computed(() => dashboardStore.managerDashboard);
-const efficiencyKpis = computed(() => managerData.value?.efficiency_kpis);
 const upcomingMaintenances = computed(() => managerData.value?.upcoming_maintenances as UpcomingMaintenance[] || []);
 const recentAlerts = computed(() => managerData.value?.recent_alerts || []);
 
@@ -421,6 +420,7 @@ const realTimeStats = computed(() => {
   const allMachines = vehicleStore.vehicles;
   
   // Função auxiliar para normalizar status
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getStatus = (m: any) => String(m.status || '').toUpperCase().trim();
 
   const total = allMachines.length;

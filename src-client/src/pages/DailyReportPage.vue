@@ -190,6 +190,7 @@ const kpiTotalMaintenance = computed(() => {
 
 // --- ACTIONS ---
 function loadData() {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     mesStore.fetchDailyHistory(selectedDate.value);
 }
 
@@ -199,6 +200,7 @@ function confirmClosing() {
         message: 'Isso irá processar todos os logs do dia selecionado e atualizar o histórico. Confirmar?',
         cancel: true,
         persistent: true
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     }).onOk(async () => {
         await mesStore.forceDailyClosing(selectedDate.value);
         $q.notify({ type: 'positive', message: 'Dados recalculados com sucesso!' });

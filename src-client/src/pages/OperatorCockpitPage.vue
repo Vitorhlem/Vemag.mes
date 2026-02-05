@@ -391,8 +391,6 @@ import { useAuthStore } from 'stores/auth-store';
 import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
 
 // --- IMPORTAÇÕES DE DADOS ---
-import { findBestStepIndex } from 'src/data/sap-operations';
-import { findGlobalOpByResource } from 'src/data/sap-operations';
 import { getOperatorName } from 'src/data/operators'; 
 import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
@@ -401,14 +399,12 @@ import { ANDON_OPTIONS } from 'src/data/andon-options';
 
 const router = useRouter();
 const $q = useQuasar();
-const isMaintenanceConfirmOpen = ref(false);
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
 const isShiftChangeDialogOpen = ref(false); // NOVO
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
-const customOsBackgroundImage = ref('/a.jpg');
 const opNumberToSend = computed(() => {
   if (!productionStore.activeOrder) return '';
   
@@ -559,7 +555,7 @@ const filteredStopReasons = computed(() => {
    return SAP_STOP_REASONS.filter(r => r.label.toLowerCase().includes(needle));
 });
 
-function getCategoryColor(cat: string) { return 'blue-grey'; }
+
 function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
@@ -576,7 +572,7 @@ async function openOpListDialog() {
     loadingOps.value = false;
   }
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
   console.log(`🎯 [MES] Selecionando OP: ${op.op_number} - ${op.part_name}`);
 
@@ -772,12 +768,11 @@ function handleSapPause(stopReason: SapStopReason) {
 
   // Se for manutenção (CÓDIGO 21)
   if (stopReason.requiresMaintenance) {
-      isStopDialogOpen.value = false;
-      triggerCriticalBreakdown();
-  } else {
-      // Qualquer outro motivo segue a pausa normal
-      applyNormalPause();
-  }
+    isStopDialogOpen.value = false;
+    void triggerCriticalBreakdown(); // Adicionado void
+} else {
+    void applyNormalPause(); // Adicionado void
+}
 }
 async function applyNormalPause() {
   if (!currentPauseObj.value) return;
@@ -1189,6 +1184,7 @@ function confirmFinishOp() {
     message: `Encerrar O.P. e liberar a máquina?`,
     cancel: true, persistent: true,
     ok: { label: 'Finalizar e Sair', color: 'negative', push: true }
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   }).onOk(async () => {
      $q.loading.show({ message: 'Enviando ao SAP e Finalizando...' });
      
@@ -1288,6 +1284,7 @@ async function handleSetupClick() {
           cancel: true,
           persistent: true,
           ok: { label: 'Finalizar e Iniciar O.P.', color: 'positive', push: true }
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       }).onOk(async () => {
           $q.loading.show({ message: 'Enviando Setup e reiniciando produção...' });
           isLoadingAction.value = true;
@@ -1414,8 +1411,11 @@ async function handleSetupClick() {
   }
 }
 let scanBuffer = '';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let scanTimeout: any = null;
-
+const onKeydown = (e: KeyboardEvent) => {
+    void handleGlobalKeydown(e);
+};
 async function handleGlobalKeydown(event: KeyboardEvent) {
   if ((event.target as HTMLElement).tagName === 'INPUT') return;
 
@@ -1431,6 +1431,7 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
               } else {
                   productionStore.currentOperatorBadge = scannedBadge;
               }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (e) {
               $q.notify({ type: 'negative', message: 'Crachá inválido.' });
           } finally {
@@ -1452,7 +1453,7 @@ onMounted(() => {
   if (productionStore.currentStepIndex !== -1) viewedStepIndex.value = productionStore.currentStepIndex;
   timerInterval = setInterval(() => { currentTime.value = new Date(); }, 1000);
   resetTimer();
-  window.addEventListener('keydown', handleGlobalKeydown);
+  window.addEventListener('keydown', onKeydown, void handleGlobalKeydown);
 
   if (!productionStore.currentOperatorBadge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
       productionStore.currentOperatorBadge = authStore.user.employee_id;
@@ -1460,7 +1461,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', handleGlobalKeydown);
+    window.removeEventListener('keydown', onKeydown, void handleGlobalKeydown);
     clearInterval(timerInterval);
 });
 </script>

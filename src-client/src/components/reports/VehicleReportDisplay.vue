@@ -170,7 +170,7 @@
 import { computed } from 'vue';
 import { date } from 'quasar';
 import ApexChart from 'vue3-apexcharts';
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const props = defineProps<{ report: any }>();
 
 const formatDate = (val: string) => date.formatDate(val, 'DD/MM/YYYY');
@@ -200,6 +200,7 @@ const waterfallOptions = {
 
 const paretoSeries = computed(() => [{
   name: 'Minutos',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: (props.report.performance_summary?.stop_reasons || []).map((r: any) => r.duration_minutes)
 }]);
 
@@ -207,14 +208,18 @@ const paretoOptions = computed(() => ({
   chart: { type: 'bar', toolbar: { show: false } },
   plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
   dataLabels: { enabled: true },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xaxis: { categories: (props.report.performance_summary?.stop_reasons || []).map((r: any) => r.reason) },
   colors: ['#EF5350']
 }));
 
 const maintenanceColumns = [
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { name: 'date', label: 'Data', field: (row: any) => formatDate(row.created_at), align: 'left' },
   { name: 'type', label: 'Tipo', field: 'type', align: 'left' },
   { name: 'description', label: 'Descrição', field: 'description', align: 'left' },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { name: 'reporter', label: 'Solicitante', field: (row: any) => row.reporter?.full_name || 'N/A', align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
 ];

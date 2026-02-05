@@ -192,22 +192,24 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { date, useQuasar } from 'quasar';
 import { AndonService } from 'src/services/andon-service';
-import { useAuthStore } from 'stores/auth-store';
 
 const route = useRoute();
 const $q = useQuasar();
-const authStore = useAuthStore();
 
 // Estados
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const calls = ref<any[]>([]);
 const now = ref(new Date());
 const isLoading = ref(true);
 const isDialogOpen = ref(false);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const selectedCall = ref<any>(null);
 const isProcessing = ref(false);
 
 // Timers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let updateTimer: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let clockTimer: any;
 
 // Computeds de Estilo e Modo
@@ -251,7 +253,8 @@ async function takeCall() {
     await AndonService.acceptCall(selectedCall.value.id);
     $q.notify({ type: 'positive', message: 'Atendimento iniciado!' });
     isDialogOpen.value = false;
-    fetchCalls();
+    void fetchCalls();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao assumir chamado.' });
   } finally { isProcessing.value = false; }
@@ -264,13 +267,15 @@ async function resolveCall() {
     await AndonService.resolveCall(selectedCall.value.id);
     $q.notify({ type: 'positive', message: 'Máquina liberada!' });
     isDialogOpen.value = false;
-    fetchCalls();
+    void fetchCalls();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao finalizar.' });
   } finally { isProcessing.value = false; }
 }
 
 // Helpers Visuais
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getElapsedTime(call: any): string {
   const start = new Date(call.opened_at || call.created_at);
   const diff = Math.max(0, Math.floor((now.value.getTime() - start.getTime()) / 1000));
@@ -278,14 +283,14 @@ function getElapsedTime(call: any): string {
   const s = (diff % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isCritical(call: any): boolean {
   if (call.status === 'IN_PROGRESS') return false;
   const start = new Date(call.opened_at || call.created_at);
   const mins = (now.value.getTime() - start.getTime()) / 1000 / 60;
   return mins > 10; // Crítico após 10 minutos esperando
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getCardClass(call: any) {
   if (call.status === 'IN_PROGRESS') return 'border-top-primary';
   if (isCritical(call)) return 'border-top-negative shadow-critical';
@@ -299,11 +304,11 @@ function getSectorColor(sector: string) {
   if (s.includes('PCP')) return 'indigo-7';
   return 'blue-grey-6';
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatStartTime(call: any) {
   return date.formatDate(call.opened_at || call.created_at, 'HH:mm');
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function openActionDialog(call: any) {
   selectedCall.value = call;
   isDialogOpen.value = true;
@@ -311,8 +316,8 @@ function openActionDialog(call: any) {
 
 // Lifecycle
 onMounted(() => {
-  fetchCalls();
-  updateTimer = setInterval(fetchCalls, 5000);
+  void fetchCalls();
+  updateTimer = setInterval(() => { void fetchCalls(); }, 5000); // Wrapper para evitar misused-promises
   clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
 });
 

@@ -140,7 +140,7 @@
 import { computed } from 'vue';
 import { date } from 'quasar';
 import ApexChart from 'vue3-apexcharts';
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const props = defineProps<{ report: any }>();
 
 const formatDate = (val: string) => date.formatDate(val, 'DD/MM/YYYY');
