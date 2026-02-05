@@ -23,17 +23,27 @@ from app.schemas.maintenance_schema import (
     InstallComponentPayload
 )
 from app import crud
+
 # --- FIM DOS IMPORTS ---
 
 
 # --- FUNÇÃO create_request ---
 async def create_request(
-    db: AsyncSession, *, request_in: MaintenanceRequestCreate, reporter_id: int, organization_id: int
+    db: AsyncSession, 
+    *, 
+    request_in: MaintenanceRequestCreate, # Corrigido: Removido o 'obj_in' duplicado
+    reporter_id: int, 
+    organization_id: int
 ) -> MaintenanceRequest:
-    """Cria uma nova solicitação de manutenção e retorna o objeto completo."""
+    """Cria uma nova solicitação de manutenção e dispara notificação via Celery."""
+    
+    # 1. Validação do Veículo/Máquina
     vehicle = await db.get(Vehicle, request_in.vehicle_id)
     if not vehicle or vehicle.organization_id != organization_id:
         raise ValueError("Veículo não encontrado nesta organização.")
+
+    # 2. Preparação dos dados
+    
     obj_in_data = request_in.model_dump()
     db_obj = MaintenanceRequest(
         **obj_in_data,
@@ -41,16 +51,28 @@ async def create_request(
         organization_id=organization_id,
         status=MaintenanceStatus.PENDENTE
     )
+    from app.tasks.notification_tasks import dispatch_notification
     
     db.add(db_obj)
-    
-    await db.flush() 
+    await db.flush() # Flush para obter o ID gerado (db_obj.id)
     
     request_id = db_obj.id
     org_id = db_obj.organization_id
+    machine_label = f"{vehicle.brand} {vehicle.model}" # Nome legível para a notificação
     
     await db.commit()
     
+    # 3. DISPARO DO CELERY (Integrado conforme solicitado)
+    dispatch_notification.delay(
+        message=f"🛠️ Nova Ordem de Manutenção criada para a máquina {machine_label}",
+        notification_type="maintenance_request_new",
+        organization_id=org_id,
+        send_to_managers=True,
+        related_entity_type="maintenance",
+        related_entity_id=request_id
+    )
+    
+    # 4. Recarrega o objeto com todas as relações para o retorno da API
     loaded_request = await get_request(db, request_id=request_id, organization_id=org_id)
     if not loaded_request:
         raise Exception("Falha ao recarregar o chamado após a criação.")

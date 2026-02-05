@@ -35,7 +35,7 @@ async def create_notification(
     if send_to_managers:
         manager_stmt = select(User.id).where(
             User.organization_id == organization_id,
-            User.role.in_([UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO]),
+            User.role.in_([UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN]),
             User.is_active == True
         )
         manager_ids = (await db.execute(manager_stmt)).scalars().all()

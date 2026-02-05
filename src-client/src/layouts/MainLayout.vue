@@ -84,39 +84,80 @@
         <div class="row q-gutter-sm items-center">
           
           <q-btn v-if="authStore.isManager" flat round dense class="text-teal-9 relative-position hover-scale q-mr-sm">
-            <q-icon name="notifications_none" size="26px" />
-            <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
-            
-            <q-menu @show="notificationStore.fetchNotifications()" fit anchor="bottom right" self="top right" :offset="[0, 14]" class="shadow-10 rounded-borders glass-menu">
-              <div class="row no-wrap items-center q-pa-md border-bottom" style="background: rgba(255,255,255,0.6)">
-                <div class="text-subtitle1 text-weight-bold text-grey-9">Alertas da Fábrica</div>
-                <q-space />
-                <q-btn round flat icon="done_all" size="sm" color="primary" @click="markAllRead">
-                  <q-tooltip>Marcar tudo como lido</q-tooltip>
-                </q-btn>
-              </div>
-              <q-scroll-area style="height: 300px;">
-                  <q-list separator>
-                    <q-item v-for="notification in notificationStore.notifications" :key="notification.id" clickable v-ripple class="q-py-md hover-bg-gray" @click="handleNotificationClick(notification)">
-                      <q-item-section avatar>
-                        <div class="bg-teal-1 q-pa-sm rounded-circle text-teal-9 shadow-sm"><q-icon name="notifications_active" size="20px" /></div>
-                      </q-item-section>
-                      <q-item-section>
-                        <q-item-label class="text-body2 text-weight-medium text-grey-9">{{ notification.message }}</q-item-label>
-                        <q-item-label caption class="text-grey-6 q-mt-xs">{{ formatNotificationDate(notification.created_at) }}</q-item-label>
-                      </q-item-section>
-                      <q-item-section side v-if="!notification.is_read">
-                         <div class="status-dot bg-teal-5"></div>
-                      </q-item-section>
-                    </q-item>
-                    <div v-if="notificationStore.notifications.length === 0" class="column flex-center full-height q-pa-xl text-grey-5">
-                      <q-icon name="check_circle_outline" size="40px" class="q-mb-sm text-teal-4" />
-                      <div class="text-caption">Nenhum alerta pendente.</div>
-                    </div>
-                  </q-list>
-              </q-scroll-area>
-            </q-menu>
-          </q-btn>
+  <q-icon name="notifications_none" size="26px" />
+  <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
+  
+  <q-menu 
+    @show="notificationStore.fetchNotifications()" 
+    anchor="bottom right" 
+    self="top right" 
+    :offset="[0, 14]" 
+    class="shadow-10 rounded-borders glass-menu"
+    style="width: 380px; max-width: 95vw;" 
+  >
+    <div class="row no-wrap items-center q-pa-md border-bottom bg-teal-1 text-teal-10">
+      <div class="text-subtitle1 text-weight-bolder">Alertas da Fábrica</div>
+      <q-badge color="teal-8" class="q-ml-sm" v-if="notificationStore.unreadCount > 0">
+        {{ notificationStore.unreadCount }} novos
+      </q-badge>
+      <q-space />
+      <q-btn round flat icon="done_all" size="sm" @click="markAllRead">
+        <q-tooltip>Marcar tudo como lido</q-tooltip>
+      </q-btn>
+    </div>
+
+    <q-scroll-area style="height: 400px;">
+      <q-list separator>
+        <q-item 
+          v-for="notification in notificationStore.notifications" 
+          :key="notification.id" 
+          clickable 
+          v-ripple 
+          class="q-py-lg q-px-md notification-item-ui" 
+          :class="!notification.is_read ? 'bg-blue-50' : ''"
+          @click="handleNotificationClick(notification)"
+        >
+          <q-item-section avatar style="min-width: 50px;">
+            <q-avatar 
+              :color="!notification.is_read ? 'teal-1' : 'grey-2'" 
+              :text-color="!notification.is_read ? 'teal-9' : 'grey-6'"
+              size="42px"
+              class="shadow-sm"
+            >
+              <q-icon :name="getNotificationIcon(notification.notification_type)" size="22px" />
+            </q-avatar>
+          </q-item-section>
+
+          <q-item-section>
+            <q-item-label 
+              class="text-body2 line-height-normal" 
+              :class="!notification.is_read ? 'text-weight-bold text-dark' : 'text-grey-8'"
+            >
+              {{ notification.message }}
+            </q-item-label>
+            <q-item-label caption class="text-grey-6 q-mt-xs row items-center">
+              <q-icon name="schedule" size="12px" class="q-mr-xs" />
+              {{ formatNotificationDate(notification.created_at) }}
+            </q-item-label>
+          </q-item-section>
+
+          <q-item-section side v-if="!notification.is_read">
+             <div class="new-indicator-glow"></div>
+          </q-item-section>
+        </q-item>
+
+        <div v-if="notificationStore.notifications.length === 0" class="column flex-center q-pa-xl text-grey-5" style="height: 300px;">
+          <q-icon name="notifications_off" size="60px" class="opacity-20 q-mb-md" />
+          <div class="text-weight-medium">Nenhum alerta recente</div>
+          <div class="text-caption">Tudo em ordem na planta industrial.</div>
+        </div>
+      </q-list>
+    </q-scroll-area>
+    
+    <q-separator />
+    <q-btn flat color="primary" label="Ver todos os alertas" class="full-width q-py-sm" to="/audit-logs" />
+  </q-menu>
+</q-btn>
 
           <div style="height: 30px; width: 1px; background: rgba(18, 140, 126, 0.2);" class="q-mx-sm"></div>
 
@@ -191,12 +232,14 @@ import { useNotificationStore } from 'stores/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import defaultAvatar from 'assets/default-avatar.png';
+import { useQuasar } from 'quasar';
 
 const leftDrawerOpen = ref(false);
 const customColor = ref('#128c7e'); // Alterado para o Verde Trucar
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const $q = useQuasar();
 
 // --- Lógica de Tema ---
 function changeTheme(color: string) {
@@ -237,8 +280,27 @@ function formatNotificationDate(date: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleNotificationClick(notification: any) {
-  if (!notification.is_read) await notificationStore.markAsRead(notification.id);
-  void router.push('/maintenance'); 
+  // 1. Marca como lida no banco
+  if (!notification.is_read) {
+    await notificationStore.markAsRead(notification.id);
+  }
+
+  // 2. Redirecionamento baseado no tipo de entidade
+  const type = notification.related_entity_type;
+  const id = notification.related_entity_id;
+
+  if (type === 'andon') {
+    void router.push('/andon-board');
+  } else if (type === 'maintenance_request' || type === 'maintenance') {
+    void router.push('/maintenance');
+  } else if (type === 'document') {
+    void router.push('/documents');
+  } else if (type === 'vehicle' || type === 'machine') {
+    void router.push(`/vehicles/${notification.related_vehicle_id}`);
+  } else {
+    // Fallback padrão caso não tenha uma rota específica
+    void router.push('/dashboard');
+  }
 }
 
 // --- Definição do Menu Industrial ---
@@ -329,6 +391,14 @@ async function markAllRead() {
   await notificationStore.fetchUnreadCount();
 }
 
+function getNotificationIcon(type: string) {
+  if (type.includes('maintenance')) return 'engineering';
+  if (type.includes('andon')) return 'campaign';
+  if (type.includes('document')) return 'description';
+  if (type.includes('achievement')) return 'emoji_events';
+  return 'notifications';
+}
+
 function getManagerMenu(): MenuCategory[] {
   const menu: MenuCategory[] = [];
 
@@ -371,12 +441,40 @@ function getManagerMenu(): MenuCategory[] {
   return menu;
 }
 
+function connectNotificationSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/andon/ws/${authStore.user?.organization_id}`;
+    
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        
+        // Se recebermos o sinal de nova notificação
+        if (message.type === 'NEW_NOTIFICATION') {
+            // 1. Atualiza o contador vermelho (badge)
+            void notificationStore.fetchUnreadCount();
+            
+            // 2. Opcional: Notificação sonora ou toast
+            $q.notify({
+                icon: 'notifications_active',
+                color: 'teal-9',
+                message: 'Você tem um novo alerta da fábrica!',
+                position: 'top-right'
+            });
+        }
+    };
+}
+
 onMounted(() => {
-  setCssVar('primary', '#128c7e'); // Verde Trucar
-  if (authStore.isManager) {
-    void notificationStore.fetchUnreadCount();
-  }
+    setCssVar('primary', '#128c7e');
+    if (authStore.isManager) {
+        void notificationStore.fetchUnreadCount();
+        connectNotificationSocket(); // <--- Adicione esta chamada
+    }
 });
+
+
 </script>
 
 <style lang="scss" scoped>
@@ -507,6 +605,34 @@ onMounted(() => {
   .text-teal-8 { color: #70c0b0 !important; }
   .text-dark { color: white !important; }
   .border-bottom { border-bottom-color: rgba(255,255,255,0.1); }
+}
+.line-height-normal {
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+}
+
+.notification-item-ui {
+  transition: background-color 0.3s;
+  &:hover {
+    background-color: rgba(18, 140, 126, 0.05) !important;
+  }
+}
+
+.bg-blue-50 {
+  background-color: #f0f9f9;
+}
+
+/* Indicador de "Novo" com brilho suave */
+.new-indicator-glow {
+  width: 8px;
+  height: 8px;
+  background-color: #128c7e;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(18, 140, 126, 0.6);
+}
+
+.rounded-circle {
+  border-radius: 50%;
 }
 
 

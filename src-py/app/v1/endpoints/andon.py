@@ -84,7 +84,8 @@ async def create_andon_call(
     processar_novo_chamado.delay(
         call_id=call.id, 
         machine_name=res["machine_name"],
-        sector=res["sector"]
+        sector=res["sector"],
+        organization_id=current_user.organization_id # <--- ADICIONE ESTA LINHA
     )
 
     await manager.broadcast({"type": "NEW_CALL", "data": res})
