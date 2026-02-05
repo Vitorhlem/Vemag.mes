@@ -22,12 +22,10 @@ export default route(function (/* { store, ssrContext } */) {
   Router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
     
-    // 1. Se a rota não requer autenticação, deixa passar
     if (!to.meta.requiresAuth && !to.matched.some(record => record.meta.requiresAuth)) {
       return next();
     }
 
-    // 2. Se não está logado, manda pro login
     if (!authStore.isAuthenticated) {
       return next({ name: 'login' });
     }
@@ -35,35 +33,46 @@ export default route(function (/* { store, ssrContext } */) {
     const userRole = authStore.user?.role || '';
 
     // 3. Lógica de Redirecionamento Inteligente da Raiz
-    // Se o usuário tentar acessar a raiz '/' ou o '/dashboard' e for Motorista,
-    // forçamos o envio para o Kiosk.
     if (to.path === '/' || to.name === 'dashboard') {
-  if (userRole === 'driver') {
-    return next({ name: 'machine-kiosk' });
-  }
-  // ADICIONE ESTE BLOCO ABAIXO:
-  if (userRole === 'maintenance') {
-    return next({ name: 'manutencao' }); // Nome da rota para IndustrialMaintenancePage
-  }
-}
+      if (userRole === 'driver') {
+        return next({ name: 'machine-kiosk' });
+      }
+      if (userRole === 'maintenance') {
+        if (to.name === 'manutencao') return next();
+        return next({ name: 'manutencao' }); 
+      }
+      if (userRole === 'pcp') {
+        if (to.path === '/') return next({ name: 'dashboard' });
+        return next();
+      }
+      if (userRole === 'admin') {
+        if (to.path === '/') return next({ name: 'dashboard' });
+        return next();
+      }
+
+      // FALLBACK PARA OUTROS CARGOS (Quality, etc) -> Andon TELA CHEIA
+      if (to.name !== 'andon-full') {
+        return next({ name: 'andon-full' });
+      }
+    }
 
     // 4. Verificação de Permissões (Roles)
-    // Se a rota exige roles específicas e o usuário não tem...
     if (to.meta.roles && Array.isArray(to.meta.roles)) {
       if (!to.meta.roles.includes(userRole)) {
         console.warn(`Acesso negado: Usuário ${userRole} tentou acessar ${to.path}`);
         
-        // Redirecionamento de Segurança
-        if (userRole === 'driver') {
-          return next({ name: 'machine-kiosk' });
-        } else {
-          return next({ name: 'dashboard' });
+        // Redirecionamento de Segurança baseado no cargo
+        if (userRole === 'driver') return next({ name: 'machine-kiosk' });
+        if (userRole === 'maintenance') return next({ name: 'manutencao' });
+        if (userRole === 'pcp') return next({ name: 'dashboard' });
+        
+        // Se for qualidade ou outro setor tentando entrar no Admin/Dashboard
+        if (to.name !== 'andon-full') {
+          return next({ name: 'andon-full' });
         }
       }
     }
 
-    // 5. Correção para o erro "No match for driver-cockpit"
-    // Se por acaso o sistema tentar enviar para a rota antiga, corrigimos para a nova
     if (to.name === 'driver-cockpit') {
        return next({ name: 'machine-kiosk' });
     }

@@ -7,7 +7,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
-    meta: { requiresAuth: true, roles: ['driver','admin', 'cliente_ativo', 'cliente_demo', 'maintenance'] }, // Motorista/Operador NÃO entra aqui por padrão
+    meta: { requiresAuth: true }, 
     children: [
       { path: '', redirect: '/dashboard' },
       
@@ -15,176 +15,111 @@ const routes: RouteRecordRaw[] = [
       { 
         path: 'dashboard', 
         name: 'dashboard', 
-        component: () => import('pages/DashboardPage.vue') 
+        component: () => import('pages/DashboardPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance', 'cliente_ativo', 'cliente_demo'] }
       },
 
-      
-      
-      // --- Módulos de Gestão ---
+      // ANDON VERSÃO COM MENU (Para Admin, PCP e Manutenção)
+      { 
+        path: 'andon-board', 
+        name: 'andon-board', 
+        component: () => import('pages/AndonBoardPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
+      },
+
+      // Módulos de Gestão de Máquinas
       { 
         path: 'vehicles', 
         name: 'vehicles', 
-        component: () => import('pages/MachinesPage.vue') 
+        component: () => import('pages/MachinesPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
-
-      { path: 'reports/daily', component: () => import('pages/DailyReportPage.vue') },
-
-      { path: 'employees', component: () => import('pages/EmployeesPage.vue'), name: 'employees' },
       { 
         path: 'vehicles/:id', 
         name: 'vehicle-details', 
-        component: () => import('pages/MachineDetailsPage.vue') 
+        component: () => import('pages/MachineDetailsPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
+      },
+
+      // Manutenção
+      { 
+        path: 'manutencao', 
+        name: 'manutencao', 
+        component: () => import('pages/IndustrialMaintenancePage.vue'),
+        meta: { roles: ['admin', 'maintenance'] }
       },
       { 
         path: 'maintenance', 
         name: 'maintenance', 
-        component: () => import('pages/MaintenancePage.vue') 
+        component: () => import('pages/MaintenancePage.vue'),
+        meta: { roles: ['admin', 'maintenance', 'pcp'] }
       },
-      { 
-        path: 'fuel-logs', 
-        name: 'fuel-logs', 
-        component: () => import('pages/FuelLogsPage.vue') 
-      },
-      {
-        path: 'fines',
-        name: 'fines',
-        component: () => import('pages/FinesPage.vue')
-      },
-      { 
-        path: 'documents', 
-        name: 'documents', 
-        component: () => import('pages/DocumentPage.vue') 
-      },
-      { 
-        path: 'manutencao', 
-        name: 'manutencao', 
-        component: () => import('pages/IndustrialMaintenancePage.vue') 
-      },
-      { 
-        path: 'users', 
-        name: 'users', 
-        component: () => import('pages/UsersPage.vue') 
-      },
-      { 
-        path: 'users/:id/stats', 
-        name: 'user-stats', 
-        component: () => import('pages/UserDetailsPage.vue') 
-      },
-      { 
-        path: 'map', 
-        name: 'map', 
-        component: () => import('pages/MapPage.vue') 
-      },
-      { 
-        path: 'live-map', 
-        name: 'live-map',
-        component: () => import('pages/LiveMapPage.vue')
-      },
-      { 
-        path: 'performance', 
-        name: 'performance', 
-        component: () => import('pages/PerformancePage.vue') 
-      },
-      { 
-        path: 'reports', 
-        name: 'reports', 
-        component: () => import('pages/ReportsPage.vue') 
-      },
-      {
-        path: 'costs',
-        name: 'costs',
-        component: () => import('pages/CostsPage.vue')
-      },
-      {
-        path: 'parts',
-        name: 'parts',
-        component: () => import('pages/PartsPage.vue')
-      },
+
+      // Inventário e Rastreabilidade
       {
         path: 'inventory-items',
         name: 'inventory-items',
-        component: () => import('pages/InventoryItemsPage.vue')
+        component: () => import('pages/InventoryItemsPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
       {
         path: 'inventory-items/:id',
         name: 'item-details',
-        component: () => import('pages/ItemDetailsPage.vue')
+        component: () => import('pages/ItemDetailsPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
-      { 
-        path: 'feedback', 
-        name: 'feedback', 
-        component: () => import('pages/FeedbackPage.vue')
-      },
-      {
-        path: 'implements',
-        name: 'implements',
-        component: () => import('pages/ToolsPage.vue')
-      },
-      { 
-        path: 'freight-orders', 
-        component: () => import('pages/FreightOrdersPage.vue')
-      },
-      { 
-        path: 'clients', 
-        component: () => import('pages/ClientsPage.vue')
-      },
-      { 
-        path: 'settings', 
-        name: 'settings', 
-        component: () => import('pages/SettingsPage.vue')
-      },
-      {
-        path: 'admin',
-        name: 'admin',
-        component: () => import('pages/AdminPage.vue'),
-        meta: { roles: ['admin'] } 
-      },
-      { path: 'audit-logs', name: 'audit-logs', component: () => import('pages/AuditLogsPage.vue') },
+
+      // Outras páginas (PCP e Admin)
+      { path: 'reports', name: 'reports', component: () => import('pages/ReportsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
+      { path: 'performance', name: 'performance', component: () => import('pages/PerformancePage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
+      { path: 'reports/daily', component: () => import('pages/DailyReportPage.vue'), meta: { roles: ['admin', 'pcp'] } },
+      { path: 'costs', name: 'costs', component: () => import('pages/CostsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
+      { path: 'parts', name: 'parts', component: () => import('pages/PartsPage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
+
+      // Feedback e Configurações (Acessível por todos)
+      { path: 'feedback', name: 'feedback', component: () => import('pages/FeedbackPage.vue') },
+      { path: 'settings', name: 'settings', component: () => import('pages/SettingsPage.vue') },
+
+      // Administrativo Puro
+      { path: 'employees', name: 'employees', component: () => import('pages/EmployeesPage.vue'), meta: { roles: ['admin', 'pcp'] } },
+      { path: 'users', name: 'users', component: () => import('pages/UsersPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'admin', name: 'admin', component: () => import('pages/AdminPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'audit-logs', name: 'audit-logs', component: () => import('pages/AuditLogsPage.vue'), meta: { roles: ['admin'] } },
+      
+      // Legado / Frota
+      { path: 'fuel-logs', name: 'fuel-logs', component: () => import('pages/FuelLogsPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'fines', name: 'fines', component: () => import('pages/FinesPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'documents', name: 'documents', component: () => import('pages/DocumentPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'implements', name: 'implements', component: () => import('pages/ToolsPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'freight-orders', component: () => import('pages/FreightOrdersPage.vue'), meta: { roles: ['admin'] } },
+      { path: 'clients', component: () => import('pages/ClientsPage.vue'), meta: { roles: ['admin'] } },
     ],
   },
 
   // =========================================================================
-  // 2. ÁREA DO FUNCIONÁRIO / TABLET (Sem Menu Lateral)
+  // 2. ÁREA DO FUNCIONÁRIO / TABLET (BlankLayout)
   // =========================================================================
-  // Usamos o BlankLayout (ou nenhum) para garantir tela cheia e foco total.
   {
     path: '/factory',
-    component: () => import('layouts/BlankLayout.vue'), // Layout vazio (sem sidebar)
-    meta: { requiresAuth: true, roles: ['driver', 'operator', 'admin', 'maintenance'] }, // 'driver' é o funcionario
-    children: [
-      // Tela de "Descanso" do Tablet (Login da Máquina)
-      { 
-        path: 'kiosk', 
-        name: 'machine-kiosk', 
-        component: () => import('pages/MachineKioskPage.vue') 
-      },
-      {
-    path: '/andon-board',
     component: () => import('layouts/BlankLayout.vue'),
+    meta: { requiresAuth: true }, 
     children: [
-      { 
-        path: '', 
-        name: 'andon-board', 
-        component: () => import('pages/AndonBoardPage.vue') 
-      }
-    ]
-  },
+      { path: 'kiosk', name: 'machine-kiosk', component: () => import('pages/MachineKioskPage.vue') },
       
-      // Painel de Trabalho do Operador (O Cockpit)
+      // ANDON VERSÃO TELA CHEIA (Para Quality e outros setores)
       { 
-        path: 'cockpit/:machineId', 
-        name: 'operator-cockpit', 
-        component: () => import('pages/OperatorCockpitPage.vue') 
+        path: 'andon-tv', 
+        name: 'andon-full', 
+        component: () => import('pages/AndonBoardPage.vue') 
       },
-
-      // Caso precise de uma "Home" simples com botões grandes para escolher a função
-      // Se não tiver, redireciona para o Kiosk
+      
+      { path: 'cockpit/:machineId', name: 'operator-cockpit', component: () => import('pages/OperatorCockpitPage.vue') },
       { path: '', redirect: 'kiosk' }
     ]
   },
 
   // =========================================================================
-  // 3. AUTENTICAÇÃO
+  // 3. AUTENTICAÇÃO E IMPRESSÃO
   // =========================================================================
   {
     path: '/auth',
@@ -192,27 +127,16 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: 'login', name: 'login', component: () => import('pages/LoginPage.vue') },
       { path: 'register', name: 'register', component: () => import('pages/RegisterPage.vue') },
-      { 
-        path: 'forgot-password', 
-        name: 'forgot-password', 
-        component: () => import('pages/ForgotPasswordPage.vue') 
-      },
-      { 
-        path: 'reset-password', 
-        name: 'reset-password', 
-        component: () => import('pages/ResetPasswordPage.vue') 
-      }
+      { path: 'forgot-password', name: 'forgot-password', component: () => import('pages/ForgotPasswordPage.vue') },
+      { path: 'reset-password', name: 'reset-password', component: () => import('pages/ResetPasswordPage.vue') }
     ],
   },
 
   {
     path: '/print',
-    component: () => import('layouts/BlankLayout.vue'), // Usa o layout vazio existente
+    component: () => import('layouts/BlankLayout.vue'),
     children: [
-      { 
-        path: 'mes-report', 
-        component: () => import('pages/PrintMesReportPage.vue') 
-      }
+      { path: 'mes-report', component: () => import('pages/PrintMesReportPage.vue') }
     ]
   },
 

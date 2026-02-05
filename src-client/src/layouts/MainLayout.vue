@@ -250,20 +250,53 @@ const menuStructure = computed(() => {
     if (authStore.isDriver) return getOperatorMenu();
     // ADICIONE ESTA LINHA:
     if (authStore.user?.role === 'maintenance') return getMaintenanceMenu(); 
+    if (authStore.user?.role === 'pcp') return getPCPMenu();
+    return getGenericSectorMenu();
     return [];
 });
+
+function getGenericSectorMenu(): MenuCategory[] {
+    return [
+        {
+            label: 'Monitorização Industrial',
+            children: [
+                { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' }
+            ]
+        }
+    ];
+}
 
 function getMaintenanceMenu(): MenuCategory[] {
     return [
         {
             label: 'Manutenção Industrial',
             children: [
-                { title: 'Painel de Controle', icon: 'fact_check', to: '/manutencao' },
-                { title: 'Ordens de Serviço', icon: 'engineering', to: '/maintenance' },
+                { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
+                { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
                 { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Feedback', icon: 'chat', to: '/feedback' },
                 { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' }
+
+            ]
+        }
+    ];
+}
+
+function getPCPMenu(): MenuCategory[] {
+    return [
+        {
+            label: 'Planejamento e Controle',
+            children: [
+                { title: 'Dashboard Geral', icon: 'dashboard', to: '/dashboard' },
+                { title: 'Performance (OEE)', icon: 'trending_up', to: '/employees' },
+                { title: 'Máquinas e Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
+                { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
+                { title: 'Relatórios Históricos', icon: 'bar_chart', to: '/reports' },
+                { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
+                { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
+
+                { title: 'Gestão de Feedback', icon: 'chat', to: '/feedback' }
             ]
         }
     ];

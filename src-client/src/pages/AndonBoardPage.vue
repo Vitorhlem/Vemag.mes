@@ -1,464 +1,371 @@
 <template>
-  <q-layout view="hHh lpR fFf" class="app-bg text-white font-industry overflow-hidden window-height">
-    
-    <q-header class="header-glass q-py-md q-px-xl">
-      <div class="row items-center justify-between">
-        <div class="row items-center q-gutter-x-lg">
-          <div class="logo-box relative-position flex flex-center">
-              <div class="absolute-full bg-red-5 opacity-20 rounded-borders animate-ping" v-if="hasCriticalCalls"></div>
-              <q-icon name="hub" color="white" size="32px" />
-          </div>
-          <div>
-            <div class="text-h5 text-weight-bolder tracking-wide text-uppercase">Andon<span class="text-primary">Live</span></div>
-            <div class="row items-center q-gutter-x-sm">
-                <div class="status-dot animate-pulse"></div>
-                <div class="text-caption text-grey-5 text-uppercase tracking-widest" style="font-size: 10px">Monitoramento Ativo</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row items-center q-gutter-x-xl">
-           <div class="metric-group text-right">
-              <div class="label">Paradas Ativas</div>
-              <div class="value text-red-4">{{ calls.length }}</div>
-           </div>
-           <div class="separator-vertical"></div>
-           <div class="metric-group text-right">
-              <div class="label">Hora Local</div>
-              <div class="value text-white font-digital">{{ currentTime }}</div>
-           </div>
+  <q-page class="q-pa-md bg-grey-2">
+    <div v-if="isTvMode" class="row items-center justify-between q-mb-lg bg-dark text-white q-pa-md rounded-borders shadow-2">
+      <div class="row items-center">
+        <q-icon name="hub" size="md" color="primary" class="q-mr-sm" />
+        <div>
+          <div class="text-h5 text-weight-bolder">Andon<span class="text-primary">Live</span></div>
+          <div class="text-caption text-grey-5 uppercase tracking-widest">Monitoramento de Chão de Fábrica</div>
         </div>
       </div>
-    </q-header>
-
-    <q-page-container class="full-height relative-position z-10">
-      <q-page class="q-pa-lg full-height column">
-        
-        <div v-if="isLoading && calls.length === 0" class="col flex flex-center">
-           <div class="column items-center">
-              <q-spinner-dots size="4em" color="primary" />
-              <div class="text-subtitle1 text-grey-6 q-mt-md tracking-wide">Sincronizando dados da fábrica...</div>
-           </div>
+      <div class="row q-gutter-x-md text-center">
+        <div class="q-px-md">
+          <div class="text-caption text-grey-5">PARADAS ATIVAS</div>
+          <div class="text-h5 text-weight-bold text-negative">{{ calls.length }}</div>
         </div>
+        <q-separator vertical dark inset />
+        <div class="q-px-md">
+          <div class="text-caption text-grey-5">HORA ATUAL</div>
+          <div class="text-h5 text-weight-bold">{{ currentTime }}</div>
+        </div>
+      </div>
+    </div>
 
-        <div v-else class="col relative-position">
-          <transition-group 
-            appear
-            enter-active-class="animated fadeInUp"
-            leave-active-class="animated fadeOut"
-            tag="div" 
-            class="row q-col-gutter-md full-height content-start"
-          >
-            
-            <div 
-              v-for="call in sortedCalls" 
-              :key="call.id" 
-              class="col-12 col-md-6 col-lg-4 col-xl-3"
-            >
-              <q-card 
-                class="andon-card column justify-between cursor-pointer" 
-                :class="getCardStyle(call)"
-                @click="openActionDialog(call)"
-              >
-                <div class="absolute-full hover-overlay"></div>
-
-                <div class="row items-start justify-between q-mb-md relative-position z-10">
-                    <div class="column col">
-                        <q-badge 
-                            :color="getSectorColor(call.sector)" 
-                            class="q-mb-xs self-start text-weight-bold q-px-sm q-py-xs shadow-2"
-                            rounded
-                        >
-                            {{ call.sector }}
-                        </q-badge>
-                        <div class="text-h5 text-weight-900 text-uppercase leading-tight ellipsis-2-lines q-pr-sm">
-                            {{ call.machine_name || 'Máquina ' + call.machine_id }}
-                        </div>
-                    </div>
-                    <div class="timer-box" :class="{'critical-pulse': isCritical(call)}">
-                        {{ getElapsedTime(call) }}
-                    </div>
-                </div>
-
-                <div class="col column justify-center q-py-sm relative-position z-10">
-                    <div class="text-subtitle1 text-grey-3 font-weight-medium ellipsis-2-lines">
-                        {{ call.reason || 'Sem motivo detalhado' }}
-                    </div>
-                    <div class="text-caption text-grey-5 q-mt-xs">
-                        Aberto em: {{ formatStartTime(call) }}
-                    </div>
-                </div>
-
-                <div class="card-footer row items-center justify-between q-mt-md relative-position z-10">
-                    <div class="row items-center">
-                        <q-avatar size="24px" color="grey-8" text-color="white" class="q-mr-sm font-weight-bold">
-                            {{ (call.operator_name || 'U').charAt(0) }}
-                        </q-avatar>
-                        <div class="text-caption text-grey-4 ellipsis" style="max-width: 100px">
-                            {{ call.operator_name || 'Operador' }}
-                        </div>
-                    </div>
-
-                    <div v-if="call.status === 'IN_PROGRESS'" class="status-pill text-blue">
-                        <q-avatar size="18px" color="blue-9" text-color="white" class="q-mr-xs font-weight-bold">
-                            {{ (call.accepted_by_name || 'T').charAt(0) }}
-                        </q-avatar>
-                        <div class="ellipsis" style="max-width: 90px">
-                            {{ call.accepted_by_name || 'Atendendo' }}
-                        </div>
-                    </div>
-                    <div v-else class="status-pill text-orange">
-                        <q-icon name="touch_app" size="14px" class="q-mr-xs animate-bounce" /> AGUARDANDO
-                    </div>
-                </div>
-
-                <div class="progress-line">
-                    <div class="bar" :style="{width: '100%'}" :class="getBarColor(call)"></div>
-                </div>
-
-              </q-card>
+    <div class="row q-col-gutter-md q-mb-lg">
+      <div class="col-12 col-md-4">
+        <q-card class="kpi-card border-left-negative">
+          <q-card-section class="row items-center no-wrap">
+            <q-avatar color="red-1" text-color="negative" icon="warning" />
+            <div class="q-ml-md">
+              <div class="text-caption text-grey-7 text-uppercase">Aguardando Técnico</div>
+              <div class="text-h5 text-weight-bolder text-negative">{{ pendingCallsCount }}</div>
             </div>
-
-          </transition-group>
-
-          <div v-if="!isLoading && calls.length === 0" class="absolute-full flex flex-center column">
-              <div class="empty-state-glow">
-                 <q-icon name="check" size="80px" color="green-4" />
-              </div>
-              <div class="text-h2 text-weight-900 text-white text-uppercase tracking-widest q-mt-xl text-shadow">All Systems Go</div>
-              <div class="text-h6 text-grey-6 font-light q-mt-sm">Produção Operando Normalmente</div>
-          </div>
-
-        </div>
-      </q-page>
-    </q-page-container>
-    
-    <div class="bg-grid absolute-full"></div>
-
-    <q-dialog v-model="isDialogOpen" backdrop-filter="blur(4px)">
-        <q-card class="bg-grey-9 text-white shadow-24" style="width: 500px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1)">
-            
-            <q-card-section class="row items-center justify-between q-pb-none">
-                <div class="text-h6 text-weight-bold text-uppercase text-grey-4">Gerenciar Chamado #{{ selectedCall?.id }}</div>
-                <q-btn icon="close" flat round dense v-close-popup />
-            </q-card-section>
-
-            <q-card-section class="q-pt-md">
-                <div class="text-h4 text-weight-bolder leading-tight q-mb-sm">
-                    {{ selectedCall?.machine_name }}
-                </div>
-                <q-chip :color="getSectorColor(selectedCall?.sector || '')" text-color="white" icon="label">
-                    {{ selectedCall?.sector }}
-                </q-chip>
-                
-                <div class="bg-grey-8 rounded-borders q-pa-md q-mt-md">
-                    <div class="text-caption text-uppercase text-grey-5 q-mb-xs">Motivo Relatado</div>
-                    <div class="text-body1">{{ selectedCall?.reason }}</div>
-                    <div class="text-caption text-grey-5 q-mt-sm">
-                        Solicitante: <span class="text-white">{{ selectedCall?.operator_name || 'Desconhecido' }}</span>
-                    </div>
-                </div>
-
-                <div v-if="selectedCall?.status === 'IN_PROGRESS'" class="q-mt-md row items-center text-blue-4 bg-blue-10 q-pa-sm rounded-borders">
-                    <q-icon name="engineering" size="24px" class="q-mr-sm" />
-                    <div>
-                        <div class="text-weight-bold">Em Atendimento por:</div>
-                        <div>{{ selectedCall?.accepted_by_name || 'Técnico' }}</div>
-                    </div>
-                </div>
-            </q-card-section>
-
-            <q-separator color="grey-8" />
-
-            <q-card-actions align="right" class="q-pa-md q-gutter-md">
-                
-                <q-btn 
-                    v-if="selectedCall?.status === 'OPEN'"
-                    push 
-                    color="primary" 
-                    size="lg" 
-                    class="full-width"
-                    icon="handyman"
-                    label="ASSUMIR CHAMADO"
-                    :loading="isProcessing"
-                    @click="takeCall"
-                />
-
-                <div v-if="selectedCall?.status === 'IN_PROGRESS'" class="full-width column q-gutter-y-md">
-                    <q-btn 
-                        push 
-                        color="positive" 
-                        size="lg" 
-                        class="full-width"
-                        icon="check_circle"
-                        label="FINALIZAR CHAMADO"
-                        :loading="isProcessing"
-                        @click="resolveCall"
-                    />
-                </div>
-
-            </q-card-actions>
+          </q-card-section>
         </q-card>
-    </q-dialog>
+      </div>
+      <div class="col-12 col-md-4">
+        <q-card class="kpi-card border-left-primary">
+          <q-card-section class="row items-center no-wrap">
+            <q-avatar color="blue-1" text-color="primary" icon="engineering" />
+            <div class="q-ml-md">
+              <div class="text-caption text-grey-7 text-uppercase">Em Atendimento</div>
+              <div class="text-h5 text-weight-bolder text-primary">{{ inProgressCallsCount }}</div>
+            </div>
+          </q-card-section>
+        </q-card>
+      </div>
+      <div class="col-12 col-md-4">
+        <q-card class="kpi-card border-left-teal">
+          <q-card-section class="row items-center no-wrap">
+            <q-avatar color="teal-1" text-color="teal-9" icon="timer" />
+            <div class="q-ml-md">
+              <div class="text-caption text-grey-7 text-uppercase">Tempo Médio de Resposta</div>
+              <div class="text-h5 text-weight-bolder text-teal-9">{{ avgResponseTime }} min</div>
+            </div>
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
 
-  </q-layout>
+    <div v-if="isLoading && calls.length === 0" class="flex flex-center q-pa-xl">
+      <q-spinner-dots size="4em" color="primary" />
+    </div>
+
+    <div v-else>
+      <transition-group appear enter-active-class="animated fadeIn" leave-active-class="animated fadeOut" tag="div" class="row q-col-gutter-md">
+        <div v-for="call in sortedCalls" :key="call.id" class="col-12 col-sm-6 col-md-4 col-xl-3">
+          <q-card 
+            class="andon-card-pro cursor-pointer transition-all" 
+            :class="getCardClass(call)"
+            @click="openActionDialog(call)"
+          >
+            <q-card-section class="q-pb-none">
+              <div class="row justify-between items-start">
+                <q-badge :color="getSectorColor(call.sector)" class="text-weight-bold q-mb-xs">
+                  {{ call.sector }}
+                </q-badge>
+                <div class="text-h6 font-mono text-weight-bold" :class="isCritical(call) ? 'text-negative animate-flash' : 'text-grey-9'">
+                  {{ getElapsedTime(call) }}
+                </div>
+              </div>
+              <div class="text-h5 text-weight-bolder text-dark q-mt-xs">
+                {{ call.machine_name || 'Máquina ' + call.machine_id }}
+              </div>
+            </q-card-section>
+
+            <q-card-section class="q-py-md">
+              <div class="text-subtitle1 text-grey-8 text-weight-medium line-clamp-2" style="min-height: 3em">
+                {{ call.reason || 'Parada não especificada' }}
+              </div>
+              <div class="text-caption text-grey-6 q-mt-sm">
+                Início: {{ formatStartTime(call) }}
+              </div>
+            </q-card-section>
+
+            <q-separator inset color="grey-3" />
+
+            <q-card-section class="row items-center justify-between">
+              <div class="row items-center">
+                <q-avatar size="24px" color="grey-3" text-color="grey-8" class="q-mr-xs">
+                  <q-icon name="person" size="16px" />
+                </q-avatar>
+                <span class="text-caption text-weight-medium text-grey-8">{{ call.operator_name || 'Op. Padrão' }}</span>
+              </div>
+
+              <q-chip 
+                v-if="call.status === 'IN_PROGRESS'" 
+                outline 
+                color="primary" 
+                size="sm" 
+                icon="engineering"
+              >
+                {{ call.accepted_by_name || 'Técnico' }}
+              </q-chip>
+              <q-chip 
+                v-else 
+                color="orange-1" 
+                text-color="orange-9" 
+                size="sm" 
+                icon="priority_high"
+                class="text-weight-bold"
+              >
+                AGUARDANDO
+              </q-chip>
+            </q-card-section>
+
+            <q-linear-progress 
+              :value="1" 
+              :color="isCritical(call) ? 'negative' : (call.status === 'IN_PROGRESS' ? 'primary' : 'orange')" 
+              size="4px" 
+            />
+          </q-card>
+        </div>
+      </transition-group>
+
+      <div v-if="!isLoading && calls.length === 0" class="flex flex-center column q-pa-xl bg-white rounded-borders shadow-1 q-mt-md">
+        <q-icon name="check_circle" size="80px" color="teal-4" />
+        <div class="text-h4 text-weight-bold text-grey-9 q-mt-md">Sem Paradas Ativas</div>
+        <div class="text-subtitle1 text-grey-6">A linha de produção está operando normalmente.</div>
+      </div>
+    </div>
+
+    <q-dialog v-model="isDialogOpen">
+      <q-card style="width: 450px; border-radius: 12px">
+        <q-card-section class="bg-primary text-white row items-center">
+          <div class="text-h6">Gerenciar Chamado Andon</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pa-lg text-center">
+          <div class="text-overline text-primary">EQUIPAMENTO</div>
+          <div class="text-h4 text-weight-bolder">{{ selectedCall?.machine_name }}</div>
+          <q-chip outline color="grey-8" class="q-mt-sm">{{ selectedCall?.sector }}</q-chip>
+          
+          <div class="bg-grey-2 q-pa-md q-mt-lg rounded-borders text-left">
+            <div class="text-caption text-grey-7 uppercase text-weight-bold">Motivo da Parada</div>
+            <div class="text-body1 text-grey-9">{{ selectedCall?.reason }}</div>
+          </div>
+        </q-card-section>
+
+        <q-separator />
+
+        <q-card-actions align="center" class="q-pa-md">
+          <q-btn 
+            v-if="selectedCall?.status === 'OPEN'"
+            label="ASSUMIR ATENDIMENTO" 
+            color="primary" 
+            icon="handyman"
+            class="full-width q-py-sm"
+            unelevated
+            :loading="isProcessing"
+            @click="takeCall"
+          />
+          <q-btn 
+            v-if="selectedCall?.status === 'IN_PROGRESS'"
+            label="FINALIZAR E LIBERAR MÁQUINA" 
+            color="positive" 
+            icon="check_circle"
+            class="full-width q-py-sm"
+            unelevated
+            :loading="isProcessing"
+            @click="resolveCall"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+  </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { date, useQuasar } from 'quasar';
 import { AndonService } from 'src/services/andon-service';
-import { useAuthStore } from 'stores/auth-store'; // Importante para validar usuário
+import { useAuthStore } from 'stores/auth-store';
 
-interface AndonCall {
-    id: number;
-    machine_id: number;
-    machine_name?: string;
-    sector: string;
-    reason?: string;
-    status: string;
-    opened_at?: string;
-    created_at?: string;
-    operator_name?: string;
-    accepted_by_name?: string;
-}
-
+const route = useRoute();
 const $q = useQuasar();
-const authStore = useAuthStore(); // Para saber quem está clicando
-const calls = ref<AndonCall[]>([]);
+const authStore = useAuthStore();
+
+// Estados
+const calls = ref<any[]>([]);
 const now = ref(new Date());
 const isLoading = ref(true);
 const isDialogOpen = ref(false);
-const selectedCall = ref<AndonCall | null>(null);
+const selectedCall = ref<any>(null);
 const isProcessing = ref(false);
 
+// Timers
 let updateTimer: any;
 let clockTimer: any;
 
+// Computeds de Estilo e Modo
+const isTvMode = computed(() => route.name === 'andon-full');
 const currentTime = computed(() => date.formatDate(now.value, 'HH:mm:ss'));
 
-const sortedCalls = computed(() => {
-    return [...calls.value].sort((a, b) => {
-        const startA = new Date(a.opened_at || a.created_at || now.value).getTime();
-        const startB = new Date(b.opened_at || b.created_at || now.value).getTime();
-        return startA - startB; 
-    });
+// Computeds de Estatísticas
+const pendingCallsCount = computed(() => calls.value.filter(c => c.status === 'OPEN').length);
+const inProgressCallsCount = computed(() => calls.value.filter(c => c.status === 'IN_PROGRESS').length);
+const avgResponseTime = computed(() => {
+  if (calls.value.length === 0) return 0;
+  // Lógica fictícia baseada nos chamados atuais para exemplo
+  return 8; 
 });
 
-const hasCriticalCalls = computed(() => calls.value.some(c => isCritical(c)));
+const sortedCalls = computed(() => {
+  return [...calls.value].sort((a, b) => {
+    const priorityA = a.status === 'OPEN' ? 2 : 1;
+    const priorityB = b.status === 'OPEN' ? 2 : 1;
+    if (priorityA !== priorityB) return priorityB - priorityA;
+    return new Date(a.opened_at || a.created_at).getTime() - new Date(b.opened_at || b.created_at).getTime();
+  });
+});
 
-// --- API ---
+// Funções de API
 async function fetchCalls() {
-    try {
-        const data = await AndonService.getActiveCalls();
-        if (Array.isArray(data)) {
-            calls.value = data;
-        }
-    } catch (e) {
-        console.error("Erro Andon:", e);
-    } finally {
-        isLoading.value = false;
-    }
-}
-
-// --- INTERATIVIDADE ---
-
-function openActionDialog(call: AndonCall) {
-    // Só abre o modal se tiver usuário logado capaz de atuar
-    // Se for uma TV sem usuário, pode bloquear ou pedir PIN (aqui assume logado)
-    selectedCall.value = call;
-    isDialogOpen.value = true;
+  try {
+    const data = await AndonService.getActiveCalls();
+    calls.value = Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error("Erro Andon:", e);
+  } finally {
+    isLoading.value = false;
+  }
 }
 
 async function takeCall() {
-    if (!selectedCall.value) return;
-    
-    // Validação simples de Auth
-    if (!authStore.user) {
-        $q.notify({ type: 'warning', message: 'Você precisa estar logado para assumir chamados.' });
-        return;
-    }
-
-    isProcessing.value = true;
-    try {
-        await AndonService.acceptCall(selectedCall.value.id);
-        $q.notify({ type: 'positive', message: 'Chamado assumido! Bom trabalho.' });
-        isDialogOpen.value = false;
-        fetchCalls(); // Atualiza lista imediatamente
-    } catch (error) {
-        $q.notify({ type: 'negative', message: 'Erro ao assumir chamado.' });
-    } finally {
-        isProcessing.value = false;
-    }
+  if (!selectedCall.value) return;
+  isProcessing.value = true;
+  try {
+    await AndonService.acceptCall(selectedCall.value.id);
+    $q.notify({ type: 'positive', message: 'Atendimento iniciado!' });
+    isDialogOpen.value = false;
+    fetchCalls();
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Erro ao assumir chamado.' });
+  } finally { isProcessing.value = false; }
 }
 
 async function resolveCall() {
-    if (!selectedCall.value) return;
-    isProcessing.value = true;
-    try {
-        await AndonService.resolveCall(selectedCall.value.id);
-        $q.notify({ type: 'positive', message: 'Chamado finalizado com sucesso!' });
-        isDialogOpen.value = false;
-        fetchCalls(); // Atualiza lista
-    } catch (error) {
-        $q.notify({ type: 'negative', message: 'Erro ao finalizar chamado.' });
-    } finally {
-        isProcessing.value = false;
-    }
+  if (!selectedCall.value) return;
+  isProcessing.value = true;
+  try {
+    await AndonService.resolveCall(selectedCall.value.id);
+    $q.notify({ type: 'positive', message: 'Máquina liberada!' });
+    isDialogOpen.value = false;
+    fetchCalls();
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Erro ao finalizar.' });
+  } finally { isProcessing.value = false; }
 }
 
-// --- Helpers Visuais ---
-function getMinutesElapsed(call: AndonCall): number {
-    const startStr = call.opened_at || call.created_at;
-    if (!startStr) return 0;
-    return Math.max(0, (now.value.getTime() - new Date(startStr).getTime()) / 1000 / 60);
+// Helpers Visuais
+function getElapsedTime(call: any): string {
+  const start = new Date(call.opened_at || call.created_at);
+  const diff = Math.max(0, Math.floor((now.value.getTime() - start.getTime()) / 1000));
+  const m = Math.floor(diff / 60).toString().padStart(2, '0');
+  const s = (diff % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
 
-function getElapsedTime(call: AndonCall): string {
-    const startStr = call.opened_at || call.created_at;
-    if (!startStr) return "00:00";
-    
-    const diff = Math.max(0, Math.floor((now.value.getTime() - new Date(startStr).getTime()) / 1000));
-    const h = Math.floor(diff / 3600);
-    const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-    const s = (diff % 60).toString().padStart(2, '0');
-    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+function isCritical(call: any): boolean {
+  if (call.status === 'IN_PROGRESS') return false;
+  const start = new Date(call.opened_at || call.created_at);
+  const mins = (now.value.getTime() - start.getTime()) / 1000 / 60;
+  return mins > 10; // Crítico após 10 minutos esperando
 }
 
-function formatStartTime(call: AndonCall) {
-    const d = new Date(call.opened_at || call.created_at || now.value);
-    return date.formatDate(d, 'HH:mm');
-}
-
-function isCritical(call: AndonCall): boolean {
-    return (call.status !== 'IN_PROGRESS') && getMinutesElapsed(call) > 15;
-}
-
-function getCardStyle(call: AndonCall) {
-    if (call.status === 'IN_PROGRESS') return 'card-blue';
-    const mins = getMinutesElapsed(call);
-    if (mins > 15) return 'card-purple critical-border';
-    if (mins > 5) return 'card-red';
-    return 'card-orange';
-}
-
-function getBarColor(call: AndonCall) {
-    if (call.status === 'IN_PROGRESS') return 'bg-blue-5';
-    const mins = getMinutesElapsed(call);
-    if (mins > 15) return 'bg-purple-5';
-    if (mins > 5) return 'bg-red-5';
-    return 'bg-orange-5';
+function getCardClass(call: any) {
+  if (call.status === 'IN_PROGRESS') return 'border-top-primary';
+  if (isCritical(call)) return 'border-top-negative shadow-critical';
+  return 'border-top-warning';
 }
 
 function getSectorColor(sector: string) {
-    if (!sector) return 'grey';
-    const s = sector.toUpperCase();
-    if (s.includes('MANUT')) return 'brown-5';
-    if (s.includes('QUALID')) return 'teal-5';
-    if (s.includes('LOGIS')) return 'indigo-5';
-    if (s.includes('PCP')) return 'deep-purple-5';
-    if (s.includes('ELETR')) return 'orange-8';
-    return 'blue-grey-8';
+  const s = sector?.toUpperCase() || '';
+  if (s.includes('MANUT')) return 'orange-9';
+  if (s.includes('QUAL')) return 'teal-7';
+  if (s.includes('PCP')) return 'indigo-7';
+  return 'blue-grey-6';
 }
 
+function formatStartTime(call: any) {
+  return date.formatDate(call.opened_at || call.created_at, 'HH:mm');
+}
+
+function openActionDialog(call: any) {
+  selectedCall.value = call;
+  isDialogOpen.value = true;
+}
+
+// Lifecycle
 onMounted(() => {
-    fetchCalls();
-    updateTimer = setInterval(fetchCalls, 5000);
-    clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+  fetchCalls();
+  updateTimer = setInterval(fetchCalls, 5000);
+  clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
 });
 
 onUnmounted(() => {
-    clearInterval(updateTimer);
-    clearInterval(clockTimer);
+  clearInterval(updateTimer);
+  clearInterval(clockTimer);
 });
 </script>
 
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=JetBrains+Mono:wght@500;700&display=swap');
+<style scoped lang="scss">
+.andon-card-pro {
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: white;
 
-.app-bg { background-color: #0f172a; font-family: 'Inter', sans-serif; }
-.bg-grid {
-    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    z-index: 0; pointer-events: none;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  }
 }
 
-.header-glass {
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+/* Bordas coloridas para manter o padrão das outras páginas */
+.border-top-primary { border-top: 5px solid var(--q-primary); }
+.border-top-negative { border-top: 5px solid var(--q-negative); }
+.border-top-warning { border-top: 5px solid var(--q-warning); }
+.border-top-teal { border-top: 5px solid #009688; }
+
+/* KPI Cards (Copiado do padrão do sistema) */
+.kpi-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.border-left-negative { border-left: 4px solid var(--q-negative); }
+.border-left-primary { border-left: 4px solid var(--q-primary); }
+.border-left-teal { border-left: 4px solid #009688; }
+
+.shadow-critical {
+  box-shadow: 0 0 15px rgba(211, 47, 47, 0.2);
 }
 
-.logo-box {
-    width: 48px; height: 48px;
-    background: linear-gradient(135deg, #334155, #1e293b);
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+.animate-flash {
+  animation: flash 1.5s infinite;
 }
 
-.metric-group .label { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 600; letter-spacing: 1px; }
-.metric-group .value { font-size: 24px; font-weight: 700; line-height: 1.1; }
-.metric-group .font-digital { font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
-.separator-vertical { width: 1px; height: 30px; background: rgba(255,255,255,0.15); }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background-color: #4ade80; box-shadow: 0 0 8px #4ade80; }
-
-/* CARD STYLES */
-.andon-card {
-    height: 240px;
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
-    overflow: hidden;
-    position: relative;
-}
-.andon-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); border-color: rgba(255,255,255,0.2); }
-.hover-overlay { background: radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, transparent 70%); opacity: 0; transition: opacity 0.3s; }
-.andon-card:hover .hover-overlay { opacity: 1; }
-
-.card-orange { border-left: 4px solid #f97316; box-shadow: inset 10px 0 30px -15px rgba(249, 115, 22, 0.2); }
-.card-red { border-left: 4px solid #ef4444; box-shadow: inset 10px 0 30px -15px rgba(239, 68, 68, 0.3); }
-.card-purple { border-left: 4px solid #a855f7; box-shadow: inset 10px 0 30px -15px rgba(168, 85, 247, 0.3); }
-.card-blue { border-left: 4px solid #3b82f6; box-shadow: inset 10px 0 30px -15px rgba(59, 130, 246, 0.2); }
-
-.timer-box {
-    font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700;
-    color: #e2e8f0; background: rgba(0, 0, 0, 0.3); padding: 4px 12px; border-radius: 8px;
-    letter-spacing: -1px; border: 1px solid rgba(255,255,255,0.05);
-}
-.critical-pulse { color: #fca5a5; animation: text-pulse 1s infinite alternate; border-color: rgba(239, 68, 68, 0.4); }
-
-.card-footer { border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 12px; }
-.status-pill {
-    font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 8px;
-    border-radius: 6px; background: rgba(255,255,255,0.05); display: flex; align-items: center;
+@keyframes flash {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
 }
 
-.progress-line { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(0,0,0,0.3); }
-.progress-line .bar { height: 100%; animation: load 60s linear; }
-
-.empty-state-glow {
-    width: 160px; height: 160px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(74, 222, 128, 0.2) 0%, rgba(0,0,0,0) 70%);
-    display: flex; justify-content: center; align-items: center;
-    border: 1px solid rgba(74, 222, 128, 0.1); box-shadow: 0 0 40px rgba(74, 222, 128, 0.1);
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
 }
-
-.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-.animate-ping { animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
-.animate-bounce { animation: bounce 2s infinite; }
-
-@keyframes text-pulse { from { opacity: 1; text-shadow: 0 0 10px rgba(239,68,68,0.5); } to { opacity: 0.6; text-shadow: none; } }
-@keyframes load { from { width: 0; } to { width: 100%; } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
-@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-
-.font-weight-medium { font-weight: 500; }
-.opacity-20 { opacity: 0.2; }
 </style>

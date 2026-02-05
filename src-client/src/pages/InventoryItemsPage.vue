@@ -62,7 +62,7 @@
               >
                 <q-tab name="" label="Todos" />
                 <q-tab name="Disponível" label="Em Estoque" icon="inventory_2" />
-                <q-tab name="Em Uso" label="Instalado (Em Uso)" icon="precision_manufacturing" />
+                <q-tab name="Em uso" label="Instalado (Em Uso)" icon="precision_manufacturing" />
                 <q-tab name="Fim de Vida" label="Descartados/Sucata" icon="delete_forever" />
               </q-tabs>
               <q-separator />

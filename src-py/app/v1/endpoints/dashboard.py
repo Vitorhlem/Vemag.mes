@@ -51,7 +51,7 @@ def _get_start_date_from_period(period: str) -> date:
 async def read_manager_dashboard(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_active_manager),
     period: str = "last_30_days"
 ):
     """
