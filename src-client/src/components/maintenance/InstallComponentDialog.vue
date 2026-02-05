@@ -8,7 +8,7 @@
       <q-form @submit.prevent="handleSubmit">
         <q-card-section class="bg-primary text-white">
           <div class="text-h6">Requisitar Peça do Estoque</div>
-          <div class="text-caption">Vincula um item do almoxarifado a esta Ordem de Serviço.</div>
+          <div class="text-caption">Vincula um item do almoxarifado a esta Ordem de Manutenção.</div>
         </q-card-section>
 
         <q-card-section>

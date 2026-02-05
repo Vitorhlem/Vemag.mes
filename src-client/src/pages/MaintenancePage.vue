@@ -8,7 +8,7 @@
           Gestão de Manutenção (PCM)
         </h1>
         <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
-          Controle de Ordens de Serviço (OS), Preventivas e Paradas
+          Controle de Ordens de Manutenção (OM), Preventivas e Paradas
         </div>
       </div>
 
@@ -17,7 +17,7 @@
           <q-btn 
             color="primary" 
             icon="add_task" 
-            label="Nova Ordem de Serviço" 
+            label="Nova Ordem de Manutenção" 
             size="md"
             unelevated 
             class="shadow-green btn-rounded"
@@ -35,7 +35,7 @@
                 <q-icon name="lock" size="sm" class="q-mr-sm" />
                 <div>
                     <div class="text-weight-bold">Limite Atingido</div>
-                    <div class="text-caption">O plano Demo permite até {{ demoUsageLimitLabel }} OS/mês.</div>
+                    <div class="text-caption">O plano Demo permite até {{ demoUsageLimitLabel }} OM/mês.</div>
                     <div class="text-caption q-mt-xs text-yellow-2 cursor-pointer" @click="showComparisonDialog = true">Clique para aumentar</div>
                 </div>
             </div>
@@ -63,7 +63,7 @@
               </q-circular-progress>
               
               <div>
-                <div class="text-subtitle2 text-uppercase text-white opacity-80">Ordens de Serviço (Mês)</div>
+                <div class="text-subtitle2 text-uppercase text-white opacity-80">Ordens de Manutenção (Mês)</div>
                 <div class="text-h4 text-white text-weight-bold">
                   {{ demoUsageCount }} <span class="text-h6 text-white opacity-70">/ {{ demoUsageLimitLabel }}</span>
                 </div>
@@ -72,7 +72,7 @@
             
             <div class="col-auto">
                <q-btn flat dense color="white" icon="info" round>
-                 <q-tooltip>Você utilizou {{ usagePercentage }}% da sua franquia de OS mensais.</q-tooltip>
+                 <q-tooltip>Você utilizou {{ usagePercentage }}% da sua franquia de OM mensais.</q-tooltip>
                </q-btn>
             </div>
           </div>
@@ -112,7 +112,7 @@
         <q-card flat class="full-height glass-card shadow-sm border-left-green">
           <q-card-section class="row items-center">
             <div class="col">
-              <div class="text-caption text-teal-8 text-uppercase text-weight-bold">OS Encerradas</div>
+              <div class="text-caption text-teal-8 text-uppercase text-weight-bold">OM Encerradas</div>
               <div class="text-h4 text-weight-bold text-green-8">{{ totalCompleted }}</div>
             </div>
             <div class="col-auto">
@@ -144,7 +144,7 @@
                 dense
                 debounce="300"
                 v-model="searchTerm"
-                placeholder="Buscar OS, Máquina ou Técnico..."
+                placeholder="Buscar OM, Máquina ou Técnico..."
                 class="search-input glass-input"
                 hide-bottom-space
             >
@@ -175,7 +175,7 @@
                   <q-icon name="check_circle" size="4em" color="teal-5" />
               </div>
               <div class="text-h6 text-teal-10">Operação Normal</div>
-              <p class="text-teal-8 opacity-70">Nenhuma ordem de serviço pendente no momento.</p>
+              <p class="text-teal-8 opacity-70">Nenhuma ordem de Manutenção pendente no momento.</p>
             </div>
           </q-tab-panel>
 
@@ -255,7 +255,7 @@
             </thead>
             <tbody class="text-teal-10">
               <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="build" color="teal-4" size="xs" /> Ordens de Serviço (Mês)</td>
+                <td class="text-weight-medium q-pa-md"><q-icon name="build" color="teal-4" size="xs" /> Ordens de Manutenção (Mês)</td>
                 <td class="text-center bg-orange-1 text-orange-10">{{ demoUsageLimitLabel }}</td>
                 <td class="text-center text-primary text-weight-bold bg-teal-1"><q-icon name="check_circle" /> Ilimitado</td>
               </tr>
@@ -267,7 +267,7 @@
               <tr>
                 <td class="text-weight-medium q-pa-md"><q-icon name="inventory_2" color="teal-4" size="xs" /> Gestão de Almoxarifado</td>
                 <td class="text-center bg-orange-1 text-orange-10">Básico</td>
-                <td class="text-center text-primary text-weight-bold bg-teal-1">Integrado à OS</td>
+                <td class="text-center text-primary text-weight-bold bg-teal-1">Integrado à OM</td>
               </tr>
             </tbody>
           </q-markup-table>

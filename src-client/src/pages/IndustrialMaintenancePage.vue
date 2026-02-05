@@ -16,7 +16,7 @@
         push 
         color="teal-7" 
         icon="add" 
-        label="Nova Ordem de Serviço" 
+        label="Nova Ordem de Manutenção" 
         @click="newOS"
       />
     </div>
@@ -93,7 +93,7 @@
       <q-card class="bg-grey-4">
         <q-toolbar class="bg-dark text-white print-hide">
           <q-btn flat round icon="close" v-close-popup />
-          <q-toolbar-title>OS Industrial #{{ form.id || 'Nova' }}</q-toolbar-title>    
+          <q-toolbar-title>OM Industrial #{{ form.id || 'Nova' }}</q-toolbar-title>    
           <q-btn flat icon="delete" label="Excluir" @click="confirmDelete" v-if="form.id && !isReadOnly" />
                     <q-btn 
     flat 
@@ -116,7 +116,7 @@
                 <img src="/vemagdark.png" style="height: 60px">
               </div>
               <div class="col-4 text-center">
-                <div class="text-h6 text-weight-bolder" style="line-height: 1.2">ORDEM DE SERVIÇO</div>
+                <div class="text-h6 text-weight-bolder" style="line-height: 1.2">ORDEM DE MANUTENÇÃO</div>
                 <div class="text-caption text-weight-bold">MANUTENÇÃO INDUSTRIAL</div>
               </div>
               <div class="col-4 text-right">
@@ -264,7 +264,7 @@ const saveAsPDF = () => {
   // Configurações do PDF para bater com seu layout A4
   const opt = {
     margin: 0,
-    filename: `OS_Industrial_${form.value.id || 'Nova'}.pdf`,
+    filename: `OM_Industrial_${form.value.id || 'Nova'}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { 
       scale: 3, // Alta resolução
@@ -372,7 +372,7 @@ function openEdit(os: any) {
     // Ajuste de data para o formato do input datetime-local
     stopped_at: os.stopped_at ? os.stopped_at.substring(0, 16) : '',
     returned_at: os.returned_at ? os.returned_at.substring(0, 16) : '',
-    maintenance_type: os.maintenance_type || 'Mecânica',
+    maintenance_type: os.category || os.maintenance_type || 'Mecânica',
     executed_services: os.problem_description || '',
     
     labor_total: meta.labor_total || 0,
@@ -397,6 +397,7 @@ async function submitOS(status: string) {
 
   // CORREÇÃO: Montamos o metaData com TUDO o que precisa ser persistido (incluindo as linhas)
   const metaData = { 
+    category: form.value.maintenance_type,
     labor_total: form.value.labor_total, 
     material_total: form.value.material_total, 
     services_total: form.value.services_total, 
@@ -428,6 +429,7 @@ async function submitOS(status: string) {
       third_party_rows: form.value.third_party_rows,
       elaborated_by: form.value.elaborated_by,
       supervisor: form.value.supervisor,
+      category: form.value.maintenance_type,
       responsible: form.value.responsible
     })
   };
@@ -437,14 +439,14 @@ async function submitOS(status: string) {
   if (success) { 
     showForm.value = false; 
     await refreshData(); 
-    $q.notify({ type: 'positive', message: 'Ordem de Serviço salva com sucesso!' });
+    $q.notify({ type: 'positive', message: 'Ordem de Manutenção salva com sucesso!' });
   }
   
   $q.loading.hide();
 }
 
 async function confirmDelete() {
-  $q.dialog({ title: 'Excluir', message: 'Deseja apagar esta OS?', cancel: true }).onOk(async () => {
+  $q.dialog({ title: 'Excluir', message: 'Deseja apagar esta OM?', cancel: true }).onOk(async () => {
     await api.delete(`/maintenance/industrial-os/${form.value.id}`);
     showForm.value = false; await refreshData();
   });

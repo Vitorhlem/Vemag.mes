@@ -311,7 +311,7 @@
       <q-card-section v-if="isClosed" class="text-center text-grey-7 q-pa-lg">
         <q-icon name="lock" size="2em" />
         <div v-if="request.updated_at">
-          Ordem de Serviço encerrada em {{ new Date(request.updated_at).toLocaleDateString('pt-BR') }}.
+          Ordem de Manutenção encerrada em {{ new Date(request.updated_at).toLocaleDateString('pt-BR') }}.
         </div>
       </q-card-section>
     </q-card>

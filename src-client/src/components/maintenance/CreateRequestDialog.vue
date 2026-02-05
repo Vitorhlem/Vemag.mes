@@ -2,7 +2,7 @@
   <q-dialog :model-value="modelValue" @update:model-value="val => emit('update:modelValue', val)">
     <q-card style="min-width: 500px">
       <q-card-section>
-        <div class="text-h6">Nova Ordem de Serviço (OS)</div>
+        <div class="text-h6">Nova Ordem de Manutenção (OM)</div>
       </q-card-section>
 
       <q-card-section>
@@ -57,7 +57,7 @@
 
           <div class="row justify-end q-gutter-sm">
             <q-btn label="Cancelar" color="negative" flat v-close-popup />
-            <q-btn label="Abrir OS" type="submit" color="primary" unelevated :loading="loading" />
+            <q-btn label="Abrir OM" type="submit" color="primary" unelevated :loading="loading" />
           </div>
         </q-form>
       </q-card-section>

@@ -2,7 +2,7 @@
   <q-dialog :model-value="modelValue" @update:model-value="val => emit('update:modelValue', val)" persistent>
     <q-card style="min-width: 450px">
       <q-card-section class="bg-positive text-white">
-        <div class="text-h6">Encerrar Ordem de Serviço</div>
+        <div class="text-h6">Encerrar Ordem de Manutenção</div>
       </q-card-section>
 
       <q-card-section>
