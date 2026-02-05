@@ -180,13 +180,15 @@ const authStore = useAuthStore();
 const route = useRoute();
 const $q = useQuasar();
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const calls = ref<any[]>([]);
 const now = ref(new Date());
 const isLoading = ref(true);
 const isDialogOpen = ref(false);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const selectedCall = ref<any>(null);
 const isProcessing = ref(false);
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let clockTimer: any;
 let socket: WebSocket | null = null;
 
@@ -275,6 +277,7 @@ async function takeCall() {
     $q.notify({ type: 'positive', message: 'Atendimento iniciado!' });
     isDialogOpen.value = false;
     void fetchCalls();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao assumir chamado.' });
   } finally { isProcessing.value = false; }
@@ -288,11 +291,12 @@ async function resolveCall() {
     $q.notify({ type: 'positive', message: 'Máquina liberada!' });
     isDialogOpen.value = false;
     void fetchCalls();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao finalizar.' });
   } finally { isProcessing.value = false; }
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getElapsedTime(call: any): string {
   const start = new Date(call.opened_at || call.created_at);
   const diff = Math.max(0, Math.floor((now.value.getTime() - start.getTime()) / 1000));
@@ -300,13 +304,13 @@ function getElapsedTime(call: any): string {
   const s = (diff % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isCritical(call: any): boolean {
   if (call.status === 'IN_PROGRESS') return false;
   const start = new Date(call.opened_at || call.created_at);
   return (now.value.getTime() - start.getTime()) / 1000 / 60 > 10;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getCardClass(call: any) {
   if (call.status === 'IN_PROGRESS') return 'border-top-primary';
   if (isCritical(call)) return 'border-top-negative shadow-critical';
@@ -320,15 +324,15 @@ function getSectorColor(sector: string) {
   if (s.includes('PCP')) return 'indigo-7';
   return 'blue-grey-6';
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatStartTime(call: any) {
   return date.formatDate(call.opened_at || call.created_at, 'HH:mm');
 }
 function playAndonAlert() {
   const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-  audio.play().catch(e => console.log('Áudio bloqueado pelo navegador até o primeiro clique do usuário.'));
+  audio.play().catch(() => console.log('Áudio bloqueado pelo navegador até o primeiro clique do usuário.'));
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function openActionDialog(call: any) {
   selectedCall.value = call;
   isDialogOpen.value = true;

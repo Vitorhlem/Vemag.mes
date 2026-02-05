@@ -106,6 +106,7 @@ manual_origins = [
     "http://192.168.0.22:9500", # Acesso via rede local
     "http://192.168.0.22:9000",
     "http://192.168.0.22",
+    "http://192.168.15.8:9000", # Acesso via rede local alternativa
     "https://trumachine.netlify.app", # Seu front no Netlify
     "https://trumachine.netlify.app/"
 ]
