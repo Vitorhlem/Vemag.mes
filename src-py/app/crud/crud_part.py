@@ -85,6 +85,7 @@ async def get_all_items_paginated(
     status: Optional[InventoryItemStatus] = None, 
     part_id: Optional[int] = None, 
     vehicle_id: Optional[int] = None,
+    user_id: Optional[int] = None, # <-- ADICIONE ESTE PARÂMETRO
     search: Optional[str] = None
 ):
     stmt = select(InventoryItem).where(
@@ -98,6 +99,16 @@ async def get_all_items_paginated(
         InventoryItem.organization_id == organization_id
     )
 
+    count_stmt = select(func.count(InventoryItem.id.distinct())).select_from(InventoryItem).where(
+        InventoryItem.organization_id == organization_id
+    )
+
+    if user_id:
+        from app.models.inventory_transaction_model import InventoryTransaction
+        # Filtra os itens reais
+        stmt = stmt.join(InventoryTransaction).where(InventoryTransaction.user_id == user_id).distinct()
+        # Filtra a contagem para a paginação bater
+        count_stmt = count_stmt.join(InventoryTransaction).where(InventoryTransaction.user_id == user_id)
     if status:
         stmt = stmt.where(InventoryItem.status == status)
         count_stmt = count_stmt.where(InventoryItem.status == status)
@@ -154,45 +165,51 @@ async def change_item_status(
     if current_status == new_status:
         return item
         
+    # --- 1. VALIDAÇÕES DE TRANSIÇÃO ---
     if new_status == InventoryItemStatus.EM_USO:
         if current_status != InventoryItemStatus.DISPONIVEL:
-            raise ValueError(f"Não é possível instalar o item pois ele não está 'Disponível' (status atual: {current_status}).")
+            raise ValueError(f"Não é possível instalar o item (status atual: {current_status}).")
         if not vehicle_id:
-            raise ValueError("vehicle_id é obrigatório para instalar um item (EM_USO).")
+            raise ValueError("vehicle_id é obrigatório para instalar um item.")
             
     elif new_status == InventoryItemStatus.FIM_DE_VIDA:
         if current_status not in [InventoryItemStatus.DISPONIVEL, InventoryItemStatus.EM_USO]:
-             raise ValueError(f"Item não pode ser descartado pois seu status é '{current_status}'.")
+             raise ValueError(f"Item não pode ser descartado (status atual: {current_status}).")
              
     elif new_status == InventoryItemStatus.DISPONIVEL:
-         if current_status not in [InventoryItemStatus.EM_USO, InventoryItemStatus.FIM_DE_VIDA]:
+         # CORREÇÃO: Permite retornar ao estoque se estiver em uso, manutenção ou descarte (estorno)
+         if current_status not in [InventoryItemStatus.EM_USO, InventoryItemStatus.FIM_DE_VIDA, InventoryItemStatus.EM_MANUTENCAO]:
                raise ValueError(f"Item não pode ser retornado ao estoque (status atual: {current_status}).")
 
+    # NOVA VALIDAÇÃO: Envio para reparo
+    elif new_status == InventoryItemStatus.EM_MANUTENCAO:
+        if current_status != InventoryItemStatus.EM_USO:
+             raise ValueError(f"Apenas itens instalados podem ser enviados para reparo (status atual: {current_status}).")
+
+    # --- 2. MAPEAMENTO DE TIPOS DE TRANSAÇÃO ---
     transaction_type_map = {
         InventoryItemStatus.EM_USO: TransactionType.INSTALACAO,
         InventoryItemStatus.FIM_DE_VIDA: TransactionType.FIM_DE_VIDA,
-        InventoryItemStatus.DISPONIVEL: TransactionType.ENTRADA 
+        InventoryItemStatus.DISPONIVEL: TransactionType.ENTRADA,
+        InventoryItemStatus.EM_MANUTENCAO: TransactionType.SAIDA_REPARO # <-- FIX: Mapeia o reparo
     }
     transaction_type = transaction_type_map.get(new_status)
-    
-    if current_status == InventoryItemStatus.EM_USO:
-        if new_status == InventoryItemStatus.FIM_DE_VIDA:
-            transaction_type = TransactionType.FIM_DE_VIDA
-        elif new_status == InventoryItemStatus.DISPONIVEL:
-            transaction_type = TransactionType.ENTRADA 
     
     if not transaction_type:
          raise ValueError("Tipo de transação inválido para mudança de status.")
 
+    # --- 3. ATUALIZAÇÃO DO ITEM ---
     item.status = new_status
     
     if new_status == InventoryItemStatus.EM_USO:
         item.installed_on_vehicle_id = vehicle_id
         item.installed_at = func.now()
     else:
+        # Se saiu do veículo (Reparo, Descarte ou Estoque), removemos o vínculo
         item.installed_on_vehicle_id = None
         item.installed_at = None
     
+    # Registra a transação no banco
     log_entry = log_transaction( 
         db=db, item_id=item.id, part_id=item.part_id, user_id=user_id,
         transaction_type=transaction_type,
@@ -201,7 +218,7 @@ async def change_item_status(
     )
     
     db.add(item)
-    db.add(log_entry) 
+    db.add(log_entry)
     
     part_template = item.part 
     if not part_template:

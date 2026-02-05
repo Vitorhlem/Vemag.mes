@@ -16,6 +16,7 @@ class TransactionType(str, enum.Enum):
     # AJUSTE_MANUAL = "Ajuste Manual" <-- REMOVIDO
     INSTALACAO = "Instalação"
     DESCARTE = "Descarte"
+    SAIDA_REPARO = "Saída para Reparo"
 
 class InventoryTransaction(Base):
     __tablename__ = "inventory_transactions"

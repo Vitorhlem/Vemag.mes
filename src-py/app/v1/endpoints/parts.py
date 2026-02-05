@@ -342,13 +342,16 @@ async def read_all_inventory_items(
     limit: int = 20,
     status: Optional[InventoryItemStatus] = None,
     part_id: Optional[int] = None,
+    user_id: Optional[int] = None, # <-- ADICIONE ESTA LINHA
     vehicle_id: Optional[int] = None,
     search: Optional[str] = None
 ):
+    
     result = await crud_part.get_all_items_paginated(
         db=db,
         organization_id=current_user.organization_id,
         skip=skip,
+        user_id=user_id,
         limit=limit,
         status=status,
         part_id=part_id,

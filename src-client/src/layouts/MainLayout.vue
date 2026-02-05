@@ -262,7 +262,8 @@ function getMaintenanceMenu(): MenuCategory[] {
                 { title: 'Ordens de Serviço', icon: 'engineering', to: '/maintenance' },
                 { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
-                { title: 'Feedback', icon: 'chat', to: '/feedback' }
+                { title: 'Feedback', icon: 'chat', to: '/feedback' },
+                { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' }
             ]
         }
     ];

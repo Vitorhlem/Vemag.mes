@@ -233,6 +233,11 @@ const columns: QTableProps['columns'] = [
 ];
 
 async function fetchTableData() {
+  // Pega o ID apenas se for Manutenção, senão manda null (vê tudo)
+  const technicalUserId = authStore.user?.role === 'Manutenção' 
+    ? authStore.user.id 
+    : null;
+
   await partStore.fetchMasterItems({
     page: pagination.value.page,
     rowsPerPage: pagination.value.rowsPerPage,
@@ -240,7 +245,9 @@ async function fetchTableData() {
     partId: filters.value.partId,
     vehicleId: filters.value.vehicleId,
     search: filters.value.search,
+    userId: technicalUserId, // <-- PASSA O ID PARA A STORE
   });
+  
   pagination.value.rowsNumber = partStore.masterListTotal;
 }
 

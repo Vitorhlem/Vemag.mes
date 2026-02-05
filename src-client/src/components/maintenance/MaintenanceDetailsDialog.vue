@@ -16,6 +16,14 @@
         </div>
       </q-card-section>
 
+      <q-card-section v-if="industrialData" class="bg-teal-1 q-py-sm">
+        <div class="row q-col-gutter-sm items-center">
+           <div class="col-auto"><q-icon name="payments" color="teal-9" size="sm" /></div>
+           <div class="col text-teal-10 text-weight-bold text-uppercase" style="font-size: 11px">Resumo Financeiro Industrial</div>
+           <div class="col-auto text-h6 text-teal-10 text-weight-bolder">R$ {{ totalGeralIndustrial.toFixed(2) }}</div>
+        </div>
+      </q-card-section>
+
       <q-card-section v-if="authStore.canEditMaintenance && !isClosed" class="q-pb-none">
         <div class="text-weight-medium q-mb-sm text-grey-8">Fluxo de Aprovação</div>
         <div class="row q-gutter-sm">
@@ -49,7 +57,7 @@
       >
         <q-tab name="details" label="Detalhes da OS" icon="description" />
         <q-tab name="components" label="Peças Utilizadas" icon="extension" />
-        <q-tab name="services" label="Mão de Obra / Serviços" icon="handyman" />
+        <q-tab name="services" label="Custos e Serviços" icon="handyman" />
       </q-tabs>
 
       <q-separator />
@@ -84,6 +92,18 @@
                   </q-item-section>
                 </q-item>
               </q-list>
+            </q-card-section>
+
+            <q-card-section v-if="industrialData">
+               <div class="text-subtitle1 q-mb-sm text-primary">Detalhamento de Custos (Industrial)</div>
+               <div class="row q-col-gutter-sm">
+                  <div class="col-6 col-md-3" v-for="c in industrialCostBuckets" :key="c.label">
+                     <div class="bg-grey-2 q-pa-sm rounded-borders text-center">
+                        <div class="text-caption text-grey-7">{{ c.label }}</div>
+                        <div class="text-subtitle2 text-weight-bold">R$ {{ c.value.toFixed(2) }}</div>
+                     </div>
+                  </div>
+               </div>
             </q-card-section>
 
             <q-card-section v-if="request.part_changes && request.part_changes.length > 0">
@@ -210,41 +230,54 @@
         <q-tab-panel name="services">
             <div class="row q-col-gutter-md">
                 <div class="col-12 col-md-7">
-                    <div class="text-h6 q-mb-md">Custos de Serviços</div>
-                    <q-list bordered separator v-if="request.services && request.services.length > 0">
-                        <q-item v-for="service in request.services" :key="service.id">
-                            <q-item-section avatar>
-                                <q-icon name="engineering" color="grey-7" />
-                            </q-item-section>
-                            <q-item-section>
-                                <q-item-label>{{ service.description }}</q-item-label>
-                                <q-item-label caption>Executor: {{ service.provider_name || 'Equipe Interna' }}</q-item-label>
-                            </q-item-section>
-                            <q-item-section side>
-                                <div class="text-weight-bold text-primary">
-                                    R$ {{ service.cost.toFixed(2) }}
-                                </div>
-                            </q-item-section>
-                        </q-item>
-                        <q-separator />
-                        <q-item class="bg-grey-1">
-                            <q-item-section><q-item-label class="text-weight-bold">Total Mão de Obra</q-item-label></q-item-section>
-                            <q-item-section side>
-                                <div class="text-h6 text-weight-bold text-positive">
-                                     R$ {{ totalServicesCost.toFixed(2) }}
-                                </div>
-                            </q-item-section>
-                        </q-item>
-                    </q-list>
+                    <div class="text-h6 q-mb-md">Itens de Custo</div>
+                    
+                    <q-list bordered separator v-if="allServices.length > 0">
+  <q-item v-for="service in allServices" :key="service.id">
+    <q-item-section avatar>
+      <q-icon name="engineering" color="grey-7" />
+    </q-item-section>
+    <q-item-section>
+      <q-item-label>{{ service.description }}</q-item-label>
+      <q-item-label caption>Executor: {{ service.provider_name || 'Equipe Interna' }}</q-item-label>
+    </q-item-section>
+    <q-item-section side>
+      <div class="text-weight-bold text-primary">
+        R$ {{ service.cost.toFixed(2) }}
+      </div>
+    </q-item-section>
+  </q-item>
+  
+  <q-separator />
+  
+  <q-item class="bg-grey-1">
+    <q-item-section>
+      <q-item-label class="text-weight-bold">Investimento Total na O.S.</q-item-label>
+    </q-item-section>
+    <q-item-section side>
+      <div class="text-h6 text-weight-bold text-positive">
+        R$ {{ grandTotalCalculated.toFixed(2) }}
+      </div>
+    </q-item-section>
+  </q-item>
+</q-list>
+
+                    <div v-else-if="industrialData" class="text-center text-grey q-pa-lg border-dashed">
+                        Os detalhes dos itens estão no arquivo permanente. <br>
+                        Confira o resumo financeiro industrial na aba detalhes.
+                    </div>
+
                     <div v-else class="text-center text-grey q-pa-lg border-dashed">
                         Nenhum serviço externo ou custo extra lançado.
                     </div>
+
+                    
                 </div>
 
                 <div class="col-12 col-md-5" v-if="!isClosed && authStore.canEditMaintenance">
                     <q-card flat bordered class="bg-grey-1">
                         <q-card-section>
-                            <div class="text-subtitle1 text-weight-bold q-mb-sm">Lançar Custo de Serviço</div>
+                            <div class="text-subtitle1 text-weight-bold q-mb-sm">Lançar Custo Adicional</div>
                             <q-form @submit="handleAddService">
                                 <q-input 
                                     v-model="serviceForm.description" 
@@ -362,7 +395,54 @@ const props = defineProps<{
   request: MaintenanceRequest | null;
 }>();
 const emit = defineEmits(['update:modelValue']);
+const allServices = computed(() => {
+  // Se não for uma OS Industrial, retorna a lista padrão
+  if (!industrialData.value) return props.request?.services || [];
 
+  const list: any[] = [];
+
+  // Mapeia as linhas de Mão de Obra
+  industrialData.value.labor_rows?.forEach((row: any, i: number) => {
+    list.push({
+      id: `mo-${i}`,
+      description: `[M.O.] ${row.description} (Qtd: ${row.qty})`,
+      provider_name: row.responsible,
+      cost: (Number(row.qty) || 0) * (Number(row.unit_value) || 0)
+    });
+  });
+
+  // Mapeia as linhas de Material
+  industrialData.value.material_rows?.forEach((row: any, i: number) => {
+    list.push({
+      id: `mat-${i}`,
+      description: `[MAT] ${row.description} (Qtd: ${row.qty})`,
+      provider_name: row.responsible,
+      cost: (Number(row.qty) || 0) * (Number(row.unit_value) || 0)
+    });
+  });
+
+  // Mapeia as linhas de Terceiros
+  industrialData.value.third_party_rows?.forEach((row: any, i: number) => {
+    list.push({
+      id: `ter-${i}`,
+      description: `[TER] ${row.description} (Qtd: ${row.qty})`,
+      provider_name: row.responsible,
+      cost: (Number(row.qty) || 0) * (Number(row.unit_value) || 0)
+    });
+  });
+
+  // Adiciona o custo "Outros" se existir e for maior que zero
+  if (Number(industrialData.value.others_total) > 0) {
+    list.push({
+      id: 'others',
+      description: 'OUTROS CUSTOS / DIVERSOS',
+      provider_name: 'N/A',
+      cost: Number(industrialData.value.others_total)
+    });
+  }
+
+  return list;
+});
 const $q = useQuasar();
 const maintenanceStore = useMaintenanceStore();
 const authStore = useAuthStore();
@@ -377,9 +457,44 @@ const showFinishDialog = ref(false);
 
 const selectedComponent = ref<VehicleComponent | null>(null);
 
+// --- LÓGICA DE CUSTOS INDUSTRIAIS ---
+const industrialData = computed(() => {
+  if (!props.request?.manager_notes) return null;
+  try {
+    const meta = JSON.parse(props.request.manager_notes);
+    // Verifica se tem as chaves da manutenção industrial
+    if (meta.labor_total !== undefined || meta.material_total !== undefined) return meta;
+    return null;
+  } catch { return null; }
+});
+
+const totalGeralIndustrial = computed(() => {
+  if (!industrialData.value) return 0;
+  return (Number(industrialData.value.labor_total) || 0) +
+         (Number(industrialData.value.material_total) || 0) +
+         (Number(industrialData.value.services_total) || 0) +
+         (Number(industrialData.value.others_total) || 0);
+});
+
+const industrialCostBuckets = computed(() => {
+  if (!industrialData.value) return [];
+  return [
+    { label: 'Mão de Obra', value: Number(industrialData.value.labor_total) || 0 },
+    { label: 'Materiais', value: Number(industrialData.value.material_total) || 0 },
+    { label: 'Terceiros', value: Number(industrialData.value.services_total) || 0 },
+    { label: 'Outros', value: Number(industrialData.value.others_total) || 0 },
+  ];
+});
+
 // Lógica de Serviços
 const serviceForm = ref({ description: '', provider_name: '', cost: 0 });
 const isSubmittingService = ref(false);
+
+const grandTotalCalculated = computed(() => {
+    // Soma serviços da lista + o total industrial (se houver)
+    const listSum = props.request?.services?.reduce((sum, s) => sum + (s.cost || 0), 0) || 0;
+    return industrialData.value ? totalGeralIndustrial.value : listSum;
+});
 
 const totalServicesCost = computed(() => {
     if (!props.request?.services) return 0;
@@ -393,7 +508,7 @@ async function handleAddService() {
         description: serviceForm.value.description,
         provider_name: serviceForm.value.provider_name,
         cost: serviceForm.value.cost,
-        item_type: 'THIRD_PARTY' // <--- ADICIONE ESTA LINHA
+        item_type: 'THIRD_PARTY'
     });
     if (success) serviceForm.value = { description: '', provider_name: '', cost: 0 };
     isSubmittingService.value = false;
@@ -430,9 +545,7 @@ function handleReplacementDone() {
 
 function onRevert(log: MaintenancePartChangePublic) {
   if (!props.request || !log.component_installed) return;
-
   const partName = log.component_installed.part?.name || 'N/A';
-  // CORREÇÃO: Usar a variável no template string
   const itemIdentifier = log.component_installed.inventory_transaction?.item?.item_identifier || 'N/A';
 
   $q.dialog({
@@ -453,7 +566,6 @@ function onRevert(log: MaintenancePartChangePublic) {
 
 function handleUpdateStatus(newStatus: MaintenanceStatus) {
   if (!props.request) return;
-
   if (newStatus === MaintenanceStatus.CONCLUIDA) {
     if (props.request.maintenance_type === 'PREVENTIVA') {
         showFinishDialog.value = true;

@@ -48,7 +48,7 @@ class Part(Base):
 #
 class InventoryItemStatus(str, enum.Enum):
     DISPONIVEL = "Disponível"
-    EM_USO = "Em Uso"
+    EM_USO = "Em uso"
     FIM_DE_VIDA = "Fim de Vida"
     EM_MANUTENCAO = "Em Manutenção" # <--- Garanta que este também esteja aqui se usar no front
 

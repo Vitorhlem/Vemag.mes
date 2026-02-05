@@ -105,6 +105,11 @@ const routes: RouteRecordRaw[] = [
         name: 'inventory-items',
         component: () => import('pages/InventoryItemsPage.vue')
       },
+      {
+        path: 'inventory-items/:id',
+        name: 'item-details',
+        component: () => import('pages/ItemDetailsPage.vue')
+      },
       { 
         path: 'feedback', 
         name: 'feedback', 

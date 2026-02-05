@@ -8,7 +8,7 @@
           <div class="text-caption text-grey-8 text-uppercase flex items-center">
              OS #{{ request.id }} 
              <q-icon name="circle" size="6px" class="q-mx-xs text-grey-5" /> 
-             {{ request.category }}
+             {{ request.category || 'Industrial' }}
           </div>
           <div class="text-subtitle1 text-weight-bold ellipsis text-primary">
              {{ request.vehicle?.brand }} {{ request.vehicle?.model }}

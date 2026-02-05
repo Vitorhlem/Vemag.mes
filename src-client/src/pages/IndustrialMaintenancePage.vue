@@ -95,14 +95,7 @@
           <q-btn flat round icon="close" v-close-popup />
           <q-toolbar-title>OM Industrial #{{ form.id || 'Nova' }}</q-toolbar-title>    
           <q-btn flat icon="delete" label="Excluir" @click="confirmDelete" v-if="form.id && !isReadOnly" />
-                    <q-btn 
-    flat 
-    color="white" 
-    icon="picture_as_pdf" 
-    label="Salvar PDF" 
-    class="q-ml-sm" 
-    @click="saveAsPDF" 
-  />
+          <q-btn flat color="white" icon="picture_as_pdf" label="Salvar PDF" class="q-ml-sm" @click="saveAsPDF" />
           <q-btn outline color="white" icon="print" label="Imprimir" @click="printDocument" class="q-ml-sm" />
           <q-btn unelevated color="teal-7" icon="save" label="Salvar" @click="submitOS('RASCUNHO')" v-if="!isReadOnly" class="q-ml-sm" />
           <q-btn unelevated color="positive" icon="check" label="Finalizar" @click="submitOS('CONCLUIDA')" v-if="!isReadOnly" class="q-ml-sm" />
@@ -155,6 +148,7 @@
                     <th class="text-left" style="width: 15%">Data</th>
                     <th class="text-left">Descrição</th>
                     <th class="text-center" style="width: 8%">Qtd</th>
+                    <th class="text-right" style="width: 12%">Vl. Unit</th>
                     <th class="text-left" style="width: 20%">Responsável</th>
                     <th class="print-hide" style="width: 40px"></th>
                   </tr>
@@ -164,6 +158,7 @@
                     <td><q-input v-model="row.date" borderless dense type="date" :readonly="isReadOnly" /></td>
                     <td><q-input v-model="row.description" borderless dense :readonly="isReadOnly" /></td>
                     <td><q-input v-model.number="row.qty" borderless dense type="number" class="text-center" :readonly="isReadOnly" /></td>
+                    <td><q-input v-model.number="row.unit_value" borderless dense type="number" prefix="R$" class="text-right" :readonly="isReadOnly" /></td>
                     <td><q-input v-model="row.responsible" borderless dense :readonly="isReadOnly" /></td>
                     <td class="print-hide">
                       <q-btn flat round icon="close" color="red" size="xs" @click="form[table.rows].splice(i, 1)" v-if="!isReadOnly" />
@@ -195,13 +190,13 @@
             <div class="totals-box row items-center q-pa-md q-mb-xl">
               <div class="col row q-col-gutter-sm">
                 <div class="col-3">
-                  <q-input outlined dense v-model.number="form.labor_total" label="Mão de Obra" prefix="R$" :readonly="isReadOnly" />
+                  <q-input outlined dense v-model.number="form.labor_total" label="Mão de Obra" prefix="R$" readonly />
                 </div>
                 <div class="col-3">
-                  <q-input outlined dense v-model.number="form.material_total" label="Material" prefix="R$" :readonly="isReadOnly" />
+                  <q-input outlined dense v-model.number="form.material_total" label="Material" prefix="R$" readonly />
                 </div>
                 <div class="col-3">
-                  <q-input outlined dense v-model.number="form.services_total" label="Serviços" prefix="R$" :readonly="isReadOnly" />
+                  <q-input outlined dense v-model.number="form.services_total" label="Serviços" prefix="R$" readonly />
                 </div>
                 <div class="col-3">
                   <q-input outlined dense v-model.number="form.others_total" label="Outros" prefix="R$" :readonly="isReadOnly" />
@@ -237,8 +232,8 @@
 </template>
 
 <script setup lang="ts">
-import html2pdf from 'html2pdf.js'; // Adicione no topo das importações
-import { ref, computed, onMounted } from 'vue';
+import html2pdf from 'html2pdf.js';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useQuasar, date } from 'quasar';
 import { api } from 'boot/axios';
 import { useMaintenanceStore } from 'stores/maintenance-store';
@@ -250,7 +245,6 @@ const maintenanceStore = useMaintenanceStore();
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 
-// Tabela do Dashboard
 const columns = [
   { name: 'id', label: 'ID', field: 'id', sortable: true, align: 'left' },
   { name: 'vehicle', label: 'Equipamento', field: row => row.vehicle?.identifier, sortable: true, align: 'left' },
@@ -258,26 +252,19 @@ const columns = [
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
   { name: 'actions', label: 'Ações', align: 'right' }
 ];
+
 const saveAsPDF = () => {
   const element = document.querySelector('.printable-area');
-  
-  // Configurações do PDF para bater com seu layout A4
   const opt = {
     margin: 0,
     filename: `OM_Industrial_${form.value.id || 'Nova'}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { 
-      scale: 3, // Alta resolução
-      useCORS: true, 
-      letterRendering: true,
-      logging: false 
-    },
+    html2canvas: { scale: 3, useCORS: true, letterRendering: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
-
-  // Gera o PDF
   html2pdf().set(opt).from(element).save();
 };
+
 const activeTab = ref('concluida');
 const showForm = ref(false);
 const search = ref('');
@@ -296,15 +283,15 @@ const initialForm = () => ({
   cost_center: '', 
   stopped_at: '', 
   returned_at: '',
-  responsible: '', // Começa vazio para ser preenchido pelo banco ou pelo login
+  responsible: '',
   maintenance_type: 'Mecânica', 
   executed_services: '',
   elaborated_by: authStore.user?.full_name || '', 
   supervisor: '', 
   status: 'RASCUNHO',
-  labor_rows: [], 
-  material_rows: [], 
-  third_party_rows: [],
+  labor_rows: [] as any[], 
+  material_rows: [] as any[], 
+  third_party_rows: [] as any[],
   labor_total: 0, 
   material_total: 0, 
   services_total: 0, 
@@ -317,31 +304,46 @@ const isReadOnly = computed(() => form.value.status === 'CONCLUIDA');
 const filteredOrders = computed(() => maintenanceStore.maintenances.filter(m => m.status === activeTab.value.toUpperCase()));
 const countConcluidas = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'CONCLUIDA').length);
 const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => m.status === 'RASCUNHO').length);
+
 const totalMonthCost = computed(() => {
   return maintenanceStore.maintenances
     .filter(m => m.status === 'CONCLUIDA')
     .reduce((acc, m) => {
-      // Tenta pegar da coluna total_cost, se não existir, tenta extrair do manager_notes
       let cost = m.total_cost;
-      
       if (!cost && m.manager_notes) {
         try {
           const meta = JSON.parse(m.manager_notes);
-          cost = (Number(meta.labor_total) || 0) + 
-                 (Number(meta.material_total) || 0) + 
-                 (Number(meta.services_total) || 0) + 
-                 (Number(meta.others_total) || 0);
+          cost = (Number(meta.labor_total) || 0) + (Number(meta.material_total) || 0) + (Number(meta.services_total) || 0) + (Number(meta.others_total) || 0);
         } catch (e) { cost = 0; }
       }
-      
       return acc + (Number(cost) || 0);
     }, 0);
-});const vehicleOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
+});
+
+const vehicleOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
 const grandTotal = computed(() => (Number(form.value.labor_total)||0) + (Number(form.value.material_total)||0) + (Number(form.value.services_total)||0) + (Number(form.value.others_total)||0));
 
-// Ações
+// --- CÁLCULO AUTOMÁTICO DE TOTAIS ---
+watch(() => form.value.labor_rows, (rows) => {
+  form.value.labor_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+}, { deep: true });
+
+watch(() => form.value.material_rows, (rows) => {
+  form.value.material_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+}, { deep: true });
+
+watch(() => form.value.third_party_rows, (rows) => {
+  form.value.services_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+}, { deep: true });
+
 function addRow(type: string) {
-  const row = { date: date.formatDate(Date.now(), 'YYYY-MM-DD'), description: '', qty: 1, responsible: authStore.user?.full_name || '' };
+  const row = { 
+    date: date.formatDate(Date.now(), 'YYYY-MM-DD'), 
+    description: '', 
+    qty: 1, 
+    unit_value: 0, 
+    responsible: authStore.user?.full_name || '' 
+  };
   if (type === 'labor') form.value.labor_rows.push(row);
   else if (type === 'material') form.value.material_rows.push(row);
   else if (type === 'third') form.value.third_party_rows.push(row);
@@ -349,16 +351,9 @@ function addRow(type: string) {
 
 function newOS() { form.value = initialForm(); showForm.value = true; }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function openEdit(os: any) {
   let meta: any = {};
-  try { 
-    // Tenta ler o JSON. Se falhar ou for nulo, usa objeto vazio.
-    meta = os.manager_notes ? JSON.parse(os.manager_notes) : {}; 
-  } catch (e) { 
-    console.error("Erro ao ler manager_notes:", e);
-    meta = {};
-  }
+  try { meta = os.manager_notes ? JSON.parse(os.manager_notes) : {}; } catch (e) { meta = {}; }
 
   form.value = {
     ...initialForm(),
@@ -369,56 +364,29 @@ function openEdit(os: any) {
     supervisor: os.supervisor || meta.supervisor || '',
     elaborated_by: meta.elaborated_by || '',
     status: os.status,
-    // Ajuste de data para o formato do input datetime-local
     stopped_at: os.stopped_at ? os.stopped_at.substring(0, 16) : '',
     returned_at: os.returned_at ? os.returned_at.substring(0, 16) : '',
     maintenance_type: os.category || os.maintenance_type || 'Mecânica',
     executed_services: os.problem_description || '',
-    
     labor_total: meta.labor_total || 0,
     material_total: meta.material_total || 0,
     services_total: meta.services_total || 0,
     others_total: meta.others_total || 0,
-    
-    // CARREGANDO AS TABELAS:
-    // Se meta.labor_rows não existir, mantém o array vazio do initialForm
     labor_rows: meta.labor_rows || [],
     material_rows: meta.material_rows || [],
     third_party_rows: meta.third_party_rows || []
   };
-  
   showForm.value = true;
 }
 
 async function submitOS(status: string) {
-  $q.loading.show({ message: 'Salvando O.S. Industrial...' });
-  
+  $q.loading.show({ message: 'Salvando O.M. Industrial...' });
   form.value.status = status;
 
-  // CORREÇÃO: Montamos o metaData com TUDO o que precisa ser persistido (incluindo as linhas)
-  const metaData = { 
-    category: form.value.maintenance_type,
-    labor_total: form.value.labor_total, 
-    material_total: form.value.material_total, 
-    services_total: form.value.services_total, 
-    others_total: form.value.others_total,
-    elaborated_by: form.value.elaborated_by, 
-    supervisor: form.value.supervisor,
-    responsible: form.value.responsible, // Garante que o nome do responsável vá no JSON
-    // SALVANDO AS LINHAS DAS TRÊS TABELAS AQUI:
-    labor_rows: form.value.labor_rows,
-    material_rows: form.value.material_rows,
-    third_party_rows: form.value.third_party_rows
-  };
-
- const payload = {
+  const payload = {
     ...form.value,
-    labor_total: Number(form.value.labor_total) || 0,
-    material_total: Number(form.value.material_total) || 0,
-    services_total: Number(form.value.services_total) || 0,
-    others_total: Number(form.value.others_total) || 0,
+    category: form.value.maintenance_type, // FIX: Para aparecer no Card
     executed_services: form.value.executed_services,
-    // Enviamos o manager_notes com os arrays das tabelas (para não perder o "a" da descrição)
     manager_notes: JSON.stringify({
       labor_total: form.value.labor_total,
       material_total: form.value.material_total,
@@ -435,13 +403,11 @@ async function submitOS(status: string) {
   };
 
   const success = await maintenanceStore.createIndustrialOS(payload);
-  
   if (success) { 
     showForm.value = false; 
     await refreshData(); 
     $q.notify({ type: 'positive', message: 'Ordem de Manutenção salva com sucesso!' });
   }
-  
   $q.loading.hide();
 }
 
@@ -460,7 +426,6 @@ onMounted(async () => { await Promise.all([maintenanceStore.fetchMaintenanceRequ
 <style scoped lang="scss">
 @import url('https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&display=swap');
 
-/* REMOVER BARRA DE ROLAGEM DA PÁGINA */
 :deep(.q-panel), :deep(.q-tab-panel), :deep(.q-page), :deep(html), :deep(body) {
   overflow: hidden !important;
   height: 100vh;
@@ -469,29 +434,24 @@ onMounted(async () => { await Promise.all([maintenanceStore.fetchMaintenanceRequ
 .bg-industrial-layout { 
   background: #e0e4e8; 
   height: 100vh;
-  overflow: hidden; /* Garante que a página não role */
+  overflow: hidden; 
 }
 
-/* FORMULÁRIO A4 - AJUSTE EXATO DA IMAGEM */
 .a4-sheet { 
   width: 210mm; 
-  /* Mudamos de height para max-height e ajustamos para 296mm (1mm a menos que o A4) */
   max-height: 296mm; 
   min-height: 296mm;
   margin: 0 auto; 
   padding: 12mm !important;
   color: #263238;
   position: relative;
-  box-sizing: border-box; /* Garante que o padding não aumente o tamanho total */
-  overflow: hidden; /* Corta qualquer micro-transbordamento */
+  box-sizing: border-box;
+  overflow: hidden; 
   display: block;
 }
-.printable-area *:last-child {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-}
+
 .section-title { 
-  background: #37474f; /* Cor Slate Dark da imagem */
+  background: #37474f;
   color: white; 
   padding: 6px 12px; 
   font-weight: bold; 
@@ -514,20 +474,21 @@ onMounted(async () => { await Promise.all([maintenanceStore.fetchMaintenanceRequ
 
 .totals-box {
   background: #f1f3f4;
-  border-left: 6px solid #00897b; /* Barra teal da imagem */
+  border-left: 6px solid #00897b;
   border-radius: 4px;
   margin-top: 20px;
 }
+
 .signature-font { 
   font-family: 'Mrs Saint Delafield', cursive; 
-  font-size: 2.8rem; /* Reduzido de 3.5 para caber em uma linha */
+  font-size: 2.8rem;
   color: #1a237e; 
   height: 50px; 
   display: flex; 
   align-items: flex-end; 
   justify-content: center;
   line-height: 1;
-  white-space: nowrap; /* Garante que fique em uma linha */
+  white-space: nowrap;
 }
 
 .signature-line { border-top: 1.2px solid #263238; width: 100%; }
@@ -539,49 +500,11 @@ onMounted(async () => { await Promise.all([maintenanceStore.fetchMaintenanceRequ
   .logo-img { max-height: 50px; width: auto; }
 }
 
-/* AJUSTES DE IMPRESSÃO PARA SAIR EXATAMENTE COMO A FOTO */
 @media print {
-  @page {
-    size: A4;
-    margin: 0; /* Remove margens do navegador (cabeçalhos/rodapés) */
-  }
-
-  /* Esconde TUDO que for do navegador ou devtools (inclusive os ícones de erro ❗️⚠️) */
+  @page { size: A4; margin: 0; }
   body * { visibility: hidden; }
   .printable-area, .printable-area * { visibility: visible; }
-  
-  /* Remove especificamente o rodapé de erros que aparece em alguns ambientes de dev */
-  div[style*="fixed"], .q-notifications, .v-debug, #webpack-dev-server-client-overlay {
-    display: none !important;
-  }
-
-  .printable-area { 
-    position: fixed; 
-    left: 0; 
-    top: 0; 
-    width: 210mm !important; 
-    height: 297mm !important;
-    margin: 0 !important; 
-    padding: 10mm !important; 
-    overflow: hidden !important; /* Mata a barra de rolagem na impressão */
-  }
-
+  .printable-area { position: fixed; left: 0; top: 0; width: 210mm !important; height: 297mm !important; margin: 0 !important; padding: 10mm !important; }
   .print-hide { display: none !important; }
-  
-  /* Garante as cores de fundo */
-  .section-title, .totals-box, thead {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}
-.printable-area {
-  background-color: white;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-}
-
-/* Esconde qualquer overlay de erro/debug durante a captura do PDF */
-.html2canvas-container {
-  display: none !important;
 }
 </style>

@@ -153,40 +153,32 @@ async def discard_component(
     discard_notes = f"{notes} ({discard_notes})"
 
   # 4. Lógica de Verificação (Conserta dados corrompidos do bug antigo)
-  if inventory_item.status == InventoryItemStatus.EM_USO:
-    # --- Caminho Normal (dado está bom) ---
-    # Agora esta chamada é segura, pois 'inventory_item.part' está carregado
+  def get_val(s):
+      return s.value if hasattr(s, 'value') else str(s)
+
+  current_status_val = get_val(inventory_item.status).lower()
+  target_status_val = InventoryItemStatus.EM_USO.value.lower()
+
+  if current_status_val == target_status_val:
+    # --- Caminho Normal ---
     await crud.crud_part.change_item_status(
       db=db,
       item=inventory_item,
-      new_status=final_status, # Use final_status
+      new_status=final_status,
       user_id=user_id,
       vehicle_id=db_component.vehicle_id, 
       notes=discard_notes
     )
   
-  elif inventory_item.status == final_status:
-    # --- Caminho da Corrupção (Bug Antigo) ---
-    # O item JÁ ESTÁ no estado final, mas o componente está 'is_active=True'.
-    # Pulamos a mudança de status do item e apenas consertamos o componente.
+  elif current_status_val == get_val(final_status).lower():
+    # --- Já está no status final ---
     pass
   
-  elif (inventory_item.status == InventoryItemStatus.FIM_DE_VIDA and
-     final_status == InventoryItemStatus.DISPONIVEL):
-    # --- Caso de Borda (Bug Antigo) ---
-    # Item marcado como FIM_DE_VIDA (bug), mas usuário quer retornar ao estoque
-    await crud.crud_part.change_item_status(
-      db=db,
-      item=inventory_item,
-      new_status=final_status, # FIM_DE_VIDA -> DISPONIVEL
-      user_id=user_id,
-      vehicle_id=db_component.vehicle_id, 
-      notes=f"Retornando ao estoque (via Chamado): {notes or ''}".strip()
-    )
-
   else:
-    raise ValueError(f"Este item não pode ser descartado (status atual: {inventory_item.status}).")
-
+    raise ValueError(
+        f"O item '{inventory_item.item_identifier}' não pode ser movido para reparo. "
+        f"Status atual: '{get_val(inventory_item.status)}', esperado: '{InventoryItemStatus.EM_USO.value}'."
+    )
   # 5. Atualiza o próprio VehicleComponent (sempre executa)
   db_component.is_active = False
   db_component.uninstallation_date = datetime.now(timezone.utc)

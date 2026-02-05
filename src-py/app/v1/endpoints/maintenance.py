@@ -29,12 +29,13 @@ from app.crud.crud_demo_usage import demo_usage as demo_usage_crud
 from app.models.maintenance_model import MaintenanceComment, MaintenancePartChange, MaintenanceServiceItem, MaintenanceRequest, MaintenanceCategory, MaintenanceServiceItem
 from app.models.vehicle_cost_model import VehicleCost, CostType 
 from app.models.notification_model import NotificationType
-
+from app.models.inventory_transaction_model import InventoryTransaction
+from app.models.vehicle_component_model import VehicleComponent
 # Import do Vehicle para mudar status
 try:
     from app.models.vehicle_model import Vehicle, VehicleStatus
 except ImportError:
-    from app.models.vehicle import Vehicle, VehicleStatus
+    from app.models.vehicle_model import Vehicle, VehicleStatus
 
 router = APIRouter()
 
@@ -405,7 +406,33 @@ async def replace_maintenance_component(
     try:
         log, comment, rep_id = await crud.maintenance.perform_component_replacement(db=db, request_id=request_id, payload=payload, user=current_user)
         await db.commit()
-        await db.refresh(log, ["user", "component_removed", "component_installed"])
+
+        # CORREÇÃO: Carregamento completo
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        
+        stmt = select(MaintenancePartChange).where(MaintenancePartChange.id == log.id).options(
+            selectinload(MaintenancePartChange.user),
+            selectinload(MaintenancePartChange.component_removed).options(
+                selectinload(VehicleComponent.part),
+                selectinload(VehicleComponent.inventory_transaction).options(
+                    selectinload(InventoryTransaction.item),
+                    selectinload(InventoryTransaction.user)
+                )
+            ),
+            selectinload(MaintenancePartChange.component_installed).options(
+                selectinload(VehicleComponent.part),
+                selectinload(VehicleComponent.inventory_transaction).options(
+                    selectinload(InventoryTransaction.item),
+                    selectinload(InventoryTransaction.user)
+                )
+            )
+        )
+        res = await db.execute(stmt)
+        log = res.scalars().first()
+        
+        await db.refresh(comment, ["user"])
+        
         return ReplaceComponentResponse(success=True, message="Substituição realizada.", part_change_log=log, new_comment=comment)
     except ValueError as e:
         await db.rollback()
@@ -420,8 +447,35 @@ async def install_maintenance_component(
     try:
         log, comment, rep_id = await crud.maintenance.perform_new_installation(db=db, request_id=request_id, payload=payload, user=current_user)
         await db.commit()
-        await db.refresh(log, ["user", "component_installed"])
-        return InstallComponentResponse(success=True, message="Instalação realizada.", part_change_log=log, new_comment=comment)
+
+        # CORREÇÃO: Carregamento completo com selectinload para evitar MissingGreenlet
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from app.models.maintenance_model import MaintenancePartChange, MaintenanceComment
+        from app.models.vehicle_component_model import VehicleComponent
+        from app.models.inventory_transaction_model import InventoryTransaction
+
+        stmt = select(MaintenancePartChange).where(MaintenancePartChange.id == log.id).options(
+            selectinload(MaintenancePartChange.user),
+            selectinload(MaintenancePartChange.component_installed).options(
+                selectinload(VehicleComponent.part),
+                selectinload(VehicleComponent.inventory_transaction).options(
+                    selectinload(InventoryTransaction.item),
+                    selectinload(InventoryTransaction.user)
+                )
+            )
+        )
+        res = await db.execute(stmt)
+        log = res.scalars().first()
+        
+        await db.refresh(comment, ["user"])
+
+        return InstallComponentResponse(
+            success=True, 
+            message="Instalação realizada.", 
+            part_change_log=log, 
+            new_comment=comment
+        )
     except ValueError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

@@ -7,7 +7,7 @@ import type { Vehicle } from './vehicle-models';
 // ele exista como um objeto JavaScript no runtime.
 export enum InventoryItemStatus {
   DISPONIVEL = "Disponível",
-  EM_USO = "Em Uso",
+  EM_USO = "Em uso",
   FIM_DE_VIDA = "Fim de Vida",
   EM_MANUTENCAO = 'Em Manutenção',
 }

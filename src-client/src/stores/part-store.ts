@@ -58,6 +58,7 @@ export const usePartStore = defineStore('part', {
       page: number, 
       rowsPerPage: number, 
       status?: InventoryItemStatus | null,
+      userId?: number; 
       partId?: number | null,
       vehicleId?: number | null,
       search?: string | null 
@@ -71,6 +72,7 @@ export const usePartStore = defineStore('part', {
           part_id: options.partId || undefined,
           vehicle_id: options.vehicleId || undefined,
           search: options.search || undefined,
+          user_id: options.userId || undefined, // <-- ADICIONE ESTA LINHA PARA ENVIAR À API
         };
     
         const response = await api.get<InventoryItemPage>('/parts/inventory/items/', { params });
