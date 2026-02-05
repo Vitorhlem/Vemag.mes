@@ -38,10 +38,14 @@ export default route(function (/* { store, ssrContext } */) {
     // Se o usuário tentar acessar a raiz '/' ou o '/dashboard' e for Motorista,
     // forçamos o envio para o Kiosk.
     if (to.path === '/' || to.name === 'dashboard') {
-      if (userRole === 'driver') {
-        return next({ name: 'machine-kiosk' });
-      }
-    }
+  if (userRole === 'driver') {
+    return next({ name: 'machine-kiosk' });
+  }
+  // ADICIONE ESTE BLOCO ABAIXO:
+  if (userRole === 'maintenance') {
+    return next({ name: 'manutencao' }); // Nome da rota para IndustrialMaintenancePage
+  }
+}
 
     // 4. Verificação de Permissões (Roles)
     // Se a rota exige roles específicas e o usuário não tem...

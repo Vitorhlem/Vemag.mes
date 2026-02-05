@@ -78,8 +78,10 @@ class MaintenanceRequestBase(BaseModel):
     manager_notes: Optional[str] = None # Para salvar as tabelas JSON
 
 class MaintenanceRequestCreate(MaintenanceRequestBase):
-    pass
+    # Garanta que o campo esteja explícito ou herdado corretamente
+    maintenance_type: Optional[str] = "CORRETIVA"
 
+    
 class MaintenanceRequestUpdate(BaseModel):
     status: Optional[MaintenanceStatus] = None
     next_maintenance_date: Optional[date] = None
@@ -114,14 +116,17 @@ class MaintenanceRequestPublic(MaintenanceRequestBase):
     is_electrical: bool = False
     supervisor: Optional[str] = None
     # Relações para evitar MissingGreenlet
-    comments: List[dict] = []
-    part_changes: List[dict] = []
+    comments: List[MaintenanceCommentPublic] = []
+    part_changes: List[MaintenancePartChangePublic] = []
     model_config = { "from_attributes": True }
+    
     
 
 class MaintenanceServiceItemBase(BaseModel):
     description: str
     cost: float
+    quantity: float = 1.0 # <--- ADICIONE ESTA LINHA
+    item_type: str = "THIRD_PARTY" # <--- ADICIONE ESTA LINHA COM PADRÃO
     provider_name: Optional[str] = None
     notes: Optional[str] = None
 

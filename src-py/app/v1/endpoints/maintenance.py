@@ -106,6 +106,7 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
             "vehicle_id": v_id, 
             "cost_center": payload.get("cost_center"),
             "responsible": payload.get("responsible"), # Salva na coluna oficial
+            "supervisor": payload.get("supervisor"),
             "stopped_at": parse_dt(payload.get("stopped_at")),
             "returned_at": parse_dt(payload.get("returned_at")),
             "maintenance_type": payload.get("maintenance_type"),
@@ -136,9 +137,10 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
                         description=row["description"], 
                         quantity=safe_float(row.get("qty") if row.get("qty") is not None else row.get("quantity"), 1.0),
                         cost=item_cost, # <--- Agora o valor será salvo corretamente
-                        item_type=itype,
+                        item_type="THIRD_PARTY", # <--- ADICIONE ESTA LINHA PARA CORRIGIR O ERRO
                         maintenance_request_id=new_os.id, 
-                        added_by_id=current_user.id
+                        added_by_id=current_user.id,
+                        
                     ))
 
         if new_os.status == "CONCLUIDA":
@@ -279,6 +281,7 @@ async def delete_maintenance_request(
 
 # 4. ATUALIZAR STATUS (CORREÇÃO DA LIBERAÇÃO)
 @router.put("/requests/{request_id}/status", response_model=MaintenanceRequestPublic)
+@router.put("/{request_id}/status", response_model=MaintenanceRequestPublic) # <-- ADICIONE ESTA LINHA (HÍBRIDA)
 async def update_request_status(
     *,
     db: AsyncSession = Depends(deps.get_db),
@@ -326,8 +329,15 @@ async def add_service_item(
 ):
     req = await crud.maintenance.get_request(db, request_id=request_id, organization_id=current_user.organization_id)
     if not req: raise HTTPException(status_code=404, detail="Chamado não encontrado.")
-            
-    db_service = MaintenanceServiceItem(**service_in.model_dump(), maintenance_request_id=request_id, added_by_id=current_user.id)
+    
+    service_data = service_in.model_dump()
+    
+    db_service = MaintenanceServiceItem(
+        **service_data, 
+        maintenance_request_id=request_id, 
+        added_by_id=current_user.id
+    )
+    
     db.add(db_service)
     
     new_cost = VehicleCost(

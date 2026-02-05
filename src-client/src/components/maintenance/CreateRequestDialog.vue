@@ -94,8 +94,8 @@ const vehicleOptions = ref<VehicleOption[]>([]);
 const categoryOptions = [
     { label: 'Mecânica', value: MaintenanceCategory.MECHANICAL },
     { label: 'Elétrica', value: MaintenanceCategory.ELECTRICAL },
-    { label: 'Hidráulica', value: 'HYDRAULIC' }, // Se o backend aceitar, senão mapear para MECHANICAL
-    { label: 'Pneumática', value: 'PNEUMATIC' }
+    { label: 'Hidráulica', value: MaintenanceCategory.HYDRAULIC }, 
+    { label: 'Pneumática', value: MaintenanceCategory.PNEUMATIC }
 ];
 
 const form = ref({
@@ -135,15 +135,12 @@ async function onSubmit() {
   if (!form.value.vehicle_id) return;
   
   loading.value = true;
-  // O backend espera o Enum MaintenanceCategory, então mantemos a compatibilidade
   const success = await maintenanceStore.createRequest({
     vehicle_id: form.value.vehicle_id,
     problem_description: form.value.problem_description,
     category: form.value.category,
-    // Se o backend não suporta o campo 'maintenance_type' direto na criação, 
-    // colocamos na descrição ou usamos um campo 'tags' se existir. 
-    // Assumindo que você vai adicionar no backend depois ou concatenar:
-    // problem_description: `[${form.value.maintenance_type}] ${form.value.problem_description}`
+    // CORREÇÃO: Envia o tipo selecionado (Preventiva/Corretiva) para o Backend
+    maintenance_type: form.value.maintenance_type 
   });
   loading.value = false;
 

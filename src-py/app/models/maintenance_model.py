@@ -19,7 +19,9 @@ class MaintenanceStatus(str, enum.Enum):
 
 class MaintenanceCategory(str, enum.Enum):
     MECHANICAL = "Mecânica"
-    ELECTRICAL = "Elétrica"
+    ELECTRICAL = "Elétrica"  # Tem acento
+    HYDRAULIC = "Hidráulica" # Tem acento
+    PNEUMATIC = "Pneumática" # Tem acento
     BODYWORK = "Funilaria"
     OTHER = "Outro"
 
@@ -42,17 +44,17 @@ class MaintenanceRequest(Base):
     returned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     is_mechanical: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
     is_electrical: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
-    maintenance_type: Mapped[Optional[str]] = mapped_column(String, default="Mecânica", nullable=True)
     reported_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
     maintenance_type: Mapped[Optional[str]] = mapped_column(String, default="CORRETIVA", nullable=True)
+    supervisor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # <-- ADICIONE ESTA LINHA
     reporter: Mapped[Optional["User"]] = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_requests")
     approver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by_id])
     vehicle: Mapped["Vehicle"] = relationship("Vehicle", back_populates="maintenance_requests")
     comments: Mapped[List["MaintenanceComment"]] = relationship("MaintenanceComment", back_populates="request", cascade="all, delete-orphan")
-
+    
     part_changes: Mapped[List["MaintenancePartChange"]] = relationship(
         "MaintenancePartChange", 
         back_populates="maintenance_request", 

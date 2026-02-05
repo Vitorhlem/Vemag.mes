@@ -7,7 +7,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
-    meta: { requiresAuth: true, roles: ['driver','admin', 'cliente_ativo', 'cliente_demo'] }, // Motorista/Operador NÃO entra aqui por padrão
+    meta: { requiresAuth: true, roles: ['driver','admin', 'cliente_ativo', 'cliente_demo', 'maintenance'] }, // Motorista/Operador NÃO entra aqui por padrão
     children: [
       { path: '', redirect: '/dashboard' },
       
@@ -145,7 +145,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/factory',
     component: () => import('layouts/BlankLayout.vue'), // Layout vazio (sem sidebar)
-    meta: { requiresAuth: true, roles: ['driver', 'operator', 'admin'] }, // 'driver' é o funcionario
+    meta: { requiresAuth: true, roles: ['driver', 'operator', 'admin', 'maintenance'] }, // 'driver' é o funcionario
     children: [
       // Tela de "Descanso" do Tablet (Login da Máquina)
       { 

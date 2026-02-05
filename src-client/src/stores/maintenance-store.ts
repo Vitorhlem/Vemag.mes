@@ -107,16 +107,16 @@ export const useMaintenanceStore = defineStore('maintenance', {
     },
 
     async updateRequest(requestId: number, payload: MaintenanceRequestUpdate): Promise<void> {
- try {
-        // --- CORREÇÃO AQUI ---
- await api.put<MaintenanceRequest>(`/maintenance/${requestId}/status`, payload);
-        // --- FIM DA CORREÇÃO ---
-Notify.create({ type: 'positive', message: 'Status da solicitação atualizado!' });
- await this.fetchMaintenanceRequests();
- } catch (error) {
-Notify.create({ type: 'negative', message: 'Erro ao atualizar solicitação.' });
- throw error;
-}
+  try {
+    // CORREÇÃO: Adicione '/requests' antes do ID
+    await api.put<MaintenanceRequest>(`/maintenance/requests/${requestId}/status`, payload);
+    
+    Notify.create({ type: 'positive', message: 'Status da solicitação atualizado!' });
+    await this.fetchMaintenanceRequests();
+  } catch (error) {
+    Notify.create({ type: 'negative', message: 'Erro ao atualizar solicitação.' });
+    throw error;
+  }
 },
     // --- FUNÇÃO CORRIGIDA ---
     async addComment(requestId: number, payload: MaintenanceCommentCreate): Promise<void> {

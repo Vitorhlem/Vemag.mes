@@ -38,6 +38,9 @@ export const useAuthStore = defineStore('auth', () => {
   // --- GETTERS (COMPUTED) ---
   const isAuthenticated = computed(() => !!accessToken.value);
   const isManager = computed(() => ['cliente_ativo', 'cliente_demo', 'admin'].includes(user.value?.role ?? ''));
+  const canEditMaintenance = computed(() => 
+  ['admin', 'maintenance', 'pcp', 'quality', 'cliente_ativo'].includes(user.value?.role ?? '')
+);
   const isDriver = computed(() => user.value?.role === 'driver');
   const userSector = computed((): UserSector => user.value?.organization?.sector ?? null);
   const isSuperuser = computed(() => user.value?.is_superuser === true);
@@ -269,6 +272,7 @@ export const useAuthStore = defineStore('auth', () => {
     startImpersonation,
     stopImpersonation,
     requestPasswordReset,
-    resetPassword
+    resetPassword,
+    canEditMaintenance
   };
 });

@@ -248,8 +248,25 @@ interface MenuCategory { label: string; icon?: string; children: MenuItem[]; sep
 const menuStructure = computed(() => {
     if (authStore.isManager) return getManagerMenu();
     if (authStore.isDriver) return getOperatorMenu();
+    // ADICIONE ESTA LINHA:
+    if (authStore.user?.role === 'maintenance') return getMaintenanceMenu(); 
     return [];
 });
+
+function getMaintenanceMenu(): MenuCategory[] {
+    return [
+        {
+            label: 'Manutenção Industrial',
+            children: [
+                { title: 'Painel de Controle', icon: 'fact_check', to: '/manutencao' },
+                { title: 'Ordens de Serviço', icon: 'engineering', to: '/maintenance' },
+                { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
+                { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
+                { title: 'Feedback', icon: 'chat', to: '/feedback' }
+            ]
+        }
+    ];
+}
 
 function getOperatorMenu(): MenuCategory[] {
     return [

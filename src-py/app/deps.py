@@ -54,7 +54,7 @@ async def get_current_active_manager(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
     # Permite ADMIN, CLIENTE_ATIVO e CLIENTE_DEMO
-    if current_user.role not in [UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN]:
+    if current_user.role not in [UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN, UserRole.MAINTENANCE]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="O utilizador não tem permissões de gestor.",

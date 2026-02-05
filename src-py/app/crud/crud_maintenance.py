@@ -34,8 +34,14 @@ async def create_request(
     vehicle = await db.get(Vehicle, request_in.vehicle_id)
     if not vehicle or vehicle.organization_id != organization_id:
         raise ValueError("Veículo não encontrado nesta organização.")
-
-    db_obj = MaintenanceRequest(**request_in.model_dump(), reported_by_id=reporter_id, organization_id=organization_id)
+    obj_in_data = request_in.model_dump()
+    db_obj = MaintenanceRequest(
+        **obj_in_data,
+        reported_by_id=reporter_id,
+        organization_id=organization_id,
+        status=MaintenanceStatus.PENDENTE
+    )
+    
     db.add(db_obj)
     
     await db.flush() 

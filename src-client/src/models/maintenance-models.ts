@@ -15,9 +15,11 @@ export enum MaintenanceStatus {
 
 export enum MaintenanceCategory {
   MECHANICAL = 'Mecânica',
-  ELECTRICAL = 'Elétrica',
+  ELECTRICAL = 'Elétrica',   // Verifique se está com acento
+  HYDRAULIC = 'Hidráulica',  // Verifique se está com acento
+  PNEUMATIC = 'Pneumática',  // Verifique se está com acento
   BODYWORK = 'Funilaria',
-  OTHER = 'Outro',
+  OTHER = 'Outro'
 }
 
 export interface MaintenanceComment {
@@ -72,6 +74,7 @@ export interface MaintenanceServiceItem {
   provider_name?: string | null;
   notes?: string | null;
   created_at: string;
+  item_type: string; 
 }
 
 export interface MaintenanceServiceItemCreate {
@@ -79,6 +82,7 @@ export interface MaintenanceServiceItemCreate {
   cost: number;
   provider_name?: string | null;
   notes?: string | null;
+  item_type: string;
 }
 // --- FIM DA ADIÇÃO ---
 

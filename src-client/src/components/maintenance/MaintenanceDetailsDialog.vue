@@ -16,7 +16,7 @@
         </div>
       </q-card-section>
 
-      <q-card-section v-if="authStore.isManager && !isClosed" class="q-pb-none">
+      <q-card-section v-if="authStore.canEditMaintenance && !isClosed" class="q-pb-none">
         <div class="text-weight-medium q-mb-sm text-grey-8">Fluxo de Aprovação</div>
         <div class="row q-gutter-sm">
           <q-btn
@@ -118,7 +118,7 @@
                     </div>
                   </div>
 
-                  <div class="q-mt-sm" v-if="authStore.isManager && !isClosed">
+                  <div class="q-mt-sm" v-if="authStore.canEditMaintenance && !isClosed">
                     <q-badge v-if="log.is_reverted" color="grey-7" label="Estorno Realizado" icon="undo" />
                     <q-btn
                       v-else
@@ -163,7 +163,7 @@
               color="positive"
               unelevated
               @click="isInstallDialogOpen = true"
-              :disable="!authStore.isManager || isClosed"
+              :disable="!authStore.canEditMaintenance || isClosed"
             />
           </div>
 
@@ -200,7 +200,7 @@
                   unelevated
                   size="sm"
                   @click="openReplaceDialog(props.row)"
-                  :disable="!authStore.isManager || isClosed"
+                  :disable="!authStore.canEditMaintenance || isClosed"
                 />
               </q-td>
             </template>
@@ -241,7 +241,7 @@
                     </div>
                 </div>
 
-                <div class="col-12 col-md-5" v-if="!isClosed && authStore.isManager">
+                <div class="col-12 col-md-5" v-if="!isClosed && authStore.canEditMaintenance">
                     <q-card flat bordered class="bg-grey-1">
                         <q-card-section>
                             <div class="text-subtitle1 text-weight-bold q-mb-sm">Lançar Custo de Serviço</div>
@@ -392,7 +392,8 @@ async function handleAddService() {
     const success = await maintenanceStore.addServiceItem(props.request.id, {
         description: serviceForm.value.description,
         provider_name: serviceForm.value.provider_name,
-        cost: serviceForm.value.cost
+        cost: serviceForm.value.cost,
+        item_type: 'THIRD_PARTY' // <--- ADICIONE ESTA LINHA
     });
     if (success) serviceForm.value = { description: '', provider_name: '', cost: 0 };
     isSubmittingService.value = false;

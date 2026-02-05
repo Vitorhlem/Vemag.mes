@@ -528,10 +528,22 @@ function translateStatus(status: string): string {
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase();
     const r = String(block.reason || '').toUpperCase();
+    
+    // Prioridade para Setup (Roxo)
     if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) return 'purple';
-    if (s.includes('RUNNING') || s.includes('PRODUCING')) return 'green';
-    if (s.includes('MAINTENANCE')) return 'red';
-    if (s.includes('PAUSED') || s.includes('STOPPED')) return 'orange';
+    
+    // Produção (Verde ou Azul se for Autônoma)
+    if (s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('USO')) {
+        // Se no bloco do timeline o operator_name for nulo, pintamos de azul (Autônoma)
+        return block.operator_name ? 'green' : 'blue';
+    }
+    
+    // Manutenção (Vermelho)
+    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'red';
+    
+    // Pausa (Laranja)
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'orange';
+    
     return 'grey';
 }
 
