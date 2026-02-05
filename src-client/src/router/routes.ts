@@ -34,6 +34,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/MachinesPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
+
       { 
         path: 'vehicles/:id', 
         name: 'vehicle-details', 
@@ -75,11 +76,11 @@ const routes: RouteRecordRaw[] = [
       { path: 'reports/daily', component: () => import('pages/DailyReportPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'costs', name: 'costs', component: () => import('pages/CostsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'parts', name: 'parts', component: () => import('pages/PartsPage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
-
+      { path: 'users/:id/stats', name: 'user-details', component: () => import('pages/UserDetailsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       // Feedback e Configurações (Acessível por todos)
       { path: 'feedback', name: 'feedback', component: () => import('pages/FeedbackPage.vue') },
       { path: 'settings', name: 'settings', component: () => import('pages/SettingsPage.vue') },
-
+      
       // Administrativo Puro
       { path: 'employees', name: 'employees', component: () => import('pages/EmployeesPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'users', name: 'users', component: () => import('pages/UsersPage.vue'), meta: { roles: ['admin'] } },

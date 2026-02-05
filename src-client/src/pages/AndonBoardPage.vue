@@ -104,21 +104,11 @@
 
               <q-chip 
                 v-if="call.status === 'IN_PROGRESS'" 
-                outline 
-                color="primary" 
-                size="sm" 
-                icon="engineering"
+                outline color="primary" size="sm" icon="engineering"
               >
                 {{ call.accepted_by_name || 'Técnico' }}
               </q-chip>
-              <q-chip 
-                v-else 
-                color="orange-1" 
-                text-color="orange-9" 
-                size="sm" 
-                icon="priority_high"
-                class="text-weight-bold"
-              >
+              <q-chip v-else color="orange-1" text-color="orange-9" size="sm" icon="priority_high" class="text-weight-bold">
                 AGUARDANDO
               </q-chip>
             </q-card-section>
@@ -148,7 +138,7 @@
         </q-card-section>
 
         <q-card-section class="q-pa-lg text-center">
-          <div class="text-overline text-primary">EQUIPAMENTO</div>
+          <div class="text-overline text-primary uppercase">Equipamento</div>
           <div class="text-h4 text-weight-bolder">{{ selectedCall?.machine_name }}</div>
           <q-chip outline color="grey-8" class="q-mt-sm">{{ selectedCall?.sector }}</q-chip>
           
@@ -164,22 +154,14 @@
           <q-btn 
             v-if="selectedCall?.status === 'OPEN'"
             label="ASSUMIR ATENDIMENTO" 
-            color="primary" 
-            icon="handyman"
-            class="full-width q-py-sm"
-            unelevated
-            :loading="isProcessing"
-            @click="takeCall"
+            color="primary" icon="handyman" class="full-width q-py-sm"
+            unelevated :loading="isProcessing" @click="takeCall"
           />
           <q-btn 
             v-if="selectedCall?.status === 'IN_PROGRESS'"
             label="FINALIZAR E LIBERAR MÁQUINA" 
-            color="positive" 
-            icon="check_circle"
-            class="full-width q-py-sm"
-            unelevated
-            :loading="isProcessing"
-            @click="resolveCall"
+            color="positive" icon="check_circle" class="full-width q-py-sm"
+            unelevated :loading="isProcessing" @click="resolveCall"
           />
         </q-card-actions>
       </q-card>
@@ -192,38 +174,27 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { date, useQuasar } from 'quasar';
 import { AndonService } from 'src/services/andon-service';
+import { useAuthStore } from 'src/stores/auth-store';
 
+const authStore = useAuthStore();
 const route = useRoute();
 const $q = useQuasar();
 
-// Estados
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const calls = ref<any[]>([]);
 const now = ref(new Date());
 const isLoading = ref(true);
 const isDialogOpen = ref(false);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const selectedCall = ref<any>(null);
 const isProcessing = ref(false);
 
-// Timers
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let updateTimer: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let clockTimer: any;
+let socket: WebSocket | null = null;
 
-// Computeds de Estilo e Modo
 const isTvMode = computed(() => route.name === 'andon-full');
 const currentTime = computed(() => date.formatDate(now.value, 'HH:mm:ss'));
-
-// Computeds de Estatísticas
 const pendingCallsCount = computed(() => calls.value.filter(c => c.status === 'OPEN').length);
 const inProgressCallsCount = computed(() => calls.value.filter(c => c.status === 'IN_PROGRESS').length);
-const avgResponseTime = computed(() => {
-  if (calls.value.length === 0) return 0;
-  // Lógica fictícia baseada nos chamados atuais para exemplo
-  return 8; 
-});
+const avgResponseTime = computed(() => calls.value.length === 0 ? 0 : 8);
 
 const sortedCalls = computed(() => {
   return [...calls.value].sort((a, b) => {
@@ -234,7 +205,57 @@ const sortedCalls = computed(() => {
   });
 });
 
-// Funções de API
+// Tempo Real via WebSocket
+function connectWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  const orgId = authStore.user?.organization_id;
+  
+  if (!orgId) return;
+
+  const wsUrl = `${protocol}//${host}/api/v1/andon/ws/${orgId}`;
+  socket = new WebSocket(wsUrl);
+
+  socket.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  
+  if (message.type === 'NEW_CALL') {
+    // 1. Adiciona o novo chamado ao início da lista
+    // O Vue detecta o unshift e atualiza os cards e os KPIs automaticamente
+    calls.value.unshift(message.data);
+    
+    // 2. Feedback Visual
+    $q.notify({ 
+      icon: 'campaign', 
+      color: 'negative', 
+      message: `NOVO CHAMADO: ${message.data.machine_name}`,
+      position: 'top',
+      timeout: 10000 // Fica 10 segundos na tela
+    });
+
+    // 3. Alerta Sonoro (Opcional, mas muito útil em fábricas)
+    playAndonAlert();
+  } 
+  
+  else if (message.type === 'UPDATE_CALL') {
+    const index = calls.value.findIndex(c => c.id === message.data.id);
+    if (index !== -1) {
+      if (message.data.status === 'RESOLVED') {
+        // Se foi resolvido, removemos da tela de ativos
+        calls.value.splice(index, 1);
+      } else {
+        // Se mudou para IN_PROGRESS, atualizamos o card
+        calls.value[index] = message.data;
+      }
+    }
+  }
+};
+
+  socket.onclose = () => {
+    setTimeout(connectWebSocket, 5000);
+  };
+}
+
 async function fetchCalls() {
   try {
     const data = await AndonService.getActiveCalls();
@@ -254,7 +275,6 @@ async function takeCall() {
     $q.notify({ type: 'positive', message: 'Atendimento iniciado!' });
     isDialogOpen.value = false;
     void fetchCalls();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao assumir chamado.' });
   } finally { isProcessing.value = false; }
@@ -268,14 +288,11 @@ async function resolveCall() {
     $q.notify({ type: 'positive', message: 'Máquina liberada!' });
     isDialogOpen.value = false;
     void fetchCalls();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao finalizar.' });
   } finally { isProcessing.value = false; }
 }
 
-// Helpers Visuais
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getElapsedTime(call: any): string {
   const start = new Date(call.opened_at || call.created_at);
   const diff = Math.max(0, Math.floor((now.value.getTime() - start.getTime()) / 1000));
@@ -283,14 +300,13 @@ function getElapsedTime(call: any): string {
   const s = (diff % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function isCritical(call: any): boolean {
   if (call.status === 'IN_PROGRESS') return false;
   const start = new Date(call.opened_at || call.created_at);
-  const mins = (now.value.getTime() - start.getTime()) / 1000 / 60;
-  return mins > 10; // Crítico após 10 minutos esperando
+  return (now.value.getTime() - start.getTime()) / 1000 / 60 > 10;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function getCardClass(call: any) {
   if (call.status === 'IN_PROGRESS') return 'border-top-primary';
   if (isCritical(call)) return 'border-top-negative shadow-critical';
@@ -304,25 +320,28 @@ function getSectorColor(sector: string) {
   if (s.includes('PCP')) return 'indigo-7';
   return 'blue-grey-6';
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function formatStartTime(call: any) {
   return date.formatDate(call.opened_at || call.created_at, 'HH:mm');
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function playAndonAlert() {
+  const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+  audio.play().catch(e => console.log('Áudio bloqueado pelo navegador até o primeiro clique do usuário.'));
+}
+
 function openActionDialog(call: any) {
   selectedCall.value = call;
   isDialogOpen.value = true;
 }
 
-// Lifecycle
 onMounted(() => {
   void fetchCalls();
-  updateTimer = setInterval(() => { void fetchCalls(); }, 5000); // Wrapper para evitar misused-promises
+  connectWebSocket();
   clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
 });
 
 onUnmounted(() => {
-  clearInterval(updateTimer);
+  if (socket) socket.close();
   clearInterval(clockTimer);
 });
 </script>
@@ -334,43 +353,20 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   transition: transform 0.2s, box-shadow 0.2s;
   background: white;
-
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 16px rgba(0,0,0,0.1);
   }
 }
-
-/* Bordas coloridas para manter o padrão das outras páginas */
 .border-top-primary { border-top: 5px solid var(--q-primary); }
 .border-top-negative { border-top: 5px solid var(--q-negative); }
 .border-top-warning { border-top: 5px solid var(--q-warning); }
-.border-top-teal { border-top: 5px solid #009688; }
-
-/* KPI Cards (Copiado do padrão do sistema) */
-.kpi-card {
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
+.kpi-card { border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .border-left-negative { border-left: 4px solid var(--q-negative); }
 .border-left-primary { border-left: 4px solid var(--q-primary); }
 .border-left-teal { border-left: 4px solid #009688; }
-
-.shadow-critical {
-  box-shadow: 0 0 15px rgba(211, 47, 47, 0.2);
-}
-
-.animate-flash {
-  animation: flash 1.5s infinite;
-}
-
-@keyframes flash {
-  0% { opacity: 1; }
-  50% { opacity: 0.4; }
-  100% { opacity: 1; }
-}
-
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
-}
+.shadow-critical { box-shadow: 0 0 15px rgba(211, 47, 47, 0.2); }
+.animate-flash { animation: flash 1.5s infinite; }
+@keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
 </style>

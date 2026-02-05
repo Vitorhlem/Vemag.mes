@@ -51,15 +51,23 @@ def _get_start_date_from_period(period: str) -> date:
 async def read_manager_dashboard(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_manager),
+    current_user: User = Depends(deps.get_current_active_manager), # Já valida roles no deps.py
     period: str = "last_30_days"
 ):
     """
     Retorna os dados agregados para o dashboard principal do gestor.
-    Acessível por CLIENTE_ATIVO, CLIENTE_DEMO e ADMIN.
+    Acessível por ADMIN, CLIENTE_ATIVO, CLIENTE_DEMO, PCP e MAINTENANCE.
     """
-    # --- CORREÇÃO: Adicionado UserRole.ADMIN na lista de permissões ---
-    if current_user.role not in [UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN]:
+    # 1. VALIDAÇÃO DE ACESSO (Incluindo os novos perfis industriais)
+    allowed_roles = [
+        UserRole.CLIENTE_ATIVO, 
+        UserRole.CLIENTE_DEMO, 
+        UserRole.ADMIN, 
+        "pcp", 
+        "maintenance"
+    ]
+    
+    if current_user.role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Acesso não autorizado a este dashboard.",
@@ -68,41 +76,45 @@ async def read_manager_dashboard(
     org_id = current_user.organization_id
     start_date = _get_start_date_from_period(period)
 
-    # --- Busca de dados de custos ---
-    costs = await crud.report.get_costs_by_category_last_30_days(db, organization_id=org_id, start_date=start_date)
+    # 2. BUSCA DE DADOS DE KPI (Garantindo valores padrão para evitar ValidationError)
+    # Buscamos os dados brutos do CRUD
+    raw_kpis = await crud.report.get_dashboard_kpis(db, organization_id=org_id)
     
-    # --- Busca de dados comuns a todos os gestores ---
-    kpis = await crud.report.get_dashboard_kpis(db, organization_id=org_id)
+    # --- FIX: Garantir que o dicionário kpis tenha todas as chaves exigidas pelo Pydantic ---
+    kpis = {
+        "total_vehicles": raw_kpis.get("total_vehicles", 0),
+        "available_vehicles": raw_kpis.get("available_vehicles", 0),
+        "in_use_vehicles": raw_kpis.get("in_use_vehicles", 0),
+        "maintenance_vehicles": raw_kpis.get("maintenance_vehicles", 0),
+        "total_distance": raw_kpis.get("total_distance", 0.0),
+        "total_fuel": raw_kpis.get("total_fuel", 0.0)
+    }
+
+    # 3. BUSCA DOS DEMAIS DADOS
+    costs = await crud.report.get_costs_by_category_last_30_days(db, organization_id=org_id, start_date=start_date)
     efficiency_kpis = await crud.report.get_efficiency_kpis(db, organization_id=org_id, start_date=start_date)
     recent_alerts = await crud.report.get_recent_alerts(db, organization_id=org_id)
     upcoming_maintenances = await crud.report.get_upcoming_maintenances(db, organization_id=org_id)
     active_goal = await crud.report.get_active_goal_with_progress(db, organization_id=org_id)
 
-    # --- Busca de dados premium (CLIENTE_ATIVO ou ADMIN) ---
-    # O Admin vê tudo o que o Cliente Ativo vê.
-    if current_user.role in [UserRole.CLIENTE_ATIVO, UserRole.ADMIN]:
+    # 4. BUSCA DE DADOS PREMIUM
+    km_per_day = []
+    podium = []
+    
+    if current_user.role in [UserRole.CLIENTE_ATIVO, UserRole.ADMIN, "pcp"]:
         km_per_day = await crud.report.get_km_per_day_last_30_days(db, organization_id=org_id, start_date=start_date)
         podium = await crud.report.get_podium_drivers(db, organization_id=org_id)
 
-        return ManagerDashboardResponse(
-            kpis=kpis,
-            efficiency_kpis=efficiency_kpis,
-            costs_by_category=costs,
-            km_per_day_last_30_days=km_per_day,
-            podium_drivers=podium,
-            recent_alerts=recent_alerts,
-            upcoming_maintenances=upcoming_maintenances,
-            active_goal=active_goal
-        )
-    
-    # --- Resposta para CLIENTE_DEMO (sem dados premium) ---
+    # 5. RETORNO DA RESPOSTA
     return ManagerDashboardResponse(
         kpis=kpis,
         efficiency_kpis=efficiency_kpis,
         costs_by_category=costs,
+        km_per_day_last_30_days=km_per_day,
+        podium_drivers=podium,
         recent_alerts=recent_alerts,
         upcoming_maintenances=upcoming_maintenances,
-        active_goal=active_goal,
+        active_goal=active_goal
     )
 
 

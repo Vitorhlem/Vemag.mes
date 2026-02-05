@@ -6,7 +6,9 @@ from app.crud import crud_andon
 from app.schemas.andon_schema import AndonCallCreate, AndonCallResponse
 from app.models.user_model import User
 from app.models.andon_model import AndonSector, AndonStatus
-
+from app.tasks.andon_tasks import processar_novo_chamado # Importamos a tarefa
+from app.core.websocket_manager import manager # Importamos o gerente
+from fastapi import WebSocket, WebSocketDisconnect
 router = APIRouter()
 
 def _format_response(call):
@@ -43,6 +45,16 @@ def _format_response(call):
         "operator_name": op_name
     }
 
+@router.websocket("/ws/{org_id}")
+async def andon_websocket(websocket: WebSocket, org_id: int):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Mantém a conexão viva
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 @router.post("/", response_model=AndonCallResponse)
 async def create_andon_call(
     *,
@@ -50,10 +62,7 @@ async def create_andon_call(
     andon_in: AndonCallCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    # LOG DE DEBUG
-    print(f"➕ [ANDON] Criando chamado. Máquina: {andon_in.machine_id}, Setor: {andon_in.sector}, Org: {current_user.organization_id}")
-
-    # Mapper de Setor (Front UPPER -> Enum Title)
+    # 1. Mapeamento de Setor (Mantendo sua lógica atual)
     sector_map = {
         "MANUTENÇÃO": AndonSector.MAINTENANCE, "MANUTENCAO": AndonSector.MAINTENANCE,
         "QUALIDADE": AndonSector.QUALITY, "LOGISTICA": AndonSector.LOGISTICS,
@@ -61,12 +70,26 @@ async def create_andon_call(
         "SEGURANÇA": AndonSector.SECURITY
     }
     
-    # Corrige setor se necessário
     if andon_in.sector.upper() in sector_map:
         andon_in.sector = sector_map[andon_in.sector.upper()]
 
+    # 2. Persistência no Banco (O commit já acontece dentro do CRUD)
     call = await crud_andon.create_call(db, andon_in, current_user.organization_id, current_user.id)
-    return _format_response(call)
+    
+    # 3. DISPARO DO CELERY (A Mágica acontece aqui ✨)
+    # Pegamos o nome formatado para enviar na notificação
+    res = _format_response(call)
+    
+    # Chamamos a tarefa em background enviando dados simples (strings/ints)
+    processar_novo_chamado.delay(
+        call_id=call.id, 
+        machine_name=res["machine_name"],
+        sector=res["sector"]
+    )
+
+    await manager.broadcast({"type": "NEW_CALL", "data": res})
+
+    return res
 
 @router.get("/active", response_model=List[AndonCallResponse])
 async def get_active_andon_calls(
@@ -94,6 +117,7 @@ async def accept_andon_call(
     *, db: AsyncSession = Depends(deps.get_db), id: int, current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
     call = await crud_andon.accept_call(db, id, current_user.id)
+    await manager.broadcast({"type": "UPDATE_CALL", "data": _format_response(call)})
     if not call: raise HTTPException(404, "Call not found")
     return _format_response(call)
 
