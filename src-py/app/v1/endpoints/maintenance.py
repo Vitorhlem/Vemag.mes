@@ -114,7 +114,7 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
             "status": payload.get("status"), 
             "manager_notes": metadata, # O JSON completo com as tabelas
             "total_cost": grand_total, # <--- SALVA O VALOR NUMÉRICO TOTAL AQUI
-            "category": MaintenanceCategory.MECHANICAL if payload.get("is_mechanical") else MaintenanceCategory.OTHER
+            "category": payload.get("category", MaintenanceCategory.OTHER)
         }
 
         if os_id:

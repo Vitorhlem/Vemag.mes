@@ -34,13 +34,13 @@
              </div>
              <div class="col-6">
                 <q-select
-                    v-model="form.category"
-                    :options="categoryOptions"
-                    label="Especialidade *"
-                    outlined
-                    dense
-                    class="q-mb-md"
-                />
+    v-model="form.category"
+    :options="categoryOptions"
+    label="Especialidade *"
+    outlined
+    dense
+    emit-value   map-options  class="q-mb-md"
+/>
              </div>
           </div>
 
