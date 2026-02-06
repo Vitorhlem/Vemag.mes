@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime, date, time, timedelta
 from typing import Any, List, Optional
 from pydantic import BaseModel
-
+from app.tasks.production_tasks import process_sap_appointment
 # Imports do Projeto
 from app.db.session import get_db
 from app import deps
@@ -402,6 +402,24 @@ async def get_operator_by_badge(
 # ============================================================================
 # 3. STATUS DA MÁQUINA (Manual Override)
 # ============================================================================
+@router.post("/sync-batch")
+async def sync_offline_batch(
+    payloads: List[dict],
+    current_user: User = Depends(deps.get_current_active_user)
+):
+    """
+    Recebe múltiplos apontamentos do tablet e os enfileira no Celery.
+    """
+    for item in payloads:
+        # Passamos o payload e podemos usar o item['type'] para futuras filtragens
+        process_sap_appointment.delay(
+            appointment_data=item['payload'],
+            organization_id=current_user.organization_id
+        )
+    
+    return {"status": "batch_received", "count": len(payloads)}
+
+
 @router.post("/machine/status")
 async def set_machine_status(
     data: MachineStatusUpdate, 

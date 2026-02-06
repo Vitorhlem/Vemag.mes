@@ -385,7 +385,7 @@ class SAPIntegrationService:
             if not await self.login(): return False
 
         # --- PREPARAÇÃO DOS DADOS ---
-        op_number_raw = str(appointment_data['op_number'])
+        op_number_raw = str(appointment_data.get('op_number', ''))
         
         # Detecção de Tipo: É Serviço (O.S.)?
         is_os = op_number_raw.startswith("OS-")
@@ -437,10 +437,15 @@ class SAPIntegrationService:
         is_setup_val = "S" if "setup" in str(appointment_data.get('stop_description', '')).lower() else "N"
         is_apto_parada = "S" if (appointment_data.get('stop_reason') or is_setup_val == "S") else "N"
 
+        # Montagem do Payload final para o Celery/Redis
+        posicao_final = "" if is_stop else str(appointment_data.get('position', ''))
+        operacao_final = "" if is_stop else str(appointment_data.get('operation', ''))
+
+
         payload = {
             "U_NumeroDocumento": final_doc_num,
-            "U_Posicao": str(appointment_data['position']),
-            "U_Operacao": str(appointment_data['operation']),
+            "U_Posicao": posicao_final,           # Agora vazio se is_stop for True
+            "U_Operacao": operacao_final,         # Agora vazio se is_stop for True
             "U_DescricaoOperacao": appointment_data.get('operation_desc', ''),
             "U_DescricaoServico": appointment_data.get('part_description', ''), 
             "U_DescricaoOperador": appointment_data.get('operator_name', ''),

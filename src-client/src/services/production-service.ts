@@ -1,7 +1,8 @@
 // Arquivo: src-client/src/services/production-service.ts
 
 import { api } from 'boot/axios';
-
+import { db } from 'src/db/offline-db';
+import { Notify } from 'quasar';
 // --- INTERFACES ---
 
 export interface MachineStats {
@@ -53,11 +54,42 @@ export class ProductionService {
     }
   }
 
-  static async sendAppointment(payload: AppointmentPayload) {
-    // CORREÇÃO: A rota correta no backend é '/appoint' e não '/appointment'
+static async sendAppointment(payload: any) {
+  try {
+    // Tenta o envio em tempo real para o SAP
+    // CORREÇÃO: Usando a rota correta '/appoint' conforme solicitado
     const response = await api.post('/production/appoint', payload);
     return response.data;
+  } catch (error: any) {
+    // Detecta falha de conexão (Network Error ou Timeout)
+    const isNetworkError = !error.response || error.code === 'ECONNABORTED';
+
+    if (isNetworkError) {
+      // 1. Salva na "Caixa de Saída" local (IndexedDB)
+      await db.sync_queue.add({
+        type: 'APPOINTMENT',
+        payload: payload,
+        timestamp: new Date().toISOString(),
+        status: 'pending'
+      });
+
+      // 2. Notifica o operador que o trabalho não foi perdido
+      Notify.create({ 
+        type: 'warning', 
+        icon: 'cloud_off',
+        message: 'Sem internet! Apontamento salvo no tablet e será enviado automaticamente ao SAP quando a rede voltar.',
+        caption: `OP: ${payload.op_number}`,
+        timeout: 5000
+      });
+
+      // Retorna um objeto simulado para não quebrar o fluxo da página
+      return { status: 'offline_queued', local: true };
+    }
+
+    // Se o erro foi retornado pelo SERVIDOR (ex: 400 Bad Request), repassa o erro
+    throw error;
   }
+}
   
 
   // --- O MÉTODO NOVO DEVE FICAR AQUI, DENTRO DA CLASSE ---

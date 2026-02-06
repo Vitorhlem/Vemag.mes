@@ -28,8 +28,29 @@
           </div>
         </div>
         
+        
         <q-space />
         
+<div class="row items-center q-gutter-x-sm q-mr-md">
+  <q-badge :color="isOnline ? 'positive' : 'negative'" class="q-pa-xs shadow-1">
+    <q-icon :name="isOnline ? 'wifi' : 'wifi_off'" size="14px" />
+    <span class="q-ml-xs text-bold">{{ isOnline ? 'ONLINE' : 'OFFLINE' }}</span>
+  </q-badge>
+
+  <q-chip 
+    v-if="pendingSyncCount > 0" 
+    dense 
+    color="orange-9" 
+    text-color="white" 
+    icon="sync" 
+    class="animate-pulse"
+  >
+    {{ pendingSyncCount }} Pendentes
+    <q-tooltip>Dados aguardando conexão para envio ao SAP</q-tooltip>
+  </q-chip>
+</div>
+  =
+
         <div class="row items-center no-wrap q-gutter-x-sm">
           
           <div class="row items-center no-wrap bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
@@ -41,6 +62,8 @@
                 {{ productionStore.currentOperator?.full_name || productionStore.currentOperatorBadge || '---' }}
               </div>
             </div>
+
+            
             
             <q-separator vertical inset class="q-mx-sm bg-grey-4" />
             
@@ -77,8 +100,11 @@
           </q-card>
         </div>
 
+        
+
         <div v-else class="col row q-col-gutter-sm no-wrap items-stretch content-stretch">
-  
+
+          
           <div class="col-9 column no-wrap q-gutter-y-sm">
             
             <q-card class="col-auto q-px-md q-py-sm bg-white shadow-2" style="border-radius: 12px; border-top: 5px solid #008C7A;">
@@ -383,12 +409,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
+import { Notify, Loading, useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
 import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
+import { db } from 'src/db/offline-db';
 
 // --- IMPORTAÇÕES DE DADOS ---
 import { getOperatorName } from 'src/data/operators'; 
@@ -472,6 +499,28 @@ const currentViewedStep = computed(() => {
         timeEst: 0 
     };
 });
+
+
+const isOnline = ref(window.navigator.onLine);
+
+async function checkSyncQueue() {
+  pendingSyncCount.value = await db.sync_queue.where('status').equals('pending').count();
+  
+  if (isOnline.value && pendingSyncCount.value > 0) {
+    const items = await db.sync_queue.where('status').equals('pending').toArray();
+    try {
+      await api.post('/production/sync-batch', items);
+      await db.sync_queue.clear(); // Limpa após sucesso
+      pendingSyncCount.value = 0;
+      $q.notify({ type: 'positive', message: 'Sincronização concluída com sucesso!' });
+    } catch (e) {
+      console.error('Falha ao sincronizar lote', e);
+    }
+  }
+}
+
+window.addEventListener('online', () => { isOnline.value = true; checkSyncQueue(); });
+window.addEventListener('offline', () => { isOnline.value = false; });
 
 // --- Computeds Visuais ---
 const elapsedTime = computed(() => {
@@ -559,6 +608,71 @@ const filteredStopReasons = computed(() => {
 function resetTimer() { statusStartTime.value = new Date(); }
 
 // --- Actions ---
+
+const pendingSyncCount = ref(0);
+const isSyncing = ref(false);
+
+async function syncOfflineData() {
+  if (!isOnline.value || isSyncing.value) return;
+
+  // 1. Conta quantos itens temos na fila local
+  pendingSyncCount.value = await db.sync_queue.where('status').equals('pending').count();
+  
+  if (pendingSyncCount.value === 0) return;
+
+  try {
+    isSyncing.value = true;
+    
+    // 2. Busca todos os itens pendentes
+    const items = await db.sync_queue.where('status').equals('pending').toArray();
+    
+    // 3. Envia o lote para o endpoint de reconciliação
+    await api.post('/production/sync-batch', items);
+
+    // 4. Se o servidor aceitou, limpamos a fila local para evitar duplicidade
+    await db.sync_queue.where('status').equals('pending').delete();
+    
+    pendingSyncCount.value = 0;
+    
+    Notify.create({ 
+      type: 'positive', 
+      icon: 'cloud_done',
+      message: 'Sincronização concluída!',
+      caption: `${items.length} apontamentos enviados ao SAP.`,
+      position: 'top'
+    });
+
+  } catch (error) {
+    console.error('Falha na sincronização de lote:', error);
+    Notify.create({ 
+      type: 'negative', 
+      message: 'Erro ao sincronizar dados offline. Tentaremos novamente em breve.' 
+    });
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
+
+// --- LISTENERS DE REDE ---
+const updateOnlineStatus = () => {
+  const status = window.navigator.onLine;
+  isOnline.value = status;
+  
+  if (status) {
+    // Internet voltou! Dispara o sincronismo automático
+    void syncOfflineData();
+  } else {
+    Notify.create({ 
+      group: 'network', // Evita notificações duplicadas
+      type: 'warning', 
+      icon: 'cloud_off',
+      message: 'Você está Offline. O sistema continuará salvando seus dados localmente.',
+      timeout: 0, // Fica na tela até o usuário fechar ou a rede voltar
+      actions: [{ label: 'Entendi', color: 'white' }]
+    });
+  }
+};
 
 async function openOpListDialog() {
   showOpList.value = true;
@@ -954,6 +1068,7 @@ async function executeShiftChange(keepRunning: boolean) {
                 position: stageStr,
                 operation: sapData.code || '',
                 operation_desc: sapData.description || '',
+                part_description: activeOrder.value?.part_name || '',
                 resource_code: machineRes,
                 resource_name: machineName,
                 operator_id: String(badge),
@@ -962,7 +1077,7 @@ async function executeShiftChange(keepRunning: boolean) {
                 end_time: now.toISOString(),
                 DataSource: 'I',
                 stop_reason: '', 
-                stop_description: 'Troca de Turno (Em Operação)'
+                stop_description: ''
             };
             await ProductionService.sendAppointment(prodPayload);
         }
@@ -981,9 +1096,6 @@ async function executeShiftChange(keepRunning: boolean) {
             DataSource: 'I'
         };
         await ProductionService.sendAppointment(stopPayload);
-
-        // 3. LOGOUT PRESERVANDO A O.P. PARA O PRÓXIMO
-        // Status 'RUNNING' mantém a máquina verde no Dashboard
         await productionStore.logoutOperator('RUNNING', true); 
         
         await router.push({ name: 'machine-kiosk' });
@@ -1449,20 +1561,44 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  if (productionStore.currentStepIndex !== -1) viewedStepIndex.value = productionStore.currentStepIndex;
-  timerInterval = setInterval(() => { currentTime.value = new Date(); }, 1000);
-  resetTimer();
-  window.addEventListener('keydown', onKeydown, void handleGlobalKeydown);
+onMounted(async () => {
+  // 1. Sincroniza o índice da etapa visual com a store
+  if (productionStore.currentStepIndex !== -1) {
+    viewedStepIndex.value = productionStore.currentStepIndex;
+  }
 
+  // 2. Inicia o cronômetro de tempo atual (1s)
+  timerInterval = setInterval(() => { 
+    currentTime.value = new Date(); 
+  }, 1000);
+
+  // 3. Reseta o cronômetro de estado (Tempo no Estado)
+  resetTimer();
+
+  // 4. Configura ouvintes de eventos globais
+  window.addEventListener('keydown', onKeydown);
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+
+  // 5. MODO OFFLINE: Dispara a sincronização de dados pendentes no IndexedDB
+  await syncOfflineData();
+
+  // 6. Identificação automática do crachá do operador logado
   if (!productionStore.currentOperatorBadge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
       productionStore.currentOperatorBadge = authStore.user.employee_id;
   }
 });
 
 onUnmounted(() => {
-    window.removeEventListener('keydown', onKeydown, void handleGlobalKeydown);
+  // 1. Remove os ouvintes para evitar vazamento de memória e conflitos
+  window.removeEventListener('keydown', onKeydown);
+  window.removeEventListener('online', updateOnlineStatus);
+  window.removeEventListener('offline', updateOnlineStatus);
+
+  // 2. Para o cronômetro do sistema
+  if (timerInterval) {
     clearInterval(timerInterval);
+  }
 });
 </script>
 

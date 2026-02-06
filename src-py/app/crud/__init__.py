@@ -21,3 +21,4 @@ from . import crud_tire as tire #
 from . import crud_fine as fine # <-- ADICIONE ESTA LINHA
 from .crud_demo_usage import demo_usage
 from .crud_alert import alert # <--- Importar o objeto instanciado, não o módulo
+from .crud_production import production  # <--- ADICIONE ESTA LINHA

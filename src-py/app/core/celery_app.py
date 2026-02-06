@@ -7,7 +7,12 @@ celery_app = Celery(
     broker=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"),
     backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
     # --- ADICIONE ESTA LINHA ABAIXO ---
-    include=["app.tasks.andon_tasks"] 
+    include=[
+        "app.tasks.andon_tasks",
+        "app.tasks.notification_tasks",
+        "app.tasks.production_tasks" 
+    ]
+    
     # ---------------------------------
 )
 

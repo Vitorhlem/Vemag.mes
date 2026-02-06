@@ -6,6 +6,7 @@ import { api } from 'boot/axios';
 import {AndonService} from 'src/services/andon-service'; // Importe o novo serviço
 import type { AndonCallCreate } from 'src/services/andon-service';
 import { findBestStepIndex } from 'src/data/sap-operations'; // <--- IMPORT NOVO
+import { db } from 'src/db/offline-db';
 
 // --- INTERFACES ---
 export interface Machine {
@@ -228,36 +229,51 @@ async function loadKioskConfig() {
 }
 
   async function setMachineStatus(status: string) {
-      if (!machineId.value) return;
+  if (!machineId.value) return;
 
-      try {
-          await api.post('/production/machine/status', { machine_id: machineId.value, status: status });
-          
-          if (currentMachine.value) {
-              const s = status.toUpperCase();
-              
-              if (s === 'RUNNING' || s === 'IN_USE' || s === 'EM USO') {
-                  currentMachine.value.status = 'Em uso';
-              } 
-              else if (s === 'AVAILABLE' || s === 'IDLE' || s === 'DISPONIVEL') {
-                  currentMachine.value.status = 'Disponível';
-              } 
-              else if (s === 'MAINTENANCE' || s === 'BROKEN') {
-                  currentMachine.value.status = 'Manutenção';
-              } 
-              // --- ADICIONE ESTE BLOCO ---
-              else if (s === 'STOPPED' || s === 'PARADA' || s === 'PAUSED') {
-                  currentMachine.value.status = 'Em Pausa'; 
-              }
-              // ---------------------------
-              else {
-                  currentMachine.value.status = status;
-              }
-          }
-      } catch (e) {
-          console.error("Erro ao atualizar status da máquina:", e);
+  const statusPayload = { 
+    machine_id: machineId.value, 
+    status: status,
+    timestamp: new Date().toISOString() 
+  };
+
+  try {
+    // Tenta avisar o servidor em tempo real
+    await api.post('/production/machine/status', statusPayload);
+  } catch (error: any) {
+    // 1. INTERCEPTAÇÃO OFFLINE: Agenda a mudança de status para o sync
+    if (!error.response || error.code === 'ECONNABORTED') {
+      await db.sync_queue.add({
+        type: 'STATUS_UPDATE',
+        payload: statusPayload,
+        timestamp: statusPayload.timestamp,
+        status: 'pending'
+      });
+      console.warn(`[OFFLINE] Mudança de status (${status}) agendada.`);
+    }
+  } finally {
+    // 2. ATUALIZAÇÃO LOCAL (UI): Independente da rede, o operador vê a mudança na tela
+    if (currentMachine.value) {
+      const s = status.toUpperCase();
+      
+      if (['RUNNING', 'IN_USE', 'EM USO', 'PRODUCING'].includes(s)) {
+        currentMachine.value.status = 'Em uso';
+      } 
+      else if (['AVAILABLE', 'IDLE', 'DISPONIVEL', 'STOPPED'].includes(s)) {
+        currentMachine.value.status = 'Disponível';
+      } 
+      else if (['MAINTENANCE', 'BROKEN', 'SETUP', 'MANUTENÇÃO'].includes(s)) {
+        currentMachine.value.status = 'Manutenção';
+      } 
+      else if (['PAUSED', 'PARADA', 'PAUSA'].includes(s)) {
+        currentMachine.value.status = 'Em Pausa'; 
       }
+      else {
+        currentMachine.value.status = status;
+      }
+    }
   }
+}
 async function loginOperator(scannedCode: string) {
     if (!machineId.value) return;
     Loading.show({ message: 'Vinculando Operador...' });
@@ -304,27 +320,41 @@ async function loginOperator(scannedCode: string) {
     }
 }
   async function sendEvent(type: string, payload: Record<string, unknown> = {}, badgeOverride?: string) {
-    // Usa o badge que veio por parâmetro OU o que está na Store
-    const badge = badgeOverride || currentOperatorBadge.value;
+  // 1. Definição do Identificador do Operador
+  const badge = badgeOverride || currentOperatorBadge.value;
 
-    if (!machineId.value || !badge) {
-        console.warn(`[DEBUG KIOSK] Bloqueado: Evento ${type} sem operador identificado.`);
-        return;
-    }
-    
-    const eventPayload = { 
-        machine_id: machineId.value, 
-        operator_badge: badge, 
-        order_code: activeOrder.value?.code, 
-        event_type: type, 
-        ...payload 
-    };
+  if (!machineId.value || !badge) {
+    console.warn(`[MES] Evento ${type} bloqueado: Sem identificação de máquina ou operador.`);
+    return;
+  }
+  
+  // 2. Montagem do Payload com Timestamp Original
+  const eventPayload = { 
+    machine_id: machineId.value, 
+    operator_badge: badge, 
+    order_code: activeOrder.value?.code || null, 
+    event_type: type, 
+    timestamp: new Date().toISOString(), // Garantimos que o tempo da ação seja preservado
+    ...payload 
+  };
 
-    try { 
-        await api.post('/production/event', eventPayload); 
-    } catch (e) { 
-        console.error('Falha de sincronização MES', e); 
+  try { 
+    // Tenta enviar em tempo real
+    await api.post('/production/event', eventPayload); 
+  } catch (error: any) { 
+    // 3. INTERCEPTAÇÃO OFFLINE: Se não houver rede, guarda na fila local
+    if (!error.response || error.code === 'ECONNABORTED') {
+      await db.sync_queue.add({
+        type: 'EVENT',
+        payload: eventPayload,
+        timestamp: eventPayload.timestamp,
+        status: 'pending'
+      });
+      console.warn(`[OFFLINE] Evento ${type} armazenado para sincronização posterior.`);
+    } else {
+      console.error('Erro ao registrar evento no servidor:', error);
     }
+  }
 }
 
   async function logoutOperator(overrideStatus?: string, keepActiveOrder = false) {
@@ -382,90 +412,104 @@ async function loginOperator(scannedCode: string) {
   }
 
   async function loadOrderFromQr(qrCode: string) {
-    if (isMachineBroken.value) { Notify.create({ type: 'negative', message: 'Máquina em manutenção.' }); return; }
+  // 1. Bloqueio por Manutenção
+  if (isMachineBroken.value) { 
+    Notify.create({ type: 'negative', message: 'Máquina em manutenção. Não é possível iniciar O.P.' }); 
+    return; 
+  }
+
+  try {
+    Loading.show({ message: 'Buscando Ordem de Produção...' });
+    
+    let data: any;
     try {
-      Loading.show({ message: 'Carregando O.P...' });
-      
-      let data: ProductionOrder;
-      try {
-          const res = await api.get<ProductionOrder>(`/production/orders/${qrCode}`);
-          data = res.data;
-      } catch {
-          console.warn("API falhou, usando mock local");
-          data = {
-              id: 999, code: qrCode, client: 'Technip Brasil', product: 'DEWATERING HOSE',
-              deliveryDate: '15/10/2025', part_name: 'Suporte', 
-              part_image_url: 'https://placehold.co/600x400/png',
-              technical_drawing_url: 'https://placehold.co/800x600/008C7A/FFFFFF/png?text=DESENHO+TECNICO+VEMAG', 
-              target_quantity: 50, produced_quantity: 0, scrap_quantity: 0, 
-              status: 'PENDING', operations: [], steps: []
-          } as ProductionOrder;
-      }
-      
-      if (!data.status) data.status = 'PENDING';
-      
-      activeOrder.value = { 
-        ...activeOrder.value, // Mantém o que já tinha (Meta, Nome, Código)
-        ...data,              // Adiciona o que veio da API (Roteiro, Desenho)
-        status: data.status || 'PENDING'
-      };
-      
-      // Pega o recurso da máquina configurada no Kiosk
-      const myResource = machineResource.value; 
+      // TENTA ONLINE: Busca da API e atualiza o Cache
+      const res = await api.get(`/production/orders/${qrCode}`);
+      data = res.data;
 
-      // Chama nossa função matchmaker
-      const bestIndex = findBestStepIndex(myResource, activeOrder.value.steps || []);
-
-      if (bestIndex !== -1) {
-          currentStepIndex.value = bestIndex;
-          
-          // Feedback visual chique
-          const stepName = activeOrder.value.steps![bestIndex].name;
-          Notify.create({ 
-              type: 'positive', 
-              icon: 'gps_fixed',
-              message: `Etapa identificada para esta máquina: #${(bestIndex+1)*10} - ${stepName}`,
-              timeout: 4000
-          });
+      // ATUALIZA O CACHE LOCAL (IndexedDB) para uso futuro offline
+      await db.orders_cache.put({
+        code: qrCode,
+        data: data,
+        last_updated: new Date().toISOString()
+      });
+      
+    } catch (apiError) {
+      // TENTA OFFLINE: Se a rede falhar, busca no banco local
+      console.warn("Rede indisponível, tentando banco local...");
+      const cached = await db.orders_cache.get(qrCode);
+      
+      if (cached) {
+        data = cached.data;
+        Notify.create({ 
+          type: 'warning', 
+          icon: 'wifi_off',
+          message: 'Modo Offline Ativado: Carregando dados do cache local.',
+          timeout: 4000
+        });
       } else {
-          // AGORA: Se não achar, não faz nada automaticamente. 
-          // A lógica de perguntar será na Página (Vue).
-          currentStepIndex.value = -1; 
+        // Se não tiver nem no cache, aí sim falha
+        throw new Error('O.P. não encontrada no cache local. Conecte-se à rede para o primeiro carregamento.');
       }
+    }
 
-      if (currentOperatorBadge.value && machineId.value) {
-          const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
-          const stageStr = currentStep ? String(currentStep.seq) : '010';
+    // --- PROCESSAMENTO DOS DADOS (IDÊNTICO À SUA LÓGICA DE NEGÓCIO) ---
+    if (!data.status) data.status = 'PENDING';
+    
+    activeOrder.value = { 
+      ...activeOrder.value, 
+      ...data, 
+      status: data.status || 'PENDING'
+    };
 
-          console.log("📡 [STORE] Iniciando Sessão e Log de Setup...");
-          
-          // 1. Inicia a sessão técnica
+    const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
+
+    if (bestIndex !== -1) {
+      currentStepIndex.value = bestIndex;
+      const stepName = activeOrder.value.steps![bestIndex].name;
+      Notify.create({ 
+          type: 'positive', icon: 'gps_fixed',
+          message: `Etapa identificada: #${(bestIndex+1)*10} - ${stepName}`,
+          timeout: 4000
+      });
+    } else {
+      currentStepIndex.value = -1; 
+    }
+
+    // --- INÍCIO DE SESSÃO TÉCNICA ---
+    if (currentOperatorBadge.value && machineId.value) {
+        const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
+        const stageStr = currentStep ? String(currentStep.seq) : '010';
+
+        // Tenta registrar o início no servidor (se falhar, o sistema apenas segue em modo offline)
+        try {
           await api.post('/production/session/start', {
             machine_id: machineId.value, 
             operator_badge: currentOperatorBadge.value, 
             op_number: String(qrCode),
             step_seq: stageStr
           });
-          
-          // 2. NOVA LINHA: Registra o evento de log para o KPI de Setup
-          // Sem isso, o painel de performance não "vê" que o setup começou
-          await sendEvent('STATUS_CHANGE', { 
-              new_status: 'SETUP', 
-              reason: 'Setup Inicial (Seleção de O.P.)' 
-          });
+        } catch (e) {
+          console.log("Aviso: Sessão iniciada localmente (Sem conexão com servidor)");
+        }
+        
+        // Registra o evento de log para o KPI de Setup (Sincronizado via Outbox se necessário)
+        await sendEvent('STATUS_CHANGE', { 
+            new_status: 'SETUP', 
+            reason: 'Setup Inicial (Seleção de O.P.)' 
+        });
 
-          activeOrder.value.status = 'SETUP';
-          await setMachineStatus('SETUP');
-      }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) { 
-      Notify.create({ type: 'negative', message: 'Erro crítico ao carregar.' }); 
-      activeOrder.value = null;
-    } finally { 
-      Loading.hide(); 
+        activeOrder.value.status = 'SETUP';
+        await setMachineStatus('SETUP');
     }
+
+  } catch (e: any) { 
+    Notify.create({ type: 'negative', message: e.message || 'Erro crítico ao carregar O.P.' }); 
+    activeOrder.value = null;
+  } finally { 
+    Loading.hide(); 
   }
+}
 
   async function startProduction() { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'RUNNING' };

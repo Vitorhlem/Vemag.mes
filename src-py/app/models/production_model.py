@@ -163,9 +163,8 @@ class ProductionLog(Base):
     __tablename__ = "production_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
-    operator_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    
+    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False) # <--- DEVE SER vehicle_id
+    operator_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)    
     session_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_sessions.id"), nullable=True)
     order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_orders.id"), nullable=True)
     
@@ -180,7 +179,7 @@ class ProductionLog(Base):
 
     # Relacionamentos
     session: Mapped["ProductionSession"] = relationship("ProductionSession", back_populates="logs")
-    order: Mapped["ProductionOrder"] = relationship("ProductionOrder", back_populates="logs")
+    order: Mapped["ProductionOrder"] = relationship("ProductionOrder")
 
 class AndonAlert(Base):
     __tablename__ = "andon_alerts"
@@ -232,10 +231,11 @@ class ProductionAppointment(Base):
     stop_reason = Column(String(255), nullable=True) # Se for parada
     
     # Status de Sincronização SAP
-    sap_status = Column(String(20), default="PENDING") # PENDING, SENT, ERROR
+    sap_status = Column(String(20), default="PENDING") # PENDING, SENT, ERROR, NOT_REQUIRED
     sap_message = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=datetime.now)
 
     # Relacionamentos
     vehicle = relationship("Vehicle")
+    
