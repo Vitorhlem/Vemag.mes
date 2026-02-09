@@ -10,14 +10,15 @@
     "lint": "eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
-    "dev": "node scripts/init-env.js development && quasar dev",
-    "build": "node scripts/init-env.js && quasar build",
+    "dev": "node scripts/init-env.cjs development && quasar dev",
+    "build": "node scripts/init-env.cjs && quasar build",
     "postinstall": "quasar prepare"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
     "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
+    "@capacitor/push-notifications": "^8.0.0",
     "@quasar/extras": "^1.16.4",
     "@types/leaflet": "^1.9.20",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
@@ -56,9 +57,9 @@
     "eslint-plugin-vue": "^9.30.0",
     "globals": "^15.12.0",
     "prettier": "^3.3.3",
-    "typescript": "~5.5.3",
+    "typescript": "^5.7.0",
     "vite-plugin-checker": "^0.9.0",
-    "vue-tsc": "^2.0.29"
+    "vue-tsc": "^2.1.0"
   },
   "engines": {
     "node": "^28 || ^26 || ^24 || ^22 || ^20 || ^18",

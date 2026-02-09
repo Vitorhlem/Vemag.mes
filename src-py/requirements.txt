@@ -89,3 +89,4 @@ pytest
 pytest-asyncio
 a2wsgi
 pyodbc
+firebase-admin==6.2.0

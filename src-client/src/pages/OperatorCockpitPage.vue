@@ -435,7 +435,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Notify, Loading, useQuasar } from 'quasar';
+import { Notify, useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
 import { ProductionService } from 'src/services/production-service';
@@ -531,7 +531,7 @@ async function checkSyncQueue() {
   }
 }
 
-window.addEventListener('online', () => { isOnline.value = true; checkSyncQueue(); });
+window.addEventListener('online', () => { isOnline.value = true; void checkSyncQueue(); });
 window.addEventListener('offline', () => { isOnline.value = false; });
 
 const elapsedTime = computed(() => {
@@ -682,6 +682,7 @@ async function openOpListDialog() {
     loadingOps.value = false;
   }
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
   console.log(`🎯 [MES] Selecionando OP: ${op.op_number} - ${op.part_name}`);
 

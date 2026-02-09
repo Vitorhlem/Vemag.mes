@@ -3,6 +3,7 @@ import Dexie, { type Table } from 'dexie';
 export interface SyncQueueItem {
   id?: number;
   type: 'APPOINTMENT' | 'EVENT';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
   timestamp: string;
   status: 'pending' | 'syncing';
@@ -10,6 +11,7 @@ export interface SyncQueueItem {
 
 export interface OrderCache {
   code: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
   last_updated: string;
 }

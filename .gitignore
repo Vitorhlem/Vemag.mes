@@ -39,3 +39,4 @@ src-py/static/uploads/documents/*
 src-py/static/uploads/*
 /
 src-client/src-capacitor/*
+src-py/serviceAccountKey.json

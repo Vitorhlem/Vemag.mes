@@ -287,8 +287,6 @@ async function handleNotificationClick(notification: any) {
 
   // 2. Redirecionamento baseado no tipo de entidade
   const type = notification.related_entity_type;
-  const id = notification.related_entity_id;
-
   if (type === 'andon') {
     void router.push('/andon-board');
   } else if (type === 'maintenance_request' || type === 'maintenance') {

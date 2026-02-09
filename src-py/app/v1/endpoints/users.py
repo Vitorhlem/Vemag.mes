@@ -9,6 +9,9 @@ from app.core.security import verify_password
 from app import deps
 from app.models.user_model import User, UserRole
 from sqlalchemy import select
+from app.schemas.user_schema import UserDeviceToken
+from app.services.fcm_service import send_push_notification
+
 router = APIRouter()
 
 @router.get("/by-badge/{badge}", response_model=UserPublic)
@@ -321,3 +324,19 @@ async def read_user_stats(
         raise HTTPException(status_code=404, detail="Utilizador não encontrado para gerar estatísticas.")
     
     return stats
+    
+@router.post("/me/device-token")
+async def register_device_token(
+    token_in: UserDeviceToken,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """Salva o token do celular do usuário para enviar notificações."""
+    current_user.device_token = token_in.token
+    db.add(current_user)
+    await db.commit()
+    
+    # Opcional: Envia uma notificação de boas-vindas para testar
+    # send_push_notification(token_in.token, "Conectado!", "Seu celular está pronto para receber alertas.")
+    
+    return {"status": "success"}

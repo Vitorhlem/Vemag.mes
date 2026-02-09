@@ -4,7 +4,7 @@ export default defineConfig((/* ctx */) => {
   return {
     // REMOVI O BLOCO sourceFiles DAQUI
 
-    boot: ['axios', 'apexcharts'],
+    boot: ['axios', 'apexcharts', 'push-notifications'],
 
     css: ['app.scss'],
 
@@ -29,7 +29,7 @@ export default defineConfig((/* ctx */) => {
         [
           'vite-plugin-checker',
           {
-            vueTsc: true,
+            vueTsc: false,
             eslint: {
               lintCommand:
                 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',

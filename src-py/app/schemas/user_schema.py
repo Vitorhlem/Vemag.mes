@@ -98,3 +98,5 @@ class LeaderboardResponse(BaseModel):
     leaderboard: List[LeaderboardUser]
     primary_metric_unit: str
 
+class UserDeviceToken(BaseModel):
+    token: str

@@ -3,48 +3,66 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
+import os
+import sys
 
-# 1. IMPORTAR AS CONFIGURAÇÕES E O BASE
+# ===========================================================================
+# 1. AJUSTE DE PATH (CRÍTICO)
+# Adiciona o diretório pai (src-py) ao path do Python para ele encontrar o 'app'
+# ===========================================================================
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+# ===========================================================================
+# 2. IMPORTAÇÕES DO PROJETO
+# ===========================================================================
 from app.core.config import settings
-from app.db.base_class import Base 
+from app.db.base_class import Base
 
-# 2. IMPORTAR TODOS OS MODELOS
+# IMPORTANTE: Ao importar 'app.models', o arquivo app/models/__init__.py é executado.
+# Como ele contém imports de TODOS os seus modelos (ProductionOrder, Vehicle, etc.),
+# eles são automaticamente registrados na Base.metadata neste momento.
 from app import models 
 
-# Configura o log
+# ===========================================================================
+# 3. CONFIGURAÇÃO DO ALEMBIC
+# ===========================================================================
 config = context.config
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Define a metadata alvo para o autogenerate
 target_metadata = Base.metadata
 
-# 3. CONFIGURAR A URL DO BANCO DINAMICAMENTE
-# Para migrações assíncronas, usamos a URI completa definida no config
+# Sobrescreve a URL do arquivo .ini com a URL das variáveis de ambiente (Docker/Env)
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
 
 def run_migrations_offline() -> None:
     """Modo offline: gera SQL direto."""
     url = config.get_main_option("sqlalchemy.url")
-    # No modo offline, removemos o +asyncpg para o Alembic não se perder
-    url = url.replace("+asyncpg", "")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
+
     with context.begin_transaction():
         context.run_migrations()
 
 async def run_migrations_online() -> None:
-    """Modo online: executa no banco de dados."""
+    """Modo online: conecta ao banco e executa."""
+    configuration = config.get_section(config.config_ini_section)
+    configuration["sqlalchemy.url"] = settings.DATABASE_URI
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

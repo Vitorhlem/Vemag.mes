@@ -53,13 +53,14 @@ export class ProductionService {
         return [];
     }
   }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 static async sendAppointment(payload: any) {
   try {
     // Tenta o envio em tempo real para o SAP
     // CORREÇÃO: Usando a rota correta '/appoint' conforme solicitado
     const response = await api.post('/production/appoint', payload);
     return response.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     // Detecta falha de conexão (Network Error ou Timeout)
     const isNetworkError = !error.response || error.code === 'ECONNABORTED';

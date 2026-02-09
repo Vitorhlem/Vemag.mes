@@ -1,8 +1,8 @@
-"""Initial migration
+"""initial_sync_final
 
-Revision ID: 40df0418fdb0
+Revision ID: d450850033cf
 Revises: 
-Create Date: 2026-02-02 13:26:02.672653
+Create Date: 2026-02-09 09:30:53.687678
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '40df0418fdb0'
+revision: str = 'd450850033cf'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -46,6 +46,16 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_employee_daily_metrics_date'), 'employee_daily_metrics', ['date'], unique=False)
     op.create_index(op.f('ix_employee_daily_metrics_id'), 'employee_daily_metrics', ['id'], unique=False)
+    op.create_table('geofences',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('type', sa.String(), nullable=True),
+    sa.Column('polygon_points', sa.JSON(), nullable=False),
+    sa.Column('color', sa.String(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_geofences_id'), 'geofences', ['id'], unique=False)
     op.create_table('organizations',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
@@ -117,6 +127,30 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_clients_id'), 'clients', ['id'], unique=False)
     op.create_index(op.f('ix_clients_name'), 'clients', ['name'], unique=False)
+    op.create_table('demousage',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('resource_type', sa.String(), nullable=False),
+    sa.Column('usage_count', sa.Integer(), nullable=True),
+    sa.Column('period', sa.Date(), nullable=False),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_demousage_id'), 'demousage', ['id'], unique=False)
+    op.create_index(op.f('ix_demousage_organization_id'), 'demousage', ['organization_id'], unique=False)
+    op.create_index(op.f('ix_demousage_resource_type'), 'demousage', ['resource_type'], unique=False)
+    op.create_table('goals',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('target_value', sa.Float(), nullable=False),
+    sa.Column('unit', sa.String(), nullable=False),
+    sa.Column('period_start', sa.Date(), nullable=False),
+    sa.Column('period_end', sa.Date(), nullable=False),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_goals_id'), 'goals', ['id'], unique=False)
     op.create_table('implements',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
@@ -279,6 +313,53 @@ def upgrade() -> None:
     op.create_index(op.f('ix_audit_logs_created_at'), 'audit_logs', ['created_at'], unique=False)
     op.create_index(op.f('ix_audit_logs_id'), 'audit_logs', ['id'], unique=False)
     op.create_index(op.f('ix_audit_logs_resource_type'), 'audit_logs', ['resource_type'], unique=False)
+    op.create_table('documents',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('document_type', sa.Enum('CNH', 'CRLV', 'ANTT', 'ASO', 'SEGURO', 'OUTRO', name='documenttype'), nullable=False),
+    sa.Column('expiry_date', sa.Date(), nullable=False),
+    sa.Column('file_url', sa.String(length=512), nullable=False),
+    sa.Column('notes', sa.Text(), nullable=True),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('vehicle_id', sa.Integer(), nullable=True),
+    sa.Column('driver_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['driver_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_documents_expiry_date'), 'documents', ['expiry_date'], unique=False)
+    op.create_index(op.f('ix_documents_id'), 'documents', ['id'], unique=False)
+    op.create_table('feedbacks',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('type', sa.String(), nullable=True),
+    sa.Column('message', sa.Text(), nullable=False),
+    sa.Column('status', sa.String(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_feedbacks_id'), 'feedbacks', ['id'], unique=False)
+    op.create_table('fines',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('description', sa.String(length=255), nullable=False),
+    sa.Column('infraction_code', sa.String(length=50), nullable=True),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('value', sa.Float(), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'PAID', 'APPEALED', 'CANCELED', name='finestatus'), nullable=False),
+    sa.Column('vehicle_id', sa.Integer(), nullable=False),
+    sa.Column('driver_id', sa.Integer(), nullable=True),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['driver_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_fines_id'), 'fines', ['id'], unique=False)
     op.create_table('freight_orders',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('description', sa.String(length=500), nullable=True),
@@ -355,7 +436,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('problem_description', sa.Text(), nullable=False),
     sa.Column('status', sa.Enum('RASCUNHO', 'PENDENTE', 'APROVADA', 'REJEITADA', 'EM_ANDAMENTO', 'CONCLUIDA', name='maintenancestatus'), nullable=False),
-    sa.Column('category', sa.Enum('MECHANICAL', 'ELECTRICAL', 'BODYWORK', 'OTHER', name='maintenancecategory'), nullable=False),
+    sa.Column('category', sa.Enum('MECHANICAL', 'ELECTRICAL', 'HYDRAULIC', 'PNEUMATIC', 'BODYWORK', 'OTHER', name='maintenancecategory'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('responsible', sa.String(length=255), nullable=True),
@@ -366,11 +447,12 @@ def upgrade() -> None:
     sa.Column('returned_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('is_mechanical', sa.Boolean(), nullable=True),
     sa.Column('is_electrical', sa.Boolean(), nullable=True),
-    sa.Column('maintenance_type', sa.String(), nullable=True),
     sa.Column('reported_by_id', sa.Integer(), nullable=True),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
     sa.Column('vehicle_id', sa.Integer(), nullable=False),
     sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('maintenance_type', sa.String(), nullable=True),
+    sa.Column('supervisor', sa.String(length=255), nullable=True),
     sa.ForeignKeyConstraint(['approved_by_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
     sa.ForeignKeyConstraint(['reported_by_id'], ['users.id'], ondelete='SET NULL'),
@@ -447,25 +529,12 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'achievement_id', name='_user_achievement_uc')
     )
     op.create_index(op.f('ix_user_achievements_id'), 'user_achievements', ['id'], unique=False)
-    op.create_table('vehicle_costs',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('description', sa.String(length=255), nullable=False),
-    sa.Column('amount', sa.Float(), nullable=False),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('cost_type', sa.Enum('MANUTENCAO', 'COMBUSTIVEL', 'PEDAGIO', 'SEGURO', 'PNEU', 'PECAS_COMPONENTES', 'MULTA', 'OUTROS', 'MANUTENCAO_CORRETIVA', 'MANUTENCAO_PREVENTIVA', 'ENERGIA_ELETRICA', 'PECAS_REPOSICAO', 'INSUMOS', 'SERVICOS_TERCEIROS', name='costtype'), nullable=False),
-    sa.Column('vehicle_id', sa.Integer(), nullable=False),
-    sa.Column('organization_id', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
-    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_vehicle_costs_id'), 'vehicle_costs', ['id'], unique=False)
     op.create_table('inventory_transactions',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('item_id', sa.Integer(), nullable=False),
     sa.Column('part_id', sa.Integer(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('transaction_type', sa.Enum('ENTRADA', 'SAIDA_USO', 'FIM_DE_VIDA', 'AJUSTE_INICIAL', 'INSTALACAO', 'DESCARTE', name='transactiontype'), nullable=False),
+    sa.Column('transaction_type', sa.Enum('ENTRADA', 'SAIDA_USO', 'FIM_DE_VIDA', 'AJUSTE_INICIAL', 'INSTALACAO', 'DESCARTE', 'SAIDA_REPARO', name='transactiontype'), nullable=False),
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('related_vehicle_id', sa.Integer(), nullable=True),
     sa.Column('related_user_id', sa.Integer(), nullable=True),
@@ -542,7 +611,7 @@ def upgrade() -> None:
     op.create_table('production_logs',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vehicle_id', sa.Integer(), nullable=False),
-    sa.Column('operator_id', sa.Integer(), nullable=True),
+    sa.Column('operator_id', sa.String(length=50), nullable=True),
     sa.Column('session_id', sa.Integer(), nullable=True),
     sa.Column('order_id', sa.Integer(), nullable=True),
     sa.Column('event_type', sa.String(length=50), nullable=False),
@@ -551,7 +620,6 @@ def upgrade() -> None:
     sa.Column('reason', sa.String(length=255), nullable=True),
     sa.Column('details', sa.Text(), nullable=True),
     sa.Column('timestamp', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['operator_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['order_id'], ['production_orders.id'], ),
     sa.ForeignKeyConstraint(['session_id'], ['production_sessions.id'], ),
     sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
@@ -589,6 +657,22 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_stop_points_id'), 'stop_points', ['id'], unique=False)
+    op.create_table('vehicle_costs',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('description', sa.String(length=255), nullable=False),
+    sa.Column('amount', sa.Float(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('cost_type', sa.Enum('MANUTENCAO', 'COMBUSTIVEL', 'PEDAGIO', 'SEGURO', 'PNEU', 'PECAS_COMPONENTES', 'MULTA', 'OUTROS', 'MANUTENCAO_CORRETIVA', 'MANUTENCAO_PREVENTIVA', 'ENERGIA_ELETRICA', 'PECAS_REPOSICAO', 'INSUMOS', 'SERVICOS_TERCEIROS', name='costtype'), nullable=False),
+    sa.Column('vehicle_id', sa.Integer(), nullable=False),
+    sa.Column('organization_id', sa.Integer(), nullable=False),
+    sa.Column('fine_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['fine_id'], ['fines.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['organization_id'], ['organizations.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('fine_id')
+    )
+    op.create_index(op.f('ix_vehicle_costs_id'), 'vehicle_costs', ['id'], unique=False)
     op.create_table('vehicle_components',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('vehicle_id', sa.Integer(), nullable=False),
@@ -604,6 +688,42 @@ def upgrade() -> None:
     sa.UniqueConstraint('inventory_transaction_id')
     )
     op.create_index(op.f('ix_vehicle_components_id'), 'vehicle_components', ['id'], unique=False)
+    op.create_table('vehicle_tires',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('vehicle_id', sa.Integer(), nullable=False),
+    sa.Column('part_id', sa.Integer(), nullable=False),
+    sa.Column('position_code', sa.String(length=20), nullable=False),
+    sa.Column('install_km', sa.Integer(), nullable=False),
+    sa.Column('removal_km', sa.Integer(), nullable=True),
+    sa.Column('install_engine_hours', sa.Float(), nullable=True),
+    sa.Column('removal_engine_hours', sa.Float(), nullable=True),
+    sa.Column('km_run', sa.Float(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('installation_date', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('removal_date', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('inventory_transaction_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['inventory_transaction_id'], ['inventory_transactions.id'], ),
+    sa.ForeignKeyConstraint(['part_id'], ['parts.id'], ),
+    sa.ForeignKeyConstraint(['vehicle_id'], ['vehicles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_vehicle_tires_id'), 'vehicle_tires', ['id'], unique=False)
+    op.create_table('weather_events',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('journey_id', sa.Integer(), nullable=True),
+    sa.Column('event_type', sa.String(), nullable=True),
+    sa.Column('severity', sa.String(), nullable=True),
+    sa.Column('description', sa.String(), nullable=True),
+    sa.Column('affected_lat', sa.Float(), nullable=True),
+    sa.Column('affected_lon', sa.Float(), nullable=True),
+    sa.Column('affected_radius_km', sa.Float(), nullable=True),
+    sa.Column('detected_at', sa.DateTime(), nullable=True),
+    sa.Column('expires_at', sa.DateTime(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.ForeignKeyConstraint(['journey_id'], ['journeys.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_weather_events_id'), 'weather_events', ['id'], unique=False)
     op.create_table('maintenance_part_changes',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('maintenance_request_id', sa.Integer(), nullable=False),
@@ -629,8 +749,14 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_maintenance_part_changes_is_reverted'), table_name='maintenance_part_changes')
     op.drop_index(op.f('ix_maintenance_part_changes_id'), table_name='maintenance_part_changes')
     op.drop_table('maintenance_part_changes')
+    op.drop_index(op.f('ix_weather_events_id'), table_name='weather_events')
+    op.drop_table('weather_events')
+    op.drop_index(op.f('ix_vehicle_tires_id'), table_name='vehicle_tires')
+    op.drop_table('vehicle_tires')
     op.drop_index(op.f('ix_vehicle_components_id'), table_name='vehicle_components')
     op.drop_table('vehicle_components')
+    op.drop_index(op.f('ix_vehicle_costs_id'), table_name='vehicle_costs')
+    op.drop_table('vehicle_costs')
     op.drop_index(op.f('ix_stop_points_id'), table_name='stop_points')
     op.drop_table('stop_points')
     op.drop_index(op.f('ix_production_time_slices_id'), table_name='production_time_slices')
@@ -645,8 +771,6 @@ def downgrade() -> None:
     op.drop_table('journeys')
     op.drop_index(op.f('ix_inventory_transactions_id'), table_name='inventory_transactions')
     op.drop_table('inventory_transactions')
-    op.drop_index(op.f('ix_vehicle_costs_id'), table_name='vehicle_costs')
-    op.drop_table('vehicle_costs')
     op.drop_index(op.f('ix_user_achievements_id'), table_name='user_achievements')
     op.drop_table('user_achievements')
     op.drop_index(op.f('ix_production_sessions_id'), table_name='production_sessions')
@@ -670,6 +794,13 @@ def downgrade() -> None:
     op.drop_table('fuel_logs')
     op.drop_index(op.f('ix_freight_orders_id'), table_name='freight_orders')
     op.drop_table('freight_orders')
+    op.drop_index(op.f('ix_fines_id'), table_name='fines')
+    op.drop_table('fines')
+    op.drop_index(op.f('ix_feedbacks_id'), table_name='feedbacks')
+    op.drop_table('feedbacks')
+    op.drop_index(op.f('ix_documents_id'), table_name='documents')
+    op.drop_index(op.f('ix_documents_expiry_date'), table_name='documents')
+    op.drop_table('documents')
     op.drop_index(op.f('ix_audit_logs_resource_type'), table_name='audit_logs')
     op.drop_index(op.f('ix_audit_logs_id'), table_name='audit_logs')
     op.drop_index(op.f('ix_audit_logs_created_at'), table_name='audit_logs')
@@ -697,6 +828,12 @@ def downgrade() -> None:
     op.drop_table('parts')
     op.drop_index(op.f('ix_implements_id'), table_name='implements')
     op.drop_table('implements')
+    op.drop_index(op.f('ix_goals_id'), table_name='goals')
+    op.drop_table('goals')
+    op.drop_index(op.f('ix_demousage_resource_type'), table_name='demousage')
+    op.drop_index(op.f('ix_demousage_organization_id'), table_name='demousage')
+    op.drop_index(op.f('ix_demousage_id'), table_name='demousage')
+    op.drop_table('demousage')
     op.drop_index(op.f('ix_clients_name'), table_name='clients')
     op.drop_index(op.f('ix_clients_id'), table_name='clients')
     op.drop_table('clients')
@@ -709,6 +846,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_organizations_name'), table_name='organizations')
     op.drop_index(op.f('ix_organizations_id'), table_name='organizations')
     op.drop_table('organizations')
+    op.drop_index(op.f('ix_geofences_id'), table_name='geofences')
+    op.drop_table('geofences')
     op.drop_index(op.f('ix_employee_daily_metrics_id'), table_name='employee_daily_metrics')
     op.drop_index(op.f('ix_employee_daily_metrics_date'), table_name='employee_daily_metrics')
     op.drop_table('employee_daily_metrics')

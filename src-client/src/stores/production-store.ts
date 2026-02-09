@@ -445,6 +445,7 @@ async function loginOperator(scannedCode: string) {
         last_updated: new Date().toISOString()
       });
       
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (apiError) {
       // TENTA OFFLINE: Se a rede falhar, busca no banco local
       console.warn("Rede indisponível, tentando banco local...");
@@ -500,6 +501,7 @@ async function loginOperator(scannedCode: string) {
             op_number: String(qrCode),
             step_seq: stageStr
           });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           console.log("Aviso: Sessão iniciada localmente (Sem conexão com servidor)");
         }

@@ -57,7 +57,7 @@ class User(Base):
     job_title = Column(String, nullable=True)
     # Identificação única na empresa
     employee_id: Mapped[str] = mapped_column(String(50), index=True, nullable=False, default=generate_employee_id)
-    
+    device_token = Column(String, nullable=True)
     # Role aceita todos os tipos agora
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), nullable=False)
     
