@@ -24,7 +24,8 @@ export default boot(async () => {
   await PushNotifications.register();
 
   // 3. Ouvir o sucesso do registro (O Token chega aqui!)
-  PushNotifications.addListener('registration', token => {
+  // ADICIONADO 'await' AQUI
+  await PushNotifications.addListener('registration', token => {
     console.log('✅ Push Token recebido:', token.value);
     
     // Envia para o Backend salvar no banco
@@ -34,17 +35,20 @@ export default boot(async () => {
   });
 
   // 4. Se der erro
-  PushNotifications.addListener('registrationError', err => {
+  // ADICIONADO 'await' AQUI
+  await PushNotifications.addListener('registrationError', err => {
     console.error('❌ Erro no registro do Push:', err);
   });
 
   // 5. Quando a notificação chega com o app aberto
-  PushNotifications.addListener('pushNotificationReceived', notification => {
+  // ADICIONADO 'await' AQUI
+  await PushNotifications.addListener('pushNotificationReceived', notification => {
     console.log('🔔 Notificação recebida:', notification);
   });
 
   // 6. Quando clica na notificação
-  PushNotifications.addListener('pushNotificationActionPerformed', notification => {
+  // ADICIONADO 'await' AQUI
+  await PushNotifications.addListener('pushNotificationActionPerformed', notification => {
     console.log('👆 Clicou na notificação:', notification);
     // Aqui você pode redirecionar para uma página específica
   });
