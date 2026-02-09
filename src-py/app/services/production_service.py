@@ -282,7 +282,7 @@ class ProductionService:
     async def handle_event(
         db: AsyncSession, 
         event: ProductionEventCreate
-    ) -> Dict[str, Any]: # Mudamos o retorno para Dict genérico para incluir o Log
+    ) -> Dict[str, Any]:
         """
         Processa um evento bruto vindo do Frontend e gerencia as fatias de tempo.
         Retorna um dicionário com os dados do Log criado.
@@ -312,34 +312,41 @@ class ProductionService:
         # 2. Registrar Log Bruto (Auditoria)
         # Buscar ID do operador pelo crachá (email ou employee_id)
         user = None
+        user_id_str = None 
+
         if event.operator_badge:
             clean_badge = str(event.operator_badge).strip()
+            
             # Tenta busca robusta
-            # IMPORTANTE: Se não achar aqui, o ID será None e o 'Fail-Safe' do Endpoint corrigirá depois.
             from sqlalchemy import or_
             q_user = select(User).where(or_(
                 User.employee_id == clean_badge,
                 User.email == clean_badge
             ))
             user = (await db.execute(q_user)).scalars().first()
-        
+            
+            if user:
+                user_id_str = str(user.id) 
+            else:
+                user_id_str = clean_badge
+
+        # Criação do Log com ID tratado
         log = ProductionLog(
             vehicle_id=machine.id,
-            operator_id=user.id if user else None,
+            operator_id=user_id_str, 
             order_id=order.id if order else None,
             session_id=session.id if session else None,
             event_type=event.event_type,
             new_status=event.new_status,
-            previous_status=machine.status, # Status anterior da máquina
+            previous_status=machine.status, 
             reason=event.reason,
             details=event.details,
             timestamp=timestamp
         )
-        db.add(log) # Adiciona na sessão, mas ID ainda não existe
+        db.add(log) 
 
         # 3. Lógica de Fatias de Tempo (Time Slices)
-        # Só mexe nas fatias se houver mudança de status ou início/fim de turno
-        status_map_category = {} # Inicializa para evitar erro de referência
+        status_map_category = {} 
         
         if event.new_status:
             # Mapeamento: Status Frontend -> Categoria TimeSlice (MES)
@@ -348,10 +355,10 @@ class ProductionService:
                 "RUNNING": "PRODUCING",
                 "IN_USE": "PRODUCING",
                 
-                "MANUTENÇÃO": "PLANNED_STOP", # Setup geralmente é planejado
+                "MANUTENÇÃO": "PLANNED_STOP", 
                 "SETUP": "PLANNED_STOP",
                 
-                "PARADA": "UNPLANNED_STOP", # Default para parada (refinar com 'reason')
+                "PARADA": "UNPLANNED_STOP",
                 "STOPPED": "UNPLANNED_STOP",
                 "PAUSED": "UNPLANNED_STOP",
                 
@@ -361,7 +368,7 @@ class ProductionService:
             
             new_category = status_map_category.get(event.new_status.upper(), "UNKNOWN")
             
-            # Refinamento por Motivo (Ex: Se motivo for 'Almoço', vira PLANNED_STOP)
+            # Refinamento por Motivo
             if event.reason and "ALMOÇO" in event.reason.upper():
                 new_category = "PLANNED_STOP"
             
@@ -378,19 +385,15 @@ class ProductionService:
                 order_id=order.id if order else None
             )
 
-            # 4. Atualizar Status "Visual" da Máquina (Para o Dashboard Tempo Real)
-            # Mapa para o Enum do Banco (VehicleStatus)
+            # 4. Atualizar Status "Visual" da Máquina
             enum_map = {
                 "PRODUCING": VehicleStatus.IN_USE,
                 "PLANNED_STOP": VehicleStatus.MAINTENANCE,
-                
-                # ALTERAÇÃO AQUI: Parada não planejada agora vira "Parada" (ocupada) e não Disponível
                 "UNPLANNED_STOP": VehicleStatus.STOPPED, 
-                
                 "IDLE": VehicleStatus.AVAILABLE
             }
-            # Se for parada não planejada (quebra), joga para Manutenção visualmente?
-            if new_category == "UNPLANNED_STOP" and event.reason and "QUEBRA" in event.reason.upper():
+            
+            if new_category == "UNPLANNED_STOP" and event.reason and "QUEBRA" in str(event.reason).upper():
                  machine.status = VehicleStatus.MAINTENANCE
             else:
                  machine.status = enum_map.get(new_category, VehicleStatus.AVAILABLE)
@@ -403,37 +406,24 @@ class ProductionService:
             order.scrap_quantity += (event.quantity_scrap or 0)
             db.add(order)
             
-            # Atualiza totais da sessão também
             if session:
                 session.total_produced += (event.quantity_good or 0)
                 session.total_scrap += (event.quantity_scrap or 0)
                 db.add(session)
 
         # FINALIZAÇÃO
-        await db.commit() # Salva tudo no banco
-        
-        # [CRÍTICO] Atualiza o objeto log com o ID gerado pelo banco
+        await db.commit() 
         await db.refresh(log) 
 
-        # --- ADICIONE ESTE BLOCO ABAIXO ---
-        # Força o recálculo das métricas do dia para o Painel de Empregados atualizar na hora
-        try:
-            print(f"🔄 [AUTO] Recalculando métricas para o operador {log.operator_id}...")
-            # Recalcula apenas o dia de hoje para refletir a mudança de status
-            await ProductionService.consolidate_daily_metrics(db, date.today())
-        except Exception as e:
-            print(f"⚠️ [WARN] Erro ao consolidar métricas em tempo real: {e}")
-        # ----------------------------------
+        # [REMOVIDO] consolidate_daily_metrics retirado para evitar conflito de tipos
         
-        # Monta o retorno com dados do LOG para o endpoint usar
         return {
             "id": log.id, 
             "status": "processed", 
             "operator_id": log.operator_id,
-            "operator_name": user.full_name if user else None,
-            "new_category": status_map_category.get(event.new_status.upper()) if event.new_status else None
+            "operator_name": user.full_name if user else "Desconhecido",
+            "new_category": status_map_category.get(str(event.new_status).upper()) if event.new_status else None
         }
-
     @staticmethod
     async def calculate_oee(db: AsyncSession, vehicle_id: int, start_date: datetime, end_date: datetime):
         """

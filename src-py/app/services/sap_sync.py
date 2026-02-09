@@ -147,6 +147,7 @@ class SAPIntegrationService:
 
         try:
             # 1. Busca as OPs Liberadas no SAP
+            # [MODIFICADO] Adicionado U_LGO_DocEntryOPsFather (Sem underscore) para exibição visual
             fields = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,U_LGO_DocEntryOPsFather,U_Desenho"
             query = f"$select={fields}&$filter=ProductionOrderStatus eq 'boposReleased'&$orderby=DocumentNumber desc"            
             print(f"\n🚀 [MES] Iniciando carga de OPs e Roteiros B1Plus...")
@@ -161,6 +162,7 @@ class SAPIntegrationService:
             for op in ops_raw:
                 op_id = op.get('DocumentNumber')
                 item_code = op.get('ItemNo')
+                father_id = str(op.get('U_LGO_DocEntryOPsFather') or "")
                 steps = []
 
                 # 2. BUSCA O ROTEIRO NA ENGENHARIA (LGCROT)
@@ -198,6 +200,8 @@ class SAPIntegrationService:
                 else:
                     print(f"❌ [LOG] OP {op_id}: Falha ao acessar LGCROT (Status: {route_res.status_code}).")
 
+                
+
                 # 3. Montagem do objeto final para o Frontend
                 cleaned_ops.append({
                     "op_number": op_id,
@@ -206,7 +210,7 @@ class SAPIntegrationService:
                     "planned_qty": op.get('PlannedQuantity'),
                     "uom": op.get('InventoryUOM'),
                     "type": "Standard",
-                    "custom_ref": str(op.get('U_LGO_DocEntryOPsFather') or ""),
+                    "custom_ref": father_id,
                     "drawing": str(op.get('U_Desenho') or ""),
                     "steps": steps 
                 })

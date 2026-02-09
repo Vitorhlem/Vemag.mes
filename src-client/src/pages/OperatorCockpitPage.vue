@@ -49,10 +49,8 @@
     <q-tooltip>Dados aguardando conexão para envio ao SAP</q-tooltip>
   </q-chip>
 </div>
-  =
 
-        <div class="row items-center no-wrap q-gutter-x-sm">
-          
+<div class="row items-center no-wrap q-gutter-x-sm">
           <div class="row items-center no-wrap bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
             <q-avatar size="28px" class="shadow-1 vemag-bg-primary text-white" icon="person" font-size="18px" />
             
@@ -73,7 +71,7 @@
           </div>
           
           <q-btn flat round icon="logout" class="text-white" size="md" padding="xs" @click="handleLogout">
-             <q-tooltip>Sair do Sistema</q-tooltip>
+              <q-tooltip>Sair do Sistema</q-tooltip>
           </q-btn>
         </div>
 
@@ -108,35 +106,46 @@
           <div class="col-9 column no-wrap q-gutter-y-sm">
             
             <q-card class="col-auto q-px-md q-py-sm bg-white shadow-2" style="border-radius: 12px; border-top: 5px solid #008C7A;">
-                <div class="row items-center justify-between no-wrap">
-                    <div class="row items-center q-gutter-x-sm">
-                        <q-badge color="orange-10" label="PRODUÇÃO" class="text-bold shadow-1" />
-                        <div class="text-h6 text-weight-bolder text-primary ellipsis" style="max-width: 350px;">
-                            {{ productionStore.activeOrder.part_name }}
-                        </div>
-                        <q-badge outline color="primary" :label="`OP #${productionStore.activeOrder?.code || '---'}`" />
-                    </div>
+    <div class="row items-center justify-between no-wrap">
+        <div class="row items-center q-gutter-x-sm">
+            <q-badge color="orange-10" label="PRODUÇÃO" class="text-bold shadow-1" />
+            
+            <div class="text-h6 text-weight-bolder text-primary ellipsis" style="max-width: 350px;">
+                {{ productionStore.activeOrder.part_name }}
+            </div>
+            
+            <div class="column q-ml-md" style="line-height: 1.2;">
+  <div class="text-subtitle1 text-weight-bold text-dark row items-baseline">
+     <span 
+       class="text-caption text-weight-bolder q-mr-xs" 
+       :class="String(productionStore.activeOrder.code).startsWith('OS-') ? 'text-blue-9' : 'text-orange-9'"
+       style="font-size: 1em; letter-spacing: 1px;"
+     >
+       {{ String(productionStore.activeOrder.code).startsWith('OS-') ? 'O.S:' : 'O.P:' }}
+     </span>
+     {{ productionStore.activeOrder.custom_ref || productionStore.activeOrder.code }}
+  </div>
+</div>
+        </div>
 
-                    <div class="row items-center q-gutter-x-md">
-                        <div class="column items-end">
-                            <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
-                            <div class="text-subtitle1 text-weight-bold">
-                                {{ productionStore.activeOrder.produced_quantity }} / {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}
-                            </div>
-                        </div>
-                        <q-circular-progress
-                            show-value font-size="10px"
-                            :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
-                            size="35px" :thickness="0.25" color="orange-8" track-color="grey-3" class="text-bold"
-                        >
-                            {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
-                        </q-circular-progress>
-                        <q-btn push color="blue-grey-9" text-color="white" icon="image" size="sm" padding="xs sm" @click="openDrawing">
-                           <q-tooltip>Abrir Desenho</q-tooltip>
-                        </q-btn>
-                    </div>
+        <div class="row items-center q-gutter-x-md">
+            <div class="column items-end">
+                <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
+                <div class="text-subtitle1 text-weight-bold">
+                    {{ productionStore.activeOrder.produced_quantity }} / {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}
                 </div>
-            </q-card>
+            </div>
+            <q-circular-progress
+                show-value font-size="10px"
+                :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
+                size="35px" :thickness="0.25" color="orange-8" track-color="grey-3" class="text-bold"
+            >
+                {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
+            </q-circular-progress>
+            
+            </div>
+    </div>
+</q-card>
 
             <q-card class="col column no-wrap overflow-hidden shadow-6 bg-white" style="border-radius: 12px; border-left: 10px solid #008C7A;">
               
@@ -169,27 +178,30 @@
               <q-separator />
 
               <q-card-actions class="col-auto q-pa-sm bg-grey-1 row items-center justify-between">
-                  <div class="row items-center q-gutter-x-md q-ml-sm">
-                      <div class="column">
-                        <div class="text-caption text-grey-7 text-uppercase text-weight-bold" style="font-size: 0.6rem; line-height: 1;">Tempo Estimado</div>
-                        <div class="row items-center text-primary">
-                            <q-icon name="timer" size="18px" class="q-mr-xs" />
-                            <div class="text-h6 text-weight-bolder font-monospace">
-                                {{ productionStore.currentActiveStep?.timeEst || 0 }}h
-                            </div>
-                        </div>
-                      </div>
-                  </div>
-                  
-                  <q-btn 
-                    flat dense
-                    color="negative" 
-                    icon="delete_outline" 
-                    label="Refugo" 
-                    class="bg-red-1 q-px-md"
-                    @click="productionStore.addProduction(1, true)"
-                  />
-              </q-card-actions>
+    <div class="row items-center q-gutter-x-md q-ml-sm">
+        <div class="column">
+          <div class="text-caption text-grey-7 text-uppercase text-weight-bold" style="font-size: 0.6rem; line-height: 1;">Tempo Estimado</div>
+          <div class="row items-center text-primary">
+              <q-icon name="timer" size="18px" class="q-mr-xs" />
+              <div class="text-h6 text-weight-bolder font-monospace">
+                  {{ productionStore.currentActiveStep?.timeEst || 0 }}h
+              </div>
+          </div>
+        </div>
+    </div>
+    
+    <q-btn 
+      push dense
+      color="blue-grey-9" 
+      text-color="white"
+      icon="image" 
+      label="VER DESENHO" 
+      class="q-px-md shadow-2"
+      @click="openDrawing"
+    >
+        <q-tooltip>Visualizar Desenho Técnico</q-tooltip>
+    </q-btn>
+</q-card-actions>
             </q-card>
           </div>
 
@@ -275,18 +287,32 @@
           <q-table :rows="openOps" :columns="opColumns" row-key="op_number" :loading="loadingOps" flat bordered separator="cell">
             <template v-slot:body="props">
               <q-tr @click="selectOp(props.row)" class="cursor-pointer hover-bg-grey-3">
+                
                 <q-td key="op_number" :props="props">
-                  <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
-                </q-td>
+  <template v-if="String(props.row.op_number).startsWith('OS-')">
+    <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
+    <div class="text-caption text-grey-7">{{ props.row.custom_ref }}</div>
+  </template>
+
+  <template v-else>
+    <div class="text-weight-bold text-subtitle1">{{ props.row.custom_ref || props.row.op_number }}</div>
+    <div v-if="props.row.custom_ref" class="text-caption text-grey-7">DocNum: {{ props.row.op_number }}</div>
+  </template>
+</q-td>
+
                 <q-td key="part_name" :props="props">
                   <div class="text-weight-medium">{{ props.row.part_name }}</div>
+                  <div class="text-caption text-grey-6">{{ props.row.item_code }}</div>
                 </q-td>
+
                 <q-td key="planned_qty" :props="props" class="text-center text-weight-bold">
                   {{ props.row.planned_qty }} {{ props.row.uom }}
                 </q-td>
+                
                 <q-td key="action" :props="props" class="text-center">
                   <q-btn round color="secondary" icon="arrow_forward" size="sm" />
                 </q-td>
+
               </q-tr>
             </template>
           </q-table>
@@ -414,10 +440,9 @@ import { useProductionStore } from 'stores/production-store';
 import { storeToRefs } from 'pinia';
 import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
-import { api } from 'boot/axios'; // IMPORTADO PARA USAR NA URL DO DESENHO
+import { api } from 'boot/axios'; 
 import { db } from 'src/db/offline-db';
 
-// --- IMPORTAÇÕES DE DADOS ---
 import { getOperatorName } from 'src/data/operators'; 
 import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
@@ -429,27 +454,18 @@ const $q = useQuasar();
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
-const isShiftChangeDialogOpen = ref(false); // NOVO
+const isShiftChangeDialogOpen = ref(false);
 const logoPath = ref('/Logo-Oficial.png');
 const isLoadingAction = ref(false);
 const opNumberToSend = computed(() => {
   if (!productionStore.activeOrder) return '';
-  
   const order = productionStore.activeOrder;
-
-  // CENÁRIO 1: Ordem de Serviço (O.S.)
-  // Enviamos o código completo (ex: OS-4595-1). 
-  // O backend Python já está programado para extrair apenas o "4595"
   if (order.is_service) {
     return String(order.code); 
   }
-
-  // CENÁRIO 2: Ordem de Produção (O.P.)
-  // Enviamos o custom_ref que contém o formato esperado pelo SAP (ex: 4152/0)
-  // Se por acaso estiver vazio, usamos o code como fallback.
   return order.custom_ref || order.code;
 });
-// --- Estados ---
+
 const isPaused = ref(false);
 const currentPauseObj = ref<{
   startTime: Date;
@@ -460,7 +476,7 @@ const currentPauseObj = ref<{
 const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isDrawingDialogOpen = ref(false);
-const drawingUrl = ref(''); // NOVA URL DINÂMICA
+const drawingUrl = ref('');
 const showOpList = ref(false);
 const loadingOps = ref(false);
 
@@ -470,27 +486,24 @@ const currentTime = ref(new Date());
 let timerInterval: ReturnType<typeof setInterval>;
 const andonNote = ref('');
 
-// Importando opções do Andon
 const andonOptions = ANDON_OPTIONS; 
 
-// --- Tabela ---
+// --- Tabela Atualizada ---
 const openOps = ref([]);
 const opColumns = [
-  { name: 'op_number', label: 'OP / Ref', align: 'left', field: 'op_number', sortable: true },
+  // MUDANÇA: Rótulo da coluna atualizado
+  { name: 'op_number', label: 'Nome / Identificação', align: 'left', field: 'op_number', sortable: true },
   { name: 'part_name', label: 'Produto / Item', align: 'left', field: 'part_name', sortable: true },
   { name: 'planned_qty', label: 'Qtd', align: 'center', field: 'planned_qty' },
   { name: 'action', label: 'Selecionar', align: 'center' }
 ];
 
-// --- Navigation ---
 const viewedStepIndex = ref(0);
 
 const currentViewedStep = computed(() => {
-    // Se a OP ativa tem passos carregados do SAP
     if (activeOrder.value?.steps && activeOrder.value.steps.length > 0) {
         return activeOrder.value.steps[viewedStepIndex.value];
     }
-    // Caso contrário, mostra um estado de "Carregando" ou "Vazio"
     return { 
         seq: '---', 
         name: 'Aguardando Roteiro', 
@@ -499,7 +512,6 @@ const currentViewedStep = computed(() => {
         timeEst: 0 
     };
 });
-
 
 const isOnline = ref(window.navigator.onLine);
 
@@ -510,7 +522,7 @@ async function checkSyncQueue() {
     const items = await db.sync_queue.where('status').equals('pending').toArray();
     try {
       await api.post('/production/sync-batch', items);
-      await db.sync_queue.clear(); // Limpa após sucesso
+      await db.sync_queue.clear(); 
       pendingSyncCount.value = 0;
       $q.notify({ type: 'positive', message: 'Sincronização concluída com sucesso!' });
     } catch (e) {
@@ -522,7 +534,6 @@ async function checkSyncQueue() {
 window.addEventListener('online', () => { isOnline.value = true; checkSyncQueue(); });
 window.addEventListener('offline', () => { isOnline.value = false; });
 
-// --- Computeds Visuais ---
 const elapsedTime = computed(() => {
    const diff = Math.max(0, Math.floor((currentTime.value.getTime() - statusStartTime.value.getTime()) / 1000));
    const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -533,18 +544,15 @@ const elapsedTime = computed(() => {
 const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
 const normalizedStatus = computed(() => {
-    // 1. Prioridade para a flag de Setup da Store
     if (productionStore.isInSetup) return 'MANUTENÇÃO';
 
     const raw = activeOrder.value?.status || '';
     const s = String(raw).trim().toUpperCase();
     
-    // Status da Máquina (para pegar Maintenance do banco)
     const m = String(productionStore.currentMachine?.status || '').toUpperCase();
 
     if (['RUNNING', 'EM USO', 'EM OPERAÇÃO', 'IN_USE'].includes(s)) return 'EM OPERAÇÃO';
     
-    // Agora reconhece SETUP e MANUTENÇÃO
     if (['SETUP', 'MAINTENANCE', 'EM MANUTENÇÃO', 'MANUTENÇÃO'].includes(s) || 
         ['MAINTENANCE', 'EM MANUTENÇÃO', 'MANUTENÇÃO'].includes(m)) {
         return 'MANUTENÇÃO';
@@ -557,12 +565,11 @@ const normalizedStatus = computed(() => {
 const displayStatus = computed(() => {
   if (productionStore.isInSetup) return 'EM PREPARAÇÃO (SETUP)';
   
-  // --- MUDANÇA: Texto explícito "EM PAUSA" quando pausado manualmente ---
   if (isPaused.value) return 'EM PAUSA - ' + (currentPauseObj.value?.reasonLabel || '');
   
   const rawStatus = activeOrder.value?.status?.toUpperCase() || '';
   if (['AVAILABLE', 'DISPONÍVEL', 'PENDING'].includes(rawStatus)) {
-      return 'AGUARDANDO INÍCIO'; // Sem tolerância, apenas status neutro
+      return 'AGUARDANDO INÍCIO'; 
   }
   
   return normalizedStatus.value;
@@ -571,12 +578,10 @@ const displayStatus = computed(() => {
 const statusBgClass = computed(() => {
   if (productionStore.isInSetup) return 'bg-purple-9 text-white';
   
-  // --- MUDANÇA: Cor Laranja (Warning) para Pausa ---
   if (isPaused.value) return 'bg-orange-9 text-white'; 
   
   if (normalizedStatus.value === 'EM OPERAÇÃO') return 'bg-positive text-white';
   
-  // Cor neutra para Aguardando
   return 'bg-blue-grey-9 text-white';
 });
 
@@ -588,7 +593,7 @@ const statusTextClass = computed(() => {
 
 const statusIcon = computed(() => {
     if (productionStore.isInSetup) return 'build_circle';
-    if (isPaused.value) return 'pause_circle_filled'; // Ícone de pausa preenchido
+    if (isPaused.value) return 'pause_circle_filled'; 
     if (normalizedStatus.value === 'EM OPERAÇÃO') return 'autorenew';
     return 'hourglass_empty';
 });
@@ -607,15 +612,12 @@ const filteredStopReasons = computed(() => {
 
 function resetTimer() { statusStartTime.value = new Date(); }
 
-// --- Actions ---
-
 const pendingSyncCount = ref(0);
 const isSyncing = ref(false);
 
 async function syncOfflineData() {
   if (!isOnline.value || isSyncing.value) return;
 
-  // 1. Conta quantos itens temos na fila local
   pendingSyncCount.value = await db.sync_queue.where('status').equals('pending').count();
   
   if (pendingSyncCount.value === 0) return;
@@ -623,13 +625,10 @@ async function syncOfflineData() {
   try {
     isSyncing.value = true;
     
-    // 2. Busca todos os itens pendentes
     const items = await db.sync_queue.where('status').equals('pending').toArray();
     
-    // 3. Envia o lote para o endpoint de reconciliação
     await api.post('/production/sync-batch', items);
 
-    // 4. Se o servidor aceitou, limpamos a fila local para evitar duplicidade
     await db.sync_queue.where('status').equals('pending').delete();
     
     pendingSyncCount.value = 0;
@@ -653,22 +652,19 @@ async function syncOfflineData() {
   }
 }
 
-
-// --- LISTENERS DE REDE ---
 const updateOnlineStatus = () => {
   const status = window.navigator.onLine;
   isOnline.value = status;
   
   if (status) {
-    // Internet voltou! Dispara o sincronismo automático
     void syncOfflineData();
   } else {
     Notify.create({ 
-      group: 'network', // Evita notificações duplicadas
+      group: 'network', 
       type: 'warning', 
       icon: 'cloud_off',
       message: 'Você está Offline. O sistema continuará salvando seus dados localmente.',
-      timeout: 0, // Fica na tela até o usuário fechar ou a rede voltar
+      timeout: 0, 
       actions: [{ label: 'Entendi', color: 'white' }]
     });
   }
@@ -686,11 +682,9 @@ async function openOpListDialog() {
     loadingOps.value = false;
   }
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
   console.log(`🎯 [MES] Selecionando OP: ${op.op_number} - ${op.part_name}`);
 
-  // 1. Configura o objeto inicial com os dados básicos da tabela
   productionStore.activeOrder = {
     code: String(op.op_number),
     part_name: op.part_name,
@@ -712,17 +706,13 @@ async function selectOp(op: any) {
       backgroundColor: 'teal-10'
     });
 
-    // 2. Carrega os detalhes completos do Backend/SAP
-    // Esta função internamente já chama o 'findBestStepIndex' atualizado
     await productionStore.loadOrderFromQr(String(op.op_number));
     
-    // 3. Verifica qual etapa foi identificada pelo roteamento inteligente
     const currentIndex = productionStore.currentStepIndex;
 
     if (currentIndex !== -1) {
       const step = productionStore.activeOrder.steps[currentIndex];
       
-      // Validação de Etapa Imprevista (Código 999)
       if (Number(step.seq) === 999) {
         $q.notify({
           type: 'warning',
@@ -734,7 +724,6 @@ async function selectOp(op: any) {
           actions: [{ label: 'Ciente', color: 'white' }]
         });
       } else {
-        // Feedback para etapa normal planejada
         $q.notify({
           type: 'positive',
           icon: 'check_circle',
@@ -743,11 +732,9 @@ async function selectOp(op: any) {
         });
       }
       
-      // Sincroniza o índice de visualização da página com a etapa encontrada
       viewedStepIndex.value = currentIndex;
 
     } else {
-      // 4. Caso não encontre ABSOLUTAMENTE NADA (nem etapa normal, nem 999)
       $q.loading.hide();
       $q.notify({
         type: 'negative',
@@ -757,7 +744,6 @@ async function selectOp(op: any) {
         timeout: 10000
       });
       
-      // Reseta a ordem ativa para não permitir produção sem etapa válida
       productionStore.activeOrder = null;
     }
 
@@ -768,10 +754,10 @@ async function selectOp(op: any) {
   } finally {
     showOpList.value = false;
     $q.loading.hide();
-    if (typeof resetTimer === 'function') resetTimer(); // Reinicia o cronômetro de estado
+    if (typeof resetTimer === 'function') resetTimer(); 
   }
 }
-// --- FUNÇÃO PARA ABRIR O DESENHO (CORRIGIDA) ---
+
 function openDrawing() {
   if (!productionStore.activeOrder?.part_code) {
       $q.notify({ type: 'warning', message: 'O.P. sem código de item definido.' });
@@ -780,27 +766,22 @@ function openDrawing() {
 
   const itemCode = productionStore.activeOrder.part_code;
   
-  // URL dinâmica apontando para o backend Python (porta 8000 geralmente)
-  // Ajuste a porta se necessário. Se estiver rodando tudo na mesma origem, use /api/v1/drawings
-  const baseUrl = 'http://localhost:8000'; // ou api.defaults.baseURL
+  const baseUrl = 'http://localhost:8000'; 
   drawingUrl.value = `${baseUrl}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
   
   isDrawingDialogOpen.value = true;
 }
 async function handleMainButtonClick() {
-  // CENÁRIO 1: RETOMAR (Pausa manual)
   if (isPaused.value) {
     await finishPauseAndResume();
     return;
   }
 
-  // CENÁRIO 2: PAUSAR (Se já estiver produzindo)
   if (normalizedStatus.value === 'EM OPERAÇÃO') {
       isStopDialogOpen.value = true;
       return;
   }
 
-  // --- CORREÇÃO: TRANSITANDO DE SETUP PARA PRODUÇÃO ---
   if (productionStore.isInSetup) {
     $q.loading.show({ message: 'Encerrando Setup e iniciando produção...' });
     
@@ -814,7 +795,6 @@ async function handleMainButtonClick() {
       const operatorName = getOperatorName(String(badge).trim());
       const machineRes = productionStore.machineResource || '4.02.01';
       
-      // 1. Envia o fechamento do SETUP para o SAP (Motivo 52)
       const setupPayload = {
           op_number: '', 
           position: '', operation: '', operation_desc: '',    
@@ -831,8 +811,6 @@ async function handleMainButtonClick() {
       
       await ProductionService.sendAppointment(setupPayload);
       
-      // 2. Desativa a flag de Setup na Store
-      // IMPORTANTE: toggleSetup sem enviar evento, pois enviaremos o RUNNING logo abaixo
       productionStore.activeOrder.status = 'PENDING'; 
       
     } catch (error) {
@@ -843,14 +821,10 @@ async function handleMainButtonClick() {
     }
   }
   
-  // --- INICIAR PRODUÇÃO (Para novos inícios ou após Setup) ---
   isLoadingAction.value = true;
   try {
-    // 1. Chama a ação da Store que envia o evento 'RUNNING'
-    // Isso fecha a fatia de Setup/Idle e abre a de Produção no Banco Local
     await productionStore.startProduction();
     
-    // 2. Atualiza os cronômetros visuais
     statusStartTime.value = new Date();
     isPaused.value = false;
     
@@ -864,7 +838,6 @@ async function handleMainButtonClick() {
   }
 }
 
-// --- LÓGICA DE SELEÇÃO DE MOTIVO (CRÍTICO) ---
 function handleSapPause(stopReason: SapStopReason) {
   const now = new Date();
   currentPauseObj.value = { 
@@ -873,19 +846,17 @@ function handleSapPause(stopReason: SapStopReason) {
     reasonLabel: stopReason.label 
   };
 
-  // VERIFICAÇÃO DE TROCA DE TURNO (CÓDIGO 111)
   if (stopReason.code === '111' || stopReason.label.toLowerCase().includes('troca de turno')) {
-      isStopDialogOpen.value = false;      // Fecha a lista de motivos
-      isShiftChangeDialogOpen.value = true; // ABRE O DIÁLOGO DE TROCA DE TURNO
-      return; // Interrompe aqui para esperar a decisão do operador no novo diálogo
+      isStopDialogOpen.value = false;      
+      isShiftChangeDialogOpen.value = true; 
+      return; 
   }
 
-  // Se for manutenção (CÓDIGO 21)
   if (stopReason.requiresMaintenance) {
     isStopDialogOpen.value = false;
-    void triggerCriticalBreakdown(); // Adicionado void
+    void triggerCriticalBreakdown(); 
 } else {
-    void applyNormalPause(); // Adicionado void
+    void applyNormalPause(); 
 }
 }
 async function applyNormalPause() {
@@ -898,23 +869,19 @@ async function applyNormalPause() {
     const prodStart = new Date(statusStartTime.value);
     const order = productionStore.activeOrder;
 
-    // Dados de Identidade
     const badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
     const operatorName = getOperatorName(String(badge || ''));
     const machineRes = productionStore.machineResource || '4.02.01';
     const machineName = productionStore.machineName || '';
 
-    // Dados de Roteiro
     const position = currentViewedStep.value?.seq?.toString().padStart(3, '0') || '010';
     
-    // RESOLUÇÃO CORRIGIDA PARA 999
     const sapData = getCurrentSapData(position);
 
     if (order && order.code) {
       let payload = {};
 
       if (order.is_service) {
-        // --- PAYLOAD ESPECÍFICO PARA O.S. ---
         payload = {
           op_number: String(opNumberToSend.value),
           item_code: order.part_code || '',
@@ -932,7 +899,6 @@ async function applyNormalPause() {
           vehicle_id: productionStore.machineId
         };
       } else {
-        // --- PAYLOAD ESPECÍFICO PARA O.P. ---
         payload = {
           op_number: String(opNumberToSend.value),
           position: position,
@@ -958,7 +924,6 @@ async function applyNormalPause() {
         reason: currentPauseObj.value.reasonLabel 
     });
 
-    // Atualiza estados locais
     isPaused.value = true;
     if (activeOrder.value) activeOrder.value.status = 'PAUSED';
     await productionStore.setMachineStatus('STOPPED');
@@ -980,39 +945,31 @@ async function executeShiftChange(keepRunning: boolean) {
     isShiftChangeDialogOpen.value = false;
     const now = new Date();
     
-    // =================================================================
-    // CENÁRIO A: VAI PARAR A MÁQUINA (Troca de Turno com Pausa)
-    // =================================================================
     if (!keepRunning) {
         $q.loading.show({ message: 'Encerrando turno e parando máquina...' });
         
         try {
-            // 1. Prepara o motivo para a função applyNormalPause usar '111'
             currentPauseObj.value = {
                 startTime: now,
                 reasonCode: '111',
                 reasonLabel: 'Troca de Turno'
             };
 
-            // 2. FECHA A PRODUÇÃO (U_TipoDocumento: '1')
-            // Essa função envia o tempo produzido até agora para o SAP
             await applyNormalPause(); 
 
-            // 3. ENVIA O APONTAMENTO DE PARADA (U_TipoDocumento: '2')
-            // É este bloco que registra no SAP que o recurso entrou em estado de pausa
             const badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
             const operatorName = getOperatorName(String(badge || ''));
             const machineRes = productionStore.machineResource || '4.02.01';
             const machineName = productionStore.machineName || '';
 
             const stopPayload = {
-                op_number: '',           // Parada de recurso não vincula O.P.
+                op_number: '',            
                 resource_code: machineRes,
                 resource_name: machineName,
                 operator_id: String(badge),
                 operator_name: operatorName,
                 start_time: now.toISOString(),
-                end_time: now.toISOString(), // Registra o evento de início da parada
+                end_time: now.toISOString(), 
                 stop_reason: '111',
                 stop_description: 'Troca de Turno',
                 DataSource: 'I'
@@ -1021,11 +978,8 @@ async function executeShiftChange(keepRunning: boolean) {
             console.log("📤 [SAP] Enviando Apontamento de Parada (Tipo 2):", stopPayload);
             await ProductionService.sendAppointment(stopPayload);
 
-            // 4. LOGOUT PRESERVANDO A O.P. (keepActiveOrder = true)
-            // Isso garante que quando o próximo entrar, a O.P. apareça carregada
             await productionStore.logoutOperator('STOPPED', true); 
 
-            // 5. Redireciona para o Kiosk
             await router.push({ name: 'machine-kiosk' });
             
             $q.notify({ 
@@ -1043,9 +997,6 @@ async function executeShiftChange(keepRunning: boolean) {
         return;
     }
 
-    // =================================================================
-    // CENÁRIO B: CONTINUA RODANDO (Troca de Turno "Quente")
-    // =================================================================
     $q.loading.show({ message: 'Processando Troca de Turno no SAP...' });
 
     try {
@@ -1056,12 +1007,10 @@ async function executeShiftChange(keepRunning: boolean) {
         const machineRes = productionStore.machineResource || '4.02.01';
         const machineName = productionStore.machineName || '';
 
-        // --- Cálculo de Etapa (Mantendo 999 se necessário) ---
         const rawSeq = Number(currentViewedStep.value?.seq || 10);
         const stageStr = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
         const sapData = getCurrentSapData(stageStr);
 
-        // 1. FECHAR PRODUÇÃO DO OPERADOR QUE ESTÁ SAINDO
         if (activeOrder.value?.code) {
             const prodPayload = {
                 op_number: String(opNumberToSend.value),
@@ -1082,7 +1031,6 @@ async function executeShiftChange(keepRunning: boolean) {
             await ProductionService.sendAppointment(prodPayload);
         }
 
-        // 2. REGISTRAR EVENTO DE TROCA DE TURNO NO RECURSO
         const stopPayload = {
             op_number: '', 
             resource_code: machineRes,
@@ -1109,7 +1057,6 @@ async function executeShiftChange(keepRunning: boolean) {
     }
 }
 
-// --- FUNÇÃO DE QUEBRA DE MÁQUINA (ABRIR O.M.) ---
 async function triggerCriticalBreakdown() {
     if (!currentPauseObj.value) return;
     
@@ -1123,7 +1070,6 @@ async function triggerCriticalBreakdown() {
         const productionStart = statusStartTime.value;
         const eventTime = now.toISOString();
         
-        // --- DADOS DE IDENTIDADE ---
         let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
         if (!badge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
              badge = authStore.user.employee_id;
@@ -1131,31 +1077,25 @@ async function triggerCriticalBreakdown() {
         const operatorName = getOperatorName(String(badge).trim());
         const machineRes = productionStore.machineResource || '4.02.01';
         
-        // CORREÇÃO: Usar diretamente o nome da máquina para U_DescricaoRecurso
         const machineName = productionStore.machineName || '';
 
-        // =================================================================
-        // PASSO 1: FECHAR A O.P. (Apontamento de Produção)
-        // =================================================================
         if (activeOrder.value?.code) {
-            // CORREÇÃO: Lógica para manter 999 sem arredondar para 990
             const rawSeq = Number(currentViewedStep.value?.seq || 10);
             const stageStr = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
             
-            // CORREÇÃO: Usa o helper para pegar Operação e Descrição da 999
             const sapData = getCurrentSapData(stageStr);
 
             const productionPayload = {
                 op_number: String(opNumberToSend.value),
                 position: stageStr,
-                operation: sapData.code || '',        // Agora virá '502' (exemplo)
-                operation_desc: sapData.description || '', // Agora virá 'PINTURA'
+                operation: sapData.code || '',        
+                operation_desc: sapData.description || '', 
                 part_description: activeOrder.value.part_name || '',
                 item_code: activeOrder.value.part_code || '',
                 service_code: '',
                 DataSource: 'I',
                 resource_code: machineRes,
-                resource_name: machineName,           // CORRIGIDO: Nome da Máquina
+                resource_name: machineName,            
                 operator_name: operatorName || '',
                 operator_id: String(badge),
                 vehicle_id: productionStore.machineId || 0,
@@ -1169,15 +1109,12 @@ async function triggerCriticalBreakdown() {
             await ProductionService.sendAppointment(productionPayload);
         }
 
-        // =================================================================
-        // PASSO 2: REGISTRAR PARADA DO RECURSO (Apontamento de Parada)
-        // =================================================================
         const stopPayload = {
             op_number: '',
             position: '', operation: '', operation_desc: '',
             part_description: '', item_code: '', service_code: '',
             resource_code: machineRes,
-            resource_name: machineName,               // CORRIGIDO: Nome da Máquina
+            resource_name: machineName,                
             operator_name: operatorName || '',
             operator_id: String(badge),
             vehicle_id: productionStore.machineId || 0,
@@ -1191,9 +1128,6 @@ async function triggerCriticalBreakdown() {
         console.log("📤 [2/2] Registrando Parada de Recurso:", stopPayload);
         await ProductionService.sendAppointment(stopPayload);
 
-        // =================================================================
-        // PASSO 3: MUDANÇA DE ESTADO E LOGOUT
-        // =================================================================
         await productionStore.setMachineStatus('MAINTENANCE');
         await productionStore.finishSession();
         await productionStore.logoutOperator('MAINTENANCE');
@@ -1216,7 +1150,6 @@ async function triggerCriticalBreakdown() {
     }
 }
 
-// --- FUNÇÃO DE FINALIZAR PAUSA NORMAL ---
 async function finishPauseAndResume() {
   if (!currentPauseObj.value) return;
   
@@ -1224,30 +1157,28 @@ async function finishPauseAndResume() {
   
   try {
     const now = new Date();
-    const pauseStart = new Date(statusStartTime.value); // Quando a parada começou
+    const pauseStart = new Date(statusStartTime.value); 
     
     const badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
     const operatorName = getOperatorName(String(badge || ''));
     const machineRes = productionStore.machineResource || '4.02.01';
     const machineName = productionStore.machineName || '';
 
-    // --- PAYLOAD ESPECÍFICO PARA PARADA (O.P E O.S) ---
     const stopPayload = {
-      stop_reason: String(currentPauseObj.value.reasonCode), // MOTIVO DA PARADA
-      resource_code: machineRes,                             // RECURSO
-      operator_id: String(badge || '0'),                    // OPERADOR
-      start_time: pauseStart.toISOString(),                 // DATA/HORA INI
-      end_time: now.toISOString(),                          // DATA/HORA FIM
-      stop_description: currentPauseObj.value.reasonLabel,   // DESCRICAO DA PARADA
-      resource_name: machineName,                           // DESCRICAO DO RECURSO
-      operator_name: operatorName,                          // NOME DO OPERADOR
-      vehicle_id: productionStore.machineId                 // Interno
+      stop_reason: String(currentPauseObj.value.reasonCode), 
+      resource_code: machineRes,                             
+      operator_id: String(badge || '0'),                     
+      start_time: pauseStart.toISOString(),                  
+      end_time: now.toISOString(),                           
+      stop_description: currentPauseObj.value.reasonLabel,   
+      resource_name: machineName,                            
+      operator_name: operatorName,                           
+      vehicle_id: productionStore.machineId                  
     };
 
     console.log("📤 Enviando Apontamento de Parada:", stopPayload);
     await ProductionService.sendAppointment(stopPayload);
 
-    // Reabre a nova fatia de produção
     await productionStore.sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' });
     await productionStore.setMachineStatus('RUNNING'); 
 
@@ -1255,7 +1186,6 @@ async function finishPauseAndResume() {
     currentPauseObj.value = null; 
     if (activeOrder.value) activeOrder.value.status = 'RUNNING';
     
-    // Zera o cronômetro para a NOVA produção
     statusStartTime.value = new Date(); 
     
     $q.notify({ type: 'positive', message: 'Parada registrada. Produção retomada!' });
@@ -1303,11 +1233,9 @@ function confirmFinishOp() {
      try {
        const endTime = new Date();
        
-       // Recalcula dados da etapa
        const rawSeq = currentViewedStep.value?.seq || 999;
        const stageStr = rawSeq.toString().padStart(3, '0');
        
-       // RESOLUÇÃO CORRIGIDA PARA 999
        const sapData = getCurrentSapData(stageStr);
 
        const machineRes = productionStore.machineResource || sapData.resourceCode || '4.02.01';
@@ -1352,10 +1280,8 @@ function confirmFinishOp() {
 }
 
 function getCurrentSapData(stageStr: string) {
-  // 1. Tenta pegar pelo mapeamento fixo (010, 020...)
   let sapData = getSapOperation(stageStr);
 
-  // 2. Se for 999 ou se o mapeamento fixo falhou, pegamos do Step atual
   if (stageStr === '999' || !sapData.code) {
     const step = currentViewedStep.value;
     if (step && step.resource && SAP_OPERATIONS_MAP[step.resource]) {
@@ -1388,7 +1314,6 @@ async function confirmAndonCall(sector: string) {
 
 
 async function handleSetupClick() {
-  // --- CENÁRIO 1: FINALIZAR SETUP E VOLTAR PARA PRODUÇÃO ---
   if (productionStore.isInSetup) {
       $q.dialog({
           title: 'Finalizar Setup',
@@ -1412,13 +1337,12 @@ async function handleSetupClick() {
               const machineRes = productionStore.machineResource || '4.02.01';
               const machineName = productionStore.machineName || '';
 
-              // Envia o Apontamento de SETUP finalizado para o SAP (Motivo 52)
               const setupPayload = {
                   op_number: '', 
                   position: '', operation: '', operation_desc: '',    
                   part_description: '', item_code: '', service_code: '',
                   resource_code: machineRes,
-                  resource_name: machineName, // Nome da máquina
+                  resource_name: machineName, 
                   DataSource: 'I',
                   operator_name: operatorName || '',
                   operator_id: String(badge),
@@ -1432,7 +1356,6 @@ async function handleSetupClick() {
 
               await productionStore.toggleSetup();
 
-              // Reabre a sessão de produção no backend
               const step = currentViewedStep.value; 
               const startPayload = {
                 op_number: String(productionStore.activeOrder.code),
@@ -1460,7 +1383,6 @@ async function handleSetupClick() {
       });
   } 
   
-  // --- CENÁRIO 2: INICIAR SETUP (FECHA A O.P. SE ESTIVER RODANDO) ---
   else {
       isLoadingAction.value = true;
       try {
@@ -1477,11 +1399,9 @@ async function handleSetupClick() {
               const machineRes = productionStore.machineResource || '4.02.01';
               const machineName = productionStore.machineName || '';
 
-              // CORREÇÃO: Lógica para manter 999 e buscar dados da operação
               const rawSeq = Number(currentViewedStep.value?.seq || 10);
               const stageStr = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
               
-              // CORREÇÃO: Busca código e descrição (ex: 502/PINTURA)
               const sapData = getCurrentSapData(stageStr);
 
               const productionPayload = {
@@ -1494,7 +1414,7 @@ async function handleSetupClick() {
                   service_code: '',
                   DataSource: 'I',
                   resource_code: machineRes,
-                  resource_name: machineName, // CORRIGIDO: Agora envia o nome da máquina
+                  resource_name: machineName, 
                   operator_name: operatorName || '',
                   operator_id: String(badge),
                   vehicle_id: productionStore.machineId || 0,
@@ -1562,40 +1482,32 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  // 1. Sincroniza o índice da etapa visual com a store
   if (productionStore.currentStepIndex !== -1) {
     viewedStepIndex.value = productionStore.currentStepIndex;
   }
 
-  // 2. Inicia o cronômetro de tempo atual (1s)
   timerInterval = setInterval(() => { 
     currentTime.value = new Date(); 
   }, 1000);
 
-  // 3. Reseta o cronômetro de estado (Tempo no Estado)
   resetTimer();
 
-  // 4. Configura ouvintes de eventos globais
   window.addEventListener('keydown', onKeydown);
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // 5. MODO OFFLINE: Dispara a sincronização de dados pendentes no IndexedDB
   await syncOfflineData();
 
-  // 6. Identificação automática do crachá do operador logado
   if (!productionStore.currentOperatorBadge && authStore.user?.employee_id && authStore.user.role !== 'admin') {
       productionStore.currentOperatorBadge = authStore.user.employee_id;
   }
 });
 
 onUnmounted(() => {
-  // 1. Remove os ouvintes para evitar vazamento de memória e conflitos
   window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('online', updateOnlineStatus);
   window.removeEventListener('offline', updateOnlineStatus);
 
-  // 2. Para o cronômetro do sistema
   if (timerInterval) {
     clearInterval(timerInterval);
   }

@@ -151,18 +151,29 @@ export const useProductionStore = defineStore('production', () => {
     console.log(`[STORE] Máquina Configurada: ${machineName.value} | Recurso SAP: ${machineResource.value}`);
   }
   async function fetchActiveSession() {
-    if (!machineId.value) return;
+    // [CORREÇÃO] Use 'this.machineId' em vez de 'machineId.value'
+    if (!this.machineId) return;
+
     try {
-        // Busca os dados da sessão/ordem que o banco diz que está ativa para esta máquina
-        const { data } = await api.get(`/production/session/active/${machineId.value}`);
+        const { data } = await api.get(`/production/session/active/${this.machineId}`);
+        
         if (data && data.order) {
             console.log("🟢 [STORE] Sessão ativa recuperada do banco:", data.order.code);
-            activeOrder.value = data.order; // Preenche a ordem
-            currentStepIndex.value = data.current_step_index;
+            // [CORREÇÃO] Use 'this.' para atribuir ao estado
+            this.activeOrder = data.order;
+            this.currentStepIndex = data.current_step_index;
+            this.isShiftActive = true; // Garante que o turno fique ativo
         }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e) {
-        console.warn("⚠️ [STORE] Nenhuma sessão ativa encontrada para esta máquina.");
+    } catch (error: any) {
+        // [CORREÇÃO] Tratamento do 404 (Não é erro, é apenas "Sem sessão")
+        if (error.response && error.response.status === 404) {
+            console.log('ℹ️ Nenhuma sessão ativa encontrada (Máquina disponível).');
+            this.activeOrder = null;
+            this.isShiftActive = false;
+            return; 
+        }
+        
+        console.error('Erro ao buscar sessão ativa:', error);
     }
 }
 
