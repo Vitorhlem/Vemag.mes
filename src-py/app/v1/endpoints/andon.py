@@ -1,10 +1,14 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app import deps
+from sqlalchemy import select
 from app.crud import crud_andon
+from app.models.vehicle_model import Vehicle # Necessário para pegar nome da máquina
+from app.db.session import async_session # <--- IMPORTANTE: Importar a factory
 from app.schemas.andon_schema import AndonCallCreate, AndonCallResponse
-from app.models.user_model import User
+from app.models.user_model import User, UserRole
+from app.services.fcm_service import enviar_push_lista
 from app.models.andon_model import AndonSector, AndonStatus
 from app.tasks.andon_tasks import processar_novo_chamado # Importamos a tarefa
 from app.core.websocket_manager import manager # Importamos o gerente
@@ -45,12 +49,65 @@ def _format_response(call):
         "operator_name": op_name
     }
 
+async def notificar_setor_andon(setor_str: str, maquina: str, motivo: str, obs: str, org_id: int):
+    # Cria sessão própria para não depender da Request
+    async with async_session() as db:
+        try:
+            setor = setor_str.upper().strip()
+
+            # Lista base de quem SEMPRE recebe tudo (Admins e Gerentes)
+            chefia = [UserRole.MANAGER, UserRole.ADMIN, UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO]
+
+            # Mapeamento Específico + Chefia
+            role_map = {
+                "MANUTENÇÃO": [UserRole.MAINTENANCE] + chefia,
+                "MANUTENCAO": [UserRole.MAINTENANCE] + chefia,
+                "ELÉTRICA":   [UserRole.MAINTENANCE] + chefia, # Elétrica cai pra manutenção
+                
+                "LOGÍSTICA":  [UserRole.LOGISTICS] + chefia,
+                "LOGISTICA":  [UserRole.LOGISTICS] + chefia,
+                
+                "PCP":        [UserRole.PCP] + chefia,
+                "QUALIDADE":  [UserRole.QUALITY] + chefia,
+                
+                "SEGURANÇA":  chefia, # Segurança vai pra gerência/admin
+                "PROCESSO":   chefia  # Processo vai pra gerência/admin
+            }
+            
+            # Pega a lista certa ou usa chefia como fallback
+            roles_alvo = role_map.get(setor, chefia)
+            
+            # Busca Tokens
+            query = select(User.device_token).where(
+                User.organization_id == org_id,
+                User.role.in_(roles_alvo),
+                User.device_token.isnot(None)
+            )
+            
+            result = await db.execute(query)
+            tokens = result.scalars().all()
+            
+            if tokens:
+                # Monta corpo da mensagem
+                corpo = f"Máquina: {maquina}\nMotivo: {motivo}"
+                if obs:
+                    corpo += f"\nObs: {obs}"
+
+                enviar_push_lista(
+                    tokens=list(tokens),
+                    title=f"🚨 Ajuda: {setor_str}", 
+                    body=corpo,
+                    data={"tipo": "andon", "setor": setor_str}
+                )
+                print(f"📢 Andon Push enviado para {len(tokens)} dispositivos.")
+        except Exception as e:
+            print(f"❌ Erro no Push Andon: {e}")
+
 @router.websocket("/ws/{org_id}")
 async def andon_websocket(websocket: WebSocket, org_id: int):
     await manager.connect(websocket)
     try:
         while True:
-            # Mantém a conexão viva
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -61,31 +118,53 @@ async def create_andon_call(
     db: AsyncSession = Depends(deps.get_db),
     andon_in: AndonCallCreate,
     current_user: User = Depends(deps.get_current_active_user),
+    background_tasks: BackgroundTasks
 ) -> Any:
-    # 1. Mapeamento de Setor (Mantendo sua lógica atual)
-    sector_map = {
-        "MANUTENÇÃO": AndonSector.MAINTENANCE, "MANUTENCAO": AndonSector.MAINTENANCE,
-        "QUALIDADE": AndonSector.QUALITY, "LOGISTICA": AndonSector.LOGISTICS,
-        "PCP": AndonSector.PCP, "GERENTE": AndonSector.MANAGER,
-        "SEGURANÇA": AndonSector.SECURITY
-    }
+    # 1. TRADUÇÃO FRONTEND (String) -> BACKEND (Enum do Banco)
+    # Precisamos salvar no banco como um dos Enums válidos de AndonSector
+    # Se for "Elétrica", salvamos como MAINTENANCE, mas avisamos que é Elétrica na Obs ou Motivo
     
-    if andon_in.sector.upper() in sector_map:
-        andon_in.sector = sector_map[andon_in.sector.upper()]
+    setor_original = andon_in.sector # Guarda o texto "Elétrica" para notificação
+    
+    # Mapa de conversão para salvar no banco de dados (que é rígido)
+    db_sector_map = {
+        "ELÉTRICA": AndonSector.MAINTENANCE, "ELETRICA": AndonSector.MAINTENANCE,
+        "MANUTENÇÃO": AndonSector.MAINTENANCE, "MANUTENCAO": AndonSector.MAINTENANCE,
+        
+        "LOGÍSTICA": AndonSector.LOGISTICS, "LOGISTICA": AndonSector.LOGISTICS,
+        "PCP": AndonSector.PCP,
+        "QUALIDADE": AndonSector.QUALITY,
+        
+        "SEGURANÇA": AndonSector.SECURITY, "SEGURANCA": AndonSector.SECURITY,
+        
+        "GERENTE": AndonSector.MANAGER,
+        "PROCESSO": AndonSector.MANAGER # Processo cai como Gerência no banco
+    }
 
-    # 2. Persistência no Banco (O commit já acontece dentro do CRUD)
+    # Tenta achar o Enum correspondente, se não achar, usa MANAGER como 'Outros'
+    enum_sector = db_sector_map.get(setor_original.upper(), AndonSector.MANAGER)
+    
+    # Atualiza o objeto para salvar no banco com o Enum correto
+    andon_in.sector = enum_sector
+
+    # 2. Persistência
     call = await crud_andon.create_call(db, andon_in, current_user.organization_id, current_user.id)
     
-    # 3. DISPARO DO CELERY (A Mágica acontece aqui ✨)
-    # Pegamos o nome formatado para enviar na notificação
+    # 3. Formatação e Notificação
     res = _format_response(call)
     
-    # Chamamos a tarefa em background enviando dados simples (strings/ints)
-    processar_novo_chamado.delay(
-        call_id=call.id, 
-        machine_name=res["machine_name"],
-        sector=res["sector"],
-        organization_id=current_user.organization_id # <--- ADICIONE ESTA LINHA
+    # Sobrescreve o setor na resposta para o WebSocket ficar bonito (mostra "Elétrica" e não "Maintenance")
+    res["sector"] = setor_original 
+
+    # Agenda a notificação em background
+    # IMPORTANTE: Passamos dados primitivos, não o objeto 'db'
+    background_tasks.add_task(
+        notificar_setor_andon,
+        setor_str=setor_original, # Envia "Elétrica" para o push
+        maquina=res["machine_name"],
+        motivo=andon_in.reason or "Solicitação via Tablet",
+        obs=andon_in.description or "",
+        org_id=current_user.organization_id
     )
 
     await manager.broadcast({"type": "NEW_CALL", "data": res})
@@ -97,20 +176,7 @@ async def get_active_andon_calls(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    # LOG DE DEBUG
-    print(f"🔍 [ANDON BOARD] Usuário: {current_user.email} (Org: {current_user.organization_id}) buscando ativos...")
-    
-    # Sem filtro de setor (mostra tudo para testar)
-    target_sector = None 
-
-    calls = await crud_andon.get_active_calls(
-        db, 
-        org_id=current_user.organization_id, 
-        sector_filter=target_sector
-    )
-    
-    print(f"✅ [ANDON BOARD] Encontrados: {len(calls)} chamados ativos.")
-    
+    calls = await crud_andon.get_active_calls(db, org_id=current_user.organization_id)
     return [_format_response(c) for c in calls]
 
 @router.put("/{id}/accept", response_model=AndonCallResponse)
@@ -118,8 +184,8 @@ async def accept_andon_call(
     *, db: AsyncSession = Depends(deps.get_db), id: int, current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
     call = await crud_andon.accept_call(db, id, current_user.id)
-    await manager.broadcast({"type": "UPDATE_CALL", "data": _format_response(call)})
     if not call: raise HTTPException(404, "Call not found")
+    await manager.broadcast({"type": "UPDATE_CALL", "data": _format_response(call)})
     return _format_response(call)
 
 @router.put("/{id}/resolve", response_model=AndonCallResponse)
@@ -128,4 +194,5 @@ async def resolve_andon_call(
 ) -> Any:
     call = await crud_andon.resolve_call(db, id)
     if not call: raise HTTPException(404, "Call not found")
+    await manager.broadcast({"type": "UPDATE_CALL", "data": _format_response(call)})
     return _format_response(call)

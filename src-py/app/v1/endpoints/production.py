@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_, and_
 from sqlalchemy.orm import selectinload
@@ -7,10 +7,11 @@ from typing import Any, List, Optional
 from pydantic import BaseModel
 from app.tasks.production_tasks import process_sap_appointment
 # Imports do Projeto
-from app.db.session import get_db
+from app.db.session import get_db, async_session
 from app import deps
 from app.models.production_model import ProductionAppointment, VehicleDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
-from app.models.user_model import User
+from app.models.user_model import User, UserRole
+from app.services.fcm_service import enviar_push_lista
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from app.schemas import production_schema, vehicle_schema, user_schema
@@ -912,10 +913,56 @@ async def get_user_sessions(
 # ============================================================================
 # 10. APONTAMENTO SAP
 # ============================================================================
+
+async def notificar_quebra_maquina(op_number: str, machine_id: int, motivo: str, org_id: int):
+    # Cria uma nova sessão do banco exclusiva para esta tarefa
+    async with async_session() as db:
+        try:
+            machine = await db.get(Vehicle, machine_id)
+            machine_name = f"{machine.brand} {machine.model}" if machine else f"Máquina {machine_id}"
+
+            # Busca usuários de Manutenção, PCP e Gerentes
+            roles_alvo = [UserRole.MAINTENANCE, UserRole.PCP, UserRole.MANAGER, UserRole.ADMIN]
+            
+            query = select(User.device_token).where(
+                User.organization_id == org_id,
+                User.role.in_(roles_alvo),
+                User.device_token.isnot(None)
+            )
+            result = await db.execute(query)
+            tokens = result.scalars().all()
+            
+            if tokens:
+                # --- LÓGICA DE FORMATAÇÃO INTELIGENTE ---
+                linha_ordem = ""
+                
+                if op_number and str(op_number).strip():
+                    # Verifica se começa com 'OS-' para mudar o rótulo
+                    if str(op_number).upper().startswith("OS-"):
+                        linha_ordem = f"\nO.S.: {op_number}"
+                    else:
+                        linha_ordem = f"\nO.P.: {op_number}"
+                
+                # Se não tiver OP (linha_ordem vazia), a mensagem termina no motivo
+                corpo_final = f"{machine_name} parou.\nMotivo: {motivo}{linha_ordem}"
+                # -----------------------------------------
+
+                enviar_push_lista(
+                    tokens=list(tokens),
+                    title="🛑 MÁQUINA PARADA", 
+                    body=corpo_final,
+                    data={"tipo": "manutencao", "machineId": str(machine_id)}
+                )
+                print(f"📢 Push enviado para {len(tokens)} pessoas.")
+        except Exception as e:
+            print(f"❌ Erro ao notificar quebra: {e}")
+
 @router.post("/appoint")
 async def create_appointment(
     data: ProductionAppointmentCreate,
-    db: AsyncSession = Depends(deps.get_db)
+    background_tasks: BackgroundTasks, # <--- Obrigatório
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: Optional[User] = Depends(deps.get_current_active_user) # <--- Adicionado aqui
 ):
     """
     Recebe apontamento, envia para o SAP e SALVA no banco local para histórico.
@@ -951,7 +998,6 @@ async def create_appointment(
         
         # --- CORREÇÃO DO ERRO DE DATA ---
         # Removemos o tzinfo (UTC) para gravar como Naive no Postgres
-        # Isso resolve o "can't subtract offset-naive and offset-aware datetimes"
         start_t = data.start_time.replace(tzinfo=None) if data.start_time else None
         end_t = data.end_time.replace(tzinfo=None) if data.end_time else None
         
@@ -959,16 +1005,12 @@ async def create_appointment(
             op_number=data.op_number,
             operator_id=data.operator_id,
             vehicle_id=data.vehicle_id,
-            
-            start_time=start_t, # Usando a data limpa
-            end_time=end_t,     # Usando a data limpa
-            
+            start_time=start_t, 
+            end_time=end_t,    
             position=data.position,
             operation_code=data.operation,
-            
             appointment_type=appt_type,
             stop_reason=data.stop_reason,
-            
             sap_status="SENT",
             sap_message="Sincronizado via /appoint"
         )
@@ -980,7 +1022,20 @@ async def create_appointment(
         
     except Exception as e:
         print(f"⚠️ [API] Erro ao salvar histórico local: {str(e)}")
-        # Não damos raise aqui para não retornar erro pro tablet, já que o SAP foi sucesso.
+
+    # 3. GATILHO DE NOTIFICAÇÃO
+    # Verifica se o motivo é de Manutenção (21) ou Predial (34)
+    if data.stop_reason and str(data.stop_reason) in ['21', '34']:
+        # Garante um org_id mesmo se não tiver user logado (kiosk mode)
+        org_id = current_user.organization_id if current_user else 1
+        
+        background_tasks.add_task(
+            notificar_quebra_maquina,
+            op_number=data.op_number,
+            machine_id=data.vehicle_id,
+            motivo=f"Manutenção (Cód {data.stop_reason})",
+            org_id=org_id
+        )
 
     return {"message": "Apontamento realizado e salvo!"}
 

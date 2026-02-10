@@ -411,17 +411,45 @@
     </q-dialog>
 
     <q-dialog v-model="isAndonDialogOpen" transition-show="scale" transition-hide="scale">
-      <q-card style="width: 700px; max-width: 95vw; border-radius: 20px;">
+      <q-card style="width: 800px; max-width: 95vw; border-radius: 20px;">
+        
         <q-card-section class="vemag-bg-primary text-white row items-center justify-between q-pa-md">
-          <div class="text-h6 text-weight-bold row items-center"><q-icon name="campaign" size="30px" class="q-mr-sm" /> Central de Ajuda (Andon)</div>
+          <div class="text-h6 text-weight-bold row items-center">
+            <q-icon name="campaign" size="30px" class="q-mr-sm" /> 
+            Central de Ajuda (Andon)
+          </div>
           <q-btn icon="close" flat round size="md" v-close-popup />
         </q-card-section>
+
+        <q-card-section class="q-pt-md q-px-lg">
+            <div class="text-subtitle2 text-grey-7 q-mb-xs">Observação / Detalhe do Problema (Opcional):</div>
+            <q-input 
+              v-model="andonNote" 
+              outlined 
+              type="textarea" 
+              rows="2"
+              placeholder="Ex: Falta parafuso M8..." 
+              bg-color="grey-1"
+              class="text-h6"
+            />
+        </q-card-section>
+
+        <q-separator inset />
+
         <q-card-section class="q-pa-lg">
+          <div class="text-subtitle2 text-center text-grey-8 q-mb-md text-uppercase">Selecione o setor para chamar:</div>
+          
           <div class="row q-col-gutter-md">
-            <div v-for="opt in andonOptions" :key="opt.label" class="col-6 col-md-4">
-              <q-btn push class="full-width full-height column flex-center q-pa-md shadow-3 hover-scale" :class="`bg-${opt.color} text-white`" style="border-radius: 16px; min-height: 100px;" @click="confirmAndonCall(opt.label)">
-                <q-icon :name="opt.icon" size="36px" class="q-mb-sm" />
-                <div class="text-subtitle1 text-weight-bold">{{ opt.label }}</div>
+            <div v-for="opt in andonOptions" :key="opt.label" class="col-6 col-md-3">
+              <q-btn 
+                push 
+                class="full-width full-height column flex-center q-pa-sm shadow-3 hover-scale" 
+                :class="`bg-${opt.color} text-white`" 
+                style="border-radius: 16px; min-height: 90px;" 
+                @click="confirmAndonCall(opt.label)"
+              >
+                <q-icon :name="opt.icon" size="32px" class="q-mb-xs" />
+                <div class="text-subtitle2 text-weight-bold" style="line-height: 1.1;">{{ opt.label }}</div>
               </q-btn>
             </div>
           </div>
@@ -1308,8 +1336,18 @@ async function simulateOpScan() {
 
 async function confirmAndonCall(sector: string) {
     isAndonDialogOpen.value = false;
+    
+    // Envia o setor e a nota digitada
     await productionStore.triggerAndon(sector, andonNote.value);
-    andonNote.value = '';
+    
+    // Limpa o campo para a próxima vez
+    andonNote.value = ''; 
+    
+    $q.notify({
+        type: 'info',
+        message: `Chamado enviado para: ${sector}`,
+        icon: 'campaign'
+    });
 }
 
 

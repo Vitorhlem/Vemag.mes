@@ -226,16 +226,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { setCssVar } from 'quasar';
+import { setCssVar, useQuasar } from 'quasar';
 import { useAuthStore } from 'stores/auth-store';
 import { useNotificationStore } from 'stores/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import defaultAvatar from 'assets/default-avatar.png';
-import { useQuasar } from 'quasar';
+
+// --- NOVOS IMPORTS PARA NOTIFICAÇÃO ---
+import { api } from 'boot/axios';
 
 const leftDrawerOpen = ref(false);
-const customColor = ref('#128c7e'); // Alterado para o Verde Trucar
+const customColor = ref('#128c7e');
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
@@ -280,12 +282,10 @@ function formatNotificationDate(date: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleNotificationClick(notification: any) {
-  // 1. Marca como lida no banco
   if (!notification.is_read) {
     await notificationStore.markAsRead(notification.id);
   }
 
-  // 2. Redirecionamento baseado no tipo de entidade
   const type = notification.related_entity_type;
   if (type === 'andon') {
     void router.push('/andon-board');
@@ -296,7 +296,6 @@ async function handleNotificationClick(notification: any) {
   } else if (type === 'vehicle' || type === 'machine') {
     void router.push(`/vehicles/${notification.related_vehicle_id}`);
   } else {
-    // Fallback padrão caso não tenha uma rota específica
     void router.push('/dashboard');
   }
 }
@@ -308,11 +307,9 @@ interface MenuCategory { label: string; icon?: string; children: MenuItem[]; sep
 const menuStructure = computed(() => {
     if (authStore.isManager) return getManagerMenu();
     if (authStore.isDriver) return getOperatorMenu();
-    // ADICIONE ESTA LINHA:
     if (authStore.user?.role === 'maintenance') return getMaintenanceMenu(); 
     if (authStore.user?.role === 'pcp') return getPCPMenu();
     return getGenericSectorMenu();
-    return [];
 });
 
 function getGenericSectorMenu(): MenuCategory[] {
@@ -337,7 +334,6 @@ function getMaintenanceMenu(): MenuCategory[] {
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Feedback', icon: 'chat', to: '/feedback' },
                 { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' }
-
             ]
         }
     ];
@@ -355,7 +351,6 @@ function getPCPMenu(): MenuCategory[] {
                 { title: 'Relatórios Históricos', icon: 'bar_chart', to: '/reports' },
                 { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
                 { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
-
                 { title: 'Gestão de Feedback', icon: 'chat', to: '/feedback' }
             ]
         }
@@ -381,6 +376,7 @@ function getOperatorMenu(): MenuCategory[] {
         }
     ];
 }
+
 async function markAllRead() {
   const unreadNotifications = notificationStore.notifications.filter(n => !n.is_read);
   for (const notification of unreadNotifications) {
@@ -447,13 +443,8 @@ function connectNotificationSocket() {
 
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
-        // Se recebermos o sinal de nova notificação
         if (message.type === 'NEW_NOTIFICATION') {
-            // 1. Atualiza o contador vermelho (badge)
             void notificationStore.fetchUnreadCount();
-            
-            // 2. Opcional: Notificação sonora ou toast
             $q.notify({
                 icon: 'notifications_active',
                 color: 'teal-9',
@@ -464,14 +455,35 @@ function connectNotificationSocket() {
     };
 }
 
-onMounted(() => {
+onMounted(async () => {
     setCssVar('primary', '#128c7e');
+    
+    // Configurações do usuário logado (Gestor)
     if (authStore.isManager) {
         void notificationStore.fetchUnreadCount();
-        connectNotificationSocket(); // <--- Adicione esta chamada
+        connectNotificationSocket();
+    }
+
+    // --- CORREÇÃO: VERIFICAR E ENVIAR TOKEN PENDENTE ---
+    // Só executa se o usuário estiver autenticado (login feito com sucesso)
+    if (authStore.token) {
+        
+        // Verifica se o arquivo de boot deixou algum token guardado na variável global
+        if (window.FCM_TOKEN_PENDING) {
+            console.log('📦 Encontrado token pendente do boot. Enviando para API...');
+            
+            try {
+                await api.post('/users/me/device-token', { token: window.FCM_TOKEN_PENDING });
+                console.log('✅ Token pendente enviado com sucesso!');
+                
+                // Limpa a variável para não enviar novamente sem necessidade
+                window.FCM_TOKEN_PENDING = undefined; 
+            } catch (e) {
+                console.error('❌ Erro ao enviar token pendente:', e);
+            }
+        }
     }
 });
-
 
 </script>
 

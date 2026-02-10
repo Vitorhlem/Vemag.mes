@@ -5,7 +5,7 @@ from app.models.andon_model import AndonStatus, AndonSector
 
 # Base
 class AndonCallBase(BaseModel):
-    sector: AndonSector
+    sector: str
     reason: Optional[str] = None
     description: Optional[str] = None
 
@@ -19,16 +19,21 @@ class AndonCallUpdate(BaseModel):
     description: Optional[str] = None
 
 # Leitura (A TV recebe isso)
-class AndonCallResponse(AndonCallBase):
+class AndonCallResponse(BaseModel):
     id: int
     machine_id: int
-    machine_name: str  # Campo computado para facilitar o frontend
+    machine_name: str 
     machine_sector: Optional[str] = None
+    
+    # Na resposta, podemos manter string ou enum, str é mais seguro para o front
+    sector: str 
+    reason: Optional[str] = None
+    description: Optional[str] = None
     
     status: AndonStatus
     opened_at: datetime
     accepted_at: Optional[datetime] = None
-    accepted_by_name: Optional[str] = None # Nome do técnico
+    accepted_by_name: Optional[str] = None
     
     class Config:
         from_attributes = True

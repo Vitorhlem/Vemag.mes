@@ -11,7 +11,7 @@ from app.models.user_model import User, UserRole
 from sqlalchemy import select
 from app.schemas.user_schema import UserDeviceToken
 from app.services.fcm_service import send_push_notification
-
+from pydantic import BaseModel
 router = APIRouter()
 
 @router.get("/by-badge/{badge}", response_model=UserPublic)
@@ -340,3 +340,19 @@ async def register_device_token(
     # send_push_notification(token_in.token, "Conectado!", "Seu celular está pronto para receber alertas.")
     
     return {"status": "success"}
+
+class DeviceTokenSchema(BaseModel):
+    token: str
+
+    
+@router.post("/me/device-token")
+async def update_device_token(
+    payload: DeviceTokenSchema,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+):
+    """Salva o token do Firebase do dispositivo atual do usuário"""
+    current_user.device_token = payload.token
+    db.add(current_user)
+    await db.commit()
+    return {"status": "updated"}

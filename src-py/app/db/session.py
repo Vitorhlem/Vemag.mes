@@ -13,19 +13,18 @@ SessionLocal = sessionmaker(
     autoflush=False, 
     bind=engine, 
     class_=AsyncSession,
-    # --- CORREÇÃO AQUI ---
-    # Impede que os objetos expirem após o commit. 
-    # Isso é CRUCIAL para evitar erros de 'MissingGreenlet' ao acessar 
-    # atributos de objetos (como current_user) depois de um commit na mesma rota.
     expire_on_commit=False
-    # ---------------------
 )
+
+# --- CORREÇÃO AQUI ---
+# Criamos um alias para que 'async_session' seja a mesma coisa que 'SessionLocal'.
+# Isso permite que o production.py importe 'async_session' sem erro.
+async_session = SessionLocal
+# ---------------------
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Função geradora para ser usada como uma Dependência do FastAPI.
-    Este é o padrão CORRETO para gerenciamento de transação MANUAL,
-    onde a rota é responsável por 'commit' e 'rollback'.
     """
     session: AsyncSession = SessionLocal()
     try:

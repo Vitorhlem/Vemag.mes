@@ -233,6 +233,20 @@ export const useAuthStore = defineStore('auth', () => {
     
     // Configura Axios
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+    // --- GATILHO DE NOTIFICAÇÃO (NOVO) ---
+    // Verifica se existe um token que chegou antes do login
+    const pendingToken = localStorage.getItem('fcm_token_pending');
+    if (pendingToken) {
+        console.log('🚀 [Auth] Token Pendente encontrado. Enviando...');
+        // Envia em segundo plano (sem await para não travar o login visualmente)
+        api.post('/users/me/device-token', { token: pendingToken })
+           .then(() => {
+               console.log('✅ [Auth] Token vinculado com sucesso!');
+               localStorage.removeItem('fcm_token_pending');
+           })
+           .catch(err => console.error('⚠️ [Auth] Falha ao enviar token:', err));
+    }
   }
 
   // Inicialização (Roda ao recarregar a página)
