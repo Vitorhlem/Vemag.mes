@@ -1,5 +1,18 @@
 {
   "appId": "com.vemag.mes",
   "appName": "VEMAG.mes",
-  "webDir": "www"
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
+  },
+  "android": {
+    "allowMixedContent": true
+  }
 }
