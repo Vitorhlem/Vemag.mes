@@ -61,7 +61,7 @@ async def get_fleet_management_data(
     db: AsyncSession, *, start_date: date, end_date: date, organization_id: int
 ) -> FleetManagementReport:
     """
-    Consolida dados de TODAS as máquinas: Custo Global e OEE Global da Fábrica.
+    Consolida dados de TODAS as máquinas: Custo Global e Disponibilidade da Fábrica.
     """
     # 1. Veículos
     vehicles = (await db.execute(select(Vehicle).where(Vehicle.organization_id == organization_id))).scalars().all()
@@ -80,7 +80,7 @@ async def get_fleet_management_data(
         cat = str(c.cost_type.value if hasattr(c.cost_type, 'value') else c.cost_type)
         costs_by_cat[cat] = costs_by_cat.get(cat, 0) + c.amount
 
-    # 3. DADOS DE PRODUÇÃO (OEE GLOBAL)
+    # 3. DADOS DE PRODUÇÃO (Disponibilidade)
     # Busca todas as fatias de tempo de todas as máquinas no período
     slices_stmt = select(ProductionTimeSlice).where(
         ProductionTimeSlice.vehicle_id.in_(vehicle_ids),

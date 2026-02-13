@@ -44,7 +44,7 @@
           <div class="col-12 col-md-3">
             <q-card flat bordered class="text-center q-pa-md bg-teal-1 print-card">
               <div class="text-h3 text-weight-bolder text-teal-9">{{ report.performance_summary.oee_percent }}%</div>
-              <div class="text-subtitle2 text-teal-8">OEE Global</div>
+              <div class="text-subtitle2 text-teal-8">Disponibilidade</div>
             </q-card>
           </div>
           <div class="col-12 col-md-3">

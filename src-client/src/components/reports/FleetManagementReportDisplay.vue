@@ -33,7 +33,7 @@
       <div class="col-12 col-md-3">
         <q-card flat bordered class="text-center q-pa-md bg-indigo-1 print-card">
           <div class="text-h3 text-weight-bolder text-indigo-9">{{ report.summary.global_oee }}%</div>
-          <div class="text-subtitle2 text-indigo-8">OEE Global da Planta</div>
+          <div class="text-subtitle2 text-indigo-8">Disponibilidade da Planta</div>
         </q-card>
       </div>
       <div class="col-12 col-md-3">

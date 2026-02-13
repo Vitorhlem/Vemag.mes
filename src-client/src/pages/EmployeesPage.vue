@@ -9,41 +9,41 @@
       
       <div class="row q-gutter-md items-center"> 
   
-  <q-input 
-    outlined 
-    dense 
-    v-model="filterDate" 
-    mask="date" 
-    :rules="['date']" 
-    label="Data de Análise" 
-    class="glass-input" 
-    bg-color="white" 
-    style="width: 150px"
-    hide-bottom-space  >
-    <template v-slot:append>
-      <q-icon name="event" class="cursor-pointer text-primary">
-        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-date v-model="filterDate" color="teal-9" @update:model-value="refreshData">
-            <div class="row items-center justify-end">
-              <q-btn v-close-popup label="Fechar" color="primary" flat />
-            </div>
-          </q-date>
-        </q-popup-proxy>
-      </q-icon>
-    </template>
-  </q-input>
+        <q-input 
+          outlined 
+          dense 
+          v-model="filterDate" 
+          mask="date" 
+          :rules="['date']" 
+          label="Data de Análise" 
+          class="glass-input" 
+          style="width: 150px"
+          hide-bottom-space  
+        >
+          <template v-slot:append>
+            <q-icon name="event" class="cursor-pointer text-primary">
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-date v-model="filterDate" color="teal-9" @update:model-value="refreshData">
+                  <div class="row items-center justify-end">
+                    <q-btn v-close-popup label="Fechar" color="primary" flat />
+                  </div>
+                </q-date>
+              </q-popup-proxy>
+            </q-icon>
+          </template>
+        </q-input>
 
-        <q-btn-dropdown push color="teal-8" icon="file_download" label="Exportar Dados" class="shadow-green">
+        <q-btn-dropdown push color="teal-8" icon="file_download" label="Exportar Dados" class="shadow-green text-white">
            <q-list class="glass-menu">
               <q-item clickable v-close-popup @click="exportToCsv">
                  <q-item-section avatar><q-icon name="table_view" color="teal-9" /></q-item-section>
                  <q-item-section>
                     <q-item-label>Excel / CSV</q-item-label>
-                    <q-item-label caption>Dados da aba atual</q-item-label>
+                    <q-item-label caption class="text-grey-7">Dados da aba atual</q-item-label>
                  </q-item-section>
               </q-item>
               <q-item clickable v-close-popup @click="printReport">
-                 <q-item-section avatar><q-icon name="print" color="grey-8" /></q-item-section>
+                 <q-item-section avatar><q-icon name="print" class="text-grey-8" /></q-item-section>
                  <q-item-section>Imprimir PDF</q-item-section>
               </q-item>
            </q-list>
@@ -59,7 +59,7 @@
         <q-tabs
           v-model="activeTab"
           align="left"
-          class="text-teal-8"
+          class="text-teal-8 tab-text-color"
           active-color="primary"
           indicator-color="primary"
           narrow-indicator
@@ -82,7 +82,6 @@
                     option-value="value"
                     emit-value map-options
                     label="Selecionar Equipamento"
-                    bg-color="white"
                     class="col-12 col-md-4 glass-input"
                     @update:model-value="refreshData"
                 />
@@ -146,7 +145,7 @@
 
                 <q-card class="q-pa-md q-mb-lg glass-card shadow-sm">
                     <div class="text-subtitle2 text-weight-bold text-teal-10 q-mb-sm">Distribuição do Tempo (24h)</div>
-                    <div class="row no-wrap rounded-borders overflow-hidden" style="height: 30px; border: 1px solid rgba(0,0,0,0.05)">
+                    <div class="row no-wrap rounded-borders overflow-hidden" style="height: 30px; border: 1px solid rgba(128,128,128,0.2)">
                        <div class="bg-green text-white flex flex-center text-caption" :style="{flex: machineStats?.total_running_operator_seconds || 0}">
                           <q-tooltip>Prod. Humana: {{ machineStats?.formatted_running_operator }}</q-tooltip>
                           {{ machineStats?.total_running_operator_seconds ? 'Op.' : '' }}
@@ -170,7 +169,7 @@
                           <q-tooltip>Manutenção: {{ machineStats?.formatted_maintenance }}</q-tooltip>
                           {{ machineStats?.total_maintenance_seconds ? 'Manut.' : '' }}
                        </div>
-                       <div class="bg-grey-3 text-grey-8 flex flex-center text-caption" :style="{flex: machineStats?.total_idle_seconds || 1}">
+                       <div class="bg-grey-3 text-grey-8 flex flex-center text-caption gantt-idle" :style="{flex: machineStats?.total_idle_seconds || 1}">
                           Ocioso
                        </div>
                     </div>
@@ -181,17 +180,17 @@
                         <q-card class="full-height glass-card shadow-green relative-position overflow-hidden">
                         <div class="absolute-full bg-teal-gradient-faded opacity-20"></div>
                         <q-card-section class="column items-center justify-center text-center q-py-lg">
-                            <div class="text-h6 text-teal-9 text-uppercase">OEE Global</div>
+                            <div class="text-h6 text-teal-9 text-uppercase">Disponibilidade</div>
                             <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
                                 {{ mesStore.oeeData?.oee_percentage || 0 }}<span class="text-h5">%</span>
                             </div>
                             <q-badge 
-  :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
-  :class="{ 'animate-pulse shadow-red': (mesStore.oeeData?.oee_percentage || 0) < 65 }"
-  class="q-py-xs q-px-md text-caption text-weight-bold"
->
-    {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
-</q-badge>
+                              :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
+                              :class="{ 'animate-pulse shadow-red': (mesStore.oeeData?.oee_percentage || 0) < 65 }"
+                              class="q-py-xs q-px-md text-caption text-weight-bold"
+                            >
+                                {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
+                            </q-badge>
                         </q-card-section>
                         </q-card>
                     </div>
@@ -225,12 +224,11 @@
                             <div class="row items-center no-wrap">
                                 <q-icon name="speed" color="orange-8" size="lg" class="bg-orange-1 q-pa-sm rounded-borders" />
                                 <div class="q-ml-md">
-                                    <div class="text-caption text-orange-9 text-uppercase text-weight-bold">Performance</div>
-                                    <div class="text-h4 text-weight-bold text-orange-9">{{ mesStore.oeeData?.performance || 0 }}%</div>
+                                    <div class="text-caption text-orange-9 text-uppercase text-weight-bold">-----------------</div>
                                 </div>
                             </div>
                             <q-separator class="q-my-md opacity-10" />
-                            <div class="text-caption text-grey-6 italic">Carga horária vs Horas produtivas<br>(Cracha e apontamento maquina)<em></em></div>
+                            <div class="text-caption text-grey-6 italic"><em></em></div>
                         </q-card-section>
                         </q-card>
                     </div>
@@ -241,12 +239,11 @@
                             <div class="row items-center no-wrap">
                                 <q-icon name="verified" color="positive" size="lg" class="bg-green-1 q-pa-sm rounded-borders" />
                                 <div class="q-ml-md">
-                                    <div class="text-caption text-teal-9 text-uppercase text-weight-bold">Qualidade</div>
-                                    <div class="text-h4 text-weight-bold text-positive">{{ mesStore.oeeData?.quality || 0 }}%</div>
+                                    <div class="text-caption text-teal-9 text-uppercase text-weight-bold">-----------------</div>
                                 </div>
                             </div>
                             <q-separator class="q-my-md opacity-10" />
-                            <div class="text-caption text-grey-6 italic">Peças Boas vs Total Produzido (incluindo Refugos).</div>
+                            <div class="text-caption text-grey-6 italic"></div>
                         </q-card-section>
                         </q-card>
                     </div>
@@ -255,11 +252,15 @@
                 <q-card class="q-mb-lg glass-card shadow-sm overflow-hidden">
                     <q-card-section class="row items-center justify-between border-bottom-light">
                         <div class="text-h6 text-weight-bold text-teal-10">Linha do Tempo (Gantt Chart)</div>
-                        <div class="row q-gutter-x-md text-caption">
+                        <div class="row q-gutter-x-md text-caption text-grey-8">
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-green"></div> Operação</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-purple"></div> Setup</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-orange"></div> Pausa/Ocioso</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-red"></div> Manutenção</div>
+                            <div class="row items-center q-mr-md">
+  <div class="box-legend q-mr-sm" style="background-color: #2196F3"></div>
+  <span class="text-caption">Troca de Turno (Autônomo)</span>
+</div>
                         </div>
                     </q-card-section>
                     
@@ -298,7 +299,7 @@
                         >
                             <template v-slot:body-cell-event_type="props">
                                 <q-td :props="props">
-                                    <div class="text-weight-medium">{{ translateEventType(props.value) }}</div>
+                                    <div class="text-weight-medium text-teal-9">{{ translateEventType(props.value) }}</div>
                                 </q-td>
                             </template>
 
@@ -321,8 +322,20 @@
                             </template>
 
                             <template v-slot:body-cell-timestamp="props">
-                                <q-td :props="props">
+                                <q-td :props="props" class="text-grey-8">
                                     {{ new Date(props.value).toLocaleString('pt-BR') }}
+                                </q-td>
+                            </template>
+                            
+                            <template v-slot:body-cell-details="props">
+                                <q-td :props="props" class="text-grey-8">
+                                    {{ props.value }}
+                                </q-td>
+                            </template>
+                            
+                            <template v-slot:body-cell-reason="props">
+                                <q-td :props="props" class="text-grey-8">
+                                    {{ props.value }}
                                 </q-td>
                             </template>
                         </q-table>
@@ -426,6 +439,11 @@
                                 <span v-else class="text-teal-5 italic">Sem paradas registradas</span>
                             </q-td>
                         </template>
+                        
+                        <template v-slot:body-cell-total_hours="props">
+                            <q-td :props="props" class="text-grey-8">{{ props.value }}</q-td>
+                        </template>
+                        
                     </q-table>
                 </q-card-section>
             </q-card>
@@ -437,7 +455,6 @@
 </template>
 
 <script setup lang="ts">
-/* LOGICA ORIGINAL MANTIDA 100% */
 import { ref, onMounted, computed } from 'vue';
 import { date, exportFile, useQuasar, setCssVar } from 'quasar';
 import type { QTableColumn } from 'quasar';
@@ -504,7 +521,8 @@ function translateEventType(type: string): string {
         'STEP_PAUSE': 'Pausa de Etapa',
         'STEP_COMPLETE': 'Conclusão de Etapa',
         'COUNT': 'Apontamento Qtd',
-        'MAINTENANCE_REQ': 'Solicitação Manut.'
+        'MAINTENANCE_REQ': 'Solicitação Manut.',
+        'AUTONOMOUS': 'Autonôma'
     };
     return map[type] || type;
 }
@@ -527,22 +545,31 @@ function translateStatus(status: string): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase();
-    const r = String(block.reason || '').toUpperCase();
     
-    // Prioridade para Setup (Roxo)
-    if (s.includes('SETUP') || r.includes('SETUP') || r.includes('PREPARAÇÃO')) return 'purple';
-    
-    // Produção (Verde ou Azul se for Autônoma)
-    if (s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('USO')) {
-        // Se no bloco do timeline o operator_name for nulo, pintamos de azul (Autônoma)
-        return block.operator_name ? 'green' : 'blue';
+    // 1. Se o status for o que definimos na store como autônomo, é azul.
+    if (s === 'AUTONOMOUS') {
+        return 'blue';
     }
-    
-    // Manutenção (Vermelho)
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'red';
-    
-    // Pausa (Laranja)
-    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'orange';
+
+    // 2. Se for manutenção, é vermelho.
+    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) {
+        return 'red';
+    }
+
+    // 3. Se for setup, é roxo.
+    if (s.includes('SETUP')) {
+        return 'purple';
+    }
+
+    // 4. Se for RUNNING (incluindo o log de Login que agora é Running), é verde.
+    if (s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO')) {
+        return 'green';
+    }
+
+    // 5. Se for pausa, é laranja.
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) {
+        return 'orange';
+    }
     
     return 'grey';
 }
@@ -573,9 +600,9 @@ function getOeeLabel(val?: number) {
 
 function getOeeColor(val?: number) {
     if (val === undefined || val === null) return 'grey-7';
-    if (val >= 85) return 'positive'; // Verde
-    if (val >= 65) return 'warning';  // Laranja
-    return 'red-10';                  // Vermelho Industrial Intenso
+    if (val >= 85) return 'positive'; 
+    if (val >= 65) return 'warning'; 
+    return 'red-10';                  
 }
 
 function getBlockWidth(minutes: number) {
@@ -661,11 +688,13 @@ onMounted(async () => {
 .bg-glass-layout {
   background-color: #f0f4f4;
   min-height: 100vh;
+  transition: background-color 0.3s;
 }
 
 .text-gradient-trucar {
   background: linear-gradient(to right, #128c7e, #70c0b0);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -673,6 +702,7 @@ onMounted(async () => {
 .glass-card {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(18, 140, 126, 0.1);
   border-radius: 12px;
 }
@@ -680,6 +710,7 @@ onMounted(async () => {
 .glass-input {
   background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(8px);
+  border-radius: 4px;
 }
 
 .glass-menu {
@@ -732,11 +763,10 @@ onMounted(async () => {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .shadow-red {
-  box-shadow: 0 0 12px rgba(211, 47, 47, 0.7); /* Brilho neon vermelho */
+  box-shadow: 0 0 12px rgba(211, 47, 47, 0.7); 
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-/* Animação de pulso para o modo crítico */
 .animate-pulse {
   animation: pulse-red 2s infinite;
 }
@@ -745,5 +775,56 @@ onMounted(async () => {
   0% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.05); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* =========================================
+   DARK MODE OVERRIDES (DARK FOREST THEME)
+   ========================================= */
+.body--dark {
+  .bg-glass-layout { 
+    background-color: #05100e !important; 
+  }
+
+  .glass-card {
+    background: rgba(5, 20, 18, 0.7) !important;
+    border-color: rgba(18, 140, 126, 0.2);
+    color: #e0f2f1;
+  }
+
+  .glass-input {
+    background: rgba(18, 140, 126, 0.1) !important;
+    :deep(.q-field__native), :deep(.q-field__label) {
+        color: #b2dfdb !important;
+    }
+  }
+
+  .glass-menu {
+    background: rgba(5, 20, 18, 0.95) !important;
+    border: 1px solid rgba(18, 140, 126, 0.3);
+  }
+
+  .text-teal-9 { color: #80cbc4 !important; } /* Light teal */
+  .text-teal-10 { color: #ffffff !important; } /* White */
+  .text-grey-8, .text-grey-7, .text-grey-6 { color: #b0bec5 !important; } /* Light grey */
+  .opacity-80 { opacity: 0.9; }
+
+  /* Gantt Chart Container */
+  .gantt-container.bg-grey-3 {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  .gantt-idle {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #90a4ae !important;
+  }
+
+  /* Table Stripes/Head */
+  .glass-table {
+    :deep(thead tr) { background: rgba(18, 140, 126, 0.2); }
+    :deep(tbody tr:hover) { background: rgba(18, 140, 126, 0.15) !important; }
+  }
+
+  .tab-text-color {
+    color: #80cbc4 !important;
+  }
 }
 </style>

@@ -29,7 +29,7 @@
              color="teal-10" 
              icon="refresh" 
              label="Atualizar Dados" 
-             class="btn-hover-effect glass-btn"
+             class="btn-hover-effect glass-btn text-teal-9"
              @click="() => refreshData()" 
              :loading="dashboardStore.isLoading || vehicleStore.isLoading"
            />
@@ -48,8 +48,8 @@
               <q-item clickable v-close-popup @click="() => router.push('/vehicles')" class="item-hover">
                 <q-item-section avatar><div class="icon-box bg-teal-1 text-teal-9"><q-icon name="precision_manufacturing" size="20px"/></div></q-item-section>
                 <q-item-section>
-                   <q-item-label class="text-weight-bold">Nova Máquina</q-item-label>
-                   <q-item-label caption>Cadastrar ativo</q-item-label>
+                   <q-item-label class="text-weight-bold text-teal-10">Nova Máquina</q-item-label>
+                   <q-item-label caption class="text-grey-7">Cadastrar ativo</q-item-label>
                 </q-item-section>
               </q-item>
               
@@ -59,16 +59,16 @@
               <q-item clickable v-close-popup @click="() => router.push('/factory/kiosk')" class="item-hover">
                 <q-item-section avatar><div class="icon-box bg-cyan-1 text-cyan-9"><q-icon name="monitor" size="20px"/></div></q-item-section>
                 <q-item-section>
-                   <q-item-label class="text-weight-bold">Modo Kiosk</q-item-label>
-                   <q-item-label caption>Tela do operador</q-item-label>
+                   <q-item-label class="text-weight-bold text-teal-10">Modo Kiosk</q-item-label>
+                   <q-item-label caption class="text-grey-7">Tela do operador</q-item-label>
                 </q-item-section>
               </q-item>
               
               <q-item clickable v-close-popup @click="scheduleMaintenanceGeneral" class="item-hover">
                 <q-item-section avatar><div class="icon-box bg-orange-1 text-orange-9"><q-icon name="build_circle" size="20px"/></div></q-item-section>
                 <q-item-section>
-                   <q-item-label class="text-weight-bold">Solicitar Manutenção</q-item-label>
-                   <q-item-label caption>Abrir chamado</q-item-label>
+                   <q-item-label class="text-weight-bold text-teal-10">Solicitar Manutenção</q-item-label>
+                   <q-item-label caption class="text-grey-7">Abrir chamado</q-item-label>
                 </q-item-section>
               </q-item>
             </q-list>
@@ -169,7 +169,7 @@
          </div>
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
-             title="Eficiência Global (OEE)" 
+             title="Disponibilidade" 
              :value="83.7"
              unit="%" 
              icon="bolt" 
@@ -285,10 +285,10 @@
                  </q-item>
 
                  <div v-if="!mergedMaintenanceList.length" class="empty-state-list full-width">
-    <q-icon name="check_circle" size="4em" class="text-teal-5 q-mb-md" />
-    <div class="text-teal-9 text-weight-medium">Tudo em dia!</div>
-    <div class="text-grey-6">Nenhuma manutenção próxima programada.</div>
-</div>
+                    <q-icon name="check_circle" size="4em" class="text-teal-5 q-mb-md" />
+                    <div class="text-teal-9 text-weight-medium">Tudo em dia!</div>
+                    <div class="text-grey-6">Nenhuma manutenção próxima programada.</div>
+                </div>
              </q-list>
           </div>
         </div>
@@ -297,7 +297,7 @@
           
           <div class="dashboard-card glass-card shadow-1 overflow-hidden">
              <div class="q-pa-md border-bottom-light">
-                <div class="text-subtitle1 text-weight-bold text-teal-10">Status da Frota</div>
+                <div class="text-subtitle1 text-weight-bold text-teal-10">Taxa de utilização</div>
              </div>
              <div class="q-pa-md flex flex-center relative-position" style="min-height: 260px">
                 <ApexChart 
@@ -315,7 +315,7 @@
           </div>
 
           <div class="dashboard-card glass-card shadow-1 overflow-hidden border-top-critical">
-             <div class="card-header q-pa-md row justify-between items-center" style="background: rgba(255,255,255,0.4)">
+             <div class="card-header q-pa-md row justify-between items-center alert-header-bg">
                 <div class="row items-center text-negative">
                    <div class="pulse-icon bg-red-1 q-mr-md flex flex-center" style="width: 32px; height: 32px; border-radius: 50%">
                       <q-icon name="notifications_active" size="18px"/>
@@ -336,7 +336,7 @@
                    </q-item-section>
                    
                    <q-item-section>
-                     <q-item-label class="text-weight-bold text-grey-9">{{ alert.title }}</q-item-label>
+                     <q-item-label class="text-weight-bold text-grey-9 alert-title">{{ alert.title }}</q-item-label>
                      <q-item-label caption class="text-grey-7 text-caption-2 q-mt-xs" :lines="2">{{ alert.subtitle }}</q-item-label>
                    </q-item-section>
                    
@@ -372,7 +372,7 @@
 <script setup lang="ts">
 import { onMounted, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { setCssVar } from 'quasar';
+import { setCssVar, useQuasar } from 'quasar'; // Adicionado useQuasar
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useVehicleStore } from 'stores/vehicle-store'; 
@@ -405,6 +405,7 @@ const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
 const vehicleStore = useVehicleStore(); 
 const router = useRouter();
+const $q = useQuasar(); // Para detectar modo escuro nos gráficos
 
 const showCreateMaintenanceDialog = ref(false); 
 const selectedVehicleIdForMaintenance = ref<number | null>(null);
@@ -413,46 +414,24 @@ const createDialogType = ref<'PREVENTIVA' | 'CORRETIVA'>('CORRETIVA');
 const managerData = computed(() => dashboardStore.managerDashboard);
 const upcomingMaintenances = computed(() => managerData.value?.upcoming_maintenances as UpcomingMaintenance[] || []);
 const recentAlerts = computed(() => managerData.value?.recent_alerts || []);
-
 const processedAlerts = computed(() => recentAlerts.value);
+
+// --- CORES REATIVAS PARA GRÁFICOS (DARK MODE) ---
+const chartTextColor = computed(() => $q.dark.isActive ? '#cbd5e1' : '#64748b');
+const chartGridColor = computed(() => $q.dark.isActive ? 'rgba(112, 192, 176, 0.1)' : 'rgba(18, 140, 126, 0.1)');
 
 const realTimeStats = computed(() => {
   const allMachines = vehicleStore.vehicles;
-  
-  // Função auxiliar para normalizar status
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getStatus = (m: any) => String(m.status || '').toUpperCase().trim();
-
   const total = allMachines.length;
+  
+  const running = allMachines.filter(m => ['EM USO', 'IN_USE', 'RUNNING', 'EM OPERAÇÃO', 'PRODUCING'].includes(getStatus(m))).length;
+  const stopped = allMachines.filter(m => ['EM MANUTENÇÃO', 'MAINTENANCE', 'SETUP', 'QUEBRADA'].includes(getStatus(m))).length;
+  const paused = allMachines.filter(m => ['PARADA', 'STOPPED', 'PAUSED', 'EM PAUSA'].includes(getStatus(m))).length;
+  const idle = allMachines.filter(m => ['DISPONÍVEL', 'DISPONIVEL', 'AVAILABLE', 'IDLE', 'LIVRE'].includes(getStatus(m))).length;
 
-  // 1. Em Produção
-  const running = allMachines.filter(m => 
-    ['EM USO', 'IN_USE', 'RUNNING', 'EM OPERAÇÃO', 'PRODUCING'].includes(getStatus(m))
-  ).length;
-
-  // 2. Em Manutenção (Usa a chave 'stopped' para compatibilidade com o card de Manutenção)
-  const stopped = allMachines.filter(m => 
-    ['EM MANUTENÇÃO', 'MAINTENANCE', 'SETUP', 'QUEBRADA'].includes(getStatus(m))
-  ).length;
-
-  // 3. Em Pausa (NOVO CÁLCULO)
-  const paused = allMachines.filter(m => 
-    ['PARADA', 'STOPPED', 'PAUSED', 'EM PAUSA'].includes(getStatus(m))
-  ).length;
-
-  // 4. Disponível (Removemos 'STOPPED' daqui para não duplicar)
-  const idle = allMachines.filter(m => 
-    ['DISPONÍVEL', 'DISPONIVEL', 'AVAILABLE', 'IDLE', 'LIVRE'].includes(getStatus(m))
-  ).length;
-
-  return { 
-    total, 
-    running, 
-    stopped, // Manutenção
-    paused,  // Pausa (Novo)
-    idle,    // Disponível
-    utilizationRate: total > 0 ? (running / total) * 100 : 0 
-  };
+  return { total, running, stopped, paused, idle, utilizationRate: total > 0 ? (running / total) * 100 : 0 };
 });
 
 const overdueVehicles = computed(() => {
@@ -501,28 +480,31 @@ const variableCostTotal = computed(() => {
   return items.reduce((acc, curr) => acc + curr.total_amount, 0);
 });
 
+// --- GRÁFICOS COM TEMA ---
 const costAnalysisChart = computed(() => {
   const data: ICostItem[] = managerData.value?.costs_by_category || [];
   const categories = data.map(item => item.cost_type);
   const series = [{ name: 'Custo (R$)', data: data.map(item => item.total_amount) }];
+  
   return { 
       series, 
       options: { 
-          chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter, sans-serif' }, 
+          chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter, sans-serif', background: 'transparent' }, 
           plotOptions: { bar: { borderRadius: 6, columnWidth: '50%', distributed: false } },
+          theme: { mode: $q.dark.isActive ? 'dark' : 'light' },
           xaxis: { 
             categories,
-            labels: { style: { colors: '#64748b', fontSize: '12px' } },
+            labels: { style: { colors: chartTextColor.value, fontSize: '12px' } },
             axisBorder: { show: false },
             axisTicks: { show: false }
           },
           yaxis: {
-            labels: { style: { colors: '#64748b' }, formatter: (val: number) => `R$ ${val}` }
+            labels: { style: { colors: chartTextColor.value }, formatter: (val: number) => `R$ ${val}` }
           },
-          colors: ['#128c7e'], // Cor Trucar
-          grid: { borderColor: 'rgba(18, 140, 126, 0.1)', strokeDashArray: 4 },
+          colors: ['#128c7e'], 
+          grid: { borderColor: chartGridColor.value, strokeDashArray: 4 },
           dataLabels: { enabled: false },
-          tooltip: { theme: 'light' }
+          tooltip: { theme: $q.dark.isActive ? 'dark' : 'light' }
       } 
   };
 });
@@ -535,11 +517,12 @@ const fleetStatusChart = computed(() => {
         options: {
             labels: ['Aguardando', 'Produzindo', 'Manutenção'],
             colors: ['#fbbf24', '#128c7e', '#ef4444'], 
-            chart: { type: 'donut', fontFamily: 'Inter, sans-serif' },
-            legend: { position: 'bottom', labels: { colors: '#475569' } },
+            chart: { type: 'donut', fontFamily: 'Inter, sans-serif', background: 'transparent' },
+            theme: { mode: $q.dark.isActive ? 'dark' : 'light' },
+            legend: { position: 'bottom', labels: { colors: chartTextColor.value } },
             dataLabels: { enabled: false },
-            plotOptions: { donut: { size: '75%', labels: { show: true, total: { show: true, label: 'Total', color: '#128c7e' } } } },
-            stroke: { show: true, width: 2, colors: ['#fff'] }
+            plotOptions: { donut: { size: '75%', labels: { show: true, total: { show: true, label: 'Total', color: $q.dark.isActive ? '#ffffff' : '#128c7e' } } } },
+            stroke: { show: true, width: 2, colors: [$q.dark.isActive ? '#1e1e1e' : '#fff'] }
         }
     };
 });
@@ -578,8 +561,9 @@ $trucar-mint: #70c0b0;
 $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 
 .dashboard-bg { 
-  background-color: #f0f4f4; // Fundo menta frio
+  background-color: #f0f4f4; // Fundo padrão claro
   min-height: 100vh;
+  transition: background-color 0.3s ease;
 }
 
 /* --- Glassmorphism --- */
@@ -588,6 +572,7 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(18, 140, 126, 0.1);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .glass-badge {
@@ -611,7 +596,7 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 .text-gradient {
   background: linear-gradient(to right, $trucar-green, $trucar-mint);
   -webkit-background-clip: text;
-  -webkit-background-clip: text;
+  background-clip: text; /* Correção para compatibilidade */
   -webkit-text-fill-color: transparent;
 }
 .letter-spacing-2 { letter-spacing: 2px; }
@@ -678,19 +663,92 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 
 .empty-state-list {
   display: flex;
-  flex-direction: column;  /* Coloca ícone sobre o texto */
-  align-items: center;     /* Centraliza horizontalmente */
-  justify-content: center; /* Centraliza verticalmente */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 60px 20px;      /* Espaçamento interno para o card não ficar "magro" */
-  min-height: 250px;       /* Garante uma altura mínima visualmente agradável */
-  width: 100%;             /* Crucial para o alinhamento central funcionar */
+  padding: 60px 20px;
+  min-height: 250px;
+  width: 100%;
 }
-
-/* Ajuste adicional caso o ícone ainda pareça deslocado */
 .empty-state-list .q-icon {
   margin-left: auto;
   margin-right: auto;
   display: block;
+}
+
+.empty-state-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    min-height: 300px;
+}
+
+/* =========================================
+   DARK MODE OVERRIDES (DARK FOREST)
+   ========================================= */
+.body--dark {
+  // Fundo Floresta Negra
+  .dashboard-bg { 
+    background-color: #05100e !important; 
+  }
+
+  // Cards Escuros Translúcidos
+  .glass-card {
+    background: rgba(5, 20, 18, 0.7) !important;
+    border-color: rgba(18, 140, 126, 0.2);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  }
+  
+  .glass-menu {
+    background: rgba(10, 25, 23, 0.95) !important;
+    border: 1px solid rgba(18, 140, 126, 0.3);
+  }
+
+  .alert-header-bg {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  // Textos
+  .text-teal-9 { color: #80cbc4 !important; }  // Teal claro
+  .text-teal-10 { color: #e0f2f1 !important; } // Quase branco
+  .text-grey-7 { color: #94a3b8 !important; }  // Cinza médio
+  .text-grey-6 { color: #64748b !important; }
+  .text-grey-9 { color: #e2e8f0 !important; } // Títulos de alerta
+
+  // Ícones e Box
+  .icon-box, .icon-box-sm {
+    background-color: rgba(18, 140, 126, 0.15) !important;
+    .q-icon { color: #4db6ac !important; }
+  }
+  // Cores específicas dos boxes de ação rápida
+  .bg-cyan-1 { background-color: rgba(34, 211, 238, 0.1) !important; }
+  .text-cyan-9 { color: #22d3ee !important; }
+  .bg-orange-1 { background-color: rgba(251, 146, 60, 0.1) !important; }
+  .text-orange-9 { color: #fb923c !important; }
+
+  // Hover em Listas
+  .item-hover:hover {
+    background-color: rgba(18, 140, 126, 0.15);
+  }
+  .hover\:bg-teal-5-faded:hover {
+     background-color: rgba(18, 140, 126, 0.15) !important;
+  }
+  .hover\:bg-red-1-faded:hover {
+     background-color: rgba(239, 68, 68, 0.1) !important;
+  }
+
+  // Badges e Elementos de UI
+  .glass-badge {
+    background: rgba(18, 140, 126, 0.2) !important;
+    color: #80cbc4 !important;
+  }
+  .bg-teal-1 { background-color: rgba(18, 140, 126, 0.15) !important; }
+  
+  // Separadores
+  .border-bottom-light { border-bottom-color: rgba(255, 255, 255, 0.05); }
 }
 </style>

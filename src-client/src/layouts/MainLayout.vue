@@ -75,7 +75,8 @@
             <q-toolbar-title class="text-weight-bold text-dark gt-xs font-mono q-pl-none" style="font-size: 1.35rem; letter-spacing: -0.5px; line-height: 1;">
               VEMAG<span class="text-primary">.mes</span>
             </q-toolbar-title>
-            <div class="text-caption text-teal-8 gt-xs" style="line-height: 1; font-size: 0.7rem; letter-spacing: 1px; font-weight: 600;">INTELLIGENT MANUFACTURING</div>
+            
+            <div class="text-caption text-teal-8 gt-sm" style="line-height: 1; font-size: 0.7rem; letter-spacing: 1px; font-weight: 600;">INTELLIGENT MANUFACTURING</div>
           </div>
         </div>
 
@@ -84,80 +85,80 @@
         <div class="row q-gutter-sm items-center">
           
           <q-btn v-if="authStore.isManager" flat round dense class="text-teal-9 relative-position hover-scale q-mr-sm">
-  <q-icon name="notifications_none" size="26px" />
-  <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
-  
-  <q-menu 
-    @show="notificationStore.fetchNotifications()" 
-    anchor="bottom right" 
-    self="top right" 
-    :offset="[0, 14]" 
-    class="shadow-10 rounded-borders glass-menu"
-    style="width: 380px; max-width: 95vw;" 
-  >
-    <div class="row no-wrap items-center q-pa-md border-bottom bg-teal-1 text-teal-10">
-      <div class="text-subtitle1 text-weight-bolder">Alertas da Fábrica</div>
-      <q-badge color="teal-8" class="q-ml-sm" v-if="notificationStore.unreadCount > 0">
-        {{ notificationStore.unreadCount }} novos
-      </q-badge>
-      <q-space />
-      <q-btn round flat icon="done_all" size="sm" @click="markAllRead">
-        <q-tooltip>Marcar tudo como lido</q-tooltip>
-      </q-btn>
-    </div>
-
-    <q-scroll-area style="height: 400px;">
-      <q-list separator>
-        <q-item 
-          v-for="notification in notificationStore.notifications" 
-          :key="notification.id" 
-          clickable 
-          v-ripple 
-          class="q-py-lg q-px-md notification-item-ui" 
-          :class="!notification.is_read ? 'bg-blue-50' : ''"
-          @click="handleNotificationClick(notification)"
-        >
-          <q-item-section avatar style="min-width: 50px;">
-            <q-avatar 
-              :color="!notification.is_read ? 'teal-1' : 'grey-2'" 
-              :text-color="!notification.is_read ? 'teal-9' : 'grey-6'"
-              size="42px"
-              class="shadow-sm"
+            <q-icon name="notifications_none" size="26px" />
+            <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
+            
+            <q-menu 
+              @show="notificationStore.fetchNotifications()" 
+              anchor="bottom right" 
+              self="top right" 
+              :offset="[0, 14]" 
+              class="shadow-10 rounded-borders glass-menu"
+              style="width: 380px; max-width: 95vw;" 
             >
-              <q-icon :name="getNotificationIcon(notification.notification_type)" size="22px" />
-            </q-avatar>
-          </q-item-section>
+              <div class="row no-wrap items-center q-pa-md border-bottom bg-teal-1 text-teal-10">
+                  <div class="text-subtitle1 text-weight-bolder">Alertas da Fábrica</div>
+                  <q-badge color="teal-8" class="q-ml-sm" v-if="notificationStore.unreadCount > 0">
+                    {{ notificationStore.unreadCount }} novos
+                  </q-badge>
+                  <q-space />
+                  <q-btn round flat icon="done_all" size="sm" @click="markAllRead">
+                    <q-tooltip>Marcar tudo como lido</q-tooltip>
+                  </q-btn>
+                </div>
 
-          <q-item-section>
-            <q-item-label 
-              class="text-body2 line-height-normal" 
-              :class="!notification.is_read ? 'text-weight-bold text-dark' : 'text-grey-8'"
-            >
-              {{ notification.message }}
-            </q-item-label>
-            <q-item-label caption class="text-grey-6 q-mt-xs row items-center">
-              <q-icon name="schedule" size="12px" class="q-mr-xs" />
-              {{ formatNotificationDate(notification.created_at) }}
-            </q-item-label>
-          </q-item-section>
+                <q-scroll-area style="height: 400px;">
+                  <q-list separator>
+                    <q-item 
+                      v-for="notification in notificationStore.notifications" 
+                      :key="notification.id" 
+                      clickable 
+                      v-ripple 
+                      class="q-py-lg q-px-md notification-item-ui" 
+                      :class="!notification.is_read ? 'bg-blue-50' : ''"
+                      @click="handleNotificationClick(notification)"
+                    >
+                      <q-item-section avatar style="min-width: 50px;">
+                        <q-avatar 
+                          :color="!notification.is_read ? 'teal-1' : 'grey-2'" 
+                          :text-color="!notification.is_read ? 'teal-9' : 'grey-6'"
+                          size="42px"
+                          class="shadow-sm"
+                        >
+                          <q-icon :name="getNotificationIcon(notification.notification_type)" size="22px" />
+                        </q-avatar>
+                      </q-item-section>
 
-          <q-item-section side v-if="!notification.is_read">
-             <div class="new-indicator-glow"></div>
-          </q-item-section>
-        </q-item>
+                      <q-item-section>
+                        <q-item-label 
+                          class="text-body2 line-height-normal" 
+                          :class="!notification.is_read ? 'text-weight-bold text-dark' : 'text-grey-8'"
+                        >
+                          {{ notification.message }}
+                        </q-item-label>
+                        <q-item-label caption class="text-grey-6 q-mt-xs row items-center">
+                          <q-icon name="schedule" size="12px" class="q-mr-xs" />
+                          {{ formatNotificationDate(notification.created_at) }}
+                        </q-item-label>
+                      </q-item-section>
 
-        <div v-if="notificationStore.notifications.length === 0" class="column flex-center q-pa-xl text-grey-5" style="height: 300px;">
-          <q-icon name="notifications_off" size="60px" class="opacity-20 q-mb-md" />
-          <div class="text-weight-medium">Nenhum alerta recente</div>
-          <div class="text-caption">Tudo em ordem na planta industrial.</div>
-        </div>
-      </q-list>
-    </q-scroll-area>
-    
-    <q-separator />
-    <q-btn flat color="primary" label="Ver todos os alertas" class="full-width q-py-sm" to="/audit-logs" />
-  </q-menu>
-</q-btn>
+                      <q-item-section side v-if="!notification.is_read">
+                          <div class="new-indicator-glow"></div>
+                      </q-item-section>
+                    </q-item>
+
+                    <div v-if="notificationStore.notifications.length === 0" class="column flex-center q-pa-xl text-grey-5" style="height: 300px;">
+                      <q-icon name="notifications_off" size="60px" class="opacity-20 q-mb-md" />
+                      <div class="text-weight-medium">Nenhum alerta recente</div>
+                      <div class="text-caption">Tudo em ordem na planta industrial.</div>
+                    </div>
+                  </q-list>
+                </q-scroll-area>
+                
+                <q-separator />
+                <q-btn flat color="primary" label="Ver todos os alertas" class="full-width q-py-sm" to="/audit-logs" />
+            </q-menu>
+          </q-btn>
 
           <div style="height: 30px; width: 1px; background: rgba(18, 140, 126, 0.2);" class="q-mx-sm"></div>
 
@@ -167,11 +168,13 @@
                 <q-avatar size="40px" class="shadow-1 border-2 border-white">
                   <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
                 </q-avatar>
-                <div class="text-left gt-xs q-ml-md">
+                
+                <div class="text-left gt-sm q-ml-md">
                   <div class="text-weight-bold text-body2 font-inter" style="line-height: 1.2;">{{ firstName(authStore.user?.full_name) }}</div>
                   <div class="text-caption text-primary font-weight-bold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">{{ roleLabel }}</div>
                 </div>
-                <q-icon name="expand_more" color="grey-5" size="xs" class="q-ml-xs gt-xs" />
+                
+                <q-icon name="expand_more" color="grey-5" size="xs" class="q-ml-xs gt-sm" />
               </div>
             </template>
 
@@ -490,8 +493,6 @@ onMounted(async () => {
 <style lang="scss" scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
-
-
 .font-inter { font-family: 'Inter', sans-serif; }
 .font-mono { font-family: 'JetBrains Mono', monospace; }
 
@@ -589,33 +590,68 @@ onMounted(async () => {
 .animate-fade { animation: fadeIn 0.8s ease-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* --- Dark Mode Overrides (Glassmorphism Dark) --- */
+/* --- Dark Mode Overrides (Dark Forest Theme) --- */
 .body--dark {
-  .bg-grey-1 { background-color: #020617; }
+  /* Fundo principal: Verde muito escuro, quase preto (Dark Forest) */
+  .bg-grey-1 { background-color: #05100e !important; }
+
+  /* Header e Drawer: Translúcidos com tom esverdeado */
   .glass-header { 
-    background-color: rgba(15, 23, 42, 0.7) !important;
-    border-bottom-color: rgba(112, 192, 176, 0.2);
+    background-color: rgba(5, 20, 18, 0.85) !important;
+    border-bottom-color: rgba(18, 140, 126, 0.3);
   }
   .glass-drawer { 
-    background-color: rgba(15, 23, 42, 0.6) !important;
-    border-right-color: rgba(112, 192, 176, 0.2);
+    background-color: rgba(5, 20, 18, 0.85) !important;
+    border-right-color: rgba(18, 140, 126, 0.3);
   }
+
+  /* Menus Dropdown: Fundo mais preto para contraste */
+  .glass-menu {
+    background-color: rgba(2, 10, 8, 0.95) !important;
+    border: 1px solid rgba(18, 140, 126, 0.2);
+  }
+  
+  /* Lógica do Logo */
   .logo-light { display: none; }
   .logo-dark { display: block !important; }
   
+  /* Itens de navegação */
   .navigation-item {
-    color: #94a3b8;
-    &:hover { background-color: rgba(112, 192, 176, 0.1); color: #70c0b0; }
+    color: #cbd5e1; /* Texto cinza claro */
+    &:hover { 
+      background-color: rgba(18, 140, 126, 0.15); /* Hover verde suave */
+      color: #4db6ac; 
+    }
   }
+
+  /* Item Ativo (Destaque) */
   .active-item { 
-    background: linear-gradient(90deg, rgba(18, 140, 126, 0.3) 0%, transparent 100%) !important;
-    color: #70c0b0 !important;
-    border-left-color: #70c0b0;
+    background: linear-gradient(90deg, rgba(18, 140, 126, 0.25) 0%, transparent 100%) !important;
+    color: #4db6ac !important; /* Teal brilhante */
+    border-left-color: #4db6ac;
+    .nav-icon { color: #4db6ac !important; }
   }
-  .text-teal-8 { color: #70c0b0 !important; }
-  .text-dark { color: white !important; }
+  
+  /* Cores de Texto e Utilitários */
+  .text-teal-8 { color: #4db6ac !important; }
+  .text-teal-9 { color: #80cbc4 !important; }
+  .text-dark { color: #ffffff !important; }
+  .text-grey-9 { color: #e2e8f0 !important; }
+  .text-grey-8 { color: #cbd5e1 !important; }
   .border-bottom { border-bottom-color: rgba(255,255,255,0.1); }
+
+  /* Notificações */
+  .bg-blue-50 {
+     background-color: rgba(18, 140, 126, 0.12) !important; /* Destaque verde escuro para não lidos */
+  }
+  .bg-teal-1 {
+     background-color: rgba(18, 140, 126, 0.2) !important; /* Header da notificação */
+  }
+  .text-teal-10 {
+     color: #ffffff !important;
+  }
 }
+
 .line-height-normal {
   line-height: 1.4;
   letter-spacing: 0.2px;
@@ -644,6 +680,4 @@ onMounted(async () => {
 .rounded-circle {
   border-radius: 50%;
 }
-
-
 </style>

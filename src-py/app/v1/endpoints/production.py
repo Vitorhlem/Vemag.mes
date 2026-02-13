@@ -140,8 +140,10 @@ async def get_employee_stats(
     for user in users:
         # 2. Busca TODOS os logs onde este usuário foi o responsável
         # Ordenamos por máquina e tempo para reconstruir a linha do tempo
+        op_id_str = str(user.id) 
+        
         q_logs = select(ProductionLog).where(
-            ProductionLog.operator_id == user.id,
+            ProductionLog.operator_id == op_id_str, # <--- Corrigido
             ProductionLog.timestamp >= dt_start,
             ProductionLog.timestamp <= dt_end
         ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
@@ -670,12 +672,17 @@ async def get_machine_history(
     history = []
     for log in logs:
         op_name = "System"
-        op_id = None # ID para o link
-        if log.operator_id:
-            op = await db.get(User, log.operator_id)
-            if op: op_name = op.full_name or op.email
-            op_id = op.id # Pega o ID real do usuário
+        op_id = None 
+        
+        # CORREÇÃO: Verificar se existe e se é numérico antes de converter
+        if log.operator_id and str(log.operator_id).isdigit():
+            # Converte '35' (str) para 35 (int) antes de buscar o User
+            op = await db.get(User, int(log.operator_id)) 
             
+            if op: 
+                op_name = op.full_name or op.email
+                op_id = op.id 
+        
         history.append({
             "id": log.id,
             "event_type": log.event_type,
@@ -684,7 +691,7 @@ async def get_machine_history(
             "reason": log.reason,
             "details": log.details,
             "operator_name": op_name,
-            "operator_id": op_id # <--- CAMPO NOVO (Verifique seu Schema production_schema)
+            "operator_id": op_id 
         })
         
     return history
@@ -1042,6 +1049,7 @@ async def create_appointment(
 # ============================================================================
 # 11. OPs DO SAP
 # ============================================================================
+
 @router.get("/orders/open", response_model=List[ProductionOrderRead])
 async def get_open_orders(
     db: AsyncSession = Depends(deps.get_db)

@@ -15,7 +15,7 @@ class InventoryItemPublic(BaseModel):
     created_at: datetime
     installed_at: Optional[datetime] = None
     part: 'PartListPublic'
-    
+
     class Config:
         from_attributes = True
 

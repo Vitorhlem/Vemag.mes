@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from 'boot/axios';
 
-// --- INTERFACES ---
+// --- INTERFACES (MANTIDAS) ---
 export interface OEEMetrics {
   oee_percentage: number;
   availability: number;
@@ -31,7 +31,7 @@ export interface TimelineBlock {
   end: string;
   duration_min: number;
   reason?: string | null;
-  operator_name?: string | null; // Adicionado para separar Humana de Autônoma
+  operator_name?: string | null;
   color: string;
 }
 
@@ -67,7 +67,6 @@ export interface EmployeeStat {
   top_reasons: { label: string; count: number }[];
 }
 
-// Detalhe de Sessão para o Dossiê
 export interface SessionDetail {
   id: number;
   machine_name: string;
@@ -87,7 +86,7 @@ export const useMesStore = defineStore('mes', () => {
   const employeeStats = ref<EmployeeStat[]>([]);
   const userSessions = ref<SessionDetail[]>([]);
   const isLoading = ref(false);
-  const dailyHistory = ref<DailyMetric[]>([]); // Novo State
+  const dailyHistory = ref<DailyMetric[]>([]);
   const dailyEmployeeHistory = ref<DailyMetric[]>([]);
   const dailyVehicleHistory = ref<VehicleMetric[]>([]);
 
@@ -111,11 +110,16 @@ export const useMesStore = defineStore('mes', () => {
   async function fetchDailyTimeline(machineId: number, dateStr: string) {
     try {
       isLoading.value = true;
+      // Garante que rawLogs seja limpo antes de popular
+      rawLogs.value = [];
+      timeline.value = [];
+
       const { data } = await api.get<ProductionLog[]>(`/production/history/${machineId}`, {
-        params: { limit: 1000 }
+        params: { limit: 1000 } // Traz logs suficientes para montar o dia
       });
-      rawLogs.value = data;
-      processTimeline(data, dateStr);
+      
+      rawLogs.value = data; // Popula a tabela de histórico
+      processTimeline(data, dateStr); // Monta o Gantt
     } catch (error) {
       console.error('Erro Timeline', error);
     } finally {
@@ -136,14 +140,11 @@ export const useMesStore = defineStore('mes', () => {
     } finally {
       isLoading.value = false;
     }
-  
   }
-
 
   async function fetchDailyHistory(date: string) {
     try {
       isLoading.value = true;
-      // Busca em paralelo
       const [resEmp, resVeh] = await Promise.all([
         api.get<DailyMetric[]>('/production/reports/daily-closing/employees', { params: { target_date: date } }),
         api.get<VehicleMetric[]>('/production/reports/daily-closing/vehicles', { params: { target_date: date } })
@@ -158,12 +159,10 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
-  // [NOVO] Forçar Fechamento Manual
   async function forceDailyClosing(date: string) {
     try {
       isLoading.value = true;
       await api.post('/production/closing/force', { target_date: date });
-      // Após forçar, recarrega a lista para mostrar o resultado
       await fetchDailyHistory(date);
       return true;
     } catch (error) {
@@ -189,55 +188,126 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
-  // --- HELPERS ---
+  // --- HELPERS (LÓGICA CORRIGIDA PARA BATER COM O COCKPIT) ---
   function processTimeline(logs: ProductionLog[], targetDate: string) {
-  const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  const blocks: TimelineBlock[] = [];
-  const dayStart = new Date(targetDate + 'T00:00:00');
-  const dayEnd = new Date(targetDate + 'T23:59:59');
-  
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const current = sorted[i];
-    const next = sorted[i+1];
-    if (!current || !next) continue;
+    if (!logs || logs.length === 0) {
+        timeline.value = [];
+        return;
+    }
 
-    const startTime = new Date(current.timestamp);
-    const endTime = new Date(next.timestamp);
+    // 1. Ordena logs cronologicamente
+    const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const blocks: TimelineBlock[] = [];
     
-    if (startTime >= dayStart && startTime <= dayEnd) {
-      const durationMin = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
-      const status = (current.new_status || '').toUpperCase();
-      const reason = (current.reason || '').toUpperCase();
-      const opName = current.operator_name;
+    // 2. Define limites exatos do dia (00:00:00 a 23:59:59)
+    const dayStart = new Date(targetDate + 'T00:00:00');
+    const dayEnd = new Date(targetDate + 'T23:59:59');
+    
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      // O próximo evento define o fim do evento atual.
+      // Se não houver próximo (é o último do array), assumimos que vai até "agora" ou fim do dia.
+      const nextTimestamp = sorted[i+1]?.timestamp || new Date().toISOString(); 
+      
+      const startTime = new Date(current.timestamp);
+      let endTime = new Date(nextTimestamp);
 
-      let finalType = 'OCIOSO';
-
-      // LÓGICA DE PENEIRA:
-      if (['RUNNING', 'EM OPERAÇÃO', 'EM USO', 'IN_USE'].includes(status)) {
-        // Se tem nome de operador, é Humana. Se não tem, é Autônoma.
-        finalType = opName ? 'RUNNING' : 'RUNNING_AUTO';
-      } 
-      else if (status === 'MAINTENANCE' || status === 'EM MANUTENÇÃO') {
-        // Se o motivo contém "SETUP", é Setup. Caso contrário, é Manutenção Real.
-        finalType = (reason.includes('SETUP') || reason.includes('PREPARAÇÃO')) ? 'SETUP' : 'MAINTENANCE';
+      // 3. CORTES DE TEMPO (BORDAS DO DIA)
+      // Se o evento começou ANTES de hoje, mas terminou HOJE (ou depois), corta o início para 00:00
+      if (startTime < dayStart) {
+          if (endTime < dayStart) continue; // Evento totalmente no passado, ignora
+          startTime.setHours(0,0,0,0); 
       }
-      else if (['STOPPED', 'PARADA', 'PAUSED', 'PAUSADA'].includes(status)) {
-        finalType = 'PAUSED';
+
+      // Se o evento começou HOJE, mas termina AMANHÃ, corta o fim para 23:59
+      if (endTime > dayEnd) {
+          endTime = dayEnd; 
+      }
+
+      // Validação básica: se o corte resultou em tempo negativo ou zerado, ignora
+      if (endTime <= startTime) continue;
+
+      const durationMin = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
+      
+      // 4. NORMALIZAÇÃO DE STATUS E CORREÇÃO DE LÓGICA
+      const rawStatus = String(current.new_status || '').toUpperCase().trim();
+      const rawReason = String(current.reason || '').toUpperCase().trim();
+      const rawEventType = String(current.event_type || '').toUpperCase().trim();
+
+      let finalStatusForGantt = 'OCIOSO';
+      let customColor = ''; 
+
+      // Verificação auxiliar para saber se está rodando
+      const isRunning = ['RUNNING', 'EM USO', 'EM OPERAÇÃO', 'IN_USE'].includes(rawStatus);
+
+      // --- CORREÇÃO: PRODUÇÃO AUTÔNOMA (TROCA DE TURNO) ---
+      
+      // CASO 1: O início do buraco (Operador Saiu mantendo a máquina rodando)
+      // Verifica se é LOGOUT/SAÍDA ou se o motivo fala de Logoff/Troca
+      const isAutonomousStart = isRunning && (
+          rawEventType.includes('SAÍDA') || 
+          rawEventType.includes('LOGOUT') ||
+          rawReason.includes('LOGOFF') || 
+          rawReason.includes('TROCA DE TURNO')
+      );
+
+      // CASO 2: O meio da transição (Operador Entrou, mas ainda não assumiu)
+      // Pintamos o Login de AZUL também para ele não criar uma fatia verde minúscula no meio.
+      // Isso une visualmente o Logoff até o "Assumir".
+      const isAutonomousTransition = isRunning && (
+          rawEventType.includes('ENTRADA') || 
+          rawEventType.includes('LOGIN')
+      );
+
+      if (isAutonomousStart || isAutonomousTransition) {
+           finalStatusForGantt = 'AUTONOMOUS';
+           customColor = '#2196F3'; // Azul Material Design
+      } 
+      else {
+          // --- LÓGICA PADRÃO ---
+
+          // GRUPO 1: EM OPERAÇÃO (Verde)
+          if (isRunning) {
+             finalStatusForGantt = 'RUNNING'; 
+          }
+          
+          // GRUPO 2: MANUTENÇÃO / SETUP (Roxo ou Vermelho)
+          else if (
+              ['SETUP', 'MAINTENANCE', 'EM MANUTENÇÃO', 'MANUTENÇÃO'].includes(rawStatus) ||
+              rawReason.includes('SETUP') || 
+              rawEventType.includes('SETUP')
+          ) {
+              if (rawStatus === 'SETUP' || rawReason.includes('SETUP')) {
+                  finalStatusForGantt = 'SETUP';
+              } else {
+                  finalStatusForGantt = 'MAINTENANCE';
+              }
+          }
+
+          // GRUPO 3: PARADA (Laranja)
+          else if (['PAUSED', 'PARADA', 'STOPPED', 'AVAILABLE', 'DISPONÍVEL'].includes(rawStatus)) {
+              finalStatusForGantt = 'PAUSED';
+          }
+          
+          // FALLBACK
+          else {
+              finalStatusForGantt = 'PAUSED'; 
+          }
       }
 
       blocks.push({
-        status: finalType, // Enviamos o tipo "peneirado" para o componente visual
-        start: current.timestamp,
-        end: next.timestamp,
+        status: finalStatusForGantt,
+        start: startTime.toISOString(),
+        end: endTime.toISOString(),
         duration_min: Math.round(durationMin),
         reason: current.reason || null,
-        operator_name: opName || null,
-        color: '' // A cor será definida pela função getGanttColor na página
+        operator_name: current.operator_name || null,
+        color: customColor // Passa a cor azul se for autônomo, ou vazio p/ padrão
       });
     }
+    
+    timeline.value = blocks;
   }
-  timeline.value = blocks;
-}
 
   return {
     oeeData,
@@ -255,6 +325,5 @@ export const useMesStore = defineStore('mes', () => {
     forceDailyClosing,
     dailyEmployeeHistory,
     dailyVehicleHistory,
-
   };
 });

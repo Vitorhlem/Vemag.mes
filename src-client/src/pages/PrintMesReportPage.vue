@@ -113,7 +113,7 @@
                         </q-circular-progress>
                     </div>
                     <div class="text-center q-mt-md">
-                        <div class="text-h6 text-weight-bold">OEE Global</div>
+                        <div class="text-h6 text-weight-bold">Disponibilidade</div>
                         <div class="text-caption text-grey-6">Overall Equipment Effectiveness</div>
                     </div>
                 </div>

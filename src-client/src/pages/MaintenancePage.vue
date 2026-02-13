@@ -4,7 +4,7 @@
     <div class="row items-center justify-between q-mb-lg q-col-gutter-y-md animate-fade-down">
       <div class="col-12 col-md-auto">
         <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
-          <q-icon name="engineering" size="md" />
+          <q-icon name="engineering" size="md" class="text-primary" />
           Gestão de Manutenção (PCM)
         </h1>
         <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
@@ -86,11 +86,11 @@
         <q-card flat class="full-height glass-card shadow-sm border-left-orange">
           <q-card-section class="row items-center">
             <div class="col">
-              <div class="text-caption text-teal-8 text-uppercase text-weight-bold">Backlog (Pendentes)</div>
+              <div class="text-caption text-teal-9 text-uppercase text-weight-bold">Backlog (Pendentes)</div>
               <div class="text-h4 text-weight-bold text-orange-8">{{ totalOpen }}</div>
             </div>
             <div class="col-auto">
-              <q-avatar color="orange-1" text-color="orange-8" icon="assignment_late" size="lg" font-size="28px" class="glass-badge-status" />
+              <q-avatar color="orange-1" text-color="orange-9" icon="assignment_late" size="lg" font-size="28px" class="glass-badge-status" />
             </div>
           </q-card-section>
         </q-card>
@@ -99,11 +99,11 @@
         <q-card flat class="full-height glass-card shadow-sm border-left-blue">
           <q-card-section class="row items-center">
             <div class="col">
-              <div class="text-caption text-teal-8 text-uppercase text-weight-bold">Em Execução</div>
+              <div class="text-caption text-teal-9 text-uppercase text-weight-bold">Em Execução</div>
               <div class="text-h4 text-weight-bold text-blue-8">{{ totalInProgress }}</div>
             </div>
             <div class="col-auto">
-              <q-avatar color="blue-1" text-color="blue-8" icon="miscellaneous_services" size="lg" font-size="28px" class="glass-badge-status" />
+              <q-avatar color="blue-1" text-color="blue-9" icon="miscellaneous_services" size="lg" font-size="28px" class="glass-badge-status" />
             </div>
           </q-card-section>
         </q-card>
@@ -112,11 +112,11 @@
         <q-card flat class="full-height glass-card shadow-sm border-left-green">
           <q-card-section class="row items-center">
             <div class="col">
-              <div class="text-caption text-teal-8 text-uppercase text-weight-bold">OM Encerradas</div>
+              <div class="text-caption text-teal-9 text-uppercase text-weight-bold">OM Encerradas</div>
               <div class="text-h4 text-weight-bold text-green-8">{{ totalCompleted }}</div>
             </div>
             <div class="col-auto">
-              <q-avatar color="green-1" text-color="green-8" icon="fact_check" size="lg" font-size="28px" class="glass-badge-status" />
+              <q-avatar color="green-1" text-color="green-9" icon="fact_check" size="lg" font-size="28px" class="glass-badge-status" />
             </div>
           </q-card-section>
         </q-card>
@@ -129,7 +129,7 @@
             <q-tabs 
                 v-model="tab" 
                 dense 
-                class="text-teal-8" 
+                class="text-teal-8 tab-text-color" 
                 active-color="primary" 
                 indicator-color="primary" 
                 align="left" 
@@ -148,7 +148,7 @@
                 class="search-input glass-input"
                 hide-bottom-space
             >
-                <template v-slot:prepend><q-icon name="search" color="primary" /></template>
+                <template v-slot:prepend><q-icon name="search" class="text-teal-9" /></template>
             </q-input>
         </div>
         <q-separator class="opacity-10" />
@@ -175,14 +175,14 @@
                   <q-icon name="check_circle" size="4em" color="teal-5" />
               </div>
               <div class="text-h6 text-teal-10">Operação Normal</div>
-              <p class="text-teal-8 opacity-70">Nenhuma ordem de Manutenção pendente no momento.</p>
+              <p class="text-teal-9 opacity-70">Nenhuma ordem de Manutenção pendente no momento.</p>
             </div>
           </q-tab-panel>
 
           <q-tab-panel name="closed" class="q-pa-none">
             <div v-if="closedRequests.length === 0 && !maintenanceStore.isLoading" class="text-center q-pa-xl">
               <q-icon name="history" size="4em" color="teal-2" />
-              <p class="q-mt-md text-teal-8 opacity-50">Nenhum histórico de manutenção encontrado.</p>
+              <p class="q-mt-md text-teal-9 opacity-50">Nenhum histórico de manutenção encontrado.</p>
             </div>
             
             <q-list v-else separator class="glass-table">
@@ -245,7 +245,7 @@
         </q-card-section>
 
         <q-card-section class="q-pa-none">
-          <q-markup-table flat class="bg-transparent">
+          <q-markup-table flat class="bg-transparent glass-table">
             <thead>
               <tr class="bg-teal-gradient-faded text-teal-9">
                 <th class="text-left q-pa-md text-uppercase text-caption text-weight-bold">Funcionalidade</th>
@@ -277,7 +277,7 @@
           <div class="column items-center full-width q-gutter-y-md">
             <div class="text-h6 text-weight-bold text-teal-10">Quer reduzir o tempo de máquina parada?</div>
             <q-btn color="positive" label="Falar com Engenheiro de Vendas" size="lg" unelevated icon="whatsapp" class="full-width shadow-green" />
-            <q-btn flat color="teal-8" label="Continuar no Demo" v-close-popup />
+            <q-btn flat color="teal-8" label="Continuar no Demo" v-close-popup class="text-teal-9" />
           </div>
         </q-card-actions>
       </q-card>
@@ -287,7 +287,6 @@
 </template>
 
 <script setup lang="ts">
-/* SCRIPTS MANTIDOS EXATAMENTE IGUAIS AOS SEUS ORIGINAIS */
 import { ref, onMounted, computed, watch } from 'vue';
 import { setCssVar } from 'quasar';
 import { useMaintenanceStore } from 'stores/maintenance-store';
@@ -400,11 +399,13 @@ onMounted(() => {
 .dashboard-bg { 
   background-color: #f0f4f4;
   min-height: 100vh;
+  transition: background-color 0.3s;
 }
 
 .text-gradient-trucar {
   background: linear-gradient(to right, #00665e, #70c0b0);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -419,6 +420,7 @@ onMounted(() => {
 .glass-input {
   background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(8px);
+  border-radius: 4px;
 }
 
 .glass-badge {
@@ -470,4 +472,71 @@ onMounted(() => {
 .animate-fade { animation: fadeIn 0.4s ease-in-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* =========================================
+   DARK MODE OVERRIDES (DARK FOREST)
+   ========================================= */
+.body--dark {
+  .dashboard-bg { 
+    background-color: #05100e !important; 
+  }
+
+  /* Glass Components */
+  .glass-card {
+    background: rgba(5, 20, 18, 0.7) !important;
+    border-color: rgba(18, 140, 126, 0.2);
+    color: #e0f2f1;
+  }
+
+  .glass-input {
+    background: rgba(18, 140, 126, 0.1) !important;
+    :deep(.q-field__native), :deep(.q-field__label) {
+        color: #b2dfdb !important;
+    }
+    :deep(.q-icon) {
+        color: #80cbc4 !important;
+    }
+  }
+
+  /* Text Colors */
+  .text-teal-9 { color: #80cbc4 !important; }
+  .text-teal-10 { color: #ffffff !important; }
+  .text-teal-8 { color: #b2dfdb !important; }
+  .text-grey-7 { color: #b0bec5 !important; }
+  .text-grey-6 { color: #90a4ae !important; }
+
+  /* KPI Cards Text Adjustments for Dark Mode */
+  .text-orange-8 { color: #ffcc80 !important; } /* Lighter Orange */
+  .text-blue-8 { color: #90caf9 !important; }   /* Lighter Blue */
+  .text-green-8 { color: #a5d6a7 !important; }  /* Lighter Green */
+
+  /* KPI Icon Backgrounds (Darker tint) */
+  .bg-orange-1 { background-color: rgba(251, 140, 0, 0.15) !important; }
+  .bg-blue-1 { background-color: rgba(25, 118, 210, 0.15) !important; }
+  .bg-green-1 { background-color: rgba(67, 160, 71, 0.15) !important; }
+  .bg-teal-1 { background-color: rgba(18, 140, 126, 0.15) !important; }
+
+  /* Tab Text Color */
+  .tab-text-color {
+    color: #80cbc4 !important;
+  }
+
+  /* List Hover */
+  .hover-bg-teal-faded:hover {
+    background-color: rgba(18, 140, 126, 0.15) !important;
+  }
+
+  /* Table Comparison in Dialog */
+  .glass-table {
+    :deep(thead tr) { background: rgba(18, 140, 126, 0.2); }
+    :deep(tbody tr td) { color: #e0f2f1; }
+  }
+  .bg-orange-1 { background-color: rgba(255, 152, 0, 0.1) !important; }
+  .text-orange-9, .text-orange-10 { color: #ffb74d !important; }
+  
+  /* Footer Gradient */
+  .bg-teal-gradient-faded-full {
+    background: linear-gradient(90deg, rgba(18, 140, 126, 0.1) 0%, rgba(0,0,0,0.2) 100%);
+  }
+}
 </style>

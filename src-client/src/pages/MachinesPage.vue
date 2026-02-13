@@ -1,57 +1,84 @@
 <template>
-  <q-page class="q-pa-md q-pa-lg-xl bg-grey-1">
+  <q-page class="q-pa-md q-pa-lg-xl bg-glass-layout">
     
     <div class="row items-center justify-between q-mb-lg q-col-gutter-y-md">
       <div class="col-12 col-md-auto">
-        <h1 class="text-h4 text-weight-bolder q-my-none text-primary flex items-center gap-sm">
-          <q-icon name="precision_manufacturing" size="md" />
+        <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
+          <q-icon name="precision_manufacturing" size="md" class="text-primary" />
           {{ terminologyStore.vehiclePageTitle }}
         </h1>
-        <div class="text-subtitle2 text-grey-7 q-mt-xs">
+        <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
           Gestão de Ativos, CNCs e Equipamentos Industriais
         </div>
       </div>
 
       <div class="col-12 col-md-auto row q-gutter-sm items-center">
-        <q-input outlined dense v-model="searchTerm" placeholder="Buscar..." class="search-input bg-white" style="min-width: 250px">
-          <template v-slot:prepend><q-icon name="search" /></template>
-          <template v-slot:append v-if="searchTerm"><q-icon name="close" @click="searchTerm = ''" class="cursor-pointer" /></template>
+        <q-input 
+          outlined 
+          dense 
+          v-model="searchTerm" 
+          placeholder="Buscar..." 
+          class="search-input glass-input" 
+          style="min-width: 250px"
+        >
+          <template v-slot:prepend><q-icon name="search" class="text-teal-9" /></template>
+          <template v-slot:append v-if="searchTerm"><q-icon name="close" @click="searchTerm = ''" class="cursor-pointer text-teal-9" /></template>
         </q-input>
-        <q-btn-toggle v-model="viewMode" push glossy toggle-color="primary" text-color="grey-9" :options="[{value: 'folders', icon: 'folder_open'}, {value: 'grid', icon: 'grid_view'}]" />
-        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" :label="terminologyStore.addVehicleButtonLabel" unelevated class="q-ml-sm" />
+        
+        <q-btn-toggle 
+          v-model="viewMode" 
+          push 
+          glossy 
+          toggle-color="primary" 
+          text-color="grey-8" 
+          :options="[{value: 'folders', icon: 'folder_open'}, {value: 'grid', icon: 'grid_view'}]" 
+          class="glass-toggle"
+        />
+        
+        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" :label="terminologyStore.addVehicleButtonLabel" unelevated class="q-ml-sm shadow-green" />
       </div>
     </div>
 
     <div v-if="vehicleStore.isLoading" class="row justify-center q-py-xl"><q-spinner-dots size="3em" color="primary" /></div>
-    <div v-else-if="!hasVehicles" class="text-center q-pa-xl text-grey-6"><q-icon name="precision_manufacturing" size="4em" /><div class="text-h6 q-mt-md">Nenhuma máquina encontrada</div></div>
+    <div v-else-if="!hasVehicles" class="text-center q-pa-xl text-grey-6 glass-card opacity-60">
+        <q-icon name="precision_manufacturing" size="4em" />
+        <div class="text-h6 q-mt-md">Nenhuma máquina encontrada</div>
+    </div>
 
     <div v-else>
       
       <div v-if="viewMode === 'folders'" class="q-gutter-y-md animate-fade">
-        <q-expansion-item v-for="(machines, brandName) in groupedVehicles" :key="brandName" class="shadow-1 overflow-hidden bg-white rounded-borders" header-class="bg-grey-2 text-primary text-weight-bold" expand-icon-class="text-primary" :default-opened="!!searchTerm">
+        <q-expansion-item 
+          v-for="(machines, brandName) in groupedVehicles" 
+          :key="brandName" 
+          class="shadow-1 overflow-hidden glass-card rounded-borders" 
+          header-class="bg-glass-header text-primary text-weight-bold" 
+          expand-icon-class="text-primary" 
+          :default-opened="!!searchTerm"
+        >
           <template v-slot:header>
             <q-item-section avatar><q-avatar icon="folder" color="primary" text-color="white" size="sm" font-size="16px" /></q-item-section>
-            <q-item-section><span class="text-h6">{{ brandName }}</span></q-item-section>
-            <q-item-section side><q-badge color="grey-7" :label="`${machines.length} un.`" /></q-item-section>
+            <q-item-section><span class="text-h6 text-teal-10">{{ brandName }}</span></q-item-section>
+            <q-item-section side><q-badge color="grey-7" :label="`${machines.length} un.`" class="glass-badge" /></q-item-section>
           </template>
-          <q-card>
+          <q-card class="bg-transparent">
             <q-card-section class="q-pa-none">
-              <q-list separator>
-                <q-item v-for="vehicle in machines" :key="vehicle.id" clickable v-ripple @click="handleCardClick(vehicle)" class="hover-bg-blue">
+              <q-list separator class="glass-separator">
+                <q-item v-for="vehicle in machines" :key="vehicle.id" clickable v-ripple @click="handleCardClick(vehicle)" class="hover-bg-teal transition-bg">
                   <q-item-section avatar>
                     <q-avatar rounded size="50px" class="shadow-1">
                       <img v-if="getImageUrl(vehicle.photo_url)" :src="getImageUrl(vehicle.photo_url)!" style="object-fit: cover">
-                      <q-icon v-else name="precision_manufacturing" color="grey-6" size="28px" class="bg-grey-2 full-width full-height" />
+                      <q-icon v-else name="precision_manufacturing" color="grey-5" size="28px" class="bg-grey-2 full-width full-height" />
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
                     <div class="row items-center q-gutter-x-sm">
-                        <span class="text-weight-bold text-grey-9">{{ vehicle.model }}</span>
-                        <q-badge outline color="primary" size="sm">{{ vehicle.year }}</q-badge>
+                        <span class="text-weight-bold text-grey-9 vehicle-title">{{ vehicle.model }}</span>
+                        <q-badge outline color="primary" size="sm" class="glass-badge-outline">{{ vehicle.year }}</q-badge>
                     </div>
-                    <q-item-label caption class="row items-center q-gutter-x-xs q-mt-xs">
+                    <q-item-label caption class="row items-center q-gutter-x-xs q-mt-xs text-grey-7">
                       <q-icon name="qr_code" size="xs" /><span>{{ vehicle.identifier || 'S/N' }}</span>
-                      <span class="text-grey-4">|</span>
+                      <span class="text-grey-5">|</span>
                       <q-icon name="speed" size="xs" /><span>{{ (vehicle.current_engine_hours || 0).toFixed(1) }} h</span>
                       <span v-if="vehicle.sap_resource_code" class="text-primary text-weight-bold q-ml-sm">
                          [SAP: {{ vehicle.sap_resource_code }}]
@@ -60,17 +87,23 @@
                     
                     <div class="q-mt-xs" style="max-width: 180px">
                         <div class="row justify-between text-caption" style="font-size: 10px; line-height: 10px">
-                          <span>Manutenção</span>
+                          <span class="text-grey-7">Manutenção</span>
                           <span :class="'text-weight-bold text-' + getMaintenanceColor(vehicle)">
                              {{ getHoursRemaining(vehicle) }}h rest.
                           </span>
                         </div>
-                        <q-linear-progress :value="getMaintenanceProgress(vehicle)" rounded size="4px" :color="getMaintenanceColor(vehicle)" track-color="grey-3" class="q-mt-xs" />
+                        <q-linear-progress 
+                            :value="getMaintenanceProgress(vehicle)" 
+                            rounded size="4px" 
+                            :color="getMaintenanceColor(vehicle)" 
+                            track-color="grey-3" 
+                            class="q-mt-xs glass-progress" 
+                        />
                     </div>
                   </q-item-section>
                   <q-item-section side>
                     <div class="row items-center q-gutter-x-sm">
-                        <q-chip dense :color="getStatusColor(vehicle.status)" text-color="white" class="text-caption text-weight-bold">{{ translateStatusShort(vehicle.status) }}</q-chip>
+                        <q-chip dense :color="getStatusColor(vehicle.status)" text-color="white" class="text-caption text-weight-bold shadow-1">{{ translateStatusShort(vehicle.status) }}</q-chip>
                         <q-btn flat round dense icon="edit" color="grey-7" @click.stop="openEditDialog(vehicle)" />
                     </div>
                   </q-item-section>
@@ -83,11 +116,11 @@
 
       <div v-else class="row q-col-gutter-md animate-fade">
         <div v-for="vehicle in filteredList" :key="vehicle.id" class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
-          <q-card class="column no-wrap full-height vehicle-card" flat bordered @click="handleCardClick(vehicle)">
+          <q-card class="column no-wrap full-height vehicle-card glass-card" flat bordered @click="handleCardClick(vehicle)">
             <div class="relative-position">
               <q-img :src="getImageUrl(vehicle.photo_url) ?? undefined" height="180px" fit="cover" class="bg-grey-3">
                 <template v-slot:error><div class="absolute-full flex flex-center bg-grey-3 text-grey-5"><q-icon name="precision_manufacturing" size="56px" /></div></template>
-                <div class="absolute-bottom text-subtitle2 text-white p-2" style="background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);">
+                <div class="absolute-bottom text-subtitle2 text-white p-2" style="background: linear-gradient(to top, rgba(5,20,18,0.9), transparent);">
                     <div class="text-weight-bold">{{ vehicle.identifier || 'Sem ID' }}</div>
                 </div>
               </q-img>
@@ -98,7 +131,7 @@
               <div class="row justify-between items-start">
                   <div>
                       <div class="text-overline text-grey-7">{{ vehicle.brand }}</div>
-                      <div class="text-h6 text-weight-bold ellipsis">{{ vehicle.model }}</div>
+                      <div class="text-h6 text-weight-bold ellipsis text-teal-10">{{ vehicle.model }}</div>
                       <div v-if="vehicle.sap_resource_code" class="text-caption text-primary text-weight-bold">
                         SAP: {{ vehicle.sap_resource_code }}
                       </div>
@@ -120,20 +153,20 @@
                     size="8px" 
                     :color="getMaintenanceColor(vehicle)" 
                     track-color="red-1"
-                    class="q-mb-sm"
+                    class="q-mb-sm glass-progress"
                 />
             </q-card-section>
 
             <q-card-section class="q-pt-none">
                 <div class="row q-col-gutter-sm">
                   <div class="col-6">
-                    <div class="bg-grey-2 q-pa-sm rounded-borders">
+                    <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
                       <div class="text-caption text-grey-6 text-uppercase">Horímetro</div>
                       <div class="text-weight-bold text-primary">{{ (vehicle.current_engine_hours || 0).toFixed(0) }} h</div>
                     </div>
                   </div>
                   <div class="col-6">
-                    <div class="bg-grey-2 q-pa-sm rounded-borders">
+                    <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
                       <div class="text-caption text-grey-6 text-uppercase">Meta (h)</div>
                       <div class="text-weight-bold text-grey-8">{{ vehicle.next_maintenance_km ? vehicle.next_maintenance_km.toFixed(0) : '--' }}</div>
                     </div>
@@ -141,7 +174,7 @@
                 </div>
             </q-card-section>
             
-            <q-separator />
+            <q-separator class="glass-separator" />
             <q-card-actions align="right" class="q-px-md">
                 <q-btn flat round dense size="sm" color="primary" icon="edit" @click.stop="openEditDialog(vehicle)" />
                 <q-btn flat round dense size="sm" color="negative" icon="delete" @click.stop="promptToDelete(vehicle)" />
@@ -152,7 +185,7 @@
     </div>
     
     <q-dialog v-model="isFormDialogOpen" persistent>
-        <q-card style="width: 600px; max-width: 95vw;">
+        <q-card style="width: 600px; max-width: 95vw;" class="glass-card-dialog">
           <q-card-section class="row items-center bg-primary text-white">
             <div class="text-h6">{{ isEditing ? 'Editar Equipamento' : 'Novo Equipamento' }}</div>
             <q-space />
@@ -170,7 +203,7 @@
                         <div v-if="isUploading" class="absolute-full flex flex-center bg-white" style="opacity: 0.8"><q-spinner color="primary" size="2em" /></div>
                      </q-avatar>
                      <div class="row items-center q-gutter-x-sm">
-                       <q-file v-model="photoFile" label="Alterar Foto" outlined dense accept=".jpg, .png" class="bg-white" style="min-width: 200px" @update:model-value="handlePhotoUpload" :loading="isUploading">
+                       <q-file v-model="photoFile" label="Alterar Foto" outlined dense accept=".jpg, .png" class="glass-input" style="min-width: 200px" @update:model-value="handlePhotoUpload" :loading="isUploading">
                          <template v-slot:prepend><q-icon name="cloud_upload" /></template>
                        </q-file>
                      </div>
@@ -178,8 +211,8 @@
               </div>
 
               <div class="row q-col-gutter-md">
-                  <div class="col-6"><q-input outlined v-model="formData.brand" label="Fabricante *" :rules="[val => !!val || 'Obrigatório']" dense /></div>
-                  <div class="col-6"><q-input outlined v-model="formData.model" label="Modelo *" :rules="[val => !!val || 'Obrigatório']" dense /></div>
+                  <div class="col-6"><q-input outlined v-model="formData.brand" label="Fabricante *" :rules="[val => !!val || 'Obrigatório']" dense class="glass-input" /></div>
+                  <div class="col-6"><q-input outlined v-model="formData.model" label="Modelo *" :rules="[val => !!val || 'Obrigatório']" dense class="glass-input" /></div>
               </div>
 
               <div class="row q-col-gutter-md">
@@ -190,6 +223,7 @@
                     label="Código do Ativo (AT...)" 
                     :rules="[val => !!val || 'Obrigatório']" 
                     dense 
+                    class="glass-input"
                   />
                 </div>
                 
@@ -200,7 +234,7 @@
                     label="Recurso SAP (Ex: 4.02.01)" 
                     hint="Usado para apontamento de produção"
                     dense 
-                    bg-color="yellow-1"
+                    class="glass-input-highlight"
                   >
                     <template v-slot:prepend>
                       <q-icon name="precision_manufacturing" color="orange-8" />
@@ -209,10 +243,10 @@
                 </div>
               </div>
 
-              <q-input outlined v-model="formData.license_plate" label="TAG / Patrimônio" dense />
+              <q-input outlined v-model="formData.license_plate" label="TAG / Patrimônio" dense class="glass-input" />
               
               <div class="row q-col-gutter-md">
-                  <div class="col-6"><q-input outlined v-model.number="formData.year" label="Ano" type="number" dense /></div>
+                  <div class="col-6"><q-input outlined v-model.number="formData.year" label="Ano" type="number" dense class="glass-input" /></div>
                   
                   <div class="col-6">
                       <q-input 
@@ -221,7 +255,7 @@
                         label="Horímetro Atual (h)" 
                         type="number" 
                         dense 
-                        bg-color="grey-1"
+                        class="glass-input"
                         hint="Leitura atual da máquina"
                         @update:model-value="recalcTarget" 
                       />
@@ -231,7 +265,7 @@
               <div class="text-subtitle2 text-primary q-mt-md flex items-center">
                   <q-icon name="build_circle" class="q-mr-xs"/> Plano de Manutenção
               </div>
-              <div class="bg-blue-1 q-pa-md rounded-borders relative-position">
+              <div class="bg-glass-inner q-pa-md rounded-borders relative-position">
                 
                 <div class="row q-col-gutter-md items-start">
                     <div class="col-6">
@@ -241,7 +275,7 @@
                             label="A cada X horas (Ciclo)" 
                             type="number" 
                             dense 
-                            bg-color="white" 
+                            class="glass-input"
                             hint="Ex: 500 para revisar a cada 500h"
                             @update:model-value="recalcTarget"
                         >
@@ -256,8 +290,8 @@
                             label="Próxima Meta (h)" 
                             type="number" 
                             dense 
-                            bg-color="white"
-                            class="text-weight-bold"
+                            class="glass-input"
+                            input-class="text-weight-bold"
                             hint="Calculado: Atual + Ciclo"
                         >
                              <template v-slot:prepend><q-icon name="flag" color="orange"/></template>
@@ -272,7 +306,7 @@
               </div>
 
             </q-card-section>
-            <q-card-actions align="right" class="q-pa-md bg-grey-1">
+            <q-card-actions align="right" class="q-pa-md bg-transparent">
               <q-btn flat label="Cancelar" v-close-popup color="grey-8" />
               <q-btn type="submit" unelevated color="primary" label="Salvar Dados" :loading="isSubmitting" />
             </q-card-actions>
@@ -281,19 +315,19 @@
     </q-dialog>
 
     <q-dialog v-model="isQrDialogOpen">
-        <q-card style="width: 350px">
+        <q-card style="width: 350px" class="glass-card-dialog">
             <q-card-section class="bg-primary text-white text-center">
                 <div class="text-h6">Etiqueta de Máquina</div>
                 <div class="text-caption">{{ selectedVehicleForQr?.model }}</div>
             </q-card-section>
             <q-card-section class="flex flex-center q-pa-lg">
-                <img v-if="selectedVehicleForQr" :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${getQrData(selectedVehicleForQr)}`" style="width: 200px; height: 200px" class="shadow-2">
+                <img v-if="selectedVehicleForQr" :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${getQrData(selectedVehicleForQr)}`" style="width: 200px; height: 200px" class="shadow-2 bg-white q-pa-sm rounded-borders">
             </q-card-section>
-            <q-card-section class="text-center text-grey-8">
+            <q-card-section class="text-center text-teal-9">
                 <div class="text-weight-bold">{{ selectedVehicleForQr?.identifier }}</div>
-                <div class="text-caption" v-if="selectedVehicleForQr?.sap_resource_code">SAP: {{ selectedVehicleForQr?.sap_resource_code }}</div>
+                <div class="text-caption text-grey-7" v-if="selectedVehicleForQr?.sap_resource_code">SAP: {{ selectedVehicleForQr?.sap_resource_code }}</div>
             </q-card-section>
-            <q-card-actions align="center" class="q-pb-md"><q-btn label="Fechar" flat v-close-popup /></q-card-actions>
+            <q-card-actions align="center" class="q-pb-md"><q-btn label="Fechar" flat v-close-popup color="primary" /></q-card-actions>
         </q-card>
     </q-dialog>
 
@@ -303,7 +337,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
+import { useQuasar, setCssVar } from 'quasar';
 import { api } from 'boot/axios';
 import { useVehicleStore } from 'stores/vehicle-store';
 import { useAuthStore } from 'stores/auth-store';
@@ -331,7 +365,6 @@ const photoFile = ref<File | null>(null);
 
 const currentParams = { page: 1, rowsPerPage: 100, search: '' };
 
-// Interface para garantir tipagem estrita no formulário
 interface MachineFormData {
     brand: string;
     model: string;
@@ -339,7 +372,7 @@ interface MachineFormData {
     status: VehicleStatus;
     license_plate: string | null;
     identifier: string | null;
-    sap_resource_code: string | null; // <--- NOVO CAMPO
+    sap_resource_code: string | null;
     current_engine_hours: number;
     current_km: number;
     next_maintenance_km: number | null;
@@ -354,7 +387,7 @@ const formData = ref<MachineFormData>({
     status: VehicleStatus.AVAILABLE,
     license_plate: '',
     identifier: '',
-    sap_resource_code: '', // <--- Inicializa
+    sap_resource_code: '', 
     current_engine_hours: 0,
     current_km: 0,
     next_maintenance_km: null,
@@ -362,7 +395,6 @@ const formData = ref<MachineFormData>({
     photo_url: null
 });
 
-// --- Intervalo Local para cálculo de manutenção ---
 const maintenanceInterval = ref<number>(0);
 
 // --- FILTROS ---
@@ -423,7 +455,6 @@ function getMaintenanceColor(vehicle: Vehicle) {
     return 'positive';
 }
 
-// --- HELPERS E MAPAS TIPADOS ---
 const statusTranslationShort: Record<VehicleStatus, string> = {
     [VehicleStatus.AVAILABLE]: 'Disp.',
     [VehicleStatus.IN_USE]: 'Oper.',
@@ -476,7 +507,7 @@ function openCreateDialog() {
         current_km: 0, 
         license_plate: '',
         identifier: '',
-        sap_resource_code: '', // <--- Limpa
+        sap_resource_code: '',
         next_maintenance_km: 500,
         next_maintenance_date: null,
         photo_url: null
@@ -502,7 +533,7 @@ function openEditDialog(vehicle: Vehicle) {
         status: vehicle.status,
         license_plate: vehicle.license_plate ?? '',
         identifier: vehicle.identifier ?? '',
-        sap_resource_code: vehicle.sap_resource_code ?? '', // <--- Carrega do banco
+        sap_resource_code: vehicle.sap_resource_code ?? '', 
         current_engine_hours: vehicle.current_engine_hours ?? 0,
         current_km: vehicle.current_km,
         next_maintenance_km: vehicle.next_maintenance_km ?? null,
@@ -536,10 +567,9 @@ async function onFormSubmit() {
             model: rawData.model,
             year: Number(rawData.year),
             status: rawData.status,
-            // Use undefined se estiver vazio
             license_plate: rawData.license_plate || undefined,
             identifier: rawData.identifier || undefined,
-            sap_resource_code: rawData.sap_resource_code || undefined, // <--- CORREÇÃO AQUI
+            sap_resource_code: rawData.sap_resource_code || undefined, 
             current_engine_hours: Number(rawData.current_engine_hours || 0),
             next_maintenance_km: rawData.next_maintenance_km ? Number(rawData.next_maintenance_km) : undefined,
             next_maintenance_date: convertDateForBackend(rawData.next_maintenance_date) || undefined,
@@ -613,14 +643,148 @@ function promptToDelete(vehicle: Vehicle) {
 }
 
 onMounted(() => { 
+    setCssVar('primary', '#128c7e');
     void vehicleStore.fetchAllVehicles(currentParams); 
 });
 </script>
 
 <style scoped lang="scss">
-.vehicle-card { cursor: pointer; transition: transform 0.2s; }
-.vehicle-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-.hover-bg-blue:hover { background-color: #f0f9ff; transition: background-color 0.2s; }
+/* --- IDENTIDADE TRUCAR --- */
+.bg-glass-layout {
+  background-color: #f0f4f4; // Default Light
+  min-height: 100vh;
+  transition: background-color 0.3s;
+}
+
+.text-gradient-trucar {
+  background: linear-gradient(to right, #128c7e, #70c0b0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* --- GLASSMORPHISM --- */
+.glass-card, .glass-card-dialog {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+  border-radius: 12px;
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 4px;
+}
+
+.glass-input-highlight {
+  background: rgba(255, 235, 59, 0.1) !important; /* Amarelo leve */
+  backdrop-filter: blur(8px);
+  border-radius: 4px;
+}
+
+.glass-header {
+  background: rgba(18, 140, 126, 0.05);
+}
+
+.glass-badge {
+  background: rgba(18, 140, 126, 0.1) !important;
+  color: #128c7e;
+}
+
+.glass-metric-box {
+  background: rgba(18, 140, 126, 0.05);
+  border: 1px solid rgba(18, 140, 126, 0.1);
+}
+
+.bg-glass-inner {
+  background: rgba(18, 140, 126, 0.05);
+  border-radius: 8px;
+}
+
+/* --- INTERACTIONS --- */
+.vehicle-card { 
+  cursor: pointer; 
+  transition: transform 0.2s, box-shadow 0.2s; 
+}
+.vehicle-card:hover { 
+  transform: translateY(-5px); 
+  box-shadow: 0 10px 25px -5px rgba(18, 140, 126, 0.2);
+  border-color: #128c7e;
+}
+
+.hover-bg-teal:hover { 
+  background-color: rgba(18, 140, 126, 0.08) !important; 
+  transition: background-color 0.2s; 
+}
+
+.shadow-green { box-shadow: 0 4px 14px 0 rgba(18, 140, 126, 0.2); }
 .animate-fade { animation: fadeIn 0.4s ease-in-out; }
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* =========================================
+   DARK MODE OVERRIDES (DARK FOREST)
+   ========================================= */
+.body--dark {
+  .bg-glass-layout { 
+    background-color: #05100e !important; 
+  }
+
+  .glass-card, .glass-card-dialog {
+    background: rgba(5, 20, 18, 0.7) !important;
+    border-color: rgba(18, 140, 126, 0.2);
+    color: #e0f2f1;
+  }
+
+  .glass-input, .glass-input-highlight {
+    background: rgba(18, 140, 126, 0.1) !important;
+    :deep(.q-field__native), :deep(.q-field__label) {
+        color: #b2dfdb !important;
+    }
+    :deep(.q-icon) {
+        color: #80cbc4 !important;
+    }
+  }
+
+  /* Expansion Item Header */
+  .bg-glass-header {
+    background: rgba(18, 140, 126, 0.15) !important;
+  }
+
+  /* Separators */
+  .glass-separator {
+    border-color: rgba(18, 140, 126, 0.2) !important;
+  }
+
+  /* Badges & Metrics */
+  .glass-metric-box {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: rgba(18, 140, 126, 0.2);
+  }
+  .bg-grey-2 {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  .bg-grey-3 {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Texts */
+  .text-teal-9, .text-teal-10 { color: #80cbc4 !important; }
+  .text-grey-9 { color: #ffffff !important; }
+  .text-grey-7, .text-grey-6, .text-grey-8 { color: #b0bec5 !important; }
+  .vehicle-title { color: #80cbc4 !important; }
+
+  /* Buttons */
+  .q-btn-toggle {
+    background: rgba(18, 140, 126, 0.1) !important;
+    color: #b2dfdb !important;
+  }
+  
+  .glass-progress {
+    :deep(.q-linear-progress__track) {
+      opacity: 0.3;
+    }
+  }
+}
 </style>

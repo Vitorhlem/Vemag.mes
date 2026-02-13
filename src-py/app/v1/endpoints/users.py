@@ -8,7 +8,7 @@ from app.schemas.user_schema import UserCreate, UserUpdate, UserPublic, UserStat
 from app.core.security import verify_password
 from app import deps
 from app.models.user_model import User, UserRole
-from sqlalchemy import select
+from sqlalchemy import select, update
 from app.schemas.user_schema import UserDeviceToken
 from app.services.fcm_service import send_push_notification
 from pydantic import BaseModel
@@ -344,15 +344,32 @@ async def register_device_token(
 class DeviceTokenSchema(BaseModel):
     token: str
 
-    
 @router.post("/me/device-token")
 async def update_device_token(
     payload: DeviceTokenSchema,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ):
-    """Salva o token do Firebase do dispositivo atual do usuário"""
+    """
+    Salva o token do Firebase do dispositivo atual.
+    IMPORTANTE: Remove este token de qualquer outro usuário para evitar notificações duplicadas.
+    """
+    
+    # 1. A REGRA DO HIGHLANDER: "Só pode haver um"
+    # Remove este token de qualquer usuário que NÃO seja o atual.
+    # Isso resolve o problema de logar com Admin e depois com Manutenção no mesmo tablet.
+    stmt = update(User).where(
+        User.device_token == payload.token,
+        User.id != current_user.id
+    ).values(device_token=None)
+    
+    await db.execute(stmt)
+    
+    # 2. Salva no usuário atual
     current_user.device_token = payload.token
     db.add(current_user)
+    
     await db.commit()
-    return {"status": "updated"}
+    
+    print(f"📲 Token vinculado ao usuário {current_user.email} (e removido de outros).")
+    return {"status": "updated", "message": "Token vinculado e limpo de sessões anteriores."}
