@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any, Union
-from datetime import datetime
+from datetime import datetime, date
 
 # ============================================================================
 # 1. TIME SLICES (O CORAÇÃO DO MES)
@@ -257,3 +257,35 @@ class AppointmentCreate(BaseModel):
     stop_description: Optional[str] = None
     
     resource_code: Optional[str] = None
+
+class VehicleDailyMetricRead(BaseModel):
+    id: int
+    date: date
+    vehicle_id: int
+    organization_id: int
+    total_hours: float
+    running_hours: float
+    idle_hours: float
+    maintenance_hours: float
+    planned_stop_hours: float
+    availability: float
+    utilization: float
+    top_reasons_snapshot: List[Any] = []
+    closed_at: datetime
+
+    model_config = ConfigDict(from_attributes=True) # Correção para Pydantic v2
+
+# SCHEMA PARA OS CARDS PROFISSIONAIS E GRÁFICO DE PARETO
+class MachinePeriodSummary(BaseModel):
+    total_running: float
+    total_setup: float
+    total_pause: float
+    total_maintenance: float
+    avg_availability: float
+    stop_reasons: List[Any]
+    
+    # Placeholders para KPIs de manutenção
+    mtbf: float = 0.0
+    mttr: float = 0.0
+
+    model_config = ConfigDict(from_attributes=True)

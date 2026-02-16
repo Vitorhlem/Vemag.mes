@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, and_
-from datetime import datetime, date
+from sqlalchemy import select, desc, func, and_, or_
+from datetime import datetime, date, time
 from typing import Optional, List, Dict, Any
 
 # Models
@@ -44,77 +44,89 @@ class ProductionService:
     @staticmethod
     async def consolidate_machine_metrics(db: AsyncSession, target_date: date):
         """
-        Calcula e salva o desempenho das MÁQUINAS.
+        Calcula e salva o desempenho das MÁQUINAS consolidando fatias de tempo.
+        Acumula HORAS por motivo de parada (Pareto de Tempo).
         """
-        print(f"🚜 [CRON] Consolidando Máquinas para: {target_date}")
-        
-        start_of_day = datetime.combine(target_date, datetime.min.time())
-        end_of_day = datetime.combine(target_date, datetime.max.time())
-        
-        # 1. Busca máquinas ativas (que tiveram logs ou estão cadastradas)
-        # Para simplificar, pegamos todas as máquinas da frota
-        # Importe Vehicle dentro do método para evitar ciclo se necessário, ou use select direto
         from app.models.vehicle_model import Vehicle
+        from app.models.production_model import ProductionTimeSlice, VehicleDailyMetric
+        from sqlalchemy import select, or_
+        from datetime import datetime, time as dt_time
+
+        # Termos técnicos que não devem ir para o gráfico de motivos reais
+        BLACKLIST = ["STATUS:", "DISPONÍVEL", "EM USO", "RUNNING", "IDLE", "AVAILABLE", "SISTEMA", "OFFLINE", "PARADA", "EM OPERAÇÃO"]
+
+        start_of_day = datetime.combine(target_date, dt_time.min)
+        end_of_day = datetime.combine(target_date, dt_time.max)
+        
         machines = (await db.execute(select(Vehicle))).scalars().all()
         
         count = 0
         for machine in machines:
-            # 2. Calcula métricas baseadas em TIME SLICES (Mais preciso para máquina)
-            # Precisamos das fatias que tocaram o dia alvo
             q_slices = select(ProductionTimeSlice).where(
                 ProductionTimeSlice.vehicle_id == machine.id,
                 ProductionTimeSlice.start_time <= end_of_day,
-                (ProductionTimeSlice.end_time >= start_of_day) | (ProductionTimeSlice.end_time == None)
+                or_(ProductionTimeSlice.end_time >= start_of_day, ProductionTimeSlice.end_time == None)
             )
             slices = (await db.execute(q_slices)).scalars().all()
             
-            run_sec = 0.0
-            maint_sec = 0.0
-            planned_sec = 0.0
-            idle_sec = 0.0
-            reasons_map = {}
-            
+            run_sec, maint_sec, planned_sec, idle_sec = 0.0, 0.0, 0.0, 0.0
+            reasons_duration_map = {} 
+
             for s in slices:
-                # Recorte do tempo para caber no dia (se a fatia virou a noite)
+                # 1. Definição imediata da variável para evitar NameError
+                reason_raw = (s.reason or "").strip()
+                
+                # 2. Recorte do tempo para o dia alvo
                 s_start = max(s.start_time, start_of_day)
                 s_end = min(s.end_time or datetime.now(), end_of_day)
-                
                 duration = (s_end - s_start).total_seconds()
-                if duration <= 0: continue
+                
+                if duration <= 2: continue # Ignora oscilações menores que 2s
                 
                 cat = (s.category or "").upper()
-                reason = (s.reason or "").upper()
                 
-                if cat == "PRODUCING" or cat == "RUNNING":
+                # 3. Classificação e Acúmulo
+                if cat == "PRODUCING":
                     run_sec += duration
-                elif cat == "PLANNED_STOP" or "SETUP" in reason:
-                    planned_sec += duration
-                elif "MAINTENANCE" in cat or "MANUTENÇÃO" in reason:
+                elif cat == "MAINTENANCE":
                     maint_sec += duration
+                    # Acumula tempo de manutenção no Pareto
+                    if reason_raw:
+                        reasons_duration_map[reason_raw] = reasons_duration_map.get(reason_raw, 0.0) + duration
+                elif cat == "PLANNED_STOP":
+                    planned_sec += duration
+                    # Setup também entra no Pareto como ofensor de tempo planejado
+                    if "SETUP" in reason_raw.upper() or "PREPARAÇÃO" in reason_raw.upper():
+                        reasons_duration_map[reason_raw] = reasons_duration_map.get(reason_raw, 0.0) + duration
                 else:
                     idle_sec += duration
-                    # Motivos de ociosidade
-                    if duration > 60:
-                        lbl = s.reason or "Ocioso"
-                        reasons_map[lbl] = reasons_map.get(lbl, 0) + 1
+                    # Paradas não planejadas (Onde entram os motivos do SAP)
+                    if reason_raw and not any(x in reason_raw.upper() for x in BLACKLIST):
+                        clean_lbl = reason_raw.replace("Status: ", "").replace("Parada: ", "").strip()
+                        reasons_duration_map[clean_lbl] = reasons_duration_map.get(clean_lbl, 0.0) + duration
 
             total_sec = run_sec + maint_sec + planned_sec + idle_sec
-            if total_sec == 0: total_sec = 1 # Evitar div/0
-            
-            # Cálculos OEE Simplificados
-            # Disponibilidade = Tempo Rodando / (Tempo Total - Paradas Planejadas)
-            available_time = total_sec - planned_sec
-            availability = (run_sec / available_time * 100) if available_time > 0 else 0.0
-            
-            # Utilização = Tempo Rodando / Tempo Total Calendário (24h ou Turno)
-            utilization = (run_sec / total_sec * 100)
-            
-            # Top Motivos
-            top_reasons = [{"label": k, "count": v} for k, v in sorted(reasons_map.items(), key=lambda x: x[1], reverse=True)[:3]]
+            if total_sec == 0: continue
 
-            # 3. Persistir
+            # 4. Cálculo de Disponibilidade Real (MES Standard)
+            # Disponibilidade = Tempo Rodando / (Tempo Total - Paradas Planejadas)
+            # Obs: Setup é planejado, mas aqui tratamos como 'indisponibilidade' para o OEE
+            div_avail = total_sec - planned_sec
+            availability = (run_sec / div_avail * 100) if div_avail > 0 else 0.0
+            
+            # 5. Formatação do Top Ofensores (Convertendo Segundos -> Horas)
+            # Usamos o campo 'hours' para o front-end ler
+            top_reasons = [
+                {"label": k, "hours": round(v / 3600, 3)} 
+                for k, v in sorted(reasons_duration_map.items(), key=lambda x: x[1], reverse=True)[:5]
+            ]
+        for machine in machines:
+            # Chama o calculate_oee para este dia específico para pegar o valor idêntico
+            res = await ProductionService.calculate_oee(db, machine.id, start_of_day, end_of_day)
+
+            # 6. Persistência
             q_exist = select(VehicleDailyMetric).where(
-                VehicleDailyMetric.date == target_date,
+                VehicleDailyMetric.date == target_date, 
                 VehicleDailyMetric.vehicle_id == machine.id
             )
             metric = (await db.execute(q_exist)).scalars().first()
@@ -123,21 +135,18 @@ class ProductionService:
                 metric = VehicleDailyMetric(date=target_date, vehicle_id=machine.id, organization_id=1)
                 db.add(metric)
             
-            metric.total_hours = round(total_sec / 3600, 2)
-            metric.running_hours = round(run_sec / 3600, 2)
+            metric.running_hours = round(res["metrics"]["producing_min"] / 60, 2)
             metric.maintenance_hours = round(maint_sec / 3600, 2)
-            metric.planned_stop_hours = round(planned_sec / 3600, 2)
+            metric.planned_stop_hours = round(res["metrics"]["planned_stop_min"] / 60, 2)
             metric.idle_hours = round(idle_sec / 3600, 2)
-            metric.availability = round(availability, 1)
-            metric.utilization = round(utilization, 1)
-            metric.top_reasons_snapshot = top_reasons
+            metric.total_hours = round(total_sec / 3600, 2)
+            metric.availability = res["availability"] # Valor idêntico ao gráfico OEE
+            metric.top_reasons_snapshot = top_reasons 
             metric.closed_at = datetime.now()
-            
             count += 1
             
         await db.commit()
         return count
-
     @staticmethod
     async def open_new_slice(
         db: AsyncSession, 
@@ -147,8 +156,7 @@ class ProductionService:
         session_id: Optional[int] = None,
         order_id: Optional[int] = None
     ) -> ProductionTimeSlice:
-        """Abre uma nova fatia de tempo."""
-        # Define flag de produtividade baseada na categoria
+        """Abre uma nova fatia de tempo. (REMOVIDO COMMIT PREMATURO)"""
         is_productive = category == "PRODUCING"
         
         new_slice = ProductionTimeSlice(
@@ -161,7 +169,7 @@ class ProductionService:
             order_id=order_id
         )
         db.add(new_slice)
-        await db.commit()
+        await db.flush() # Usa flush em vez de commit para manter a transação do handle_event
         return new_slice
 
 
@@ -279,195 +287,120 @@ class ProductionService:
         return count
 
     @staticmethod
-    async def handle_event(
-        db: AsyncSession, 
-        event: ProductionEventCreate
-    ) -> Dict[str, Any]:
-        """
-        Processa um evento bruto vindo do Frontend e gerencia as fatias de tempo.
-        Retorna um dicionário com os dados do Log criado.
-        """
+    async def handle_event(db: AsyncSession, event: ProductionEventCreate) -> Dict[str, Any]:
         timestamp = datetime.now()
-        
-        # 1. Recuperar Entidades (Máquina, Operador, Ordem, Sessão)
         machine = await db.get(Vehicle, event.machine_id)
-        if not machine:
-            raise ValueError("Machine not found")
+        if not machine: raise ValueError("Machine not found")
 
-        # Buscar Sessão Ativa
+        # 1. Busca Sessão e Ordem
         q_session = select(ProductionSession).where(
             ProductionSession.vehicle_id == machine.id,
             ProductionSession.end_time == None
         )
         session = (await db.execute(q_session)).scalars().first()
-        
-        # Buscar Ordem (Se código fornecido ou da sessão)
-        order = None
-        if event.order_code:
-            q_order = select(ProductionOrder).where(ProductionOrder.code == event.order_code)
-            order = (await db.execute(q_order)).scalars().first()
-        elif session and session.production_order_id:
-            order = await db.get(ProductionOrder, session.production_order_id)
+        order = await db.get(ProductionOrder, session.production_order_id) if session and session.production_order_id else None
 
-        # 2. Registrar Log Bruto (Auditoria)
-        # Buscar ID do operador pelo crachá (email ou employee_id)
-        user = None
-        user_id_str = None 
+        # 2. Identificação do Operador
+        user_id_str = str(event.operator_badge)
+        from sqlalchemy import or_
+        q_user = select(User).where(or_(User.employee_id == user_id_str, User.email == user_id_str))
+        user = (await db.execute(q_user)).scalars().first()
+        if user: user_id_str = str(user.id)
 
-        if event.operator_badge:
-            clean_badge = str(event.operator_badge).strip()
-            
-            # Tenta busca robusta
-            from sqlalchemy import or_
-            q_user = select(User).where(or_(
-                User.employee_id == clean_badge,
-                User.email == clean_badge
-            ))
-            user = (await db.execute(q_user)).scalars().first()
-            
-            if user:
-                user_id_str = str(user.id) 
-            else:
-                user_id_str = clean_badge
-
-        # Criação do Log com ID tratado
-        log = ProductionLog(
-            vehicle_id=machine.id,
-            operator_id=user_id_str, 
-            order_id=order.id if order else None,
-            session_id=session.id if session else None,
-            event_type=event.event_type,
-            new_status=event.new_status,
-            previous_status=machine.status, 
-            reason=event.reason,
-            details=event.details,
-            timestamp=timestamp
-        )
-        db.add(log) 
-
-        # 3. Lógica de Fatias de Tempo (Time Slices)
-        status_map_category = {} 
-        
-        if event.new_status:
-            # Mapeamento: Status Frontend -> Categoria TimeSlice (MES)
-            status_map_category = {
-                "EM OPERAÇÃO": "PRODUCING",
-                "RUNNING": "PRODUCING",
-                "IN_USE": "PRODUCING",
-                
-                "MANUTENÇÃO": "PLANNED_STOP", 
-                "SETUP": "PLANNED_STOP",
-                
-                "PARADA": "UNPLANNED_STOP",
-                "STOPPED": "UNPLANNED_STOP",
-                "PAUSED": "UNPLANNED_STOP",
-                
-                "IDLE": "IDLE",
-                "AVAILABLE": "IDLE"
-            }
-            
-            new_category = status_map_category.get(event.new_status.upper(), "UNKNOWN")
-            
-            # Refinamento por Motivo
-            if event.reason and "ALMOÇO" in event.reason.upper():
-                new_category = "PLANNED_STOP"
-            
-            # Fecha fatia anterior
-            await ProductionService.close_current_slice(db, machine.id, timestamp)
-            
-            # Abre nova fatia
-            await ProductionService.open_new_slice(
-                db, 
-                vehicle_id=machine.id, 
-                category=new_category, 
-                reason=event.reason,
-                session_id=session.id if session else None,
-                order_id=order.id if order else None
-            )
-
-            # 4. Atualizar Status "Visual" da Máquina
-            enum_map = {
-                "PRODUCING": VehicleStatus.IN_USE,
-                "PLANNED_STOP": VehicleStatus.MAINTENANCE,
-                "UNPLANNED_STOP": VehicleStatus.STOPPED, 
-                "IDLE": VehicleStatus.AVAILABLE
-            }
-            
-            if new_category == "UNPLANNED_STOP" and event.reason and "QUEBRA" in str(event.reason).upper():
-                 machine.status = VehicleStatus.MAINTENANCE
-            else:
-                 machine.status = enum_map.get(new_category, VehicleStatus.AVAILABLE)
-            
-            db.add(machine)
-
-        # 5. Atualizar Contadores da O.P.
-        if event.event_type == 'COUNT' and order:
-            order.produced_quantity += (event.quantity_good or 0)
-            order.scrap_quantity += (event.quantity_scrap or 0)
-            db.add(order)
-            
-            if session:
-                session.total_produced += (event.quantity_good or 0)
-                session.total_scrap += (event.quantity_scrap or 0)
-                db.add(session)
-
-        # FINALIZAÇÃO
-        await db.commit() 
-        await db.refresh(log) 
-
-        # [REMOVIDO] consolidate_daily_metrics retirado para evitar conflito de tipos
-        
-        return {
-            "id": log.id, 
-            "status": "processed", 
-            "operator_id": log.operator_id,
-            "operator_name": user.full_name if user else "Desconhecido",
-            "new_category": status_map_category.get(str(event.new_status).upper()) if event.new_status else None
+        # 3. MAPEAMENTO MES PROFISSIONAL
+        # Setup vai para PLANNED_STOP (Parada Planejada)
+        status_map = {
+            "EM OPERAÇÃO": "PRODUCING", "RUNNING": "PRODUCING",
+            "MANUTENÇÃO": "MAINTENANCE", 
+            "SETUP": "PLANNED_STOP", # O tempo de Setup cai aqui
+            "PARADA": "UNPLANNED_STOP", "STOPPED": "UNPLANNED_STOP"
         }
+        
+        new_status_upper = (event.new_status or "").upper()
+        category = status_map.get(new_status_upper, "IDLE")
+        final_reason = event.reason if event.reason else event.new_status
+
+        # 4. Gestão de fatias de tempo
+        await ProductionService.close_current_slice(db, machine.id, timestamp)
+        await ProductionService.open_new_slice(
+            db, 
+            vehicle_id=machine.id, 
+            category=category, 
+            reason=final_reason,
+            session_id=session.id if session else None,
+            order_id=order.id if order else None
+        )
+
+        # 5. Log de Auditoria
+        log = ProductionLog(
+            vehicle_id=machine.id, operator_id=user_id_str,
+            event_type=event.event_type, new_status=event.new_status,
+            reason=final_reason, timestamp=timestamp
+        )
+        db.add(log)
+
+        # 6. ATUALIZAÇÃO DO STATUS VISUAL (DASHBOARD)
+        # Mesmo sendo categoria "PLANNED_STOP", visualmente mostramos "Em manutenção" (Vermelho)
+        if new_status_upper == "SETUP":
+            machine.status = "Em manutenção"
+        elif category == "PRODUCING":
+            machine.status = "Em uso"
+        elif category == "UNPLANNED_STOP":
+            machine.status = "Parada"
+        else:
+            machine.status = "Disponível"
+
+        await db.commit()
+        return {"id": log.id, "status": "processed"}
     @staticmethod
     async def calculate_oee(db: AsyncSession, vehicle_id: int, start_date: datetime, end_date: datetime):
         """
-        Calcula OEE baseado nas Fatias de Tempo (Time Slices).
-        Disponibilidade = Tempo Produzindo / (Tempo Total - Paradas Planejadas)
+        Calcula OEE baseado na lógica robusta de classificação de status/motivos.
+        Garante paridade com os cards da EmployeesPage.
         """
-        # Buscar todas as fatias no período
         query = select(ProductionTimeSlice).where(
             ProductionTimeSlice.vehicle_id == vehicle_id,
             ProductionTimeSlice.start_time >= start_date,
-            ProductionTimeSlice.start_time <= end_date,
-            ProductionTimeSlice.duration_seconds > 0 # Só fatias fechadas
+            ProductionTimeSlice.start_time <= end_date
         )
         slices = (await db.execute(query)).scalars().all()
         
-        total_time = sum(s.duration_seconds for s in slices)
-        planned_stop_time = sum(s.duration_seconds for s in slices if s.category == "PLANNED_STOP")
-        producing_time = sum(s.duration_seconds for s in slices if s.category == "PRODUCING")
-        
-        # 1. Disponibilidade
-        operating_time = total_time - planned_stop_time
-        availability = (producing_time / operating_time) if operating_time > 0 else 0
-        
-        # 2. Performance e Qualidade requerem dados da O.P. (Quantidade Teórica vs Real)
-        # Simplificação: Performance = 100% se não tiver cadastro de ciclo padrão
-        performance = 1.0 
-        quality = 1.0
+        run_sec, maint_sec, planned_sec, idle_sec = 0.0, 0.0, 0.0, 0.0
 
-        unplanned_stops = [s for s in slices if s.category == "UNPLANNED_STOP"]
-        num_failures = len(unplanned_stops)
-        total_repair_time = sum(s.duration_seconds for s in unplanned_stops) / 3600 # horas
+        for s in slices:
+            # Recorte temporal para o período
+            s_start = max(s.start_time, start_date)
+            s_end = min(s.end_time or datetime.now(), end_date)
+            duration = (s_end - s_start).total_seconds()
+            if duration <= 0: continue
 
-        operating_time_hours = operating_time / 3600 if operating_time > 0 else 0
-        mtbf = (operating_time_hours / num_failures) if num_failures > 0 else operating_time_hours
-        mttr = (total_repair_time / num_failures) if num_failures > 0 else 0
-    
+            reason_upper = (s.reason or "").upper()
+            cat = (s.category or "").upper()
+
+            # LÓGICA UNIFICADA (Idêntica ao cockpit/dashboard)
+            if cat == "PRODUCING" or any(x in reason_upper for x in ["RUNNING", "OPERATION", "EM OPERAÇÃO", "EM USO"]):
+                run_sec += duration
+            elif cat == "PLANNED_STOP" or any(x in reason_upper for x in ["SETUP", "EM SETUP", "PREPARAÇÃO"]):
+                planned_sec += duration
+            elif cat == "MAINTENANCE" or any(x in reason_upper for x in ["MANUTENÇÃO", "QUEBRA", "CONSERTO"]):
+                maint_sec += duration
+            else:
+                idle_sec += duration
+
+        total_sec = run_sec + maint_sec + planned_sec + idle_sec
+        
+        # Disponibilidade OEE = Tempo Produzindo / (Tempo Total - Paradas Planejadas)
+        operating_time = total_sec - planned_sec
+        availability = (run_sec / operating_time * 100) if operating_time > 0 else 0.0
+        
         return {
-            "oee_percentage": round(availability * performance * quality * 100, 2),
-            "availability": round(availability * 100, 2),
-            "performance": round(performance * 100, 2),
-            "quality": round(quality * 100, 2),
+            "oee_percentage": round(availability, 2), # Simplificado para sua visão
+            "availability": round(availability, 2),
+            "performance": 100.0,
+            "quality": 100.0,
             "metrics": {
-                "total_time_min": total_time / 60,
-                "planned_stop_min": planned_stop_time / 60,
-                "producing_min": producing_time / 60
+                "total_time_min": total_sec / 60,
+                "planned_stop_min": planned_sec / 60,
+                "producing_min": run_sec / 60
             }
         }

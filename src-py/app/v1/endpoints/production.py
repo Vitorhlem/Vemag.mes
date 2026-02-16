@@ -27,27 +27,21 @@ router = APIRouter()
 class MachineStatusUpdate(BaseModel):
     machine_id: int
     status: str
-
-class MachineDailyStats(BaseModel):
+class MachineStatsRealTime(BaseModel): # Nome alterado para evitar conflito
     date: str
     total_running_operator_seconds: float
     total_running_autonomous_seconds: float
     total_paused_operator_seconds: float
     total_maintenance_seconds: float
     total_idle_seconds: float
-    
-    # Campos novos para separar Setup de Pausa Comum
-    total_setup_seconds: float     # <--- NOVO
-    total_pause_seconds: float     # <--- NOVO
-    
+    total_setup_seconds: float
+    total_pause_seconds: float
     formatted_running_operator: str
     formatted_running_autonomous: str
-    formatted_paused_operator: str # Esse continua sendo a soma (Total)
+    formatted_paused_operator: str
     formatted_maintenance: str
-    
-    # Formatações novas
-    formatted_setup: str           # <--- NOVO
-    formatted_pause: str           # <--- NOVO
+    formatted_setup: str
+    formatted_pause: str
 
 
 # ============================================================================
@@ -224,12 +218,13 @@ async def get_employee_stats(
 # ============================================================================
 # 1. ESTATÍSTICAS DA MÁQUINA (CORRIGIDO ASYNC)
 # ============================================================================
-@router.get("/stats/{machine_id}", response_model=MachineDailyStats)
+@router.get("/stats/{machine_id}", response_model=MachineStatsRealTime)
 async def get_machine_stats(
     machine_id: int,
     target_date: date = None,
     db: AsyncSession = Depends(get_db)
 ):
+    """Calcula estatísticas em tempo real para o dia selecionado."""
     if not target_date:
         target_date = date.today()
 
@@ -239,24 +234,23 @@ async def get_machine_stats(
     if target_date == date.today():
         end_of_day = datetime.now()
 
-    # 1. Buscar último log ANTES do dia começar
+    # 1. Busca logs para reconstruir a timeline
     stmt_last = select(ProductionLog).filter(
         ProductionLog.vehicle_id == machine_id,
         ProductionLog.timestamp < start_of_day
     ).order_by(ProductionLog.timestamp.desc()).limit(1)
     
-    result_last = await db.execute(stmt_last)
-    last_log_before = result_last.scalars().first()
+    res_last = await db.execute(stmt_last)
+    last_log_before = res_last.scalars().first()
 
-    # 2. Buscar logs DO DIA
     stmt_logs = select(ProductionLog).filter(
         ProductionLog.vehicle_id == machine_id,
         ProductionLog.timestamp >= start_of_day,
         ProductionLog.timestamp <= end_of_day
     ).order_by(ProductionLog.timestamp.asc())
 
-    result_logs = await db.execute(stmt_logs)
-    todays_logs = result_logs.scalars().all()
+    res_logs = await db.execute(stmt_logs)
+    todays_logs = res_logs.scalars().all()
 
     # --- LÓGICA DE CÁLCULO ---
     current_status = last_log_before.new_status if last_log_before else "IDLE"
@@ -345,28 +339,94 @@ async def get_machine_stats(
     def fmt(seconds):
         return str(timedelta(seconds=int(seconds)))
 
-    return MachineDailyStats(
+    return MachineStatsRealTime(
         date=str(target_date),
         total_running_operator_seconds=stats["running_op"],
         total_running_autonomous_seconds=stats["running_auto"],
-        total_paused_operator_seconds=total_paused,
+        total_paused_operator_seconds=stats["paused_productive"] + stats["paused_unproductive"],
         total_maintenance_seconds=stats["maintenance"],
         total_idle_seconds=stats["idle"],
-        
-        # NOVOS CAMPOS
         total_setup_seconds=stats["paused_productive"],
         total_pause_seconds=stats["paused_unproductive"],
-
-        formatted_running_operator=fmt(stats["running_op"]),
-        formatted_running_autonomous=fmt(stats["running_auto"]),
-        formatted_paused_operator=fmt(total_paused),
-        formatted_maintenance=fmt(stats["maintenance"]),
-        
-        # NOVAS FORMATAÇÕES
-        formatted_setup=fmt(stats["paused_productive"]),
-        formatted_pause=fmt(stats["paused_unproductive"])
+        formatted_running_operator=str(timedelta(seconds=int(stats["running_op"]))),
+        formatted_running_autonomous=str(timedelta(seconds=int(stats["running_auto"]))),
+        formatted_paused_operator=str(timedelta(seconds=int(stats["paused_productive"] + stats["paused_unproductive"]))),
+        formatted_maintenance=str(timedelta(seconds=int(stats["maintenance"]))),
+        formatted_setup=str(timedelta(seconds=int(stats["paused_productive"]))),
+        formatted_pause=str(timedelta(seconds=int(stats["paused_unproductive"])))
     )
 
+
+@router.get("/stats/{machine_id}/history", response_model=List[production_schema.VehicleDailyMetricRead])
+async def get_machine_history_metrics(
+    machine_id: int,
+    days: int = 90,
+    db: AsyncSession = Depends(get_db)
+):
+    """Busca o histórico diário consolidado para o gráfico de linha."""
+    start_date = date.today() - timedelta(days=days)
+    query = select(VehicleDailyMetric).where(
+        VehicleDailyMetric.vehicle_id == machine_id,
+        VehicleDailyMetric.date >= start_date
+    ).order_by(VehicleDailyMetric.date.asc())
+    
+    result = await db.execute(query)
+    metrics = result.scalars().all()
+    return metrics # NUNCA esqueça o return aqui
+
+class MachinePeriodStats(BaseModel):
+    total_running: float
+    total_setup: float
+    total_pause: float
+    total_maintenance: float
+    avg_availability: float
+    stop_reasons: List[dict] # Para o gráfico de barras
+
+# --- BLOCO 3: ROTA DE AGREGAÇÃO PARA OS CARDS PROFISSIONAIS ---
+@router.get("/stats/{machine_id}/period-summary", response_model=production_schema.MachinePeriodSummary)
+async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncSession = Depends(get_db)):
+    start_date = date.today() - timedelta(days=days)
+    query = select(VehicleDailyMetric).where(
+        VehicleDailyMetric.vehicle_id == machine_id,
+        VehicleDailyMetric.date >= start_date
+    )
+    result = await db.execute(query)
+    metrics = result.scalars().all()
+    
+    BLACKLIST = ["STATUS:", "DISPONÍVEL", "EM USO", "RUNNING", "IDLE", "STOPPED", "AVAILABLE", "PARADA", "EM OPERAÇÃO"]
+    
+    reasons_hours_map = {}
+    for m in metrics:
+        for entry in (m.top_reasons_snapshot or []):
+            lbl = str(entry.get('label', 'Outros'))
+            hours = float(entry.get('hours', 0))
+            if not any(x in lbl.upper() for x in BLACKLIST):
+                reasons_hours_map[lbl] = reasons_hours_map.get(lbl, 0) + hours
+
+    sorted_stops = sorted([{"name": k, "value": round(v, 2)} for k, v in reasons_hours_map.items()], 
+                          key=lambda x: x['value'], reverse=True)
+
+    return {
+        "total_running": sum(m.running_hours for m in metrics),
+        "total_setup": sum(m.planned_stop_hours for m in metrics),
+        "total_pause": sum(m.idle_hours for m in metrics), # Card Laranja soma apenas 'idle_hours'
+        "total_maintenance": sum(m.maintenance_hours for m in metrics), # Card Vermelho soma apenas 'maintenance_hours'
+        "avg_availability": (sum(m.availability for m in metrics) / len(metrics)) if metrics else 0,
+        "stop_reasons": sorted_stops[:10],
+        "mtbf": 0.0,
+        "mttr": 0.0
+    }
+@router.post("/consolidate/{machine_id}")
+async def force_machine_consolidation(
+    machine_id: int, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Executa o fechamento de hoje e retorna o sucesso."""
+    try:
+        processed_count = await ProductionService.consolidate_machine_metrics(db, date.today())
+        return {"status": "success", "processed": processed_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 # ============================================================================
 # 2. OPERADOR (Busca por Crachá)
 # ============================================================================
@@ -448,35 +508,23 @@ async def set_machine_status(
     category_mes = "IDLE"
 
     # 1. EM USO / RODANDO
-    if status_upper in ["RUNNING", "IN_USE", "EM USO", "EM OPERAÇÃO", "OPERANDO", "WORKING"]:
+    if status_upper in ["RUNNING", "IN_USE", "EM OPERAÇÃO"]:
         new_status_db = "Em uso"
         category_mes = "PRODUCING"
 
-    # 2. MANUTENÇÃO
-    elif status_upper in ["MAINTENANCE", "BROKEN", "SETUP", "MANUTENÇÃO", "QUEBRADA", "MANUTENCAO", "EM MANUTENÇÃO"]:
-        # Se você não tiver o Enum VehicleStatus importado, use a string direta: "Em manutenção"
-        try:
-            new_status_db = VehicleStatus.MAINTENANCE.value
-        except:
-            new_status_db = "Em manutenção"
-        category_mes = "PLANNED_STOP"
+    elif status_upper in ["MAINTENANCE", "BROKEN", "MANUTENÇÃO", "QUEBRADA"]:
+        new_status_db = "Em manutenção"
+        category_mes = "MAINTENANCE" # ✅ Alterado de PLANNED_STOP para MAINTENANCE
 
-    # 3. PARADA / PAUSA (CORREÇÃO AQUI)
-    elif status_upper in ["STOPPED", "PAUSED", "PARADA", "EM PAUSA", "PAUSA"]:
-        # Tenta pegar do Enum ou usa a string direta
-        try:
-            new_status_db = VehicleStatus.STOPPED.value
-        except:
-            new_status_db = "Parada"
+    elif status_upper in ["SETUP", "PREPARAÇÃO"]:
+        new_status_db = "Em manutenção"
+        category_mes = "PLANNED_STOP" # ✅ Setup continua sendo planejado
+        
+    elif status_upper in ["STOPPED", "PAUSED", "PARADA"]:
+        new_status_db = "Parada"
         category_mes = "UNPLANNED_STOP"
-            
-    # 4. DISPONÍVEL (Padrão para AVAILABLE, IDLE, etc)
     else:
-        # Tenta pegar do Enum ou usa a string direta
-        try:
-            new_status_db = VehicleStatus.AVAILABLE.value
-        except:
-            new_status_db = "Disponível"
+        new_status_db = "Disponível"
         category_mes = "IDLE"
 
     print(f"✅ [BACKEND] Gravando no Banco: '{new_status_db}'")
@@ -566,9 +614,7 @@ async def register_production_event(
     try:
         # 1. Executa o serviço padrão
         result = await ProductionService.handle_event(db, event)
-        print(f"🔍 [PASSO 2] Resultado do Service: {type(result)}")
-        # print(f"   Dados: {result}") # Descomente se quiser ver o objeto inteiro
-
+        
         # 2. Descobre o ID do Log e do Operador de forma segura
         log_id = None
         current_op_id = None
@@ -576,20 +622,15 @@ async def register_production_event(
         if isinstance(result, dict):
             log_id = result.get('id')
             current_op_id = result.get('operator_id')
-            print(f"   -> É um Dicionário. Log ID: {log_id} | Op ID: {current_op_id}")
         else:
-            # Tenta pegar como atributo de objeto ou Pydantic model
             log_id = getattr(result, 'id', None)
             current_op_id = getattr(result, 'operator_id', None)
-            print(f"   -> É um Objeto. Log ID: {log_id} | Op ID: {current_op_id}")
 
-        # 3. Verifica se precisa corrigir
+        # 3. Verifica se precisa corrigir (Caso o service tenha falhado em identificar o operador)
         raw_badge = str(event.operator_badge).strip() if event.operator_badge else ""
         
         if not current_op_id and raw_badge:
-            print(f"⚠️ [FIX] Detectado Log sem Operador (System). Iniciando busca manual por: '{raw_badge}'")
-            
-            # Busca Usuário
+            # Busca Usuário para correção
             query_user = select(User).where(or_(
                 User.employee_id == raw_badge,
                 func.lower(User.email) == raw_badge.lower()
@@ -597,49 +638,20 @@ async def register_production_event(
             res_user = await db.execute(query_user)
             user = res_user.scalars().first()
             
-            if user:
-                print(f"✅ [FIX] Usuário encontrado no DB: {user.full_name} (ID: {user.id})")
-                
-                if log_id:
-                    # Busca o Log real no banco para editar
-                    log_entry = await db.get(ProductionLog, log_id)
-                    if log_entry:
-                        log_entry.operator_id = user.id
-                        db.add(log_entry)
-                        await db.commit()
-                        await db.refresh(log_entry)
-                        print(f"🚀 [FIX] SUCESSO! Log {log_id} atualizado para User ID {user.id}")
-                        
-                        # Atualiza o resultado visual para retornar ao front correto
-                        if isinstance(result, dict):
-                            result['operator_id'] = user.id
-                            result['operator_name'] = user.full_name
-                        else:
-                            # Se for objeto pydantic ou orm, tentamos atualizar
-                            try:
-                                result.operator_id = user.id
-                                # Se tiver campo name no schema de resposta
-                                if hasattr(result, 'operator_name'):
-                                    result.operator_name = user.full_name
-                            except:
-                                pass
-                    else:
-                        print(f"❌ [FIX ERRO] Não consegui recarregar o Log ID {log_id} do banco.")
-                else:
-                    print("❌ [FIX ERRO] O serviço criou o log mas não retornou o ID dele.")
-            else:
-                print(f"❌ [FIX FALHA] Usuário NÃO encontrado no banco para o crachá '{raw_badge}'")
-                
-                # Debug Extra: Mostra quem está no banco pra conferir
-                debug_q = select(User.employee_id, User.full_name).limit(5)
-                d_res = await db.execute(debug_q)
-                print(f"   (Amostra do banco: {d_res.all()})")
+            if user and log_id:
+                # Busca o Log real no banco para editar
+                log_entry = await db.get(ProductionLog, log_id)
+                if log_entry:
+                    # ✅ CORREÇÃO: Converter user.id para str para evitar DataError no PostgreSQL
+                    log_entry.operator_id = str(user.id) 
+                    db.add(log_entry)
+                    await db.commit()
+                    print(f"🚀 [FIX] Log {log_id} atualizado para User ID string: {user.id}")
+                    
+                    if isinstance(result, dict):
+                        result['operator_id'] = str(user.id)
+                        result['operator_name'] = user.full_name
         
-        elif current_op_id:
-            print(f"✅ [OK] O log já foi criado com Operador ID: {current_op_id}. Nenhuma correção necessária.")
-        else:
-            print("ℹ️ [INFO] Sem crachá enviado ou log anônimo intencional.")
-
         return result
 
     except Exception as e:
@@ -651,6 +663,36 @@ async def register_production_event(
 # ============================================================================
 # 7. HISTÓRICO
 # ============================================================================
+
+@router.get("/stats/machine/{machine_id}/cards-summary")
+async def get_machine_cards_summary(
+    machine_id: int,
+    days: int = 90,
+    db: AsyncSession = Depends(deps.get_db)
+):
+    """Retorna a soma de horas e quantidades de cada Card (OP) processado na máquina."""
+    start_date = datetime.now() - timedelta(days=days)
+    
+    # Busca appointments agregados por Ordem de Produção
+    # Aqui unimos a ProductionAppointment com ProductionOrder
+    stmt = (
+        select(
+            ProductionAppointment.op_number,
+            func.sum(func.extract('epoch', ProductionAppointment.end_time - ProductionAppointment.start_time) / 3600).label('total_hours'),
+            func.sum(ProductionAppointment.produced_qty).label('total_produced'),
+            func.sum(ProductionAppointment.scrap_qty).label('total_scrap')
+        )
+        .where(
+            ProductionAppointment.vehicle_id == machine_id,
+            ProductionAppointment.start_time >= start_date,
+            ProductionAppointment.appointment_type == "PRODUCTION"
+        )
+        .group_by(ProductionAppointment.op_number)
+        .order_by(desc('total_hours'))
+    )
+    
+    result = await db.execute(stmt)
+    return [dict(row._mapping) for row in result.all()]
 @router.get("/history/{machine_id}", response_model=List[production_schema.ProductionLogRead])
 async def get_machine_history(
     machine_id: int,

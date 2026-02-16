@@ -531,8 +531,6 @@ async function loginOperator(scannedCode: string) {
       // 1. Registra o Log
       await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
       
-      // 2. FORÇA O STATUS NO BANCO (Isso corrige o dashboard)
-      await setMachineStatus('RUNNING');
   }
 
   async function pauseProduction(reason: string) { 
@@ -561,9 +559,6 @@ async function loginOperator(scannedCode: string) {
                   new_status: 'AVAILABLE', 
                   reason: 'Fim de Setup' 
               });
-
-              // 2. Libera a máquina no banco (Dashboard fica Verde/Disponível)
-              await setMachineStatus('AVAILABLE');
 
               // 3. Atualiza estado local da Ordem
               if (activeOrder.value) {

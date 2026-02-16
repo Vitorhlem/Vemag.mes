@@ -3,7 +3,8 @@ from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from datetime import date, timedelta, datetime
 import asyncio
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, async_session
+from celery.schedules import crontab
 from app.models.production_model import ProductionAppointment
 from sqlalchemy import select
 
@@ -125,3 +126,24 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             return f"Finalizado: {new_entry.id} (SAP: {new_entry.sap_status})"
 
     return run_async(_logic())
+
+@celery_app.task(name="tasks.daily_production_closing")
+def daily_production_closing():
+    """Tarefa automática que roda à meia-noite para fechar o dia anterior."""
+    import asyncio
+    yesterday = date.today() - timedelta(days=1)
+    
+    async def run_closing():
+        async with async_session() as db:
+            await ProductionService.consolidate_machine_metrics(db, yesterday)
+            await ProductionService.consolidate_daily_metrics(db, yesterday)
+    
+    asyncio.run(run_closing())
+
+# Configuração do Beat (No arquivo de configuração do Celery)
+celery_app.conf.beat_schedule = {
+    'close-production-every-night': {
+        'task': 'tasks.daily_production_closing',
+        'schedule': crontab(hour=0, minute=5), # 00:05 AM
+    },
+}
