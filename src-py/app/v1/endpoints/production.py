@@ -33,6 +33,7 @@ class MachineStatsRealTime(BaseModel): # Nome alterado para evitar conflito
     total_running_autonomous_seconds: float
     total_paused_operator_seconds: float
     total_maintenance_seconds: float
+    total_micro_stop_seconds: float  # <--- ADICIONADO
     total_idle_seconds: float
     total_setup_seconds: float
     total_pause_seconds: float
@@ -42,6 +43,7 @@ class MachineStatsRealTime(BaseModel): # Nome alterado para evitar conflito
     formatted_maintenance: str
     formatted_setup: str
     formatted_pause: str
+    formatted_micro_stop: str       # <--- ADICIONADO
 
 
 # ============================================================================
@@ -224,7 +226,7 @@ async def get_machine_stats(
     target_date: date = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Calcula estatísticas em tempo real para o dia selecionado."""
+    """Calcula estatísticas em tempo real separando Micro-paradas (< 5 min)."""
     if not target_date:
         target_date = date.today()
 
@@ -234,7 +236,7 @@ async def get_machine_stats(
     if target_date == date.today():
         end_of_day = datetime.now()
 
-    # 1. Busca logs para reconstruir a timeline
+    # 1. Busca logs
     stmt_last = select(ProductionLog).filter(
         ProductionLog.vehicle_id == machine_id,
         ProductionLog.timestamp < start_of_day
@@ -252,7 +254,7 @@ async def get_machine_stats(
     res_logs = await db.execute(stmt_logs)
     todays_logs = res_logs.scalars().all()
 
-    # --- LÓGICA DE CÁLCULO ---
+    # --- INICIALIZAÇÃO CORRIGIDA ---
     current_status = last_log_before.new_status if last_log_before else "IDLE"
     is_operator_present = (last_log_before.event_type == 'LOGIN') if last_log_before else False
     current_reason = last_log_before.reason if last_log_before else ""
@@ -260,14 +262,14 @@ async def get_machine_stats(
     stats = {
         "running_op": 0.0,
         "running_auto": 0.0,
-        "paused_productive": 0.0,
-        "paused_unproductive": 0.0,
+        "setup": 0.0,
+        "pause": 0.0,        # Chave corrigida
+        "micro_stop": 0.0,   # Nova chave
         "maintenance": 0.0,
         "idle": 0.0
     }
 
     timeline = []
-    
     timeline.append({
         "time": start_of_day, 
         "status": current_status, 
@@ -276,65 +278,54 @@ async def get_machine_stats(
     })
 
     for log in todays_logs:
-        if log.event_type == 'LOGIN':
-            is_operator_present = True
-        elif log.event_type == 'LOGOUT':
-            is_operator_present = False
-        
-        if log.new_status:
-            current_status = log.new_status
-        
-        if log.reason:
-            current_reason = log.reason
+        if log.event_type == 'LOGIN': is_operator_present = True
+        elif log.event_type == 'LOGOUT': is_operator_present = False
+        if log.new_status: current_status = log.new_status
+        if log.reason: current_reason = log.reason
 
         timeline.append({
             "time": log.timestamp,
             "status": current_status,
             "has_op": is_operator_present,
-            "reason": log.reason or ""
+            "reason": current_reason
         })
 
     timeline.append({"time": end_of_day, "status": "IGNORE", "has_op": False, "reason": ""})
 
+    # --- LÓGICA DE PROCESSAMENTO ---
     for i in range(len(timeline) - 1):
-        segment_start = timeline[i]
-        segment_end = timeline[i+1]
+        seg = timeline[i]
+        duration = (timeline[i+1]["time"] - seg["time"]).total_seconds()
+        if duration <= 0: continue
         
-        duration = (segment_end["time"] - segment_start["time"]).total_seconds()
-        
-        st = str(segment_start["status"]).upper()
-        reason = str(segment_start.get("reason", "")).upper()
-        op = segment_start["has_op"]
+        st = str(seg["status"]).upper()
+        reason = str(seg.get("reason", "")).upper()
+        op = seg["has_op"]
 
         # 1. MANUTENÇÃO
-        if "MAINTENANCE" in st or "MANUTENÇÃO" in st or "MANUTENCAO" in st:
+        if any(x in st for x in ["MAINTENANCE", "MANUTENÇÃO", "MANUTENCAO"]):
             stats["maintenance"] += duration
         
         # 2. RODANDO (PRODUÇÃO)
-        elif "RUNNING" in st or "EM OPERAÇÃO" in st or "EM USO" in st or "IN_USE" in st:
-            if op:
-                stats["running_op"] += duration
-            else:
-                stats["running_auto"] += duration
+        elif any(x in st for x in ["RUNNING", "EM OPERAÇÃO", "EM USO", "IN_USE"]):
+            if op: stats["running_op"] += duration
+            else: stats["running_auto"] += duration
         
-        # 3. PAUSAS E SETUP (AQUI ESTAVA O PROBLEMA)
-        # Adicionei "SETUP" e "EM PREPARAÇÃO" na verificação principal
-        elif ("PAUSED" in st or "PARADA" in st or "STOPPED" in st or "AVAILABLE" in st or "DISPONÍVEL" in st or "SETUP" in st or "PREPARAÇÃO" in st):
+        # 3. PARADAS, SETUP E MICRO-PARADAS
+        elif any(x in st for x in ["PAUSED", "PARADA", "STOPPED", "AVAILABLE", "IDLE", "SETUP", "PREPARAÇÃO"]):
             if op:
-                # Classificação: O que é Produtivo vs Improdutivo
-                # Se o status ou motivo for explicitamente SETUP, vai para paused_productive (Card Roxo)
-                if "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason or "MEDIÇÃO" in reason or "LIMPEZA" in reason:
-                    stats["paused_productive"] += duration
+                # Setup é sempre Setup independente do tempo
+                if "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason:
+                    stats["setup"] += duration
+                # Se for outra parada e durar menos de 5 min (300s) -> Micro-parada
+                elif duration < 300:
+                    stats["micro_stop"] += duration
                 else:
-                    # Pausa comum (Banheiro, etc) -> Card Laranja
-                    stats["paused_unproductive"] += duration
+                    stats["pause"] += duration
             else:
                 stats["idle"] += duration 
-        
         else:
             stats["idle"] += duration
-
-    total_paused = stats["paused_productive"] + stats["paused_unproductive"]
 
     def fmt(seconds):
         return str(timedelta(seconds=int(seconds)))
@@ -343,19 +334,20 @@ async def get_machine_stats(
         date=str(target_date),
         total_running_operator_seconds=stats["running_op"],
         total_running_autonomous_seconds=stats["running_auto"],
-        total_paused_operator_seconds=stats["paused_productive"] + stats["paused_unproductive"],
+        total_paused_operator_seconds=stats["pause"] + stats["micro_stop"],
         total_maintenance_seconds=stats["maintenance"],
         total_idle_seconds=stats["idle"],
-        total_setup_seconds=stats["paused_productive"],
-        total_pause_seconds=stats["paused_unproductive"],
-        formatted_running_operator=str(timedelta(seconds=int(stats["running_op"]))),
-        formatted_running_autonomous=str(timedelta(seconds=int(stats["running_auto"]))),
-        formatted_paused_operator=str(timedelta(seconds=int(stats["paused_productive"] + stats["paused_unproductive"]))),
-        formatted_maintenance=str(timedelta(seconds=int(stats["maintenance"]))),
-        formatted_setup=str(timedelta(seconds=int(stats["paused_productive"]))),
-        formatted_pause=str(timedelta(seconds=int(stats["paused_unproductive"])))
+        total_setup_seconds=stats["setup"],
+        total_pause_seconds=stats["pause"],
+        total_micro_stop_seconds=stats["micro_stop"],
+        formatted_running_operator=fmt(stats["running_op"]),
+        formatted_running_autonomous=fmt(stats["running_auto"]),
+        formatted_paused_operator=fmt(stats["pause"] + stats["micro_stop"]),
+        formatted_maintenance=fmt(stats["maintenance"]),
+        formatted_setup=fmt(stats["setup"]),
+        formatted_pause=fmt(stats["pause"]),
+        formatted_micro_stop=fmt(stats["micro_stop"])
     )
-
 
 @router.get("/stats/{machine_id}/history", response_model=List[production_schema.VehicleDailyMetricRead])
 async def get_machine_history_metrics(
@@ -393,40 +385,49 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
     result = await db.execute(query)
     metrics = result.scalars().all()
     
-    BLACKLIST = ["STATUS:", "DISPONÍVEL", "EM USO", "RUNNING", "IDLE", "STOPPED", "AVAILABLE", "PARADA", "EM OPERAÇÃO"]
-    
+    total_records = len(metrics)
+    if total_records == 0:
+        return {"total_running": 0, "total_setup": 0, "total_pause": 0, "total_maintenance": 0, "total_micro_stops": 0, "avg_availability": 0, "stop_reasons": [], "mtbf": 0, "mttr": 0}
+
     reasons_hours_map = {}
     for m in metrics:
         for entry in (m.top_reasons_snapshot or []):
-            lbl = str(entry.get('label', 'Outros'))
+            lbl = entry.get('label', 'Outros')
             hours = float(entry.get('hours', 0))
-            if not any(x in lbl.upper() for x in BLACKLIST):
-                reasons_hours_map[lbl] = reasons_hours_map.get(lbl, 0) + hours
+            reasons_hours_map[lbl] = reasons_hours_map.get(lbl, 0) + hours
 
     sorted_stops = sorted([{"name": k, "value": round(v, 2)} for k, v in reasons_hours_map.items()], 
                           key=lambda x: x['value'], reverse=True)
 
     return {
-        "total_running": sum(m.running_hours for m in metrics),
-        "total_setup": sum(m.planned_stop_hours for m in metrics),
-        "total_pause": sum(m.idle_hours for m in metrics), # Card Laranja soma apenas 'idle_hours'
-        "total_maintenance": sum(m.maintenance_hours for m in metrics), # Card Vermelho soma apenas 'maintenance_hours'
-        "avg_availability": (sum(m.availability for m in metrics) / len(metrics)) if metrics else 0,
+        "total_running": round(sum(m.running_hours for m in metrics), 1),
+        "total_setup": round(sum(m.planned_stop_hours for m in metrics), 1),
+        "total_pause": round(sum(m.idle_hours for m in metrics), 1),
+        "total_maintenance": round(sum(m.maintenance_hours for m in metrics), 1),
+        "total_micro_stops": round(sum(m.micro_stop_hours for m in metrics), 1),
+        "avg_availability": round(sum(m.availability for m in metrics) / total_records, 1),
         "stop_reasons": sorted_stops[:10],
-        "mtbf": 0.0,
-        "mttr": 0.0
+        "mtbf": round(sum(m.mtbf for m in metrics) / total_records, 1),
+        "mttr": round(sum(m.mttr for m in metrics) / total_records, 1)
     }
 @router.post("/consolidate/{machine_id}")
 async def force_machine_consolidation(
     machine_id: int, 
     db: AsyncSession = Depends(get_db)
 ):
-    """Executa o fechamento de hoje e retorna o sucesso."""
+    print(f"\n🚀 [ENDPOINT] Solicitação de consolidação para Máquina {machine_id}")
     try:
+        # Chama a função de consolidação
         processed_count = await ProductionService.consolidate_machine_metrics(db, date.today())
+        print(f"🚀 [ENDPOINT] Sucesso! Processado: {processed_count}")
         return {"status": "success", "processed": processed_count}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ [ENDPOINT ERROR] Detalhe: {str(e)}")
+        # Retorna o erro detalhado para o frontend ver no console do navegador
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro interno ao consolidar: {str(e)}"
+        )
 # ============================================================================
 # 2. OPERADOR (Busca por Crachá)
 # ============================================================================

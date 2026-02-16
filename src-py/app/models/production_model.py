@@ -48,7 +48,9 @@ class VehicleDailyMetric(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
-    
+    micro_stop_hours = Column(Float, default=0.0)
+    mtbf = Column(Float, default=0.0)
+    mttr = Column(Float, default=0.0)
     # Sem ForeignKey explícita para evitar conflito de importação
     vehicle_id = Column(Integer, nullable=False)
     organization_id = Column(Integer, nullable=False)

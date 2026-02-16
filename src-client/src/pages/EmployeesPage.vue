@@ -121,7 +121,15 @@
                             </q-card-section>
                         </q-card>
                     </div>
-
+                    <div class="col-12 col-md">
+    <q-card class="full-height glass-card border-left-black shadow-sm">
+        <q-card-section>
+            <div class="text-caption text-uppercase text-weight-bold text-black opacity-80">Micro-paradas</div>
+            <div class="text-h4 text-weight-bolder q-mt-sm text-black">{{ machineStats?.formatted_micro_stop || '00:00:00' }}</div>
+            <div class="text-caption text-grey-8">Paradas < 5 min.</div>
+        </q-card-section>
+    </q-card>
+</div>
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-orange shadow-sm">
                             <q-card-section>
@@ -180,18 +188,17 @@
                         <q-card class="full-height glass-card shadow-green relative-position overflow-hidden">
                         <div class="absolute-full bg-teal-gradient-faded opacity-20"></div>
                         <q-card-section class="column items-center justify-center text-center q-py-lg">
-                            <div class="text-h6 text-teal-9 text-uppercase">Disponibilidade</div>
-                            <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
-                                {{ mesStore.oeeData?.oee_percentage || 0 }}<span class="text-h5">%</span>
-                            </div>
-                            <q-badge 
-                              :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
-                              :class="{ 'animate-pulse shadow-red': (mesStore.oeeData?.oee_percentage || 0) < 65 }"
-                              class="q-py-xs q-px-md text-caption text-weight-bold"
-                            >
-                                {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
-                            </q-badge>
-                        </q-card-section>
+    <div class="text-h6 text-teal-9 text-uppercase">Disponibilidade</div>
+    <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
+        {{ mesStore.oeeData?.oee_percentage ?? 0 }}<span class="text-h5">%</span>
+    </div>
+    <q-badge 
+        :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
+        class="q-py-xs q-px-md text-caption text-weight-bold"
+    >
+        {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
+    </q-badge>
+</q-card-section>
                         </q-card>
                     </div>
 
@@ -257,9 +264,8 @@
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-purple"></div> Setup</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-orange"></div> Pausa/Ocioso</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-red"></div> Manutenção</div>
-                            <div class="row items-center q-mr-md">
-  <div class="box-legend q-mr-sm" style="background-color: #2196F3"></div>
-  <span class="text-caption">Troca de Turno (Autônomo)</span>
+                            <div class="row items-center"><div class="q-mr-xs legend-dot bg-black"></div> Micro-parada</div>
+                            <div class="row items-center q-mr-md"> <div class="box-legend q-mr-sm" style="background-color: #2196F3"></div><span class="text-caption">Troca de Turno (Autônomo)</span>
 </div>
                         </div>
                     </q-card-section>
@@ -522,7 +528,8 @@ function translateEventType(type: string): string {
         'STEP_COMPLETE': 'Conclusão de Etapa',
         'COUNT': 'Apontamento Qtd',
         'MAINTENANCE_REQ': 'Solicitação Manut.',
-        'AUTONOMOUS': 'Autonôma'
+        'AUTONOMOUS': 'Autonôma',
+        'RUNNING': 'Em Operação',
     };
     return map[type] || type;
 }
@@ -532,50 +539,55 @@ function goToUserProfile(userId: number) {
     }
 }
 
-function translateStatus(status: string): string {
+function translateStatus(status: string, block?: any): string {
     const s = String(status || '').toUpperCase();
-    if (s.includes('RUNNING') || s.includes('OPERATION') || s.includes('EM USO')) return 'EM OPERAÇÃO';
-    if (s.includes('PAUSED') || s.includes('STOPPED')) return 'PAUSADA';
+    const cat = String(block?.category || '').toUpperCase();
+    const duration = block?.duration_min || 0;
+
+    // 1. Regra de Micro-parada (Menos de 5 minutos e não ser Produção)
+    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO');
+    if (cat === 'MICRO_STOP' || (duration > 0 && duration < 5 && !isProducing)) {
+        return 'MICRO-PARADA';
+    }
+    
+    if (isProducing) return 'EM OPERAÇÃO';
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'PAUSADA';
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'MANUTENÇÃO';
-    if (s.includes('IDLE')) return 'DISPONÍVEL';
+    if (s.includes('IDLE') || s.includes('DISPONÍVEL')) return 'DISPONÍVEL';
     if (s.includes('SETUP')) return 'EM SETUP';
-    if (s.includes('AVAILABLE')) return 'PARADA';
+    
     return status;
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase();
+    const cat = String(block.category || '').toUpperCase();
+    const duration = block.duration_min || 0;
+
+    // 1. REGRA DE MICRO-PARADA (PRETO)
+    // Se durar menos de 5 min e não for produção, prioridade total na cor PRETA
+    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO');
     
-    // 1. Se o status for o que definimos na store como autônomo, é azul.
-    if (s === 'AUTONOMOUS') {
-        return 'blue';
+    if (cat === 'MICRO_STOP' || (duration > 0 && duration < 5 && !isProducing)) {
+        return 'black';
     }
 
-    // 2. Se for manutenção, é vermelho.
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) {
-        return 'red';
-    }
-
-    // 3. Se for setup, é roxo.
-    if (s.includes('SETUP')) {
-        return 'purple';
-    }
-
-    // 4. Se for RUNNING (incluindo o log de Login que agora é Running), é verde.
-    if (s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO')) {
-        return 'green';
-    }
-
-    // 5. Se for pausa, é laranja.
-    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) {
-        return 'orange';
-    }
+    // 2. Outras cores
+    if (s === 'AUTONOMOUS') return 'blue';
+    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'red';
+    if (s.includes('SETUP')) return 'purple';
+    if (isProducing) return 'green';
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'orange';
     
     return 'grey';
 }
 
 function getStatusColor(status: string) {
     const s = String(status).toUpperCase();
+    
+    // Se o backend já mandou como MICRO_STOP
+    if (s === 'MICRO_STOP') return 'black';
+    
     if (s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('EM USO')) return 'positive';
     if (s.includes('STOPPED') || s.includes('PAUSA')) return 'orange';
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'negative';
@@ -691,6 +703,7 @@ onMounted(async () => {
   transition: background-color 0.3s;
 }
 
+.text-black { color: #000000 !important; }
 .text-gradient-trucar {
   background: linear-gradient(to right, #128c7e, #70c0b0);
   -webkit-background-clip: text;
@@ -741,6 +754,7 @@ onMounted(async () => {
 .border-left-orange { border-left: 5px solid #ff9800; }
 .border-left-red { border-left: 5px solid #f44336; }
 .border-left-purple { border-left: 5px solid #9C27B0; }
+.border-left-black { border-left: 5px solid #000000; }
 
 .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
 

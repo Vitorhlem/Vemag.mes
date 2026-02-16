@@ -299,10 +299,7 @@ async function loginOperator(scannedCode: string) {
 
       // 2. SEMPRE envia o evento de LOGIN (Independente se a máquina roda ou não)
       // É este evento que "abre" a porta para o KPI humano.
-      await sendEvent('LOGIN', { 
-          new_status: activeOrder.value?.status || 'IDLE',
-          reason: 'Troca de Turno / Início' 
-      }, operator.employee_id);
+
 
       // 3. Se a máquina já estava rodando, enviamos o STATUS_CHANGE logo em seguida
       const machineIsWorking = activeOrder.value && 
@@ -400,7 +397,7 @@ async function loginOperator(scannedCode: string) {
         operator_badge: currentOperatorBadge.value,
         event_type: 'LOGOUT',
         new_status: statusToSend, 
-        reason: 'Logoff / Troca de Turno'
+        reason: 'Manutenção / Troca de Turno'
       });
       await setMachineStatus(statusToSend);
 

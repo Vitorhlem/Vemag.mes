@@ -156,17 +156,7 @@
       </div>
       
       <div class="row q-col-gutter-md q-mb-xl">
-         <div class="col-12 col-sm-6 col-lg-3">
-           <MetricCard 
-             title="Custo Hora Máquina" 
-             :value="107.45" 
-             unit="R$/h" 
-             icon="attach_money" 
-             color="teal-8" 
-             class="metric-clean glass-card"
-             tooltip="Média dos últimos 30 dias"
-           />
-         </div>
+         
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
              title="Disponibilidade" 
@@ -178,17 +168,7 @@
              :formatter="(v: number) => v.toFixed(1)" 
            />
          </div>
-         <div class="col-12 col-sm-6 col-lg-3">
-           <MetricCard 
-             title="Custo Variável (Mês)" 
-             :value="variableCostTotal" 
-             unit="R$" 
-             icon="account_balance_wallet" 
-             color="emerald-9" 
-             class="metric-clean glass-card"
-             :formatter="(v: number) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`" 
-           />
-         </div>
+         
          <div class="col-12 col-sm-6 col-lg-3">
            <MetricCard 
              title="Taxa de Utilização" 
