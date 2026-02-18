@@ -249,10 +249,8 @@ async function loadKioskConfig() {
   };
 
   try {
-    // Tenta avisar o servidor em tempo real
     await api.post('/production/machine/status', statusPayload);
   } catch (error: any) {
-    // 1. INTERCEPTAÇÃO OFFLINE: Agenda a mudança de status para o sync
     if (!error.response || error.code === 'ECONNABORTED') {
       await db.sync_queue.add({
         type: 'STATUS_UPDATE',
@@ -260,28 +258,17 @@ async function loadKioskConfig() {
         timestamp: statusPayload.timestamp,
         status: 'pending'
       });
-      console.warn(`[OFFLINE] Mudança de status (${status}) agendada.`);
     }
   } finally {
-    // 2. ATUALIZAÇÃO LOCAL (UI): Independente da rede, o operador vê a mudança na tela
     if (currentMachine.value) {
       const s = status.toUpperCase();
-      
-      if (['RUNNING', 'IN_USE', 'EM USO', 'PRODUCING'].includes(s)) {
-        currentMachine.value.status = 'Em uso';
-      } 
-      else if (['AVAILABLE', 'IDLE', 'DISPONIVEL', 'STOPPED'].includes(s)) {
-        currentMachine.value.status = 'Disponível';
-      } 
-      else if (['MAINTENANCE', 'BROKEN', 'SETUP', 'MANUTENÇÃO'].includes(s)) {
-        currentMachine.value.status = 'Manutenção';
-      } 
-      else if (['PAUSED', 'PARADA', 'PAUSA'].includes(s)) {
-        currentMachine.value.status = 'Em Pausa'; 
-      }
-      else {
-        currentMachine.value.status = status;
-      }
+      const map: Record<string, string> = {
+        'RUNNING': 'Em uso', 'IN_USE': 'Em uso', 'EM USO': 'Em uso', 'PRODUCING': 'Em uso',
+        'AVAILABLE': 'Disponível', 'IDLE': 'Disponível', 'DISPONIVEL': 'Disponível',
+        'MAINTENANCE': 'Manutenção', 'SETUP': 'Setup', 'OCIOSO': 'Ociosidade', 'OCIOSIDADE': 'Ociosidade',
+        'IN_USE_AUTONOMOUS': 'Produção Autônoma', 'PRODUÇÃO AUTÔNOMA': 'Produção Autônoma'
+      };
+      currentMachine.value.status = map[s] || status;
     }
   }
 }
@@ -368,7 +355,7 @@ async function loginOperator(scannedCode: string) {
   async function logoutOperator(overrideStatus?: string, keepActiveOrder = false) {
     if (!machineId.value) return;
     
-    // Se não tiver badge (já saiu), ignora
+    // Se não tiver crachá, apenas limpa o estado local e sai
     if (!currentOperatorBadge.value) {
         currentOperator.value = null;
         if (!keepActiveOrder) {
@@ -378,49 +365,140 @@ async function loginOperator(scannedCode: string) {
         return;
     }
 
-    let statusToSend = 'AVAILABLE';
-    let visualStatus = 'Disponível';
+    const statusMap: Record<string, string> = {
+        'AVAILABLE': 'Disponível',
+        'IN_USE': 'Em uso',
+        'IN_USE_AUTONOMOUS': 'Produção Autônoma',
+        'SETUP': 'Setup',
+        'MAINTENANCE': 'Em manutenção',
+        'STOPPED': 'Parada',
+        'OCIOSO': 'Ociosidade'
+    };
 
-    // Lógica de Status
-    if (overrideStatus === 'MAINTENANCE' || isMachineBroken.value) {
-        statusToSend = 'MAINTENANCE';
-        visualStatus = 'Em manutenção';
-    } else if (keepActiveOrder && activeOrder.value?.status === 'RUNNING') {
-        // MÁQUINA CONTINUA RODANDO SEM OPERADOR
-        statusToSend = 'RUNNING'; 
-        visualStatus = 'Em Operação (Turno)';
+    let targetStatus = overrideStatus || 'AVAILABLE';
+
+    if (isMachineBroken.value) {
+        targetStatus = 'MAINTENANCE';
+    } else if (keepActiveOrder && !overrideStatus) {
+        targetStatus = 'IN_USE_AUTONOMOUS';
     }
 
+    // --- 🎯 LÓGICA DE MOTIVO DINÂMICA ---
+    // Se for manter a ordem (Troca de turno), o motivo é "Troca de Turno".
+    // Caso contrário, é apenas "Saída" (Logout comum).
+    const reasonText = keepActiveOrder ? 'Troca de Turno' : 'Saída';
+
     try {
-      await api.post('/production/event', {
-        machine_id: machineId.value,
-        operator_badge: currentOperatorBadge.value,
-        event_type: 'LOGOUT',
-        new_status: statusToSend, 
-        reason: 'Manutenção / Troca de Turno'
-      });
-      await setMachineStatus(statusToSend);
+        // 1. Registra o LOGOUT com o motivo correto
+        await api.post('/production/event', {
+            machine_id: machineId.value,
+            operator_badge: currentOperatorBadge.value,
+            event_type: 'LOGOUT',
+            new_status: targetStatus, 
+            reason: reasonText // ✅ AGORA O MOTIVO É DINÂMICO
+        });
 
-      if (currentMachine.value) {
-          currentMachine.value = { ...currentMachine.value, status: visualStatus };
-      }
-    } catch (error) { console.error('Erro ao deslogar:', error); }
+        // 2. SÓ ATUALIZA STATUS SE NÃO FOR TROCA DE TURNO
+        if (!overrideStatus) {
+            await setMachineStatus(targetStatus);
+        }
 
-    // Limpeza de Estado
+        if (currentMachine.value) {
+            currentMachine.value.status = statusMap[targetStatus] || 'Disponível';
+        }
+
+    } catch (error) { 
+        console.error('Erro ao deslogar:', error); 
+    }
+
+    // 3. Limpeza de Dados
     currentOperator.value = null;
     currentOperatorBadge.value = null;
     localStorage.removeItem('TRU_CURRENT_OPERATOR');
 
-    // AQUI O PULO DO GATO:
-    // Se for troca de turno rodando, NÃO limpamos a activeOrder nem o currentStep
     if (!keepActiveOrder) {
         activeOrder.value = null;
         currentStepIndex.value = -1;
+        localStorage.removeItem('TRU_ACTIVE_ORDER');
+        localStorage.removeItem('TRU_CURRENT_STEP');
+    } else {
+        console.log("🔄 Mantendo O.P. ativa para o próximo turno.");
     }
-  }
+}
+
+  async function executeShiftChange(keepRunning: boolean) {
+    // Se não tiver operador logado, aborta
+    if (!currentOperatorBadge.value) return;
+
+    try {
+        if (keepRunning) {
+            // CENÁRIO 1: Troca Quente (Máquina continua rodando)
+            // Define status como Produção Autônoma (Azul)
+            await setMachineStatus('IN_USE_AUTONOMOUS');
+            
+            // Faz logout mantendo a O.P. ativa (flag true)
+            // O motivo será "Troca de Turno"
+            await logoutOperator('IN_USE_AUTONOMOUS', true); 
+            
+            Notify.create({ 
+                type: 'positive', 
+                message: 'Turno encerrado. Máquina em modo autônomo.', 
+                icon: 'autorenew' 
+            });
+
+        } else {
+            // CENÁRIO 2: Troca Fria (Máquina vai parar)
+            // Define status como Ocioso/Parada
+            await setMachineStatus('OCIOSO');
+            
+            // Faz logout mantendo a O.P. ativa para o próximo turno
+            await logoutOperator('OCIOSO', true); 
+            
+            Notify.create({ 
+                type: 'info', 
+                message: 'Turno encerrado. Máquina parada.', 
+                icon: 'pause' 
+            });
+        }
+
+        // Redireciona para a tela de login (Kiosk)
+        // Nota: Como estamos dentro da store, talvez você precise usar o router fora ou retornar true
+        // Se o router não estiver disponível aqui, o componente que chamou (Page) faz o redirect.
+        return true;
+
+    } catch (error) {
+        console.error("Erro na Troca de Turno:", error);
+        Notify.create({ type: 'negative', message: 'Erro ao registrar troca.' });
+        return false;
+    }
+}
+
+  async function fetchMachine(id?: number) {
+    // Usa o ID passado ou o ID atual da store
+    const targetId = id || machineId.value;
+    
+    // Se não tiver ID nenhum, aborta para não dar erro na API
+    if (!targetId) return;
+
+    try {
+        const { data } = await api.get(`/vehicles/${targetId}`);
+        
+        // Atualiza a fonte da verdade
+        currentMachine.value = data;
+        
+        // Atualiza referências auxiliares se existirem
+        if (data.sap_resource_code) machineResource.value = data.sap_resource_code;
+        if (data.model) machineName.value = data.model;
+
+        // SE você tiver uma variável de estado 'machineStatus' ou similar, atualize aqui.
+        // Caso contrário, apenas atualizar o currentMachine é suficiente.
+
+    } catch (error) {
+        console.error('Erro ao buscar dados da máquina:', error);
+    }
+}
 
   async function loadOrderFromQr(qrCode: string) {
-  // 1. Bloqueio por Manutenção
   if (isMachineBroken.value) { 
     Notify.create({ type: 'negative', message: 'Máquina em manutenção. Não é possível iniciar O.P.' }); 
     return; 
@@ -431,99 +509,58 @@ async function loginOperator(scannedCode: string) {
     
     let data: any;
     try {
-      // TENTA ONLINE: Busca da API e atualiza o Cache
       const res = await api.get(`/production/orders/${qrCode}`);
       data = res.data;
-
-      // ATUALIZA O CACHE LOCAL (IndexedDB) para uso futuro offline
-      await db.orders_cache.put({
-        code: qrCode,
-        data: data,
-        last_updated: new Date().toISOString()
-      });
-      
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      await db.orders_cache.put({ code: qrCode, data: data, last_updated: new Date().toISOString() });
     } catch (apiError) {
-      // TENTA OFFLINE: Se a rede falhar, busca no banco local
-      console.warn("Rede indisponível, tentando banco local...");
       const cached = await db.orders_cache.get(qrCode);
-      
       if (cached) {
         data = cached.data;
-        Notify.create({ 
-          type: 'warning', 
-          icon: 'wifi_off',
-          message: 'Modo Offline Ativado: Carregando dados do cache local.',
-          timeout: 4000
-        });
       } else {
-        // Se não tiver nem no cache, aí sim falha
-        throw new Error('O.P. não encontrada no cache local. Conecte-se à rede para o primeiro carregamento.');
+        throw new Error('O.P. não encontrada no cache local.');
       }
     }
 
-    // --- PROCESSAMENTO DOS DADOS (IDÊNTICO À SUA LÓGICA DE NEGÓCIO) ---
-    if (!data.status) data.status = 'PENDING';
-    
-    activeOrder.value = { 
-      ...activeOrder.value, 
-      ...data, 
-      status: data.status || 'PENDING'
-    };
+    // Processamento da Ordem
+    activeOrder.value = { ...data, status: data.status || 'SETUP' };
 
     const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
+    currentStepIndex.value = bestIndex;
 
-    if (bestIndex !== -1) {
-      currentStepIndex.value = bestIndex;
-      const stepName = activeOrder.value.steps![bestIndex].name;
-      Notify.create({ 
-          type: 'positive', icon: 'gps_fixed',
-          message: `Etapa identificada: #${(bestIndex+1)*10} - ${stepName}`,
-          timeout: 4000
-      });
-    } else {
-      currentStepIndex.value = -1; 
-    }
-
-    // --- INÍCIO DE SESSÃO TÉCNICA ---
+    // --- INÍCIO DE SESSÃO ÚNICO ---
     if (currentOperatorBadge.value && machineId.value) {
         const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
         const stageStr = currentStep ? String(currentStep.seq) : '010';
 
-        // Tenta registrar o início no servidor (se falhar, o sistema apenas segue em modo offline)
-        try {
-          await api.post('/production/session/start', {
-            machine_id: machineId.value, 
-            operator_badge: currentOperatorBadge.value, 
-            op_number: String(qrCode),
-            step_seq: stageStr
-          });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (e) {
-          console.log("Aviso: Sessão iniciada localmente (Sem conexão com servidor)");
-        }
-        
-        // Registra o evento de log para o KPI de Setup (Sincronizado via Outbox se necessário)
-        await sendEvent('STATUS_CHANGE', { 
-            new_status: 'SETUP', 
-            reason: 'Setup Inicial (Seleção de O.P.)' 
+        // 1. Inicia a sessão no backend
+        // O backend cuidará de criar o log "Setup Inicial"
+        await api.post('/production/session/start', {
+          machine_id: machineId.value, 
+          operator_badge: currentOperatorBadge.value, 
+          op_number: String(qrCode),
+          step_seq: stageStr
         });
+        
+        // REMOVIDO: await sendEvent('STATUS_CHANGE', ...) 
+        // Não precisamos mais disso, pois o backend já fará.
 
+        // 3. Atualiza o estado visual para Roxo
+        isInSetup.value = true;
         activeOrder.value.status = 'SETUP';
-        await setMachineStatus('SETUP');
     }
 
   } catch (e: any) { 
-    Notify.create({ type: 'negative', message: e.message || 'Erro crítico ao carregar O.P.' }); 
+    Notify.create({ type: 'negative', message: e.message || 'Erro ao carregar O.P.' }); 
     activeOrder.value = null;
   } finally { 
     Loading.hide(); 
   }
 }
 
+
   async function startProduction() { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'RUNNING' };
-
+    
       
       // 1. Registra o Log
       await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
@@ -544,52 +581,19 @@ async function loginOperator(scannedCode: string) {
 
   
 
-  async function toggleSetup() {
-      if (!machineId.value || !currentOperatorBadge.value) return;
+async function toggleSetup() {
+    if (!machineId.value || !currentOperatorBadge.value) return;
 
-      // --- SAIR DO MODO SETUP ---
-      if (isInSetup.value) {
-          try {
-              // 1. Registra Log de FIM (Volta para Available)
-              // O backend vai calcular o tempo entre o log anterior (SETUP) e este (AVAILABLE)
-              await sendEvent('STATUS_CHANGE', { 
-                  new_status: 'AVAILABLE', 
-                  reason: 'Fim de Setup' 
-              });
-
-              // 3. Atualiza estado local da Ordem
-              if (activeOrder.value) {
-                  activeOrder.value.status = 'PENDING'; 
-              }
-
-          } catch (e) {
-              console.error("Erro ao sair do setup:", e);
-          }
-      } 
-      // --- ENTRAR NO MODO SETUP ---
-      else {
-          try {
-              if (activeOrder.value) {
-                  activeOrder.value.status = 'SETUP';
-              }
-
-              // 1. Registra Log de INÍCIO
-              // O campo 'reason' contendo "Setup" é crucial para o gráfico classificar como Produtivo
-              await sendEvent('STATUS_CHANGE', { 
-                  new_status: 'SETUP', 
-                  reason: 'Início de Setup' 
-              });
-
-              // 2. Bloqueia a máquina no banco (Dashboard fica Vermelho/Manutenção)
-              // Usamos MAINTENANCE porque "Setup" não existe no Enum do banco
-              await setMachineStatus('MAINTENANCE'); 
-              
-          } catch (e) {
-              console.error("Erro ao entrar em setup:", e);
-          }
-      }
-  }
-
+    if (isInSetup.value) {
+        // Apenas limpa o estado se for chamado manualmente
+        isInSetup.value = false;
+        if (activeOrder.value) activeOrder.value.status = 'PENDING';
+    } else {
+        isInSetup.value = true;
+        if (activeOrder.value) activeOrder.value.status = 'SETUP';
+        await sendEvent('STATUS_CHANGE', { new_status: 'SETUP', reason: 'Início de Setup' });
+    }
+}
   function addProduction(qty: number, isScrap = false) {
     if (!activeOrder.value) return;
     const newGood = (activeOrder.value.produced_quantity || 0) + (isScrap ? 0 : qty);
@@ -731,6 +735,6 @@ async function loginOperator(scannedCode: string) {
     loginOperator, logoutOperator, loadOrderFromQr, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
-    machineResource, setImprovisedStep
+    machineResource, setImprovisedStep, fetchMachine, executeShiftChange
   };
 });

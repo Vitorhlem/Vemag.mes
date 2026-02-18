@@ -7,7 +7,8 @@ import uuid
 import shutil
 from sqlalchemy.orm import selectinload
 import json
-
+from app.services.production_service import ProductionService
+from app.schemas.production_schema import ProductionEventCreate
 from app import crud, deps
 from app.core.config import settings 
 from app.core.email_utils import send_email 
@@ -146,7 +147,18 @@ async def create_industrial_os(payload: dict, db: AsyncSession = Depends(deps.ge
 
         if new_os.status == "CONCLUIDA":
             v = await db.get(Vehicle, v_id)
-            if v: v.status = VehicleStatus.AVAILABLE.value
+            if v: 
+                v.status = VehicleStatus.AVAILABLE.value
+                
+                # ✅ NOVIDADE: Gera o evento de Fim de Manutenção no Histórico
+                event = ProductionEventCreate(
+                    machine_id=v.id,
+                    event_type="STATUS_CHANGE",
+                    new_status="AVAILABLE",
+                    reason="Fim de Manutenção (O.S. Industrial)",
+                    operator_badge="SISTEMA"
+                )
+                await ProductionService.handle_event(db, event)
 
         await db.commit()
         stmt = select(MaintenanceRequest).where(MaintenanceRequest.id == new_os.id).options(
@@ -311,10 +323,21 @@ async def update_request_status(
     if any(k in new_status_val for k in finished_keywords):
         vehicle = await db.get(Vehicle, db_obj.vehicle_id)
         if vehicle:
+            # 1. Primeiro geramos o evento para fechar o histórico de manutenção
+            event = ProductionEventCreate(
+                machine_id=vehicle.id,
+                event_type="STATUS_CHANGE",
+                new_status="AVAILABLE",
+                reason="Fim de Manutenção",
+                operator_badge="SISTEMA"
+            )
+            await ProductionService.handle_event(db, event)
+            
+            # 2. Depois atualizamos o status oficial do veículo
             vehicle.status = VehicleStatus.AVAILABLE.value
             db.add(vehicle)
 
-    await db.commit()
+    await db.commit() # Salva tudo de uma vez
     await db.refresh(db_obj)
     return db_obj
 

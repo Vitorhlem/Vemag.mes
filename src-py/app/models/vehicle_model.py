@@ -26,8 +26,12 @@ if TYPE_CHECKING:
 class VehicleStatus(str, enum.Enum):
     AVAILABLE = "Disponível"
     IN_USE = "Em uso"
+    IN_USE_AUTONOMOUS = "Produção Autônoma"
+    SETUP = "Setup"
     MAINTENANCE = "Em manutenção"
-    STOPPED = "Parada"  # <--- ADICIONE ESTE STATUS
+    STOPPED = "Parada"
+
+
 
 class Vehicle(Base):
     __tablename__ = "vehicles"

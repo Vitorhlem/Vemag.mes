@@ -652,32 +652,44 @@ function unlockMachine() {
         persistent: true,
         ok: { label: 'LIBERAR', color: 'positive' }
     }).onOk((inputPassword: string) => {
-        // IIFE Assíncrona: Note o () no final para ela ser executada
         void (async () => { 
             const pass = String(inputPassword).trim();
 
             if (pass === '1234' || pass === 'admin123') {
                 $q.loading.show({ message: 'Liberando sistema...' });
                 
-                // 1. Liberação Visual Imediata
-                forcedMaintenance.value = false;
-                await router.replace({ query: {} });
-
                 try {
-                    // 2. Liberação Oficial no Backend
+                    // ✅ 1. CRIA O LOG DE HISTÓRICO (O que faltava)
+                    // Isso gera a linha: "Mudança de Status | Disponível | Fim de Manutenção"
+                    await productionStore.sendEvent('STATUS_CHANGE', { 
+                        new_status: 'AVAILABLE', 
+                        reason: 'Fim de Manutenção' 
+                    });
+
+                    // 2. Liberação Oficial no Backend (Atualiza a cor da máquina)
                     await productionStore.setMachineStatus('AVAILABLE');
-                    $q.notify({ type: 'positive', message: 'Máquina Liberada!' });
+                    
+                    // 3. Liberação Visual Local
+                    forcedMaintenance.value = false;
+                    
+                    // Remove query params de manutenção se existirem
+                    await router.replace({ query: {} });
+
+                    $q.notify({ type: 'positive', message: 'Máquina Liberada com sucesso!' });
                 } catch (e) {
                     console.error(e);
-                    $q.notify({ type: 'warning', message: 'Liberado localmente (Erro de conexão)' });
+                    $q.notify({ type: 'warning', message: 'Erro de conexão ao liberar.' });
+                    
+                    // Fallback visual
+                    forcedMaintenance.value = false;
                 } finally {
                     $q.loading.hide();
                 }
             } else {
                 $q.notify({ type: 'negative', icon: 'lock', message: 'Senha incorreta.' });
             }
-        })(); // <--- Aqui executa a função
-    }); // <--- Aqui fecha o .onOk
+        })(); 
+    }); 
 }
 
 </script>

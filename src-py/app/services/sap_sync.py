@@ -393,63 +393,52 @@ class SAPIntegrationService:
         
         # Detecção de Tipo: É Serviço (O.S.)?
         is_os = op_number_raw.startswith("OS-")
-        # Detecção de Tipo: É Parada? (Tem motivo de parada)
-        is_stop = bool(appointment_data.get('stop_reason'))
+        # Detecção de Tipo: É Parada? (Tem motivo de parada OU é Setup)
+        is_stop_reason = bool(appointment_data.get('stop_reason'))
+        is_setup_desc = "setup" in str(appointment_data.get('stop_description', '')).lower()
+        is_stop = is_stop_reason or is_setup_desc
 
-        # Se for O.S., limpa o número para enviar apenas o DocNum ao SAP
-        # Ex: "OS-4595-1" vira "4595"
+        # Se for O.S., limpa o número
         final_doc_num = op_number_raw.split('-')[1] if is_os and '-' in op_number_raw else op_number_raw
         
         # --- REGRAS DE NEGÓCIO ---
-        # 1. Origem sempre 'S'
         u_origem = "S"
-        
-        # 2. Tipo de Documento: 2 para O.S. ou Parada, 1 para O.P. normal
         u_tipo_doc = "2" if (is_os or is_stop) else "1"
-        
-        # 3. Campo Serviço: Se for O.S., envia o ItemCode. Se for O.P., vazio.
         u_servico = appointment_data.get('item_code', '') if is_os else ""
 
-        # Datas e Horas (Mantido igual)
+        # Datas e Horas
         dt_ini = appointment_data.get('start_time')
         dt_fim = appointment_data.get('end_time')
         
-        # Garante que sejam objetos datetime (caso venham como string)
-        if isinstance(dt_ini, str):
-            dt_ini = datetime.fromisoformat(dt_ini.replace('Z', '+00:00'))
-        if isinstance(dt_fim, str):
-            dt_fim = datetime.fromisoformat(dt_fim.replace('Z', '+00:00'))
+        if isinstance(dt_ini, str): dt_ini = datetime.fromisoformat(dt_ini.replace('Z', '+00:00'))
+        if isinstance(dt_fim, str): dt_fim = datetime.fromisoformat(dt_fim.replace('Z', '+00:00'))
 
-        # Define Brasília explicitamente
         br_tz = timezone(timedelta(hours=-3))
-
-        # Converte para o horário local de Brasília
         dt_ini_local = dt_ini.astimezone(br_tz) if dt_ini.tzinfo else dt_ini.replace(tzinfo=timezone.utc).astimezone(br_tz)
         dt_fim_local = dt_fim.astimezone(br_tz) if dt_fim.tzinfo else dt_fim.replace(tzinfo=timezone.utc).astimezone(br_tz)
 
-        # Formata para o SAP
         sap_data_ini = dt_ini_local.strftime("%Y-%m-%d")
         sap_data_fim = dt_fim_local.strftime("%Y-%m-%d")
         sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
         sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
         
-        # Limpeza Operador
         raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
         sap_operator_id = raw_id[:-1] if len(raw_id) > 1 and raw_id.isdigit() else raw_id
 
-        # Flag Setup
-        is_setup_val = "S" if "setup" in str(appointment_data.get('stop_description', '')).lower() else "N"
-        is_apto_parada = "S" if (appointment_data.get('stop_reason') or is_setup_val == "S") else "N"
+        # Flag Setup e Apto Parada
+        is_setup_val = "S" if is_setup_desc else "N"
+        is_apto_parada = "S" if (is_stop_reason or is_setup_val == "S") else "N"
 
-        # Montagem do Payload final para o Celery/Redis
+        # --- CORREÇÃO CRÍTICA: LIMPEZA DE CAMPOS ---
+        # Se for Parada (Tipo 2), Operação e Posição DEVEM ir vazios para não duplicar no SAP
+        # Se for Produção (Tipo 1), eles DEVEM ir preenchidos
         posicao_final = "" if is_stop else str(appointment_data.get('position', ''))
         operacao_final = "" if is_stop else str(appointment_data.get('operation', ''))
 
-
         payload = {
             "U_NumeroDocumento": final_doc_num,
-            "U_Posicao": posicao_final,           # Agora vazio se is_stop for True
-            "U_Operacao": operacao_final,         # Agora vazio se is_stop for True
+            "U_Posicao": posicao_final,
+            "U_Operacao": operacao_final,
             "U_DescricaoOperacao": appointment_data.get('operation_desc', ''),
             "U_DescricaoServico": appointment_data.get('part_description', ''), 
             "U_DescricaoOperador": appointment_data.get('operator_name', ''),
@@ -465,11 +454,9 @@ class SAPIntegrationService:
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
             "U_setup": is_setup_val,
             "U_AptoParada": is_apto_parada,
-            
-            # --- NOVOS CAMPOS AUTOMÁTICOS ---
-            "U_OrigemApontamento": u_origem,  # Sempre S
-            "U_TipoDocumento": u_tipo_doc,    # 1 ou 2
-            "U_Servico": u_servico            # Codigo do Item na O.S.
+            "U_OrigemApontamento": u_origem,
+            "U_TipoDocumento": u_tipo_doc,
+            "U_Servico": u_servico
         }
 
         try:

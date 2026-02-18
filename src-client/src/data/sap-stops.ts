@@ -9,6 +9,7 @@ export interface SapStopReason {
 
 export const SAP_STOP_REASONS: SapStopReason[] = [
   // --- ITENS MANTIDOS (CONFORME SOLICITADO) ---
+  { code: '52', label: 'Preparação / Setup', category: 'Operacional', requiresMaintenance: false, isProductive: false, isSpecial: true }, // ✅ NOVO
   { code: '111', label: 'Troca de Turno', category: 'Operacional', requiresMaintenance: false, isProductive: false, isSpecial: true },
   { code: '21', label: 'Manutenção / Conserto', category: 'Manutenção', requiresMaintenance: true, isProductive: false, isSpecial: true },
 

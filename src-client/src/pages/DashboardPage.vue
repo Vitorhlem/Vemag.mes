@@ -92,64 +92,89 @@
     </div>
 
     <div v-else class="fade-in-up">
-      
-      <div class="row q-col-gutter-md q-mb-xl">
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <StatCard 
-            label="Ativos Totais" 
-            :value="realTimeStats.total" 
-            icon="domain" 
-            color="teal-9" 
-            to="/vehicles" 
-            :loading="dashboardStore.isLoading"
-            class="full-height glass-card shadow-card hover-scale" 
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <StatCard 
-            label="Em Produção" 
-            :value="realTimeStats.running" 
-            icon="settings_suggest" 
-            color="positive" 
-            to="/vehicles?status=Em uso" 
-            :loading="dashboardStore.isLoading"
-            class="full-height glass-card shadow-card hover-scale" 
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-4 col-lg">
-          <StatCard 
-            label="Em Pausa" 
-            :value="realTimeStats.paused" 
-            icon="pause_circle" 
-            color="orange-9" 
-            to="/vehicles?status=Parada" 
-            :loading="dashboardStore.isLoading"
-            class="full-height glass-card shadow-card hover-scale" 
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <StatCard 
-            label="Disponível" 
-            :value="realTimeStats.idle" 
-            icon="hourglass_empty" 
-            color="warning" 
-            to="/vehicles?status=Disponível" 
-            :loading="dashboardStore.isLoading"
-            class="full-height glass-card shadow-card hover-scale" 
-          />
-        </div>
-        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-          <StatCard 
-            label="Em Manutenção" 
-            :value="realTimeStats.stopped" 
-            icon="build" 
-            color="negative" 
-            to="/maintenance" 
-            :loading="dashboardStore.isLoading"
-            class="full-height glass-card shadow-card hover-scale" 
-          />
-        </div>
-      </div>
+  <div class="row q-col-gutter-md q-mb-lg">
+    
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Ativos Totais" 
+        :value="realTimeStats.total" 
+        icon="domain" 
+        color="blue-grey-10" 
+        to="/vehicles" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      />
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Em Produção" 
+        :value="realTimeStats.running" 
+        icon="precision_manufacturing" 
+        color="positive" 
+        :to="`/vehicles?status=Em uso`" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      >
+        <template v-slot:footer>
+           <div class="text-caption text-white opacity-80">
+             {{ realTimeStats.runningAuto }} Autônomas
+           </div>
+        </template>
+      </StatCard>
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Em Setup" 
+        :value="realTimeStats.setup" 
+        icon="build_circle" 
+        color="purple-9" 
+        to="/vehicles?status=Setup" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      />
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Pausadas" 
+        :value="realTimeStats.stopped" 
+        icon="pause_circle" 
+        color="orange-9" 
+        to="/vehicles?status=Parada" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      />
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Manutenção" 
+        :value="realTimeStats.maintenance" 
+        icon="engineering" 
+        color="red-10" 
+        to="/vehicles?status=Em manutenção" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      />
+    </div>
+
+    <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+      <StatCard 
+        label="Ociosas" 
+        :value="realTimeStats.idle" 
+        icon="hourglass_empty" 
+        color="blue-grey-7" 
+        to="/vehicles?status=Disponível" 
+        :loading="dashboardStore.isLoading"
+        class="full-height glass-card shadow-card hover-scale" 
+      />
+    </div>
+
+  </div>
+
+
 
       <div class="text-h6 text-weight-bold text-teal-10 q-mb-md flex items-center">
         <q-icon name="insights" class="q-mr-sm text-teal-6" /> Indicadores de Performance
@@ -402,16 +427,40 @@ const chartGridColor = computed(() => $q.dark.isActive ? 'rgba(112, 192, 176, 0.
 
 const realTimeStats = computed(() => {
   const allMachines = vehicleStore.vehicles;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getStatus = (m: any) => String(m.status || '').toUpperCase().trim();
+  
+  // Função auxiliar para normalizar o status vindo do banco
+  const getStatus = (m: any) => String(m.status || '').trim();
+
   const total = allMachines.length;
   
-  const running = allMachines.filter(m => ['EM USO', 'IN_USE', 'RUNNING', 'EM OPERAÇÃO', 'PRODUCING'].includes(getStatus(m))).length;
-  const stopped = allMachines.filter(m => ['EM MANUTENÇÃO', 'MAINTENANCE', 'SETUP', 'QUEBRADA'].includes(getStatus(m))).length;
-  const paused = allMachines.filter(m => ['PARADA', 'STOPPED', 'PAUSED', 'EM PAUSA'].includes(getStatus(m))).length;
-  const idle = allMachines.filter(m => ['DISPONÍVEL', 'DISPONIVEL', 'AVAILABLE', 'IDLE', 'LIVRE'].includes(getStatus(m))).length;
+  // 1. Produzindo (Soma de Humana + Autônoma)
+  const runningHumano = allMachines.filter(m => getStatus(m) === 'Em uso').length;
+  const runningAuto = allMachines.filter(m => getStatus(m) === 'Produção Autônoma').length;
+  const totalRunning = runningHumano + runningAuto;
 
-  return { total, running, stopped, paused, idle, utilizationRate: total > 0 ? (running / total) * 100 : 0 };
+  // 2. Setup (Estado Explícito)
+  const setup = allMachines.filter(m => getStatus(m) === 'Setup').length;
+
+  // 3. Manutenção (Corretiva)
+  const maintenance = allMachines.filter(m => getStatus(m) === 'Em manutenção').length;
+
+  // 4. Parada (Aguardando classificação / Sinal 0)
+  const stopped = allMachines.filter(m => getStatus(m) === 'Parada').length;
+
+  // 5. Disponível / Ocioso
+  const idle = allMachines.filter(m => ['Disponível', 'Ociosidade'].includes(getStatus(m))).length;
+
+  return { 
+    total, 
+    running: totalRunning, 
+    runningHumano,
+    runningAuto,
+    setup, 
+    maintenance, 
+    stopped, 
+    idle, 
+    utilizationRate: total > 0 ? (totalRunning / total) * 100 : 0 
+  };
 });
 
 const overdueVehicles = computed(() => {

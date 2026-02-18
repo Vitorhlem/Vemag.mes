@@ -284,55 +284,175 @@ class ProductionService:
         machine = await db.get(Vehicle, event.machine_id)
         if not machine: raise ValueError("Machine not found")
 
-        q_session = select(ProductionSession).where(
-            ProductionSession.vehicle_id == machine.id,
-            ProductionSession.end_time == None
-        )
-        session = (await db.execute(q_session)).scalars().first()
-        order = await db.get(ProductionOrder, session.production_order_id) if session and session.production_order_id else None
-
-        user_id_str = str(event.operator_badge)
-        q_user = select(User).where(or_(User.employee_id == user_id_str, User.email == user_id_str))
-        user = (await db.execute(q_user)).scalars().first()
-        if user: user_id_str = str(user.id)
-
-        # --- MAPEAMENTO CORRIGIDO (Incluindo PAUSADA) ---
-        status_map = {
-            "EM OPERAÇÃO": "PRODUCING", "RUNNING": "PRODUCING",
-            "MANUTENÇÃO": "MAINTENANCE", "EM MANUTENÇÃO": "MAINTENANCE",
-            "SETUP": "PLANNED_STOP",
-            "PARADA": "UNPLANNED_STOP", "STOPPED": "UNPLANNED_STOP",
-            "PAUSADA": "UNPLANNED_STOP" # <-- Agora mapeia corretamente para o balde de paradas
-        }
+        sinal_recebido = str(event.new_status).upper() 
         
-        new_status_upper = (event.new_status or "").upper()
-        category = status_map.get(new_status_upper, "IDLE")
-        
-        # Se for uma parada com motivo, usamos o motivo. Se for só mudança de status, usamos o status.
-        final_reason = event.reason if event.reason else event.new_status
+        # Busca o último log para decisões inteligentes
+        from sqlalchemy import select
+        stmt_last = select(ProductionLog).where(ProductionLog.vehicle_id == machine.id).order_by(ProductionLog.timestamp.desc()).limit(1)
+        last_log = (await db.execute(stmt_last)).scalars().first()
+        last_log_status = last_log.new_status if last_log else machine.status
 
+        # ---------------------------------------------------------
+        # 1. LÓGICA DE MÁQUINA DE ESTADOS
+        # ---------------------------------------------------------
+        new_status_enum = VehicleStatus.STOPPED 
+        category = "UNPLANNED_STOP" 
+
+        # Cenario A: Produção
+        if sinal_recebido in ["1", "RUNNING", "EM OPERAÇÃO", "PRODUCING"]:
+            if last_log_status == VehicleStatus.IN_USE_AUTONOMOUS and sinal_recebido == "1":
+                new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+                category = "PRODUCING"
+            else:
+                new_status_enum = VehicleStatus.IN_USE
+                category = "PRODUCING"
+
+        # Cenario B: Parada
+        elif sinal_recebido in ["0", "STOPPED", "PAUSADA", "PARADA"]:
+            new_status_enum = VehicleStatus.STOPPED
+            category = "UNPLANNED_STOP"
+
+        # Cenario C: Overrides (Setup, Manutenção, Autônomo)
+        elif sinal_recebido == "SETUP":
+            new_status_enum = VehicleStatus.SETUP
+            category = "PLANNED_STOP"
+        elif sinal_recebido in ["MAINTENANCE", "EM MANUTENÇÃO"]:
+            new_status_enum = VehicleStatus.MAINTENANCE
+            category = "MAINTENANCE"
+        elif sinal_recebido in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA"]:
+            new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+            category = "PRODUCING"
+        elif sinal_recebido in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONIVEL", "LIBERADA"]:
+            new_status_enum = VehicleStatus.AVAILABLE # Ou VehicleStatus.AVAILABLE se tiver no seu Enum
+            category = "IDLE"
+            
+            # Se o motivo vier vazio, forçamos um motivo claro
+            if not event.reason or event.reason == "null":
+                event.reason = "Máquina Disponível"
+
+        # ---------------------------------------------------------
+        # 2. INFERÊNCIA DE STATUS PELO MOTIVO
+        # ---------------------------------------------------------
+        final_reason = event.reason
+        if final_reason:
+            reason_upper = final_reason.upper()
+            if "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper:
+                new_status_enum = VehicleStatus.SETUP
+                category = "PLANNED_STOP"
+            elif "MANUTENÇÃO" in reason_upper or "QUEBRA" in reason_upper or "CORRETIVA" in reason_upper:
+                new_status_enum = VehicleStatus.MAINTENANCE
+                category = "MAINTENANCE"
+            elif "AUTÔNOMA" in reason_upper:
+                new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+                category = "PRODUCING"
+
+        if new_status_enum == VehicleStatus.STOPPED and not final_reason:
+            final_reason = "SEM MOTIVO"
+        elif not final_reason:
+            final_reason = new_status_enum.value
+
+        # ---------------------------------------------------------
+        # 🚨 FILTRO ANTI-LIXO (NOVO) 🚨
+        # ---------------------------------------------------------
+        # Se a máquina JÁ está em Manutenção ou Setup, e chega um evento de "Saída" ou "Logoff",
+        # IGNORAMOS completamente. O motivo "Manutenção Corretiva" é mais importante que "Saída".
+        if last_log_status in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
+            if "SAÍDA" in final_reason.upper() or "LOGOFF" in final_reason.upper():
+                return {"status": "ignored", "reason": "Ignored generic logout during specialized state"}
+
+        # ---------------------------------------------------------
+        # 3. LÓGICA DE SOBRESCRITA (Turbinada para Manutenção)
+        # ---------------------------------------------------------
+        should_overwrite = False
+        
+        is_last_stopped = last_log_status in ["STOPPED", "PAUSADA", "Parada", "0"]
+        
+        # Caso 1: Mesmo Status, motivo diferente
+        if machine.status == new_status_enum.value and final_reason != "SEM MOTIVO":
+            should_overwrite = True
+            
+        # Caso 2: Promoção (De Parada para SETUP/MANUTENÇÃO/AUTÔNOMO)
+        elif is_last_stopped and new_status_enum in [VehicleStatus.SETUP, VehicleStatus.MAINTENANCE, VehicleStatus.IN_USE_AUTONOMOUS]:
+            should_overwrite = True
+
+        # Caso 3 (NOVO): Refinamento de Manutenção/Setup
+        # Se já estava em Manutenção e chegou outra Manutenção com motivo diferente (ex: Genérico -> Corretiva)
+        # atualizamos o mesmo log em vez de criar outro.
+        elif last_log_status == new_status_enum.value and new_status_enum in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
+             should_overwrite = True
+
+        if should_overwrite and last_log:
+             # Permite sobrescrever se for parada, ou se for refinamento de manutenção
+             allow_update = (
+                 last_log.reason in ["SEM MOTIVO", "Parada", "STOPPED"] or 
+                 "TROCA DE TURNO" in str(last_log.reason).upper() or
+                 new_status_enum == VehicleStatus.MAINTENANCE # Permite refinar manutenção sempre
+             )
+
+             if allow_update:
+                 print(f"📝 Sobrescrevendo Histórico: {last_log.reason} -> {final_reason}")
+                 
+                 # Atualiza categoria da fatia e motivo
+                 await ProductionService.update_current_slice_reason(db, machine.id, final_reason, new_category=category)
+                 
+                 machine.status = new_status_enum.value
+                 last_log.reason = final_reason
+                 last_log.new_status = new_status_enum.value 
+                 
+                 db.add(last_log)
+                 await db.commit()
+                 return {"status": "updated", "category": category, "new_machine_status": machine.status}
+
+        # ---------------------------------------------------------
+        # 4. TRAVA DE REDUNDÂNCIA
+        # ---------------------------------------------------------
+        if last_log_status == new_status_enum.value:
+            # Se status e motivo forem iguais, ignora
+            if last_log and last_log.reason == final_reason:
+                return {"status": "ignored", "reason": "Redundant status and reason"}
+
+        # ---------------------------------------------------------
+        # 5. NOVO REGISTRO
+        # ---------------------------------------------------------
+        machine.status = new_status_enum.value
         await ProductionService.close_current_slice(db, machine.id, timestamp)
-        await ProductionService.open_new_slice(
-            db, vehicle_id=machine.id, category=category, reason=final_reason,
-            session_id=session.id if session else None, order_id=order.id if order else None
-        )
+        await ProductionService.open_new_slice(db, vehicle_id=machine.id, category=category, reason=final_reason)
 
         log = ProductionLog(
-            vehicle_id=machine.id, operator_id=user_id_str,
-            event_type=event.event_type, new_status=event.new_status,
+            vehicle_id=machine.id, operator_id=str(event.operator_badge),
+            event_type=event.event_type, new_status=new_status_enum.value,
             reason=final_reason, timestamp=timestamp
         )
         db.add(log)
-
-        # Status visual do Dashboard
-        if new_status_upper == "SETUP": machine.status = "Em manutenção"
-        elif category == "PRODUCING": machine.status = "Em uso"
-        elif category == "MAINTENANCE": machine.status = "Em manutenção"
-        elif category == "UNPLANNED_STOP": machine.status = "Parada"
-        else: machine.status = "Disponível"
-
         await db.commit()
-        return {"id": log.id, "status": "processed"}
+        
+        return {"id": log.id, "status": "processed", "category": category, "new_machine_status": machine.status}
+    @staticmethod
+    async def update_current_slice_reason(db: AsyncSession, vehicle_id: int, new_reason: str, new_category: str = None):
+        """
+        Atualiza motivo e opcionalmente a categoria da fatia aberta.
+        """
+        from app.models.production_model import ProductionTimeSlice
+        from sqlalchemy import select
+
+        stmt = select(ProductionTimeSlice).where(
+            ProductionTimeSlice.vehicle_id == vehicle_id,
+            ProductionTimeSlice.end_time == None
+        ).order_by(ProductionTimeSlice.start_time.desc()).limit(1)
+
+        result = await db.execute(stmt)
+        active_slice = result.scalars().first()
+
+        if active_slice:
+            active_slice.reason = new_reason
+            if new_category:
+                active_slice.category = new_category # ✅ Atualiza categoria (ex: vira PLANNED_STOP)
+            db.add(active_slice)
+            print(f"✅ [MES] Fatia {active_slice.id} atualizada: {new_reason} [{active_slice.category}]")
+            return True
+        
+        return False
+    
     @staticmethod
     async def calculate_oee(db: AsyncSession, vehicle_id: int, start_date: datetime, end_date: datetime):
         """Calcula métricas e gera Pareto livre de Whitelist."""
@@ -357,21 +477,45 @@ class ProductionService:
             if duration <= 1: continue
 
             reason_raw = (s.reason or "").strip()
-            reason_upper = reason_raw.upper()
             cat = (s.category or "").upper()
+            reason_upper = (s.reason or "").upper()
 
             # 1. KPIs (Acúmulo de tempos)
-            if cat == "MAINTENANCE" or "MANUTENÇÃO" in reason_upper:
+            if cat == "MAINTENANCE": 
                 maint_sec += duration
                 if duration > 300: num_failures += 1
-            elif cat == "PLANNED_STOP" or "SETUP" in reason_upper:
+
+            # 2. Setup (Explícito pelo Status/Categoria PLANNED_STOP que definimos no handle_event)
+            elif cat == "PLANNED_STOP": 
                 planned_sec += duration
-            elif cat == "PRODUCING" or "RUNNING" in reason_upper:
+
+            # 3. Produção (Humana ou Autônoma)
+            elif cat == "PRODUCING":
                 run_sec += duration
-            elif cat == "MICRO_STOP" or (duration < 300 and cat != "PRODUCING"):
-                micro_sec += duration
-            else:
+
+            # 4. Paradas Não Planejadas
+            elif cat == "UNPLANNED_STOP":
+                 # Regra de 5 minutos
+                 if duration < 300: 
+                     micro_sec += duration
+                 else:
+                     # Se for "SEM MOTIVO", conta como IDLE (Cinza), senão PAUSE (Laranja)
+                     if "SEM MOTIVO" in reason_upper:
+                         idle_sec += duration 
+                     else:
+                         # Aqui entraria parada por falta de peça, etc.
+                         # Você pode decidir se isso impacta Disponibilidade (Pause) ou não.
+                         # Geralmente paradas operacionais vão para Pause.
+                         # Se quiser separar OCIOSO explícito, adicione elif cat == "IDLE"
+                         idle_sec += duration # Assumindo parada operacional longa como perda
+
+            # 5. Ocioso / Disponível / Shift Change Frio
+            elif cat == "IDLE":
                 idle_sec += duration
+            
+            # Caso micro-stop já tenha sido processado no close_slice
+            elif cat == "MICRO_STOP":
+                micro_sec += duration
 
             # 2. PARETO (Gráfico de Ofensores)
             # Só adiciona se não for mensagem de sistema
