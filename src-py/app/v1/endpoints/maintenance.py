@@ -294,50 +294,58 @@ async def delete_maintenance_request(
 
 # 4. ATUALIZAR STATUS (CORREÇÃO DA LIBERAÇÃO)
 @router.put("/requests/{request_id}/status", response_model=MaintenanceRequestPublic)
-@router.put("/{request_id}/status", response_model=MaintenanceRequestPublic) # <-- ADICIONE ESTA LINHA (HÍBRIDA)
+@router.put("/{request_id}/status", response_model=MaintenanceRequestPublic)
 async def update_request_status(
     *,
     db: AsyncSession = Depends(deps.get_db),
     background_tasks: BackgroundTasks,
     request_id: int,
-    request_in: MaintenanceRequestUpdate, # Use o Schema correto aqui
+    request_in: MaintenanceRequestUpdate,
     current_user: User = Depends(deps.get_current_active_manager)
 ):
+    """
+    Atualiza o status da O.M. e, se for concluída, libera a máquina automaticamente no MES.
+    """
     db_obj = await crud.maintenance.get_request(db, request_id=request_id, organization_id=current_user.organization_id)
-    if not db_obj: raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
+    if not db_obj: 
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
     
-    # Converte o schema para dict
+    # 1. Atualiza os dados da O.M.
     update_data = request_in.model_dump(exclude_unset=True)
-    
-    # Atualiza o objeto
     for field in update_data:
         if hasattr(db_obj, field):
             setattr(db_obj, field, update_data[field])
     
     db.add(db_obj)
     
-    # --- LÓGICA DE LIBERAÇÃO DA MÁQUINA (Igual ao seu) ---
+    # 2. Verifica se o novo status representa "Finalizado"
+    # Normaliza para maiúsculo para evitar erro de digitação (ex: "Concluida", "CONCLUIDA")
     new_status_val = str(db_obj.status.value if hasattr(db_obj.status, 'value') else db_obj.status).upper()
-    finished_keywords = ["COMPLETED", "CONCLUIDO", "CONCLUIDA","CONCLUÍDA", "CLOSED", "FECHADO", "CANCELED", "CANCELADO", "REJECTED"]
+    finished_keywords = ["COMPLETED", "CONCLUIDO", "CONCLUIDA", "CONCLUÍDA", "CLOSED", "FECHADO", "CANCELED", "CANCELADO", "REJECTED"]
     
     if any(k in new_status_val for k in finished_keywords):
         vehicle = await db.get(Vehicle, db_obj.vehicle_id)
-        if vehicle:
-            # 1. Primeiro geramos o evento para fechar o histórico de manutenção
+        
+        # Só libera se o veículo existir e NÃO estiver já disponível (evita log duplicado)
+        if vehicle and "DISPON" not in str(vehicle.status).upper() and "AVAILABLE" not in str(vehicle.status).upper():
+            print(f"🔓 [AUTO] O.M. #{request_id} finalizada. Liberando Máquina {vehicle.id}...")
+
+            # A. Gera o evento de histórico no MES (Fecha o card de manutenção)
             event = ProductionEventCreate(
                 machine_id=vehicle.id,
                 event_type="STATUS_CHANGE",
                 new_status="AVAILABLE",
-                reason="Fim de Manutenção",
+                reason=f"Fim de Manutenção (O.M. #{request_id})", # <--- ADICIONEI O ID DA O.M. AQUI
                 operator_badge="SISTEMA"
             )
+            # O handle_event já cuida de fechar a fatia de tempo anterior e abrir a nova (IDLE)
             await ProductionService.handle_event(db, event)
             
-            # 2. Depois atualizamos o status oficial do veículo
+            # B. Atualiza o status oficial do cadastro da máquina
             vehicle.status = VehicleStatus.AVAILABLE.value
             db.add(vehicle)
 
-    await db.commit() # Salva tudo de uma vez
+    await db.commit()
     await db.refresh(db_obj)
     return db_obj
 

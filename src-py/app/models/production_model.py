@@ -165,8 +165,21 @@ class ProductionLog(Base):
     __tablename__ = "production_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False) # <--- DEVE SER vehicle_id
-    operator_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)    
+    
+    # Máquina (Obrigatório)
+    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    
+    # --- MUDANÇAS AQUI ---
+    # 1. ID real do usuário (Para o Link funcionar)
+    operator_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # 2. Crachá usado no momento (Para histórico)
+    operator_badge: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    # 3. Nome do operador no momento (Snapshot para relatórios rápidos)
+    operator_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # ---------------------
+
     session_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_sessions.id"), nullable=True)
     order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_orders.id"), nullable=True)
     
@@ -182,6 +195,9 @@ class ProductionLog(Base):
     # Relacionamentos
     session: Mapped["ProductionSession"] = relationship("ProductionSession", back_populates="logs")
     order: Mapped["ProductionOrder"] = relationship("ProductionOrder")
+    
+    # Relacionamento Opcional com User (para pegar foto, e-mail, etc se precisar)
+    operator: Mapped["User"] = relationship("User")
 
 class AndonAlert(Base):
     __tablename__ = "andon_alerts"

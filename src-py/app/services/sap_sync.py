@@ -388,25 +388,45 @@ class SAPIntegrationService:
         if not self.cookies:
             if not await self.login(): return False
 
-        # --- PREPARAÇÃO DOS DADOS ---
+        # --- 1. DETECÇÃO DE CONTEXTO ---
         op_number_raw = str(appointment_data.get('op_number', ''))
         
-        # Detecção de Tipo: É Serviço (O.S.)?
+        # Flag: É Ordem de Serviço? (Começa com OS- ou tem estrutura de OS)
         is_os = op_number_raw.startswith("OS-")
-        # Detecção de Tipo: É Parada? (Tem motivo de parada OU é Setup)
+        
+        # Flag: É Parada? (Tem motivo ou é Setup)
         is_stop_reason = bool(appointment_data.get('stop_reason'))
         is_setup_desc = "setup" in str(appointment_data.get('stop_description', '')).lower()
         is_stop = is_stop_reason or is_setup_desc
 
-        # Se for O.S., limpa o número
-        final_doc_num = op_number_raw.split('-')[1] if is_os and '-' in op_number_raw else op_number_raw
-        
-        # --- REGRAS DE NEGÓCIO ---
-        u_origem = "S"
-        u_tipo_doc = "2" if (is_os or is_stop) else "1"
-        u_servico = appointment_data.get('item_code', '') if is_os else ""
+        # --- 2. TRATAMENTO DO NÚMERO DO DOCUMENTO ---
+        # Se for OS (Ex: OS-4595-1), pega o meio (4595). Se for OP normal, mantém.
+        if is_os and '-' in op_number_raw:
+            try:
+                final_doc_num = op_number_raw.split('-')[1]
+            except:
+                final_doc_num = op_number_raw
+        else:
+            final_doc_num = op_number_raw
 
-        # Datas e Horas
+        # --- 3. REGRAS DE NEGÓCIO (SAP FIELDS) ---
+        
+        # REGRA 1: Origem é SEMPRE "S"
+        u_origem = "S"
+
+        # REGRA 2: Tipo de Documento
+        # Se for Parada OU O.S. -> Tipo 2
+        # Se for Produção (OP) -> Tipo 1
+        if is_stop or is_os:
+            u_tipo_doc = "2"
+        else:
+            u_tipo_doc = "1"
+
+        # REGRA 3: Serviço
+        # Só preenche se for O.S. (pois o item_code vem do appointment_data)
+        u_servico = str(appointment_data.get('item_code', '')) if is_os else ""
+
+        # --- 4. DATAS E HORAS ---
         dt_ini = appointment_data.get('start_time')
         dt_fim = appointment_data.get('end_time')
         
@@ -422,6 +442,7 @@ class SAPIntegrationService:
         sap_hora_ini = int(dt_ini_local.strftime("%H%M"))
         sap_hora_fim = int(dt_fim_local.strftime("%H%M"))
         
+        # Tratamento do Operador
         raw_id = str(appointment_data['operator_id']).strip().lstrip('0')
         sap_operator_id = raw_id[:-1] if len(raw_id) > 1 and raw_id.isdigit() else raw_id
 
@@ -429,11 +450,15 @@ class SAPIntegrationService:
         is_setup_val = "S" if is_setup_desc else "N"
         is_apto_parada = "S" if (is_stop_reason or is_setup_val == "S") else "N"
 
-        # --- CORREÇÃO CRÍTICA: LIMPEZA DE CAMPOS ---
-        # Se for Parada (Tipo 2), Operação e Posição DEVEM ir vazios para não duplicar no SAP
-        # Se for Produção (Tipo 1), eles DEVEM ir preenchidos
-        posicao_final = "" if is_stop else str(appointment_data.get('position', ''))
-        operacao_final = "" if is_stop else str(appointment_data.get('operation', ''))
+        # Limpeza de Campos se for Tipo 2 (Geralmente Tipo 2 ignora Operação/Posição se for parada)
+        # Mas para O.S. (que agora é Tipo 2), talvez precise manter. 
+        # Vou manter a lógica segura: Se for PARADA limpa, se for PROD/OS mantém.
+        if is_stop:
+            posicao_final = ""
+            operacao_final = ""
+        else:
+            posicao_final = str(appointment_data.get('position', ''))
+            operacao_final = str(appointment_data.get('operation', ''))
 
         payload = {
             "U_NumeroDocumento": final_doc_num,
@@ -454,8 +479,8 @@ class SAPIntegrationService:
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
             "U_setup": is_setup_val,
             "U_AptoParada": is_apto_parada,
-            "U_OrigemApontamento": u_origem,
-            "U_TipoDocumento": u_tipo_doc,
+            "U_OrigemApontamento": u_origem,  # <--- AGORA SEMPRE "S"
+            "U_TipoDocumento": u_tipo_doc,    # <--- 1 (OP) ou 2 (OS/Stop)
             "U_Servico": u_servico
         }
 

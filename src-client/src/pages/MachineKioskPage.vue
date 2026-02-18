@@ -659,29 +659,23 @@ function unlockMachine() {
                 $q.loading.show({ message: 'Liberando sistema...' });
                 
                 try {
-                    // ✅ 1. CRIA O LOG DE HISTÓRICO (O que faltava)
-                    // Isso gera a linha: "Mudança de Status | Disponível | Fim de Manutenção"
+                    // ✅ CORREÇÃO: Adicionei 'SUPERVISOR' no final
+                    // Isso força o envio mesmo sem operador logado
                     await productionStore.sendEvent('STATUS_CHANGE', { 
                         new_status: 'AVAILABLE', 
-                        reason: 'Fim de Manutenção' 
-                    });
+                        reason: 'Fim de Manutenção (Desbloqueio Manual)' 
+                    }, 'SUPERVISOR'); 
 
-                    // 2. Liberação Oficial no Backend (Atualiza a cor da máquina)
                     await productionStore.setMachineStatus('AVAILABLE');
                     
-                    // 3. Liberação Visual Local
                     forcedMaintenance.value = false;
-                    
-                    // Remove query params de manutenção se existirem
                     await router.replace({ query: {} });
 
                     $q.notify({ type: 'positive', message: 'Máquina Liberada com sucesso!' });
                 } catch (e) {
                     console.error(e);
-                    $q.notify({ type: 'warning', message: 'Erro de conexão ao liberar.' });
-                    
-                    // Fallback visual
                     forcedMaintenance.value = false;
+                    $q.notify({ type: 'warning', message: 'Liberado localmente (Sincronizando...)' });
                 } finally {
                     $q.loading.hide();
                 }

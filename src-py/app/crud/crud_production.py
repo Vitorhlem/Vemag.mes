@@ -1,6 +1,8 @@
 # Localização: src-py/app/crud/crud_production.py
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.production_model import ProductionAppointment, ProductionLog
+from sqlalchemy import select
+from app.models.user_model import User  # <--- IMPORT NOVO
 from datetime import datetime
 
 class CRUDProduction:
@@ -31,7 +33,7 @@ class CRUDProduction:
         await db.refresh(db_obj)
         return db_obj
     
-    async def create_entry(self, db, *, obj_in: dict):
+    async def create_entry(self, db: AsyncSession, *, obj_in: dict):
         # Normalização de tempo
         raw_time = obj_in.get("start_time") or obj_in.get("timestamp") or datetime.now().isoformat()
         dt_naive = datetime.fromisoformat(raw_time.replace('Z', '+00:00')).replace(tzinfo=None)
@@ -40,21 +42,38 @@ class CRUDProduction:
         is_event = "event_type" in obj_in
         
         if is_event:
-            # GAVETA DE LOGS
+            # GAVETA DE LOGS (ProductionLog)
+            badge = str(obj_in.get("operator_badge") or obj_in.get("operator_id") or "")
+            
+            # 1. Tenta encontrar o usuário pelo crachá para pegar o ID real
+            user_id = None
+            user_name = "Operador"
+            if badge:
+                stmt = select(User).where(User.employee_id == badge)
+                result = await db.execute(stmt)
+                user = result.scalars().first()
+                if user:
+                    user_id = user.id
+                    user_name = user.full_name
+
             db_log = ProductionLog(
                 vehicle_id=obj_in.get("machine_id") or obj_in.get("vehicle_id"),
-                operator_id=str(obj_in.get("operator_badge") or obj_in.get("operator_id") or ""),
+                operator_id=user_id, # ✅ Agora salva o ID numérico (Link funciona!)
+                operator_badge=badge, # ✅ Campo novo para mostrar o crachá visualmente
                 event_type=obj_in.get("event_type"),
                 timestamp=dt_naive,
+                new_status=obj_in.get("new_status"), # Importante para colorir a tabela
                 reason=obj_in.get("reason"),
-                details=str(obj_in.get("reason") or obj_in.get("new_status") or "")
+                details=str(obj_in.get("reason") or obj_in.get("new_status") or ""),
+                operator_name=user_name
             )
             db.add(db_log)
             await db.commit()
             return "LOG_SAVED"
 
         else:
-            # GAVETA DE APONTAMENTOS (Produção/Parada/OS)
+            # GAVETA DE APONTAMENTOS (ProductionAppointment)
+            # Mantemos a lógica original aqui, pois o SAP usa o crachá mesmo
             db_obj = ProductionAppointment(
                 vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
                 operator_id=str(obj_in.get("operator_id") or obj_in.get("operator_badge")),

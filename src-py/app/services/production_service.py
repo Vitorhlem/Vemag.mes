@@ -286,8 +286,43 @@ class ProductionService:
 
         sinal_recebido = str(event.new_status).upper() 
         
+        # --- 🔍 NOVA LÓGICA: IDENTIFICAÇÃO DO OPERADOR REAL ---
+        badge = str(event.operator_badge or "").strip()
+        user_id = None
+        user_name = "Sistema"
+
+        # Se o sinal vem do Hardware (PLC), buscamos quem é o dono da sessão ativa
+        if badge == "ESP32_HARDWARE":
+            # Busca a sessão que está aberta para esta máquina agora
+            stmt_session = select(ProductionSession).where(
+                ProductionSession.vehicle_id == machine.id,
+                ProductionSession.end_time == None
+            ).order_by(desc(ProductionSession.start_time)).limit(1)
+            
+            result_sess = await db.execute(stmt_session)
+            active_session = result_sess.scalars().first()
+
+            if active_session:
+                # Se achamos o operador logado, usamos os dados dele no log
+                user_q = await db.execute(select(User).where(User.id == active_session.user_id))
+                user = user_q.scalars().first()
+                if user:
+                    user_id = user.id
+                    user_name = user.full_name
+                    badge = user.employee_id # Substitui o texto "Hardware" pelo crachá real
+            else:
+                user_name = "Hardware PLC" # Só mostra se realmente não houver ninguém logado
+        
+        elif badge:
+            # Lógica normal para eventos manuais (Tablet)
+            from sqlalchemy import or_
+            user_q = await db.execute(select(User).where(or_(User.employee_id == badge, User.email == badge)))
+            user = user_q.scalars().first()
+            if user:
+                user_id = user.id
+                user_name = user.full_name
+
         # Busca o último log para decisões inteligentes
-        from sqlalchemy import select
         stmt_last = select(ProductionLog).where(ProductionLog.vehicle_id == machine.id).order_by(ProductionLog.timestamp.desc()).limit(1)
         last_log = (await db.execute(stmt_last)).scalars().first()
         last_log_status = last_log.new_status if last_log else machine.status
@@ -323,10 +358,8 @@ class ProductionService:
             new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
             category = "PRODUCING"
         elif sinal_recebido in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONIVEL", "LIBERADA"]:
-            new_status_enum = VehicleStatus.AVAILABLE # Ou VehicleStatus.AVAILABLE se tiver no seu Enum
+            new_status_enum = VehicleStatus.AVAILABLE 
             category = "IDLE"
-            
-            # Se o motivo vier vazio, forçamos um motivo claro
             if not event.reason or event.reason == "null":
                 event.reason = "Máquina Disponível"
 
@@ -336,15 +369,18 @@ class ProductionService:
         final_reason = event.reason
         if final_reason:
             reason_upper = final_reason.upper()
-            if "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper:
-                new_status_enum = VehicleStatus.SETUP
-                category = "PLANNED_STOP"
-            elif "MANUTENÇÃO" in reason_upper or "QUEBRA" in reason_upper or "CORRETIVA" in reason_upper:
-                new_status_enum = VehicleStatus.MAINTENANCE
-                category = "MAINTENANCE"
-            elif "AUTÔNOMA" in reason_upper:
-                new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
-                category = "PRODUCING"
+            is_end_of_process = "FIM" in reason_upper or "AVAILABLE" in str(event.new_status).upper()
+
+            if not is_end_of_process:
+                if "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper:
+                    new_status_enum = VehicleStatus.SETUP
+                    category = "PLANNED_STOP"
+                elif "MANUTENÇÃO" in reason_upper or "QUEBRA" in reason_upper or "CONSERTO" in reason_upper:
+                    new_status_enum = VehicleStatus.MAINTENANCE
+                    category = "MAINTENANCE"
+                elif "AUTÔNOMA" in reason_upper:
+                    new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+                    category = "PRODUCING"
 
         if new_status_enum == VehicleStatus.STOPPED and not final_reason:
             final_reason = "SEM MOTIVO"
@@ -352,52 +388,41 @@ class ProductionService:
             final_reason = new_status_enum.value
 
         # ---------------------------------------------------------
-        # 🚨 FILTRO ANTI-LIXO (NOVO) 🚨
+        # 🚨 FILTRO ANTI-LIXO
         # ---------------------------------------------------------
-        # Se a máquina JÁ está em Manutenção ou Setup, e chega um evento de "Saída" ou "Logoff",
-        # IGNORAMOS completamente. O motivo "Manutenção Corretiva" é mais importante que "Saída".
         if last_log_status in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
-            if "SAÍDA" in final_reason.upper() or "LOGOFF" in final_reason.upper():
+            if final_reason and ("SAÍDA" in final_reason.upper() or "LOGOFF" in final_reason.upper()):
                 return {"status": "ignored", "reason": "Ignored generic logout during specialized state"}
 
         # ---------------------------------------------------------
-        # 3. LÓGICA DE SOBRESCRITA (Turbinada para Manutenção)
+        # 3. LÓGICA DE SOBRESCRITA
         # ---------------------------------------------------------
         should_overwrite = False
-        
         is_last_stopped = last_log_status in ["STOPPED", "PAUSADA", "Parada", "0"]
         
-        # Caso 1: Mesmo Status, motivo diferente
         if machine.status == new_status_enum.value and final_reason != "SEM MOTIVO":
             should_overwrite = True
-            
-        # Caso 2: Promoção (De Parada para SETUP/MANUTENÇÃO/AUTÔNOMO)
         elif is_last_stopped and new_status_enum in [VehicleStatus.SETUP, VehicleStatus.MAINTENANCE, VehicleStatus.IN_USE_AUTONOMOUS]:
             should_overwrite = True
-
-        # Caso 3 (NOVO): Refinamento de Manutenção/Setup
-        # Se já estava em Manutenção e chegou outra Manutenção com motivo diferente (ex: Genérico -> Corretiva)
-        # atualizamos o mesmo log em vez de criar outro.
         elif last_log_status == new_status_enum.value and new_status_enum in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
              should_overwrite = True
 
         if should_overwrite and last_log:
-             # Permite sobrescrever se for parada, ou se for refinamento de manutenção
              allow_update = (
                  last_log.reason in ["SEM MOTIVO", "Parada", "STOPPED"] or 
                  "TROCA DE TURNO" in str(last_log.reason).upper() or
-                 new_status_enum == VehicleStatus.MAINTENANCE # Permite refinar manutenção sempre
+                 new_status_enum == VehicleStatus.MAINTENANCE
              )
 
              if allow_update:
-                 print(f"📝 Sobrescrevendo Histórico: {last_log.reason} -> {final_reason}")
-                 
-                 # Atualiza categoria da fatia e motivo
                  await ProductionService.update_current_slice_reason(db, machine.id, final_reason, new_category=category)
-                 
                  machine.status = new_status_enum.value
                  last_log.reason = final_reason
                  last_log.new_status = new_status_enum.value 
+                 # Atualiza dados do operador se necessário
+                 last_log.operator_id = user_id
+                 last_log.operator_badge = badge
+                 last_log.operator_name = user_name
                  
                  db.add(last_log)
                  await db.commit()
@@ -407,21 +432,26 @@ class ProductionService:
         # 4. TRAVA DE REDUNDÂNCIA
         # ---------------------------------------------------------
         if last_log_status == new_status_enum.value:
-            # Se status e motivo forem iguais, ignora
             if last_log and last_log.reason == final_reason:
                 return {"status": "ignored", "reason": "Redundant status and reason"}
 
         # ---------------------------------------------------------
-        # 5. NOVO REGISTRO
+        # 5. NOVO REGISTRO (LOG)
         # ---------------------------------------------------------
         machine.status = new_status_enum.value
         await ProductionService.close_current_slice(db, machine.id, timestamp)
         await ProductionService.open_new_slice(db, vehicle_id=machine.id, category=category, reason=final_reason)
 
+        # ✅ CORREÇÃO FINAL: Usa os campos separados
         log = ProductionLog(
-            vehicle_id=machine.id, operator_id=str(event.operator_badge),
-            event_type=event.event_type, new_status=new_status_enum.value,
-            reason=final_reason, timestamp=timestamp
+            vehicle_id=machine.id, 
+            operator_id=user_id,      # ID Numérico (ou None)
+            operator_badge=badge,     # String (ex: "ESP32_HARDWARE")
+            operator_name=user_name,  # String
+            event_type=event.event_type, 
+            new_status=new_status_enum.value,
+            reason=final_reason, 
+            timestamp=timestamp
         )
         db.add(log)
         await db.commit()

@@ -293,60 +293,70 @@
                 </q-card>
 
                 <q-card class="glass-card shadow-sm overflow-hidden">
-                    <q-card-section>
-                        <div class="text-h6 text-weight-bold text-teal-10 q-mb-md">Histórico de Eventos Detalhado</div>
-                        <q-table
-                            :rows="mesStore.rawLogs"
-                            :columns="columns"
-                            row-key="id"
-                            flat bordered
-                            class="glass-table"
-                            :pagination="{ rowsPerPage: 15 }"
-                        >
-                            <template v-slot:body-cell-event_type="props">
-                                <q-td :props="props">
-                                    <div class="text-weight-medium text-teal-9">{{ translateEventType(props.value) }}</div>
-                                </q-td>
-                            </template>
+    <q-card-section>
+        <div class="text-h6 text-weight-bold text-teal-10 q-mb-md">Histórico de Eventos Detalhado</div>
+        <q-table
+            :rows="mesStore.rawLogs"
+            :columns="columns"
+            row-key="id"
+            flat bordered
+            class="glass-table"
+            :pagination="{ rowsPerPage: 15 }"
+        >
+            <template v-slot:body-cell-event_type="props">
+                <q-td :props="props">
+                    <div class="text-weight-medium text-teal-9">{{ translateEventType(props.value) }}</div>
+                </q-td>
+            </template>
 
-                            <template v-slot:body-cell-new_status="props">
-                                <q-td :props="props">
-                                    <q-badge :color="getStatusColor(props.value)" :label="translateStatus(props.value)" class="glass-badge-status" />
-                                </q-td>
-                            </template>
+            <template v-slot:body-cell-new_status="props">
+                <q-td :props="props">
+                    <q-badge :color="getStatusColor(props.value)" :label="translateStatus(props.value)" class="glass-badge-status" />
+                </q-td>
+            </template>
 
-                            <template v-slot:body-cell-operator_name="props">
-                                <q-td :props="props">
-                                    <div v-if="props.row.operator_id" class="text-primary text-weight-bold cursor-pointer hover-teal" @click.stop="goToUserProfile(props.row.operator_id)">
-                                        {{ props.value }}
-                                        <q-tooltip>Ver Perfil</q-tooltip>
-                                    </div>
-                                    <div v-else class="text-grey-7 italic">
-                                        {{ props.value || 'System' }}
-                                    </div>
-                                </q-td>
-                            </template>
+            <template v-slot:body-cell-operator_name="props">
+                <q-td :props="props">
+                    
+                    <div v-if="props.row.operator_id" 
+                         class="text-primary text-weight-bold cursor-pointer hover-teal row items-center no-wrap"
+                         @click.stop="$router.push(`/users/${props.row.operator_id}/stats`)"
+                    >
+                        <q-avatar size="24px" class="q-mr-sm bg-teal-1 text-teal-9" style="font-size: 10px">
+                            {{ props.value ? props.value.charAt(0).toUpperCase() : 'U' }}
+                        </q-avatar>
+                        <span>{{ props.value }}</span>
+                        <q-tooltip content-class="bg-teal-9">Ver Perfil</q-tooltip>
+                    </div>
 
-                            <template v-slot:body-cell-timestamp="props">
-                                <q-td :props="props" class="text-grey-8">
-                                    {{ new Date(props.value).toLocaleString('pt-BR') }}
-                                </q-td>
-                            </template>
-                            
-                            <template v-slot:body-cell-details="props">
-                                <q-td :props="props" class="text-grey-8">
-                                    {{ props.value }}
-                                </q-td>
-                            </template>
-                            
-                            <template v-slot:body-cell-reason="props">
-                                <q-td :props="props" class="text-grey-8">
-                                    {{ props.value }}
-                                </q-td>
-                            </template>
-                        </q-table>
-                    </q-card-section>
-                </q-card>
+                    <div v-else class="text-grey-6 text-italic row items-center no-wrap">
+                        <q-icon name="smart_toy" size="xs" class="q-mr-xs" />
+                        <span>{{ props.value || 'Sistema / Automático' }}</span>
+                    </div>
+
+                </q-td>
+            </template>
+
+            <template v-slot:body-cell-timestamp="props">
+                <q-td :props="props" class="text-grey-8">
+                    {{ new Date(props.value).toLocaleString('pt-BR') }}
+                </q-td>
+            </template>
+            
+            <template v-slot:body-cell-details="props">
+                <q-td :props="props" class="text-grey-8">
+                    {{ props.value }}
+                </q-td>
+            </template>
+            
+            <template v-slot:body-cell-reason="props">
+                <q-td :props="props" class="text-grey-8">
+                    {{ props.value }}
+                </q-td>
+            </template>
+        </q-table>
+    </q-card-section>
+</q-card>
             </div>
         </q-tab-panel>
 

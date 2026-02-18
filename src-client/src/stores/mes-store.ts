@@ -23,6 +23,8 @@ export interface ProductionLog {
   reason: string;
   details: string;
   operator_name: string;
+  operator_id?: number;    // ID do usuário no banco (para o link)
+  operator_badge?: string; // Crachá (para exibição visual)
 }
 
 export interface TimelineBlock {

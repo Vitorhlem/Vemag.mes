@@ -99,10 +99,32 @@
 
       <template v-slot:body-cell-operator_name="props">
         <q-td :props="props">
-          <div class="row items-center no-wrap">
-             <q-avatar size="24px" color="grey-3" text-color="primary" icon="person" class="q-mr-sm"/>
-             {{ props.value }}
+          
+          <div v-if="props.row.operator_id" class="row items-center no-wrap">
+             <q-avatar size="24px" class="q-mr-sm vemag-bg-primary text-white" style="font-size: 10px">
+                {{ props.value ? props.value.charAt(0).toUpperCase() : 'U' }}
+             </q-avatar>
+             
+             <div class="column">
+                <router-link 
+                  :to="`/users/${props.row.operator_id}/stats`"
+                  class="text-primary text-weight-bold hover-underline"
+                  style="text-decoration: none; cursor: pointer;"
+                >
+                  {{ props.value }}
+                </router-link>
+                
+                <div class="text-caption text-grey-6" style="font-size: 0.7em; line-height: 1;">
+                  {{ props.row.operator_badge || 'Crachá N/A' }}
+                </div>
+             </div>
           </div>
+
+          <div v-else class="row items-center no-wrap">
+             <q-avatar size="24px" color="grey-3" text-color="grey-7" icon="smart_toy" class="q-mr-sm"/>
+             <span class="text-grey-8 font-italic">{{ props.value || 'Sistema' }}</span>
+          </div>
+
         </q-td>
       </template>
 
@@ -168,6 +190,7 @@ const columns: QTableColumn[] = [
   { name: 'timestamp', label: 'Data/Hora', field: 'timestamp', format: (val: string) => format(new Date(val), 'dd/MM/yyyy HH:mm:ss'), align: 'left', sortable: true },
   { name: 'event_type', label: 'Evento', field: 'event_type', align: 'left', sortable: true },
   { name: 'operator_name', label: 'Operador', field: 'operator_name', align: 'left', sortable: true },
+  { name: 'operator', label: 'Operador', align: 'left', field: 'operator_name', sortable: true },
   { name: 'status', label: 'Detalhes & Status', field: 'new_status', align: 'left' },
   { name: 'details', label: 'Observações', field: 'details', align: 'left' }
 ];
@@ -313,5 +336,8 @@ onMounted(() => {
 }
 .my-sticky-header-table {
   max-height: calc(100vh - 180px); 
+}
+.hover-underline:hover {
+  text-decoration: underline !important;
 }
 </style>

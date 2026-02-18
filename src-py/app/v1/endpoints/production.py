@@ -126,7 +126,8 @@ async def get_employee_stats(
         op_id_str = str(user.id) 
         
         q_logs = select(ProductionLog).where(
-            ProductionLog.operator_id == op_id_str,
+            ProductionLog.operator_id == user.id,
+            
             ProductionLog.timestamp >= dt_start,
             ProductionLog.timestamp <= dt_end
         ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
@@ -235,16 +236,18 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
     timeline.append({"time": start_of_day, "status": current_status, "has_op": is_operator_present, "reason": current_reason})
 
     for log in todays_logs:
-        op_id = str(log.operator_id or "")
-        
-        # Lógica de Presença
-        if op_id.isdigit() or "@" in op_id:
+        # ✅ NOVA LÓGICA: Se o operator_id não for nulo, tem um humano na máquina
+        if log.operator_id is not None:
             is_operator_present = True
+        
+        # Se houver um evento de saída, marcamos como ausente
         if log.event_type in ['LOGOUT', 'SESSION_END', 'LOGOFF']:
             is_operator_present = False
         
-        if log.new_status: current_status = log.new_status
-        if log.reason: current_reason = log.reason
+        if log.new_status: 
+            current_status = log.new_status
+        if log.reason: 
+            current_reason = log.reason
 
         timeline.append({
             "time": log.timestamp,
@@ -597,7 +600,15 @@ async def open_andon_alert(alert: production_schema.AndonCreate, db: AsyncSessio
     new_alert = AndonAlert(vehicle_id=machine.id, operator_id=operator.id, sector=alert.sector, notes=alert.notes, status="OPEN")
     db.add(new_alert)
     
-    db.add(ProductionLog(vehicle_id=machine.id, operator_id=operator.id, event_type="ANDON_OPEN", details=f"Call: {alert.sector}", timestamp=datetime.now()))
+    db.add(ProductionLog(
+        vehicle_id=machine.id, 
+        operator_id=operator.id,        # ID Numérico
+        operator_badge=operator.employee_id, # Crachá String
+        operator_name=operator.full_name,    # Nome String
+        event_type="ANDON_OPEN", 
+        details=f"Call: {alert.sector}", 
+        timestamp=datetime.now()
+    ))    
     await db.commit()
     return {"status": "success", "alert_id": new_alert.id}
 
@@ -661,21 +672,18 @@ async def get_machine_history(machine_id: int, skip: int = 0, limit: int = 20, e
     logs = (await db.execute(query)).scalars().all()
     history = []
     for log in logs:
-        op_name = "System"
-        op_id = None 
-        if log.operator_id and str(log.operator_id).isdigit():
-            op = await db.get(User, int(log.operator_id)) 
-            if op: 
-                op_name = op.full_name or op.email
-                op_id = op.id 
-        
         history.append({
-            "id": log.id, "event_type": log.event_type, "timestamp": log.timestamp,
-            "new_status": log.new_status, "reason": log.reason, "details": log.details,
-            "operator_name": op_name, "operator_id": op_id 
+            "id": log.id, 
+            "event_type": log.event_type, 
+            "timestamp": log.timestamp,
+            "new_status": log.new_status, 
+            "reason": log.reason, 
+            "details": log.details,
+            "operator_name": log.operator_name or "Sistema", # Usa o nome cacheado no log
+            "operator_id": log.operator_id,                  # ID numérico para o link
+            "operator_badge": log.operator_badge             # Crachá para exibir embaixo do nome
         })
     return history
-
 # ============================================================================
 # 8. SESSÕES (START/STOP)
 # ============================================================================
@@ -717,11 +725,20 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
     
     await ProductionService.open_new_slice(db, vehicle_id=machine.id, category="PLANNED_STOP", reason=f"Setup: {payload.step_seq}", session_id=new_session.id, order_id=order.id)
     
-    machine.status = "Setup" # ✅ MUDANÇA: Status explícito Setup
+    machine.status = "Setup" 
     order.status = "SETUP"
+    
+    # ✅ CORREÇÃO AQUI
     log = ProductionLog(
         vehicle_id=machine.id, 
-        operator_id=str(payload.operator_badge),
+        
+        # Usa o ID numérico do operador (que já foi buscado lá em cima)
+        operator_id=operator.id, 
+        
+        # Salva o crachá e o nome para histórico
+        operator_badge=str(payload.operator_badge),
+        operator_name=operator.full_name,
+        
         event_type="STATUS_CHANGE", 
         new_status="Setup",
         reason="Setup Inicial (Seleção de O.P.)",

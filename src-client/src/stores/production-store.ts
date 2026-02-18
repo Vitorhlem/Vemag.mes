@@ -32,9 +32,17 @@ export interface OperationStep {
 export interface ProductionOrder {
   id: number;
   code: string;
+  
+  // --- CAMPOS NOVOS ---
+  custom_ref?: string;    // DocNum ou Nome do Cliente
+  op_number?: string;     // Número original da OP/OS
+  part_code?: string;     // Código do item (ItemCode)
+  drawing?: string;       // URL ou código do desenho
+  // --------------------
+
   client?: string;
   product?: string;
-  is_service?: boolean; // <-- ADICIONE ESTA LINHA
+  is_service?: boolean; 
   deliveryDate?: string;
   part_name: string;
   part_image_url: string;
