@@ -28,29 +28,28 @@
           </div>
         </div>
         
-        
         <q-space />
         
-<div class="row items-center q-gutter-x-sm q-mr-md">
-  <q-badge :color="isOnline ? 'positive' : 'negative'" class="q-pa-xs shadow-1">
-    <q-icon :name="isOnline ? 'wifi' : 'wifi_off'" size="14px" />
-    <span class="q-ml-xs text-bold">{{ isOnline ? 'ONLINE' : 'OFFLINE' }}</span>
-  </q-badge>
+        <div class="row items-center q-gutter-x-sm q-mr-md">
+          <q-badge :color="isOnline ? 'positive' : 'negative'" class="q-pa-xs shadow-1">
+            <q-icon :name="isOnline ? 'wifi' : 'wifi_off'" size="14px" />
+            <span class="q-ml-xs text-bold">{{ isOnline ? 'ONLINE' : 'OFFLINE' }}</span>
+          </q-badge>
 
-  <q-chip 
-    v-if="pendingSyncCount > 0" 
-    dense 
-    color="orange-9" 
-    text-color="white" 
-    icon="sync" 
-    class="animate-pulse"
-  >
-    {{ pendingSyncCount }} Pendentes
-    <q-tooltip>Dados aguardando conexão para envio ao SAP</q-tooltip>
-  </q-chip>
-</div>
+          <q-chip 
+            v-if="pendingSyncCount > 0" 
+            dense 
+            color="orange-9" 
+            text-color="white" 
+            icon="sync" 
+            class="animate-pulse"
+          >
+            {{ pendingSyncCount }} Pendentes
+            <q-tooltip>Dados aguardando conexão para envio ao SAP</q-tooltip>
+          </q-chip>
+        </div>
 
-<div class="row items-center no-wrap q-gutter-x-sm">
+        <div class="row items-center no-wrap q-gutter-x-sm">
           <div class="row items-center no-wrap bg-white text-dark q-py-xs q-px-sm rounded-borders shadow-2" style="height: 42px; border-radius: 10px;">
             <q-avatar size="28px" class="shadow-1 vemag-bg-primary text-white" icon="person" font-size="18px" />
             
@@ -60,8 +59,6 @@
                 {{ productionStore.currentOperator?.full_name || productionStore.currentOperatorBadge || '---' }}
               </div>
             </div>
-
-            
             
             <q-separator vertical inset class="q-mx-sm bg-grey-4" />
             
@@ -98,147 +95,158 @@
           </q-card>
         </div>
 
-        
-
-        <div v-else class="col row q-col-gutter-sm no-wrap items-stretch content-stretch">
-
+        <div v-else class="col column no-wrap q-gutter-y-sm content-stretch">
           
-          <div class="col-9 column no-wrap q-gutter-y-sm">
-            
-            <q-card class="col-auto q-px-md q-py-sm bg-white shadow-2" style="border-radius: 12px; border-top: 5px solid #008C7A;">
-    <div class="row items-center justify-between no-wrap">
-        <div class="row items-center q-gutter-x-sm">
-            <q-badge color="orange-10" label="PRODUÇÃO" class="text-bold shadow-1" />
-            
-            <div class="text-h6 text-weight-bolder text-primary ellipsis" style="max-width: 350px;">
-                {{ productionStore.activeOrder.part_name }}
-            </div>
-            
-            <div class="column q-ml-md" style="line-height: 1.2;">
-  <div class="text-subtitle1 text-weight-bold text-dark row items-baseline">
-  <span 
-    class="text-caption text-weight-bolder q-mr-xs" 
-    :class="(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'text-blue-9' : 'text-orange-9'"
-    style="font-size: 1em; letter-spacing: 1px;"
-  >
-    {{ (productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'O.S:' : 'O.P:' }}
-  </span>
-  
-  {{ 
-     (productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-'))
-     ? (productionStore.activeOrder.code) 
-     : (productionStore.activeOrder.custom_ref || productionStore.activeOrder.code)
-  }}
-</div>
-</div>
-        </div>
+          <q-card class="col-auto q-px-md q-py-sm bg-white shadow-2 relative-position" style="border-radius: 12px; border-top: 5px solid #008C7A;">
+            <div class="row items-center justify-between no-wrap">
+                
+                <div class="row items-center q-gutter-x-sm">
+                    <q-badge 
+                      :color="(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'blue-9' : 'orange-10'" 
+                      :label="(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'SERVIÇO' : 'PRODUÇÃO'" 
+                      class="text-bold shadow-1" 
+                    />
+                    
+                    <div class="text-h6 text-weight-bolder text-primary ellipsis" style="max-width: 400px;">
+                        {{ productionStore.activeOrder.part_name }}
+                    </div>
+                    
+                    <div class="column q-ml-md" style="line-height: 1.2;">
+                      <div class="text-subtitle1 text-weight-bold text-dark row items-baseline">
+                        <span 
+                          class="text-caption text-weight-bolder q-mr-xs" 
+                          :class="(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'text-blue-9' : 'text-orange-9'"
+                          style="font-size: 1em; letter-spacing: 1px;"
+                        >
+                          {{ (productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) ? 'O.S:' : 'O.P:' }}
+                        </span>
+                        {{ 
+                           (productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-'))
+                           ? (productionStore.activeOrder.code) 
+                           : (productionStore.activeOrder.custom_ref || productionStore.activeOrder.code)
+                        }}
+                      </div>
+                    </div>
+                </div>
 
-        <div class="row items-center q-gutter-x-md">
-            <div class="column items-end">
-                <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
-                <div class="text-subtitle1 text-weight-bold">
-                    {{ productionStore.activeOrder.produced_quantity }} / {{ productionStore.activeOrder.target_quantity }} {{ productionStore.activeOrder.uom }}
+                <div class="row items-center q-gutter-x-lg">
+                    
+                    <div class="row items-center q-gutter-x-sm bg-grey-1 q-pa-xs rounded-borders" style="border: 1px solid #e0e0e0; min-width: 140px;">
+                        <q-icon name="timer" :class="statusTextClass" size="26px" class="q-ml-xs" />
+                        <div class="column q-mr-sm">
+                            <div class="text-caption text-weight-bold text-grey-6" style="font-size: 0.6rem; line-height: 1;">TEMPO ATUAL</div>
+                            <div class="text-h6 text-weight-bolder font-monospace" :class="statusTextClass" style="line-height: 1.1;">
+                                {{ elapsedTime }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row items-center q-gutter-x-md">
+                      <div class="column items-end">
+                          <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
+                          <div class="text-subtitle1 text-weight-bold">
+                              {{ productionStore.activeOrder?.produced_quantity || 0 }} / 
+                              {{ productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 0 }} 
+                              <span class="text-caption text-weight-bolder text-grey-8">{{ productionStore.activeOrder?.uom || 'pç' }}</span>
+                          </div>
+                      </div>
+                      <q-circular-progress
+                          show-value 
+                          font-size="10px"
+                          :value="((productionStore.activeOrder?.produced_quantity || 0) / (productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 1)) * 100"
+                          size="35px" 
+                          :thickness="0.25" 
+                          color="orange-8" 
+                          track-color="grey-3" 
+                          class="text-bold"
+                      >
+                          {{ Math.round(((productionStore.activeOrder?.produced_quantity || 0) / (productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 1)) * 100) }}%
+                      </q-circular-progress>
+                    </div>
+
                 </div>
             </div>
-            <q-circular-progress
-                show-value font-size="10px"
-                :value="((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100"
-                size="35px" :thickness="0.25" color="orange-8" track-color="grey-3" class="text-bold"
-            >
-                {{ Math.round(((productionStore.activeOrder.produced_quantity || 0) / (productionStore.activeOrder.target_quantity || 1)) * 100) }}%
-            </q-circular-progress>
+            <q-linear-progress stripe query :class="statusTextClass" size="4px" class="absolute-bottom" />
+          </q-card>
+
+          <q-card class="col column no-wrap overflow-hidden shadow-6 bg-white" style="border-radius: 12px; border-left: 10px solid #008C7A;">
             
+            <div class="col-auto bg-grey-2 q-px-md q-py-xs border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
+              <div class="row items-center">
+                  <template v-if="Number(productionStore.currentActiveStep.seq) === 999">
+                    <q-badge color="red-10" text-color="white" class="q-mr-md q-py-xs q-px-sm shadow-2 text-bold">
+                      <q-icon name="warning" size="14px" class="q-mr-xs" />
+                      ETAPA FORA DO ROTEIRO (IMPREVISTA)
+                    </q-badge>
+                  </template>
+                  <template v-else>
+                    <div class="text-subtitle2 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
+                  </template>
+                  
+                  <div class="text-subtitle1 text-weight-bold ellipsis">{{ productionStore.currentActiveStep.name }}</div>
+              </div>
+              <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption" />
             </div>
-    </div>
-</q-card>
-
-            <q-card class="col column no-wrap overflow-hidden shadow-6 bg-white" style="border-radius: 12px; border-left: 10px solid #008C7A;">
-              
-              <div class="col-auto bg-grey-2 q-px-md q-py-xs border-bottom-light row items-center justify-between" v-if="productionStore.currentActiveStep">
-  <div class="row items-center">
-      <template v-if="Number(productionStore.currentActiveStep.seq) === 999">
-        <q-badge color="red-10" text-color="white" class="q-mr-md q-py-xs q-px-sm shadow-2 text-bold">
-          <q-icon name="warning" size="14px" class="q-mr-xs" />
-          ETAPA FORA DO ROTEIRO (IMPREVISTA)
-        </q-badge>
-      </template>
-      <template v-else>
-        <div class="text-subtitle2 text-grey-7 q-mr-sm text-weight-bold">#{{ productionStore.currentActiveStep.seq }}</div>
-      </template>
-      
-      <div class="text-subtitle1 text-weight-bold ellipsis">{{ productionStore.currentActiveStep.name }}</div>
-  </div>
-  <q-chip square dense color="blue-grey-9" text-color="white" icon="precision_manufacturing" :label="productionStore.currentActiveStep.resource" class="text-caption" />
-</div>
-              <div class="col scroll bg-white q-pa-md relative-position">
-                 <div class="row items-center q-mb-sm border-bottom-light q-pb-xs">
-                    <q-icon name="menu_book" size="20px" class="text-primary q-mr-sm" /> 
-                    <div class="text-subtitle2 text-weight-bold text-primary">INSTRUÇÕES DE TRABALHO</div>
-                 </div>
-                 <div class="format-instructions text-grey-9 text-body1 q-mt-sm" style="white-space: pre-wrap; line-height: 1.6;">
-                    {{ productionStore.currentActiveStep?.description || 'Nenhuma instrução disponível para esta etapa.' }}
-                 </div>
-              </div>
-
-              <q-separator />
-
-              <q-card-actions class="col-auto q-pa-sm bg-grey-1 row items-center justify-between">
-    <div class="row items-center q-gutter-x-md q-ml-sm">
-        <div class="column">
-          <div class="text-caption text-grey-7 text-uppercase text-weight-bold" style="font-size: 0.6rem; line-height: 1;">Tempo Estimado</div>
-          <div class="row items-center text-primary">
-              <q-icon name="timer" size="18px" class="q-mr-xs" />
-              <div class="text-h6 text-weight-bolder font-monospace">
-                  {{ productionStore.currentActiveStep?.timeEst || 0 }}h
-              </div>
-          </div>
-        </div>
-    </div>
-
-
-    <q-btn 
-      push dense
-      color="blue-grey-9" 
-      text-color="white"
-      icon="image" 
-      label="VER DESENHO" 
-      class="q-px-md shadow-2"
-      @click="openDrawing"
-    >
-        <q-tooltip>Visualizar Desenho Técnico</q-tooltip>
-    </q-btn>
-</q-card-actions>
-            </q-card>
-          </div>
-
-          <div class="col-3 column no-wrap q-gutter-y-sm">
             
-            <q-card class="col-auto bg-white text-center q-py-sm relative-position shadow-3" style="border-radius: 12px;">
-               <div class="row items-center justify-center q-gutter-x-sm">
-                  <q-icon name="timer" class="vemag-text-secondary" size="24px" />
-                  <div class="text-subtitle1 vemag-text-primary text-uppercase font-weight-bold">Tempo no Estado</div>
+            <div class="col scroll bg-white q-pa-md relative-position">
+               <div class="row items-center q-mb-sm border-bottom-light q-pb-xs">
+                  <q-icon name="menu_book" size="20px" class="text-primary q-mr-sm" /> 
+                  <div class="text-subtitle2 text-weight-bold text-primary">INSTRUÇÕES DE TRABALHO</div>
                </div>
-               <div class="text-h3 text-weight-bolder font-monospace q-my-xs text-dark">{{ elapsedTime }}</div>
-               <q-linear-progress stripe query :class="statusTextClass" size="6px" class="q-mt-xs absolute-bottom" />
-            </q-card>
-
-            <div class="col">
-               <q-btn 
-                 class="fit shadow-3 hover-scale vemag-bg-secondary text-white"
-                 push 
-                 style="border-radius: 12px;"
-                 @click="isAndonDialogOpen = true"
+               
+               <div 
+                  class="text-grey-9 text-body1 q-mt-sm" 
+                  style="line-height: 1.8;"
+                  v-html="formatSapText(productionStore.currentActiveStep?.description)"
                >
-                 <div class="column items-center justify-center">
-                     <q-icon name="notifications_active" size="60px" class="q-mb-md" />
-                     <div class="text-h5 text-weight-bold">CHAMAR AJUDA</div>
-                     <div class="text-caption text-white opacity-80">(Andon)</div>
-                 </div>
-               </q-btn>
+               </div>
             </div>
 
+            <q-separator />
 
-          </div>
+            <q-card-actions class="col-auto q-pa-sm bg-grey-1 row items-center justify-between">
+              <div class="row items-center q-gutter-x-md q-ml-sm">
+                  <div class="column">
+                    <div class="text-caption text-grey-7 text-uppercase text-weight-bold" style="font-size: 0.6rem; line-height: 1;">Tempo Estimado</div>
+                    <div class="row items-center text-primary">
+                        <q-icon name="timer" size="18px" class="q-mr-xs" />
+                        <div class="text-h6 text-weight-bolder font-monospace">
+                            {{ productionStore.currentActiveStep?.timeEst || 0 }}h
+                        </div>
+                    </div>
+                  </div>
+              </div>
+
+              <div class="row items-center q-gutter-x-md">
+                  
+                  <q-btn 
+                    push dense
+                    color="red-10" 
+                    text-color="white"
+                    icon="campaign" 
+                    label="CHAMAR AJUDA" 
+                    class="q-px-md shadow-2 text-weight-bold"
+                    @click="isAndonDialogOpen = true"
+                  >
+                      <q-tooltip>Abrir painel de notificação Andon</q-tooltip>
+                  </q-btn>
+
+                  <q-btn 
+                    v-if="!(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) || productionStore.activeOrder.drawing"
+                    push dense
+                    color="blue-grey-9" 
+                    text-color="white"
+                    icon="image" 
+                    label="VER DESENHO" 
+                    class="q-px-md shadow-2 text-weight-bold"
+                    @click="openDrawing"
+                  >
+                      <q-tooltip>Visualizar Desenho Técnico</q-tooltip>
+                  </q-btn>
+
+              </div>
+            </q-card-actions>
+          </q-card>
         </div>
       </q-page>
     </q-page-container>
@@ -257,16 +265,16 @@
               <q-tr @click="selectOp(props.row)" class="cursor-pointer hover-bg-grey-3">
                 
                 <q-td key="op_number" :props="props">
-  <template v-if="String(props.row.op_number).startsWith('OS-')">
-    <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
-    <div class="text-caption text-grey-7">{{ props.row.custom_ref }}</div>
-  </template>
+                  <template v-if="String(props.row.op_number).startsWith('OS-')">
+                    <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
+                    <div class="text-caption text-grey-7">{{ props.row.custom_ref }}</div>
+                  </template>
 
-  <template v-else>
-    <div class="text-weight-bold text-subtitle1">{{ props.row.custom_ref || props.row.op_number }}</div>
-    <div v-if="props.row.custom_ref" class="text-caption text-grey-7">DocNum: {{ props.row.op_number }}</div>
-  </template>
-</q-td>
+                  <template v-else>
+                    <div class="text-weight-bold text-subtitle1">{{ props.row.custom_ref || props.row.op_number }}</div>
+                    <div v-if="props.row.custom_ref" class="text-caption text-grey-7">DocNum: {{ props.row.op_number }}</div>
+                  </template>
+                </q-td>
 
                 <q-td key="part_name" :props="props">
                   <div class="text-weight-medium">{{ props.row.part_name }}</div>
@@ -289,42 +297,29 @@
     </q-dialog>
 
     <q-dialog v-model="isShiftChangeDialogOpen" persistent>
-  <q-card style="min-width: 350px">
-    <q-card-section>
-      <div class="text-h6 text-teal-9">Troca de Turno</div>
-      <div class="text-subtitle2 text-grey-8">Como deseja prosseguir?</div>
-    </q-card-section>
+      <q-card style="min-width: 350px">
+        <q-card-section>
+          <div class="text-h6 text-teal-9">Troca de Turno</div>
+          <div class="text-subtitle2 text-grey-8">Como deseja prosseguir?</div>
+        </q-card-section>
 
-    <q-card-section class="q-pt-none">
-      A máquina continuará produzindo durante a troca?
-    </q-card-section>
+        <q-card-section class="q-pt-none">
+          A máquina continuará produzindo durante a troca?
+        </q-card-section>
 
-    <q-card-actions align="right" class="text-primary">
-      <q-btn flat label="Cancelar" v-close-popup color="grey" />
-      
-      <q-btn 
-        flat 
-        label="Não, Vai Parar" 
-        color="orange" 
-        @click="handleShiftChange(false)" 
-      />
-
-      <q-btn 
-        push 
-        label="Sim, Continua Rodando" 
-        color="primary" 
-        icon="autorenew"
-        @click="handleShiftChange(true)" 
-      />
-    </q-card-actions>
-  </q-card>
-</q-dialog>
+        <q-card-actions align="right" class="text-primary">
+          <q-btn flat label="Cancelar" v-close-popup color="grey" />
+          <q-btn flat label="Não, Vai Parar" color="orange" @click="handleShiftChange(false)" />
+          <q-btn push label="Sim, Continua Rodando" color="primary" icon="autorenew" @click="handleShiftChange(true)" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
     <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
         <q-card class="bg-grey-10 text-white column">
             <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
                 <q-icon name="picture_as_pdf" size="24px" />
-                <div class="text-h6 q-ml-md">Desenho: {{ productionStore.activeOrder?.part_code }}</div>
+                <div class="text-h6 q-ml-md">Desenho: {{ productionStore.activeOrder?.part_code || productionStore.activeOrder?.item_code }}</div>
                 <q-space /><q-btn dense flat icon="close" size="20px" v-close-popup />
             </q-bar>
             <q-card-section class="col q-pa-none bg-grey-3">
@@ -361,9 +356,9 @@
                 @click="confirmFinishOp"
             >
                 <div class="row items-center justify-center full-width">
-    <span class="text-weight-bolder q-mr-md">ENCERRAR ETAPA</span>
-    <q-icon name="stop_circle" size="32px" />
-</div>
+                    <span class="text-weight-bolder q-mr-md">ENCERRAR ETAPA</span>
+                    <q-icon name="stop_circle" size="32px" />
+                </div>
             </q-btn>
         </div>
 
@@ -380,19 +375,21 @@
                         class="full-width reason-card" 
                         :class="{ 
                           'highlight-shift': reason.code === '111', 
-                          'highlight-maintenance': reason.requiresMaintenance 
+                          'highlight-maintenance': reason.requiresMaintenance,
+                          'highlight-setup': reason.code === '52'
                         }"
                         @click="handleSapPause(reason)"
+                        :disable="reason.code === '111'"
                     >
                         <div class="row items-center no-wrap full-width q-pa-sm">
                           <q-avatar 
                             size="48px" 
-                            :color="reason.code === '111' ? 'orange-9' : (reason.requiresMaintenance ? 'red-10' : 'grey-3')" 
-                            :text-color="reason.code === '111' || reason.requiresMaintenance ? 'white' : 'grey-9'"
-                            :class="{ 'pulse-animation': reason.code === '111' || reason.requiresMaintenance }"
+                            :color="reason.code === '111' ? 'orange-9' : (reason.requiresMaintenance ? 'red-10' : (reason.code === '52' ? 'purple-9' : 'grey-3'))" 
+                            :text-color="reason.code === '111' || reason.requiresMaintenance || reason.code === '52' ? 'white' : 'grey-9'"
+                            :class="{ 'pulse-animation': reason.code === '111' || reason.requiresMaintenance || reason.code === '52' }"
                           >
                             <q-icon 
-                              :name="reason.code === '111' ? 'groups' : (reason.requiresMaintenance ? 'engineering' : 'pause')" 
+                              :name="reason.code === '111' ? 'groups' : (reason.requiresMaintenance ? 'engineering' : (reason.code === '52' ? 'build_circle' : 'pause'))" 
                               size="28px" 
                             />
                           </q-avatar>
@@ -400,11 +397,17 @@
                           <div class="column q-ml-md text-left">
                             <div 
                               class="text-subtitle1 text-weight-bolder" 
-                              :class="{ 'text-orange-10': reason.code === '111', 'text-red-10': reason.requiresMaintenance }"
+                              :class="{ 
+                                'text-orange-10': reason.code === '111', 
+                                'text-red-10': reason.requiresMaintenance,
+                                'text-purple-10': reason.code === '52'
+                              }"
                             >
                               {{ reason.label.toUpperCase() }}
                             </div>
-                            <div v-if="reason.isSpecial" class="text-caption text-grey-6" style="line-height: 1;">Ação Prioritária</div>
+                            <div v-if="reason.isSpecial || reason.code === '52'" class="text-caption text-grey-6" style="line-height: 1;">
+                                {{ reason.code === '111' ? 'Temporariamente Inativo' : 'Ação Prioritária' }}
+                            </div>
                           </div>
                         </div>
                     </q-btn>
@@ -498,18 +501,13 @@ const opNumberToSend = computed(() => {
   const customRef = String(order.custom_ref || '').trim();
   const opNum = String(order.op_number || '').trim();
 
-  // 1. É ORDEM DE SERVIÇO? (Começa com OS- ou tem a flag)
-  // Regra: Enviar o código completo (ex: "OS-4595-1").
-  // O Backend vai detectar "OS-", cortar o prefixo e o sufixo, e sobrar o DocNum (4595).
+  // 1. É ORDEM DE SERVIÇO?
   if (order.is_service || codeStr.startsWith('OS-')) {
-     // Se por acaso o código estiver limpo "4595", forçamos o prefixo para o backend entender
      if (!codeStr.startsWith('OS-')) return `OS-${codeStr}`;
      return codeStr; 
   }
 
   // 2. É ORDEM DE PRODUÇÃO (O.P.)
-  // Regra: CustomRef (que na O.P é o DocNum) > OpNumber > Code
-  // Proteção: Se custom_ref tiver "Cliente:", ignoramos (pois é nome, não número)
   if (customRef.toUpperCase().includes('CLIENTE:')) {
      return opNum || codeStr;
   }
@@ -564,6 +562,28 @@ const currentViewedStep = computed(() => {
 });
 
 const isOnline = ref(window.navigator.onLine);
+
+function formatSapText(text: string | undefined | null) {
+  if (!text) return 'Nenhuma instrução disponível para esta etapa.';
+  
+  let formatted = String(text);
+
+  // 1. Troca quebras de linha literais (texto \n) ou reais por tags HTML <br>
+  formatted = formatted.replace(/\\r\\n/g, '<br>')
+                       .replace(/\\n/g, '<br>')
+                       .replace(/\r\n/g, '<br>')
+                       .replace(/\n/g, '<br>');
+
+  // 2. O TRUQUE MÁGICO PARA O SEU SAP: 
+  // O SAP está juntando as frases com ".- ". Vamos forçar a quebra de linha aí!
+  // Isso vai transformar ".- FIXAR O EIXO" em uma linha nova começando com um bullet.
+  formatted = formatted.replace(/\.\-\s/g, '.<br><br>• ');
+  
+  // 3. Caso o SAP use " - " no meio do texto para indicar lista
+  formatted = formatted.replace(/(?<!^)\s\-\s/g, '<br> - ');
+
+  return formatted;
+}
 
 async function checkSyncQueue() {
   pendingSyncCount.value = await db.sync_queue.where('status').equals('pending').count();
@@ -748,13 +768,18 @@ async function openOpListDialog() {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
-  // 1. Apenas define os dados básicos
+  // 1. Define os dados completos garantindo a tipagem correta
   productionStore.activeOrder = {
     code: String(op.op_number),
+    op_number: String(op.op_number), // Garante o número original
+    custom_ref: op.custom_ref || '', // Garante o DocNum ou Cliente
+    is_service: op.type === 'Service' || String(op.op_number).startsWith('OS-'), // ✅ FLAG CRUCIAL PARA O VUE
     part_name: op.part_name,
     part_code: op.item_code,
-    target_quantity: Number(op.planned_qty),
+    planned_qty: Number(op.planned_qty || 0), // Salva a quantidade planejada correta
+    target_quantity: Number(op.planned_qty || 0), // Fallback
     uom: op.uom || 'pç',
+    drawing: op.drawing || '', // Salva a referência do desenho (vazio na OS)
     produced_quantity: 0,
     scrap_quantity: 0,
     status: 'PENDING',
@@ -1896,6 +1921,13 @@ img, iframe {
   background: #ffebee !important; /* Fundo vermelho claríssimo */
   box-shadow: 0 4px 12px rgba(183, 28, 28, 0.2) !important;
 }
+
+.highlight-setup {
+  border: 2px solid #ca4bca !important; /* Vermelho forte */
+  background: #fce5f8 !important; /* Fundo vermelho claríssimo */
+  box-shadow: 0 4px 12px rgba(213, 31, 219, 0.2) !important;
+}
+
 
 /* Animação para chamar atenção nos itens especiais */
 .pulse-animation {

@@ -39,7 +39,8 @@ export interface ProductionOrder {
   part_code?: string;     // Código do item (ItemCode)
   drawing?: string;       // URL ou código do desenho
   // --------------------
-
+  planned_qty?: number; 
+  uom?: string;
   client?: string;
   product?: string;
   is_service?: boolean; 
@@ -529,8 +530,17 @@ async function loginOperator(scannedCode: string) {
       }
     }
 
-    // Processamento da Ordem
-    activeOrder.value = { ...data, status: data.status || 'SETUP' };
+    // ✅ CORREÇÃO CRUCIAL AQUI: Recriando as propriedades que o Vue usa para a cor e o título!
+    const safeCode = data.op_number || qrCode;
+    const isServiceOrder = data.type === 'Service' || String(safeCode).startsWith('OS-') || data.is_service;
+
+    // Processamento da Ordem (Preserva as flags)
+    activeOrder.value = { 
+      ...data, 
+      code: String(safeCode),      // O Template usa o activeOrder.code
+      is_service: isServiceOrder,  // O Template usa essa flag para ficar Azul
+      status: data.status || 'SETUP' 
+    };
 
     const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
     currentStepIndex.value = bestIndex;
@@ -540,8 +550,6 @@ async function loginOperator(scannedCode: string) {
         const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
         const stageStr = currentStep ? String(currentStep.seq) : '010';
 
-        // 1. Inicia a sessão no backend
-        // O backend cuidará de criar o log "Setup Inicial"
         await api.post('/production/session/start', {
           machine_id: machineId.value, 
           operator_badge: currentOperatorBadge.value, 
@@ -549,10 +557,6 @@ async function loginOperator(scannedCode: string) {
           step_seq: stageStr
         });
         
-        // REMOVIDO: await sendEvent('STATUS_CHANGE', ...) 
-        // Não precisamos mais disso, pois o backend já fará.
-
-        // 3. Atualiza o estado visual para Roxo
         isInSetup.value = true;
         activeOrder.value.status = 'SETUP';
     }

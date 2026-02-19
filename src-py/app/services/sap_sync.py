@@ -254,7 +254,6 @@ class SAPIntegrationService:
                         # Procura a linha correta dentro da coleção
                         for line in os_doc.get('LGLDOS2Collection', []):
                             if line.get('LineId') == target_line_id:
-                                # ✅ AQUI ESTÁ A CORREÇÃO: Pegamos o nome real do serviço
                                 item_code = line.get('U_ItemCode')
                                 item_name = line.get('U_ItemName') # O valor para U_DescricaoServico
                                 roteiro_code = line.get('U_Roteiro') or item_code
@@ -279,15 +278,21 @@ class SAPIntegrationService:
                                                     "timeEst": float(s.get('U_TMMOPU') or 0)
                                                 })
 
-                                # Retorna o objeto formatado com o nome correto
+                                # ✅ CORREÇÃO AQUI: Convertendo para float e garantindo o UOM
+                                try:
+                                    planned_qty_os = float(line.get('U_Qtde') or 0.0)
+                                except (ValueError, TypeError):
+                                    planned_qty_os = 0.0
+
                                 print(f"✅ [SAP] O.S. encontrada: {item_name}")
                                 return {
                                     "op_number": op_code,
-                                    "status": "Released", # O.S. aberta consideramos liberada
+                                    "status": "Released", 
                                     "item_code": item_code,
-                                    "part_name": item_name, # ✅ Corrigido (LGLDOS2 -> U_ItemName)
-                                    "planned_qty": line.get('U_Qtde'),
-                                    "uom": "UN",
+                                    "part_name": item_name, 
+                                    "planned_qty": planned_qty_os, # <--- MUDANÇA AQUI
+                                    "uom": "pç",   
+                                    "is_service": True,                # <--- MUDANÇA AQUI (Padrão para OS)
                                     "custom_ref": f"Cliente: {client_name}",
                                     "type": "Service",
                                     "drawing": "",
@@ -299,12 +304,12 @@ class SAPIntegrationService:
                 print(f"❌ [SAP] Erro ao buscar O.S: {e}")
                 return None
 
-        # Limpeza do código da OP (ex: remove prefixos e espaços)
+        # --- LÓGICA PARA ORDEM DE PRODUÇÃO (O.P.) ---
         clean_code = str(op_code).replace("OP-", "").strip()
         if not clean_code.isdigit(): return None
 
         try:
-            # 1. BUSCA DADOS BÁSICOS DA O.P. (Para localizar o ItemCode)
+            # 1. BUSCA DADOS BÁSICOS DA O.P. 
             print(f"🔄 [SAP] Buscando Cabeçalho da OP {clean_code}...")
             fields_op = "DocumentNumber,ItemNo,ProductDescription,PlannedQuantity,InventoryUOM,ProductionOrderStatus,U_LGO_DocEntryOPsFather,U_Desenho"
             query_op = f"$select={fields_op}&$filter=DocumentNumber eq {clean_code}"
@@ -324,7 +329,6 @@ class SAPIntegrationService:
             print(f"✅ [SAP] OP Encontrada. Item: {item_code}. Buscando Roteiro de Engenharia (LGCROT)...")
 
             # 2. BUSCA O ROTEIRO NA TABELA MESTRE (LGCROT)
-            # Nota: O campo U_Instrucoes vive dentro da LGLCROTCollection
             query_rot = f"$select=Code,Name,LGLCROTCollection&$filter=Code eq '{item_code}'"
             resp_rot = await self.client.get(f"{SAP_BASE_URL}/LGCROT?{query_rot}", cookies=self.cookies)
             
@@ -337,9 +341,7 @@ class SAPIntegrationService:
                     etapas_raw = roteiro.get('LGLCROTCollection', [])
                     
                     for etapa in etapas_raw:
-                        # ✅ CORREÇÃO: Captura a instrução específica da linha
                         raw_instr = etapa.get('U_Instrucoes')
-                        # Fallback inteligente: se não houver instrução, mostra ao menos o Centro de Trabalho
                         instr_formatada = str(raw_instr).strip() if raw_instr else f"Recurso: {etapa.get('U_CentroTra')}"
                         
                         try:
@@ -349,14 +351,13 @@ class SAPIntegrationService:
                         
                         steps.append({
                             "seq": seq,
-                            "resource": etapa.get('U_Operacao', ''),  # Chave para o matchmaker do Front
+                            "resource": etapa.get('U_Operacao', ''),  
                             "name": etapa.get('U_Descr', 'Etapa sem nome'),
-                            "description": instr_formatada,           # ✅ AGORA MAPEADO CORRETAMENTE
+                            "description": instr_formatada,           
                             "timeEst": float(etapa.get('U_TMMOPU') or 0),
                             "status": "PENDING"
                         })
                     
-                    # Garante a ordem correta das etapas pelo número da sequência
                     steps.sort(key=lambda x: x['seq'])
                     print(f"✅ [SAP] Roteiro carregado com {len(steps)} etapas para a OP {clean_code}.")
                 else:
@@ -364,14 +365,22 @@ class SAPIntegrationService:
             else:
                 print(f"❌ [SAP] Erro ao buscar LGCROT: {resp_rot.status_code}")
 
+            # ✅ CORREÇÃO AQUI: Formatando valores com segurança antes de retornar
+            try:
+                planned_qty_op = float(op_data.get('PlannedQuantity') or 0.0)
+            except (ValueError, TypeError):
+                planned_qty_op = 0.0
+
+            uom_op = op_data.get('InventoryUOM') or "pç"
+
             # 3. RETORNA O OBJETO COMPLETO PARA O FRONTEND
             return {
                 "op_number": op_data.get('DocumentNumber'),
                 "status": op_data.get('ProductionOrderStatus'),
                 "item_code": item_code,
                 "part_name": op_data.get('ProductDescription'),
-                "planned_qty": op_data.get('PlannedQuantity'), 
-                "uom": op_data.get('InventoryUOM'),
+                "planned_qty": planned_qty_op, # <--- MUDANÇA AQUI
+                "uom": uom_op,                 # <--- MUDANÇA AQUI
                 "custom_ref": op_data.get('U_LGO_DocEntryOPsFather') or "",
                 "drawing": str(op_data.get('U_Desenho') or ""),
                 "steps": steps
@@ -565,7 +574,8 @@ class SAPIntegrationService:
                         "part_name": f"[OS] {item_name}",
                         "planned_qty": qty,
                         "uom": "UN",
-                        "type": "Service",          # Flag interna
+                        "type": "Service",          
+                        "is_service": True,         # ✅ NOVA FLAG ADICIONADA AQUI
                         "custom_ref": f"Cliente: {client_name}",
                         "drawing": "",
                         "steps": steps
