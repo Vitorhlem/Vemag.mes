@@ -397,17 +397,17 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
         duration_hours = (timeline[i+1]["time"] - seg["time"]).total_seconds() / 3600
         if duration_hours <= 0: continue
 
-        st = str(seg["status"]).upper()
+        st = str(seg["status"]).strip().upper() # Adicionado strip()
         reason_label = str(seg.get("reason") or "").strip()
         if not reason_label and st not in IGNORED_LABELS and st not in ["RUNNING", "EM USO", "EM OPERAÇÃO"]:
              reason_label = st
 
-        if any(x in st for x in ["MAINTENANCE", "MANUTENÇÃO", "QUEBRADA"]):
+        if any(x in st for x in ["MAINTENANCE", "MANUTENÇÃO", "QUEBRADA", "REPARO"]):
             today_maintenance += duration_hours
             if reason_label and reason_label.upper() not in IGNORED_LABELS:
                 reasons_hours_map[reason_label] = reasons_hours_map.get(reason_label, 0) + duration_hours
         
-        elif any(x in st for x in ["RUNNING", "EM OPERAÇÃO", "EM USO", "IN_USE", "AUTÔNOMA", "AUTONOMOUS"]):
+        elif any(x in st for x in ["RUNNING", "OPERAÇÃO", "USO", "PRODUCING", "AUTÔNOMA"]):
             today_running += duration_hours
 
         elif any(x in st for x in ["SETUP", "PREPARAÇÃO"]):
@@ -470,7 +470,8 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
         "total_setup": round(final_setup, 1),
         "total_pause": round(final_pause, 1),
         "total_maintenance": round(final_maintenance, 1),
-        "total_micro_stops": round(final_micro, 1),
+        # ✅ GARANTA QUE O NOME SEJA total_micro_stops
+        "total_micro_stops": round(final_micro, 1), 
         "avg_availability": round(final_avg_availability, 1),
         "stop_reasons": sorted_stops[:10],
         "mtbf": avg_mtbf,

@@ -175,7 +175,7 @@
                     <q-icon name="menu_book" size="20px" class="text-primary q-mr-sm" /> 
                     <div class="text-subtitle2 text-weight-bold text-primary">INSTRUÇÕES DE TRABALHO</div>
                  </div>
-                 <div class="text-body1 text-grey-10" style="white-space: pre-wrap; line-height: 1.6;">
+                 <div class="format-instructions text-grey-9 text-body1 q-mt-sm" style="white-space: pre-wrap; line-height: 1.6;">
                     {{ productionStore.currentActiveStep?.description || 'Nenhuma instrução disponível para esta etapa.' }}
                  </div>
               </div>
@@ -1809,6 +1809,11 @@ onUnmounted(() => {
 
 .lh-tight {
   line-height: 1.2;
+}
+.format-instructions {
+  white-space: pre-wrap; /* Mágica acontece aqui: respeita os Enters do texto */
+  word-break: break-word; /* Evita que palavras gigantes quebrem o layout */
+  line-height: 1.6; /* Dá um respiro melhor entre as linhas para facilitar a leitura */
 }
 .font-inter { font-family: 'Roboto', sans-serif; }
 .maintenance-dialog {

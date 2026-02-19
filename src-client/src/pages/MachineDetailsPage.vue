@@ -4,22 +4,22 @@
       <q-btn icon="arrow_back" flat round color="primary" @click="$router.back()" class="q-mr-md" />
       <div>
         <div class="text-h4 text-weight-bolder text-grey-9">{{ machineInfo.name }}</div>
-        <div class="text-subtitle1 text-grey-7">Análise de Disponibilidade & Comportamento do Ativo</div>
+        <div class="text-subtitle1 text-grey-7">Análise de Disponibilidade & Eficiência Operacional</div>
       </div>
       <q-space />
       <div class="row q-gutter-sm">
         <q-select
           v-model="period"
           :options="periodOptions"
-          label="Período"
+          label="Período de Análise"
           outlined dense bg-color="white"
-          style="width: 180px"
+          style="width: 220px"
           emit-value map-options
           @update:model-value="loadAllData"
         >
-          <template v-slot:prepend><q-icon name="history" color="primary" /></template>
+          <template v-slot:prepend><q-icon name="date_range" color="primary" /></template>
         </q-select>
-        <q-btn color="primary" icon="refresh" label="Atualizar" @click="loadAllData" :loading="loading" push />
+        <q-btn color="primary" icon="refresh" label="Sincronizar" @click="loadAllData" :loading="loading" push />
       </div>
     </div>
 
@@ -27,12 +27,12 @@
       <q-btn 
         color="orange-9" 
         icon="auto_fix_high" 
-        label="Forçar Fechamento Hoje" 
+        label="Recalcular Métricas de Hoje" 
         @click="forceDayClosing" 
         :loading="closingLoading"
         flat
       >
-        <q-tooltip>Processa os logs de HOJE e gera o histórico agora para teste</q-tooltip>
+        <q-tooltip>Processa logs atuais para atualizar os indicadores em tempo real</q-tooltip>
       </q-btn>
     </div>
 
@@ -43,8 +43,8 @@
             <div class="col">
               <div class="text-overline text-grey-7">{{ card.label }}</div>
               <div class="text-h4 text-weight-bolder" :class="`text-${card.color === 'black' ? 'black' : card.color + '-9'}`">
-  {{ (Number(card.value) || 0).toFixed(1) }}<span class="text-h6 text-weight-light">h</span>
-</div>
+                {{ (Number(card.value) || 0).toFixed(1) }}<span class="text-h6 text-weight-light">h</span>
+              </div>
             </div>
             <q-icon :name="card.icon" :color="card.color" size="2.5rem" class="opacity-20" />
           </q-card-section>
@@ -52,13 +52,13 @@
       </div>
     </div>
 
-    <div class="row q-col-gutter-lg">
+    <div class="row q-col-gutter-lg q-mb-lg">
       <div class="col-12 col-lg-8">
         <q-card class="chart-container shadow-2 border-radius-15">
           <q-card-section class="row items-center">
             <div>
               <div class="text-h6 text-weight-bold text-grey-8">Disponibilidade Diária (%)</div>
-              <div class="text-caption text-grey-6">Comparativo de performance por dia</div>
+              <div class="text-caption text-grey-6">Métrica de utilização efetiva por dia</div>
             </div>
             <q-space />
             <div class="text-right">
@@ -75,13 +75,15 @@
       <div class="col-12 col-lg-4">
         <q-card class="chart-container shadow-2 border-radius-15">
           <q-card-section>
-            <div class="text-h6 text-weight-bold text-grey-8">Top Ofensores</div>
-            <div class="text-caption text-grey-6 q-mb-md">Principais causas de indisponibilidade</div>
+            <div class="text-h6 text-weight-bold text-grey-8">Top Ofensores (Pareto)</div>
+            <div class="text-caption text-grey-6 q-mb-md">Causas que mais consumiram tempo</div>
             <div id="stopReasonBarChart" style="height: 400px; width: 100%;"></div>
           </q-card-section>
         </q-card>
       </div>
+    </div>
 
+    <div class="row q-col-gutter-lg q-mb-lg">
       <div class="col-12">
         <q-card class="bg-white q-pa-md shadow-2 border-radius-15">
           <div class="row q-col-gutter-xl text-center">
@@ -96,13 +98,61 @@
               <div class="text-caption">Tempo Médio de Reparo</div>
             </div>
             <div class="col-12 col-md-4">
-              <div class="text-overline text-grey-6">Confiabilidade</div>
+              <div class="text-overline text-grey-6">Índice de Confiabilidade</div>
               <div class="text-h4 text-weight-bolder" :class="`text-${reliabilityStatus.color}`">
                 {{ reliabilityStatus.label }}
               </div>
-              <div class="text-caption">Status baseado no MTBF ({{ summaryData.mtbf }}h)</div>
+              <div class="text-caption">Status baseado no MTBF atual</div>
             </div>
           </div>
+        </q-card>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12">
+        <q-card class="shadow-2 border-radius-15">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6 text-weight-bold text-grey-8">Log de Eventos do Período</div>
+            <q-space />
+            <q-input v-model="logSearch" dense outlined placeholder="Pesquisar evento..." class="q-ml-md" style="width: 250px">
+              <template v-slot:append><q-icon name="search" /></template>
+            </q-input>
+          </q-card-section>
+          
+          <q-card-section>
+            <q-table
+              :rows="detailedLogs"
+              :columns="logColumns"
+              row-key="id"
+              flat
+              :loading="loading"
+              :pagination="{ rowsPerPage: 10 }"
+              no-data-label="Nenhum log encontrado"
+            >
+              <template v-slot:body-cell-operator_name="props">
+                <q-td :props="props">
+                  <div v-if="props.row.operator_id" class="row items-center no-wrap cursor-pointer text-primary text-weight-bold" @click="$router.push(`/users/${props.row.operator_id}/stats`)">
+                    <q-avatar size="24px" color="blue-1" text-color="primary" icon="person" class="q-mr-sm" />
+                    <span>{{ props.value }}</span>
+                    <q-tooltip>Ver perfil e estatísticas do operador</q-tooltip>
+                  </div>
+                  <div v-else class="row items-center text-grey-6 font-italic">
+                    <q-icon name="smart_toy" size="18px" class="q-mr-xs" />
+                    {{ props.value || 'Sistema' }}
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-new_status="props">
+                <q-td :props="props">
+                  <q-chip dense :color="getStatusColor(props.value)" text-color="white" class="text-weight-bold">
+                    {{ props.value }}
+                  </q-chip>
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
         </q-card>
       </div>
     </div>
@@ -125,6 +175,8 @@ const closingLoading = ref(false);
 const period = ref(30);
 const machineInfo = ref({ name: 'Carregando...' });
 const dailyMetrics = ref<any[]>([]);
+const detailedLogs = ref<any[]>([]);
+const logSearch = ref('');
 
 const summaryData = ref({
   total_running: 0,
@@ -144,40 +196,55 @@ const periodOptions = [
   { label: 'Últimos 90 dias', value: 90 }
 ];
 
-// Lógica de Confiabilidade Dinâmica
+const logColumns = [
+  { name: 'timestamp', label: 'Data/Hora', align: 'left', field: 'timestamp', format: (val: string) => new Date(val).toLocaleString('pt-BR'), sortable: true },
+  { name: 'event_type', label: 'Tipo', align: 'left', field: 'event_type', sortable: true },
+  { name: 'new_status', label: 'Status Resultante', align: 'center', field: 'new_status' },
+  { name: 'reason', label: 'Motivo/Ação', align: 'left', field: 'reason' },
+  { name: 'operator_name', label: 'Responsável', align: 'left', field: 'operator_name' }
+];
+
 const reliabilityStatus = computed(() => {
   const mtbf = summaryData.value.mtbf;
   if (mtbf === 0) return { label: 'Em análise', color: 'grey-7' };
   if (mtbf >= 50) return { label: 'Excelente', color: 'positive' };
   if (mtbf >= 24) return { label: 'Estável', color: 'primary' };
   if (mtbf >= 10) return { label: 'Aceitável', color: 'warning' };
-  return { label: 'Crítico / Instável', color: 'negative' };
+  return { label: 'Instável / Crítico', color: 'negative' };
 });
 
-// Definição dos 5 Cards Superiores
 const stateCards = computed(() => [
   { label: 'Em Operação', value: summaryData.value.total_running, color: 'green', icon: 'precision_manufacturing' },
-  { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_input_component' },
-  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'black', icon: 'flash_on' },
-  { label: 'Pausa / Ocioso', value: summaryData.value.total_pause, color: 'orange', icon: 'hourglass_empty' },
-  { label: 'Manutenção', value: summaryData.value.total_maintenance, color: 'red', icon: 'plumbing' }
+  { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_suggest' },
+  // Mudei a cor de black para blue-grey para melhor visibilidade
+  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'blue-grey-10', icon: 'bolt' },
+  { label: 'Pausa / Ocioso', value: summaryData.value.total_pause, color: 'orange', icon: 'timer' },
+  { label: 'Manutenção', value: summaryData.value.total_maintenance, color: 'red', icon: 'engineering' }
 ]);
+
+function getStatusColor(status: string) {
+  const s = String(status).toUpperCase();
+  if (s.includes('USO') || s.includes('OPERAÇÃO')) return 'green-7';
+  if (s.includes('SETUP')) return 'purple-7';
+  if (s.includes('MANUTENÇÃO')) return 'red-8';
+  if (s.includes('PARADA') || s.includes('PAUSA')) return 'orange-8';
+  return 'grey-7';
+}
 
 async function forceDayClosing() {
   $q.dialog({
-    title: 'Confirmar Consolidação',
-    message: 'Isso irá processar todos os logs de HOJE e transformar em dados históricos. Deseja continuar?',
+    title: 'Confirmar Recálculo',
+    message: 'Deseja reprocessar os eventos de hoje para atualizar os indicadores diários?',
     cancel: true,
     persistent: true
   }).onOk(async () => {
     closingLoading.value = true;
     try {
       await api.post(`/production/consolidate/${machineId}`);
-      $q.notify({ type: 'positive', message: 'Dados consolidados com sucesso!', icon: 'done_all' });
+      $q.notify({ type: 'positive', message: 'Métricas recalculadas!' });
       await loadAllData();
     } catch (e) {
-      console.error(e);
-      $q.notify({ type: 'negative', message: 'Erro ao processar fechamento.' });
+      $q.notify({ type: 'negative', message: 'Erro no processamento.' });
     } finally {
       closingLoading.value = false;
     }
@@ -196,17 +263,19 @@ async function loadAllData() {
     const resHistory = await api.get(`/production/stats/${machineId}/history?days=${period.value}`);
     dailyMetrics.value = resHistory.data;
 
+    // Busca os logs detalhados para a tabela
+    const resLogs = await api.get(`/production/history/${machineId}?limit=100`);
+    detailedLogs.value = resLogs.data;
+
     renderBarCharts();
   } catch (e) {
-    console.error(e);
-    $q.notify({ type: 'negative', message: 'Erro ao carregar dados do servidor.' });
+    $q.notify({ type: 'negative', message: 'Erro ao carregar dados analíticos.' });
   } finally {
     loading.value = false;
   }
 }
 
 function renderBarCharts() {
-  // 1. Gráfico de Disponibilidade (Barras Verticais com Labels)
   const availChart = echarts.init(document.getElementById('availabilityBarChart'));
   availChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
@@ -220,44 +289,32 @@ function renderBarCharts() {
     series: [{
       name: 'Disponibilidade',
       type: 'bar',
-      barMaxWidth: 40,
+      barMaxWidth: 35,
       data: dailyMetrics.value.map(m => m.availability),
-      label: {
-        show: true,
-        position: 'top',
-        formatter: '{c}%',
-        fontWeight: 'bold',
-        fontSize: 11
-      },
+      label: { show: true, position: 'top', formatter: '{c}%', fontSize: 10 },
       itemStyle: {
-        color: (params: any) => {
-          if (params.value >= 85) return '#4caf50';
-          if (params.value >= 70) return '#ffc107';
-          return '#f44336';
-        },
+        color: (params: any) => params.value >= 85 ? '#43a047' : (params.value >= 70 ? '#fb8c00' : '#e53935'),
         borderRadius: [4, 4, 0, 0]
       }
     }]
   });
 
-  // 2. Gráfico de Motivos (Barras Horizontais)
   const stopChart = echarts.init(document.getElementById('stopReasonBarChart'));
   const stopData = summaryData.value.stop_reasons;
   stopChart.setOption({
-    tooltip: { trigger: 'axis', formatter: '{b}: <b>{c} horas</b>' },
+    tooltip: { trigger: 'axis', formatter: '{b}: <b>{c}h</b>' },
     grid: { left: '3%', right: '15%', bottom: '3%', containLabel: true },
-    xAxis: { type: 'value', axisLabel: { formatter: '{value} h' } },
+    xAxis: { type: 'value', axisLabel: { formatter: '{value}h' } },
     yAxis: { 
       type: 'category', 
       data: stopData.map((i: any) => i.name),
       inverse: true
     },
     series: [{
-      name: 'Tempo Total',
       type: 'bar',
       data: stopData.map((i: any) => i.value),
       itemStyle: { color: '#ef5350', borderRadius: [0, 4, 4, 0] },
-      label: { show: true, position: 'right', formatter: '{c} h' }
+      label: { show: true, position: 'right', formatter: '{c}h' }
     }]
   });
 }
@@ -272,20 +329,18 @@ onMounted(loadAllData);
 
 <style scoped>
 .state-card {
-  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+  transition: all 0.3s ease;
   border-radius: 12px;
   background: white;
-  min-height: 100px;
+  min-height: 110px;
 }
-.state-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+.state-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
 
-.border-left-green { border-left: 8px solid #4caf50; }
-.border-left-purple { border-left: 8px solid #9c27b0; }
-.border-left-orange { border-left: 8px solid #ff9800; }
-.border-left-red { border-left: 8px solid #f44336; }
-.border-left-black { border-left: 8px solid #000000; }
-
-.text-black { color: #000000 !important; }
+.border-left-green { border-left: 8px solid #43a047; }
+.border-left-purple { border-left: 8px solid #8e24aa; }
+.border-left-orange { border-left: 8px solid #fb8c00; }
+.border-left-red { border-left: 8px solid #e53935; }
+.border-left-black { border-left: 8px solid #263238; }
 
 .chart-container { background: white; padding: 20px; }
 .border-radius-15 { border-radius: 15px; }

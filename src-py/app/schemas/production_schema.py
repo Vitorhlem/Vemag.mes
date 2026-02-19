@@ -267,12 +267,17 @@ class VehicleDailyMetricRead(BaseModel):
     idle_hours: float
     maintenance_hours: float
     planned_stop_hours: float
+    # ✅ ADICIONE ESTE CAMPO:
+    micro_stop_hours: float = 0.0 
     availability: float
     utilization: float
     top_reasons_snapshot: List[Any] = []
+    # Placeholders para KPIs
+    mtbf: float = 0.0
+    mttr: float = 0.0
     closed_at: datetime
 
-    model_config = ConfigDict(from_attributes=True) # Correção para Pydantic v2
+    model_config = ConfigDict(from_attributes=True)
 
 # SCHEMA PARA OS CARDS PROFISSIONAIS E GRÁFICO DE PARETO
 class MachinePeriodSummary(BaseModel):
@@ -280,10 +285,10 @@ class MachinePeriodSummary(BaseModel):
     total_setup: float
     total_pause: float
     total_maintenance: float
+    # ✅ ADICIONE ESTE CAMPO:
+    total_micro_stops: float = 0.0 
     avg_availability: float
     stop_reasons: List[Any]
-    
-    # Placeholders para KPIs de manutenção
     mtbf: float = 0.0
     mttr: float = 0.0
 
