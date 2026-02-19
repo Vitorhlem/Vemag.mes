@@ -355,7 +355,7 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
         "PARADA", "PAUSED", "STOPPED", "AVAILABLE", "DISPONÍVEL", "IDLE", 
         "OUTROS", "UNDEFINED", "SEM MOTIVO", "AGUARDANDO INÍCIO", "PENDING",
         "LOGOFF", "TROCA DE TURNO", "LOGOFF / TROCA DE TURNO", "Manutenção Geral", "MANUTENÇÃO GERAL",
-        "OCIOSO", "OCIOSIDADE", "SETUP", "PREPARAÇÃO"
+        "OCIOSO", "OCIOSIDADE", "SETUP", "PREPARAÇÃO", "SAÍDA", "SAIDA"
     ]
 
     # ... (O restante da função de resumo permanece igual, pois ela usa a lógica do VehicleDailyMetric que já foi consolidada)
@@ -443,7 +443,15 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
         for entry in (m.top_reasons_snapshot or []):
             lbl = entry.get('label', '').strip()
             hours = float(entry.get('hours', 0))
-            if not lbl or lbl.upper() in IGNORED_LABELS: continue
+            
+            if not lbl: continue
+            
+            lbl_upper = lbl.upper()
+            
+            # ✅ CORREÇÃO: Ignora se for o termo exato OU se contiver "SETUP" ou "PREPARAÇÃO"
+            if lbl_upper in IGNORED_LABELS or "SETUP" in lbl_upper or "PREPARAÇÃO" in lbl_upper: 
+                continue
+                
             reasons_hours_map[lbl] = reasons_hours_map.get(lbl, 0) + hours
 
     final_running = total_running + today_running

@@ -195,15 +195,13 @@ const periodOptions = [
   { label: 'Últimos 30 dias', value: 30 },
   { label: 'Últimos 90 dias', value: 90 }
 ];
-
 const logColumns = [
   { name: 'timestamp', label: 'Data/Hora', align: 'left', field: 'timestamp', format: (val: string) => new Date(val).toLocaleString('pt-BR'), sortable: true },
-  { name: 'event_type', label: 'Tipo', align: 'left', field: 'event_type', sortable: true },
+  { name: 'event_type', label: 'Tipo', align: 'left', field: 'event_type', format: (val: string) => translateEventType(val), sortable: true },
   { name: 'new_status', label: 'Status Resultante', align: 'center', field: 'new_status' },
   { name: 'reason', label: 'Motivo/Ação', align: 'left', field: 'reason' },
   { name: 'operator_name', label: 'Responsável', align: 'left', field: 'operator_name' }
 ];
-
 const reliabilityStatus = computed(() => {
   const mtbf = summaryData.value.mtbf;
   if (mtbf === 0) return { label: 'Em análise', color: 'grey-7' };
@@ -216,12 +214,10 @@ const reliabilityStatus = computed(() => {
 const stateCards = computed(() => [
   { label: 'Em Operação', value: summaryData.value.total_running, color: 'green', icon: 'precision_manufacturing' },
   { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_suggest' },
-  // Mudei a cor de black para blue-grey para melhor visibilidade
-  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'blue-grey-10', icon: 'bolt' },
+  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'black', icon: 'bolt' }, // Voltou para 'black'
   { label: 'Pausa / Ocioso', value: summaryData.value.total_pause, color: 'orange', icon: 'timer' },
   { label: 'Manutenção', value: summaryData.value.total_maintenance, color: 'red', icon: 'engineering' }
 ]);
-
 function getStatusColor(status: string) {
   const s = String(status).toUpperCase();
   if (s.includes('USO') || s.includes('OPERAÇÃO')) return 'green-7';
@@ -229,6 +225,21 @@ function getStatusColor(status: string) {
   if (s.includes('MANUTENÇÃO')) return 'red-8';
   if (s.includes('PARADA') || s.includes('PAUSA')) return 'orange-8';
   return 'grey-7';
+}
+
+function translateEventType(val: string) {
+  const map: Record<string, string> = {
+    'STATUS_CHANGE': 'Mudança de Status',
+    'LOGOUT': 'Saída',
+    'SESSION_START': 'Sessão Iniciada',
+    'SESSION_END': 'Sessão Encerrada',
+    'ANDON_OPEN': 'Chamado de Ajuda',
+    'COUNT': 'Contagem de Produção',
+    'STEP_START': 'Etapa Iniciada',
+    'STEP_PAUSE': 'Etapa Pausada',
+    'STEP_COMPLETE': 'Etapa Concluída'
+  };
+  return map[val] || val;
 }
 
 async function forceDayClosing() {
@@ -336,12 +347,12 @@ onMounted(loadAllData);
 }
 .state-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
 
+/* ✅ A cor da borda das micro-paradas é definida aqui */
 .border-left-green { border-left: 8px solid #43a047; }
 .border-left-purple { border-left: 8px solid #8e24aa; }
 .border-left-orange { border-left: 8px solid #fb8c00; }
 .border-left-red { border-left: 8px solid #e53935; }
-.border-left-black { border-left: 8px solid #263238; }
-
+.border-left-black { border-left: 8px solid #263238; } /* Cinza bem escuro / Preto */
 .chart-container { background: white; padding: 20px; }
 .border-radius-15 { border-radius: 15px; }
 .opacity-20 { opacity: 0.2; }

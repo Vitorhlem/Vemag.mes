@@ -329,11 +329,13 @@
     </q-dialog>
 
     <q-dialog v-model="isStopDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
-      <q-card class="bg-grey-2 column">
+      
+      <q-card class="column" :class="stopDialogAlertActive ? 'critical-alert-flash' : 'bg-grey-2'">
         
-        <q-toolbar class="bg-white text-dark q-py-md shadow-2 z-top">
+        <q-toolbar class="text-dark q-py-md shadow-2 z-top" :class="stopDialogAlertActive ? 'bg-red-10 text-white' : 'bg-white'">
           <q-toolbar-title class="text-weight-bold text-h6 row items-center">
-            <q-icon name="warning" color="warning" size="30px" class="q-mr-md"/> SELECIONE O MOTIVO
+            <q-icon name="warning" :color="stopDialogAlertActive ? 'white' : 'warning'" size="30px" class="q-mr-md"/> 
+            {{ stopDialogAlertActive ? 'SELECIONE O MOTIVO IMEDIATAMENTE!' : 'SELECIONE O MOTIVO' }}
           </q-toolbar-title>
           <q-btn flat round icon="close" size="lg" v-close-popup />
         </q-toolbar>
@@ -469,7 +471,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify, useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
@@ -1555,6 +1557,60 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
   }
 }
 
+const stopDialogAlertActive = ref(false);
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+let beepInterval: ReturnType<typeof setInterval> | null = null;
+let audioCtx: AudioContext | null = null;
+
+function playBeep() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.type = 'square'; // Som mais estridente (estilo alarme industrial)
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800 Hz
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume (0.1 = 10%)
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.25); // Toca por 250ms
+  } catch (e) {
+    console.warn("Áudio não suportado ou bloqueado pelo navegador.");
+  }
+}
+
+function startInactivityAlert() {
+  stopDialogAlertActive.value = true;
+  playBeep(); // Toca o primeiro bip
+  // Repete o bip a cada 1.5 segundos
+  beepInterval = setInterval(playBeep, 1500); 
+}
+
+function stopInactivityAlert() {
+  stopDialogAlertActive.value = false;
+  if (beepInterval) clearInterval(beepInterval);
+  beepInterval = null;
+}
+
+// Observa a tela de parada. Se abrir, conta 3 minutos. Se fechar, cancela tudo.
+watch(isStopDialogOpen, (isOpen) => {
+  if (isOpen) {
+    // 3 minutos = 180000 milissegundos
+    const TRÊS_MINUTOS = 180000; 
+    
+    inactivityTimer = setTimeout(() => {
+      startInactivityAlert();
+    }, TRÊS_MINUTOS);
+  } else {
+    // Se a tela fechou (operador escolheu o motivo), limpa os alertas e os timers
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    stopInactivityAlert();
+  }
+});
+
 async function finishAutoSetup() {
     $q.loading.show({ message: 'Máquina ligada! Finalizando Setup...' });
     
@@ -1824,6 +1880,19 @@ onUnmounted(() => {
 /* Animação de pulsação discreta no ícone sinalizado */
 .pulse-animation {
   animation: pulse-shadow 2s infinite;
+}
+.critical-alert-flash {
+  animation: flash-red-bg 1s infinite alternate !important;
+}
+
+@keyframes flash-red-bg {
+  0% { 
+    background-color: #ffebee !important; 
+  }
+  100% { 
+    background-color: #ffcdd2 !important; 
+    box-shadow: 0 0 50px rgba(211, 47, 47, 0.8) inset !important; 
+  }
 }
 
 @keyframes pulse-shadow {

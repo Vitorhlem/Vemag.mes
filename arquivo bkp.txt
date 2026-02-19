@@ -47,7 +47,18 @@
             <q-separator v-if="category.separator" class="q-my-md q-mx-sm opacity-10" />
           </template>
 
-          
+          <div v-if="authStore.isSuperuser" class="q-mt-xl bg-red-1 rounded-borders q-pa-xs border-red-soft" style="background: rgba(254, 242, 242, 0.4); backdrop-filter: blur(5px);">
+            <q-item-label header class="text-weight-bold text-uppercase text-caption text-negative q-pt-sm q-pl-md">
+              Zona de Perigo
+            </q-item-label>
+            <q-item clickable to="/admin" exact v-ripple class="q-ma-xs rounded-borders navigation-item text-negative hover-red">
+              <q-item-section avatar><q-icon name="security" color="negative" size="20px"/></q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-bold">Painel Admin</q-item-label>
+                <q-item-label caption class="text-red-4">Configuração SAP</q-item-label>
+              </q-item-section>
+            </q-item>
+          </div>
         </q-list>
       </q-scroll-area>
     </q-drawer>
@@ -401,6 +412,8 @@ function getManagerMenu(): MenuCategory[] {
       label: 'Ativos & Recursos', 
       children: [
         { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/vehicles' },
+        { title: 'Almoxarifado (Peças)', icon: 'inventory_2', to: '/parts' },
+        { title: 'Ferramental', icon: 'handyman', to: '/implements' }
       ] 
   });
 
@@ -413,9 +426,12 @@ function getManagerMenu(): MenuCategory[] {
   });
 
   menu.push({
-      label: 'Administração',
+      label: 'Gestão Financeira',
       children: [
+          { title: 'Custos Operacionais', icon: 'monetization_on', to: '/costs' },
+          { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' },
           { title: 'Usuários do Sistema', icon: 'manage_accounts', to: '/users' },
+          { title: 'Auditoria SAP', icon: 'history_edu', to: '/audit-logs' } 
       ]
   });
 

@@ -493,9 +493,11 @@ class ProductionService:
         )
         slices = (await db.execute(query)).scalars().all()
         
-        # Termos que NÃO devem ir para o gráfico de Top Ofensores
-        BLACKLIST_TERMS = ["STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "IDLE", "AVAILABLE", "DISPONÍVEL", "SISTEMA", "111", "21"]
-
+        # ✅ CORREÇÃO: "SETUP" e "PREPARAÇÃO" adicionados à lista negra
+        BLACKLIST_TERMS = [
+            "STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "IDLE", 
+            "AVAILABLE", "DISPONÍVEL", "SISTEMA", "111", "21", "SETUP", "PREPARAÇÃO", "SAIDA", "SAÍDA"
+        ]
         run_sec, maint_sec, planned_sec, idle_sec, micro_sec = 0.0, 0.0, 0.0, 0.0, 0.0
         num_failures = 0
         reasons_duration_map = {}
