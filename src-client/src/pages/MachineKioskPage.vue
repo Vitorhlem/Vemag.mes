@@ -100,7 +100,7 @@
   flat 
   color="white" 
   icon="keyboard" 
-  label="Digitar Crachá (Dev/Manual)" 
+  label="Digitar Crachá (Manual)" 
   class="q-mt-sm full-width"
   @click="openManualLogin"
 />

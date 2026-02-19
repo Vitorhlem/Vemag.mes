@@ -361,7 +361,7 @@ async function loginOperator(scannedCode: string) {
   }
 }
 
-  async function logoutOperator(overrideStatus?: string, keepActiveOrder = false) {
+  async function logoutOperator(overrideStatus?: string, keepActiveOrder = false, customReason?: string) {
     if (!machineId.value) return;
     
     // Se não tiver crachá, apenas limpa o estado local e sai
@@ -392,10 +392,9 @@ async function loginOperator(scannedCode: string) {
         targetStatus = 'IN_USE_AUTONOMOUS';
     }
 
-    // --- 🎯 LÓGICA DE MOTIVO DINÂMICA ---
-    // Se for manter a ordem (Troca de turno), o motivo é "Troca de Turno".
-    // Caso contrário, é apenas "Saída" (Logout comum).
-    const reasonText = keepActiveOrder ? 'Troca de Turno' : 'Saída';
+    // --- 🎯 LÓGICA DE MOTIVO DINÂMICA (ATUALIZADA) ---
+    // Se receber um motivo customizado, usa ele. Senão, faz a lógica padrão.
+    const reasonText = customReason || (keepActiveOrder ? 'Troca de Turno' : 'Saída');
 
     try {
         // 1. Registra o LOGOUT com o motivo correto
@@ -404,7 +403,7 @@ async function loginOperator(scannedCode: string) {
             operator_badge: currentOperatorBadge.value,
             event_type: 'LOGOUT',
             new_status: targetStatus, 
-            reason: reasonText // ✅ AGORA O MOTIVO É DINÂMICO
+            reason: reasonText 
         });
 
         // 2. SÓ ATUALIZA STATUS SE NÃO FOR TROCA DE TURNO
@@ -433,7 +432,7 @@ async function loginOperator(scannedCode: string) {
     } else {
         console.log("🔄 Mantendo O.P. ativa para o próximo turno.");
     }
-}
+  }
 
   async function executeShiftChange(keepRunning: boolean) {
     // Se não tiver operador logado, aborta

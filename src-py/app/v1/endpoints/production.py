@@ -116,21 +116,32 @@ async def get_employee_stats(
     dt_start = datetime.combine(start_date, time.min)
     dt_end = datetime.combine(end_date, time.max)
     
+    # Trava para o relógio não calcular horas no futuro (além do momento atual)
+    now = datetime.now()
+    if dt_end > now: dt_end = now
+    
     org_id = current_user.organization_id if current_user else 1
     query_users = select(User).where(User.organization_id == org_id)
     users = (await db.execute(query_users)).scalars().all()
     
     stats_list = []
+    
+    # ✅ Filtro IDÊNTICO ao do gráfico Pareto da máquina
+    IGNORED_LABELS = [
+        "PARADA", "PAUSED", "STOPPED", "AVAILABLE", "DISPONÍVEL", "IDLE", 
+        "OUTROS", "UNDEFINED", "SEM MOTIVO", "AGUARDANDO INÍCIO", "PENDING",
+        "LOGOFF", "TROCA DE TURNO", "LOGOFF / TROCA DE TURNO", "MANUTENÇÃO GERAL",
+        "OCIOSO", "OCIOSIDADE", "SETUP", "PREPARAÇÃO", "SAÍDA", "SAIDA",
+        "STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "SISTEMA", "111", "21"
+    ]
 
     for user in users:
-        op_id_str = str(user.id) 
-        
+        # ✅ CORREÇÃO 1: Ordena a linha do tempo pelo crachá do operador de forma global
         q_logs = select(ProductionLog).where(
             ProductionLog.operator_id == user.id,
-            
             ProductionLog.timestamp >= dt_start,
             ProductionLog.timestamp <= dt_end
-        ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
+        ).order_by(ProductionLog.timestamp.asc())
         
         user_logs = (await db.execute(q_logs)).scalars().all()
         
@@ -146,36 +157,70 @@ async def get_employee_stats(
         unprod_sec = 0.0
         reasons_map = {}
 
-        for log in user_logs:
-            q_next = select(ProductionLog).where(
-                ProductionLog.vehicle_id == log.vehicle_id,
-                ProductionLog.timestamp > log.timestamp
-            ).order_by(ProductionLog.timestamp.asc()).limit(1)
+        # ✅ CORREÇÃO 2: Avança log por log do operador para achar o tempo real
+        for i in range(len(user_logs)):
+            log = user_logs[i]
+            next_log = user_logs[i+1] if i + 1 < len(user_logs) else None
             
-            next_log = (await db.execute(q_next)).scalars().first()
-            end_time = next_log.timestamp if next_log else datetime.now()
+            # Se for o último log do dia, o tempo final é o momento atual
+            next_time = next_log.timestamp if next_log else dt_end
             
-            duration = (end_time - log.timestamp).total_seconds()
-            if duration > 43200: duration = 0 
+            duration = (next_time - log.timestamp).total_seconds()
             if duration < 0: duration = 0
-
-            st = (log.new_status or "").upper()
-            reason = (log.reason or "").upper()
             
-            is_running = st in ["RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "IN_USE", "PRODUÇÃO AUTÔNOMA", "IN_USE_AUTONOMOUS"]
-            is_setup = "SETUP" in st or "SETUP" in reason or "PREPARAÇÃO" in reason
+            # Se o intervalo for > 12h (Ex: Operador foi para casa e voltou no dia seguinte), ignoramos o buraco
+            if duration > 43200: duration = 0 
+
+            st = str(log.new_status or "").upper()
+            reason = str(log.reason or "").strip()
+            reason_upper = reason.upper()
+            event_type = str(log.event_type or "").upper()
+            
+            # ----------------------------------------------------
+            # A. TEMPO DESLOGADO (PERAMBULANDO / SEM MÁQUINA)
+            # ----------------------------------------------------
+            if event_type in ['LOGOUT', 'SESSION_END', 'LOGOFF'] or "SAÍDA" in reason_upper:
+                # Tolerância de 10 minutos (600 segundos)
+                if duration <= 600:
+                    # Totalmente dentro da tolerância: joga para horas produtivas (transição)
+                    prod_sec += duration
+                else:
+                    # Passou do limite: perdoa os primeiros 10 min e penaliza o excedente
+                    prod_sec += 600
+                    unprod_sec += (duration - 600)
+                    
+                continue
+
+            # ----------------------------------------------------
+            # B. TEMPO PRODUTIVO (OPERAÇÃO E SETUP)
+            # ----------------------------------------------------
+            is_running = any(x in st for x in ["RUNNING", "OPERAÇÃO", "USO", "PRODUCING"])
+            is_setup = "SETUP" in st or "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper
             
             if is_running or is_setup:
                 prod_sec += duration
             else:
+            # ----------------------------------------------------
+            # C. TEMPO PARADO (OFENSORES REAIS)
+            # ----------------------------------------------------
                 unprod_sec += duration
-                if duration > 60:
-                    lbl = log.reason or st or "Parada genérica"
-                    reasons_map[lbl] = reasons_map.get(lbl, 0) + 1
+                
+                # Só contabiliza se ele selecionou um motivo e durou mais de 1 min
+                if duration > 60: 
+                    lbl = reason if reason else st
+                    if lbl:
+                        lbl_clean = lbl.replace("Parada: ", "").replace("Status: ", "").strip()
+                        lbl_upper_clean = lbl_clean.upper()
+                        
+                        # Aplica a lista negra do Pareto
+                        if not any(ignored in lbl_upper_clean for ignored in IGNORED_LABELS) and not "SETUP" in lbl_upper_clean:
+                            # Conta +1 vez que ele usou este motivo
+                            reasons_map[lbl_clean] = reasons_map.get(lbl_clean, 0) + 1
 
         total_sec = prod_sec + unprod_sec
         efficiency = (prod_sec / total_sec * 100) if total_sec > 0 else 0.0
         
+        # Gera o ranking dos 3 motivos mais selecionados
         sorted_reasons = sorted(reasons_map.items(), key=lambda x: x[1], reverse=True)[:3]
         top_reasons_list = [{"label": k, "count": v} for k, v in sorted_reasons]
 
@@ -189,6 +234,7 @@ async def get_employee_stats(
             "top_reasons": top_reasons_list
         })
     
+    # Ordena a lista de operadores por quem trabalhou mais horas
     stats_list.sort(key=lambda x: x['total_hours'], reverse=True)
     return stats_list
 

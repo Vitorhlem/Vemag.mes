@@ -1295,17 +1295,12 @@ function confirmFinishOp() {
         // 1. Fecha a sessão no Backend (Calcula totais, fecha logs abertos)
         await productionStore.finishSession();
 
-        // 2. Muda o status da máquina para DISPONÍVEL (Verde/Cinza)
+        // 2. Muda o status da máquina para DISPONÍVEL
         await productionStore.setMachineStatus('AVAILABLE');
         
-        // 3. Registra evento de log para rastreabilidade
-        await productionStore.sendEvent('STATUS_CHANGE', { 
-            new_status: 'AVAILABLE', 
-            reason: 'Etapa Finalizada pelo Operador' 
-        });
-
-        // 4. Logout e Redirecionamento
-        await productionStore.logoutOperator();
+        // 3. Logout e Redirecionamento (Enviamos o motivo de encerramento aqui!)
+        await productionStore.logoutOperator('AVAILABLE', false, 'Etapa Finalizada pelo Operador');
+        
         await router.push({ name: 'machine-kiosk' });
 
         $q.notify({ type: 'positive', message: 'Etapa concluída com sucesso!', icon: 'check_circle', timeout: 3000 });
