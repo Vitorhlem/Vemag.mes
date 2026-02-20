@@ -1288,11 +1288,11 @@ function confirmFinishOp() {
       $q.loading.show({ message: 'Encerrando sessão...' });
       
       try {
-        // NÃO enviamos apontamento para o SAP aqui.
-        // O apontamento de produção já foi enviado pelo 'applyNormalPause' 
-        // quando a máquina parou (sinal 0) e abriu esta tela.
+        // ✅ ADICIONE ISTO AQUI: Para os timers do alerta e o apito instantaneamente!
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        stopInactivityAlert();
 
-        // 1. Fecha a sessão no Backend (Calcula totais, fecha logs abertos)
+        // 1. Fecha a sessão no Backend
         await productionStore.finishSession();
 
         // 2. Muda o status da máquina para DISPONÍVEL
@@ -1594,15 +1594,26 @@ function stopInactivityAlert() {
 watch(isStopDialogOpen, (isOpen) => {
   if (isOpen) {
     // 3 minutos = 180000 milissegundos
-    const TRÊS_MINUTOS = 180000; 
+    const TRES_MINUTOS = 180000; 
     
     inactivityTimer = setTimeout(() => {
       startInactivityAlert();
-    }, TRÊS_MINUTOS);
+    }, TRES_MINUTOS);
   } else {
     // Se a tela fechou (operador escolheu o motivo), limpa os alertas e os timers
     if (inactivityTimer) clearTimeout(inactivityTimer);
     stopInactivityAlert();
+  }
+});
+
+// ✅ NOVA PARTE: Garante que tudo seja desligado se o operador sair da página (ex: Finalizar Etapa)
+onUnmounted(() => {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  stopInactivityAlert();
+  
+  // Opcional: Desliga o contexto de áudio completamente para liberar memória
+  if (audioCtx && audioCtx.state !== 'closed') {
+      audioCtx.close().catch(e => console.error(e));
   }
 });
 

@@ -265,10 +265,10 @@
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-orange"></div> Pausa/Ocioso</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-red"></div> Manutenção</div>
                             <div class="row items-center"><div class="q-mr-xs legend-dot bg-black"></div> Micro-parada</div>
-                            <div class="row items-center q-mr-md"> <div class="box-legend q-mr-sm" style="background-color: #2196F3"></div><span class="text-caption">Troca de Turno (Autônomo)</span>
-</div>
-                        </div>
-                    </q-card-section>
+<div class="row items-center"><div class="q-mr-xs legend-dot bg-brown-8"></div> Sem Motivo</div>
+<div class="row items-center q-mr-md"> <div class="box-legend q-mr-sm" style="background-color: #2196F3"></div><span class="text-caption">Troca de Turno (Autônomo)</span></div>
+</div>                    
+</q-card-section>
                     
                     <q-card-section class="q-pt-none overflow-auto">
                         <div class="gantt-container rounded-borders relative-position bg-grey-3 q-mt-md" style="height: 60px; display: flex; width: 100%;">
@@ -570,24 +570,35 @@ function translateStatus(status: string, block?: any): string {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
-    const s = String(block.status || '').toUpperCase();
-    const cat = String(block.category || '').toUpperCase();
+    // Adicionamos .trim() em tudo para evitar que um espaço em branco quebre a lógica
+    const s = String(block.status || '').toUpperCase().trim();
+    const cat = String(block.category || '').toUpperCase().trim();
     const duration = block.duration_min || 0;
+    const reason = String(block.reason || '').toUpperCase().trim(); 
+
+    // 0. PRIORIDADE MÁXIMA: SEM MOTIVO (MARROM)
+    // Cobre "SEM MOTIVO", "STATUS: PARADA" (que é o padrão do backend) ou quando vier totalmente vazio.
+    if (
+        reason === 'SEM MOTIVO' || 
+        reason === 'STATUS: PARADA' || 
+        ((s.includes('PAUSED') || s.includes('PARADA') || s === '0') && !reason)
+    ) {
+        return 'brown'; // Deixamos apenas 'brown' para o Quasar reconhecer a classe nativa bg-brown
+    }
 
     // 1. REGRA DE MICRO-PARADA (PRETO)
-    // Se durar menos de 5 min e não for produção, prioridade total na cor PRETA
-    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO');
+    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s === '1';
     
     if (cat === 'MICRO_STOP' || (duration > 0 && duration < 5 && !isProducing)) {
         return 'black';
     }
 
-    // 2. Outras cores
+    // 2. Outras cores normais
     if (s === 'AUTONOMOUS') return 'blue';
     if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'red';
-    if (s.includes('SETUP')) return 'purple';
+    if (s.includes('SETUP') || s.includes('PREPARAÇÃO')) return 'purple';
     if (isProducing) return 'green';
-    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'orange';
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA') || s === '0') return 'orange';
     
     return 'grey';
 }

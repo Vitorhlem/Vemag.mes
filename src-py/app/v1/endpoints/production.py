@@ -335,15 +335,16 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
         # 4. PARADAS E OCIOSIDADE
         elif st in ["PAUSED", "PARADA", "STOPPED", "AVAILABLE", "IDLE", "PAUSADA", "0", "OCIOSO", "OCIOSIDADE", "DISPONÍVEL"]:
             
-            # Prioridade 1: Sem motivo definido ou Status Ocioso -> CINZA
-            if reason == "SEM MOTIVO" or st in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONÍVEL", "IDLE"]:
+            # Prioridade 1: Status exclusivo de máquina livre/ociosa -> CINZA
+            # (Removemos a condição reason == "SEM MOTIVO" daqui)
+            if st in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONÍVEL", "IDLE"]:
                 stats["idle"] += duration 
             
-            # Prioridade 2: Micro-paradas (< 5 min) -> AMARELO
+            # Prioridade 2: Micro-paradas (< 5 min) independentemente do motivo -> AMARELO
             elif duration < 300:
                 stats["micro_stop"] += duration
             
-            # Prioridade 3: Parada com motivo (> 5 min) -> LARANJA
+            # Prioridade 3: Parada com ou sem motivo (> 5 min) -> LARANJA
             else:
                 stats["pause"] += duration
         
