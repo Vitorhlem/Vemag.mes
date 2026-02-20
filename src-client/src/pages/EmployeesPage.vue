@@ -126,7 +126,7 @@
         <q-card-section>
             <div class="text-caption text-uppercase text-weight-bold text-black opacity-80">Micro-paradas</div>
             <div class="text-h4 text-weight-bolder q-mt-sm text-black">{{ machineStats?.formatted_micro_stop || '00:00:00' }}</div>
-            <div class="text-caption text-grey-8">Paradas < 5 min.</div>
+            <div class="text-caption text-grey-8">Paradas - 5 min.</div>
         </q-card-section>
     </q-card>
 </div>
@@ -543,12 +543,9 @@ function translateEventType(type: string): string {
     };
     return map[type] || type;
 }
-function goToUserProfile(userId: number) {
-    if (userId) {
-        void router.push(`/users/${userId}/stats`);
-    }
-}
 
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function translateStatus(status: string, block?: any): string {
     const s = String(status || '').toUpperCase();
     const cat = String(block?.category || '').toUpperCase();

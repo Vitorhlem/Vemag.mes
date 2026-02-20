@@ -105,12 +105,14 @@ async def notificar_setor_andon(setor_str: str, maquina: str, motivo: str, obs: 
 
 @router.websocket("/ws/{org_id}")
 async def andon_websocket(websocket: WebSocket, org_id: int):
-    await manager.connect(websocket)
+    # Passamos o org_id no connect para o manager saber quem é quem
+    await manager.connect(websocket, org_id=org_id) 
     try:
         while True:
+            # Mantém a conexão viva
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, org_id=org_id)
 
 @router.post("/", response_model=AndonCallResponse)
 async def create_andon_call(
@@ -150,11 +152,18 @@ async def create_andon_call(
     # 2. Persistência
     call = await crud_andon.create_call(db, andon_in, current_user.organization_id, current_user.id)
     
-    # 3. Formatação e Notificação
     res = _format_response(call)
-    
-    # Sobrescreve o setor na resposta para o WebSocket ficar bonito (mostra "Elétrica" e não "Maintenance")
     res["sector"] = setor_original 
+
+    # 🚀 DISPARA O CELERY (Ele vai cuidar do Push E do aviso no WebSocket do Painel)
+    # Passamos o 'res' para que o Celery já tenha o objeto pronto para o Front-end
+    processar_novo_chamado.delay(
+        call_id=call.id,
+        machine_name=res["machine_name"],
+        sector=setor_original,
+        organization_id=current_user.organization_id,
+        call_data=res
+    )
 
     # Agenda a notificação em background
     # IMPORTANTE: Passamos dados primitivos, não o objeto 'db'

@@ -301,7 +301,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useProductionStore } from 'stores/production-store';
 import { useQuasar } from 'quasar';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { useAuthStore } from 'stores/auth-store'; // Se ainda não tiver
+import { useAuthStore } from 'stores/auth-store';
 import { getOperatorName } from 'src/data/operators';
 
 const router = useRouter();
@@ -318,8 +318,8 @@ const selectedMachineOption = ref<number | null>(null);
 const authStore = useAuthStore();
 const isMaintenanceDialogOpen = ref(false);
 const maintenanceSubReason = ref('Mecânica');
-const maintenanceOperatorName = ref(''); // Nome do solicitante (Fixo)
-const maintenanceTime = ref(''); // Hora da abertura (Fixa)
+const maintenanceOperatorName = ref('');
+const maintenanceTime = ref('');
 const maintenanceNote = ref('');
 const subReasonOptions = [
   { label: 'Falha Mecânica', value: 'Mecânica', icon: 'settings' },
@@ -328,9 +328,11 @@ const subReasonOptions = [
   { label: 'Pneumática / Ar', value: 'Pneumática', icon: 'air' },
   { label: 'Erro de Software / CNC', value: 'Software', icon: 'terminal' }
 ];
-let pollingTimer: ReturnType<typeof setInterval>;
 
-const forcedMaintenance = ref(false); // Estado local para forçar visualmente
+// ❌ pollingTimer REMOVIDO! Sistema agora é 100% Real-Time
+let socket: WebSocket | null = null; 
+
+const forcedMaintenance = ref(false);
 
 // --- Scanner ---
 const showScanner = ref(false);
@@ -348,60 +350,97 @@ const machineOptions = computed(() => {
 
 // Verifica se a máquina está quebrada (Status MAINTENANCE)
 const isMaintenanceMode = computed(() => {
-    // 1. A Verdade Absoluta: O Status Real do Banco
     const status = (productionStore.currentMachine?.status || '').toUpperCase();
     
-    // Se a máquina estiver REALMENTE disponível ou rodando, NUNCA mostre a tela de manutenção
-    // Isso "enfraquece" a tela vermelha para ela não travar o sistema
     if (status.includes('DISPONÍVEL') || status.includes('AVAILABLE') || status.includes('EM USO') || status.includes('EM OPERAÇÃO')) {
         return false;
     }
 
-    // 2. Se o status real for incerto, aí sim olhamos as travas manuais
     if (route.query.state === 'maintenance' || forcedMaintenance.value) return true;
 
-    // 3. Por fim, verifica se o status real é de quebra
     return productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
 });
+
+
+// =========================================================
+// 🔄 ESCUTA DO WEBSOCKET (Atualização Instantânea)
+// =========================================================
+function listenForMachineStatus() {
+  if (!productionStore.machineId) return;
+
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  
+  // ✅ CORREÇÃO: Conectando no canal específico da máquina para evitar o erro 403!
+  // (Caso o seu backend exija 'andon' na rota, mude para /ws/andon/${productionStore.machineId})
+  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${productionStore.machineId}`;
+
+  socket = new WebSocket(wsUrl);
+
+  socket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      // Quando a manutenção for finalizada e o backend avisar...
+      if (data.type === 'MACHINE_STATUS_CHANGED' || data.type === 'STATUS_CHANGE') {
+          console.log(`📡 Rádio Kiosk: Novo status recebido -> ${data.status}`);
+          
+          if (productionStore.currentMachine) {
+              productionStore.currentMachine.status = data.status;
+          }
+
+          const s = String(data.status).toUpperCase();
+          if (s.includes('DISPONÍVEL') || s.includes('AVAILABLE') || s.includes('EM USO') || s.includes('RUNNING')) {
+              forcedMaintenance.value = false;
+              if (route.query.state === 'maintenance') {
+                  void router.replace({ query: {} }); // Limpa a URL
+              }
+          }
+      }
+    } catch (e) {
+      console.error("Erro ao ler rádio", e);
+    }
+  };
+
+  socket.onclose = () => {
+     // Auto-reconecta caso a internet pisque
+     setTimeout(() => { 
+       if (!socket || socket.readyState === WebSocket.CLOSED) listenForMachineStatus(); 
+     }, 3000);
+  };
+}
+
+
 // --- Ciclo de Vida ---
 onMounted(async () => {
   await productionStore.loadKioskConfig();
+  
   if (productionStore.machineId) {
     selectedMachineOption.value = productionStore.machineId;
+    
+    // ✅ 1. Busca o status REAL apenas uma vez ao abrir a tela
+    await productionStore.fetchMachine(productionStore.machineId);
+    
+    // ✅ 2. Liga o rádio para ficar escutando
+    listenForMachineStatus(); 
   }
   
   if (route.query.state === 'maintenance') {
       forcedMaintenance.value = true;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  pollingTimer = setInterval(async () => {
-      if(productionStore.machineId) {          
-          const status = (productionStore.currentMachine?.status || '').toUpperCase();
-          const isRealTimeBroken = productionStore.isMachineBroken || status.includes('MAINTENANCE') || status.includes('MANUTENÇÃO');
-          
-          // --- AUTO-CORREÇÃO (SELF-HEALING) ---
-          // Se o banco diz "Disponível" mas a tela está vermelha por causa da URL/Forced, LIBERA!
-          if (!isRealTimeBroken && (forcedMaintenance.value || route.query.state === 'maintenance')) {
-              console.log("♻️ Auto-correção: Máquina está disponível. Removendo bloqueio visual.");
-              forcedMaintenance.value = false;
-              if (route.query.state) await router.replace({ query: {} });
-          }
-          
-          // Se o banco diz "Quebrada" e a tela não está vermelha, BLOQUEIA!
-          if (isRealTimeBroken && !isMaintenanceMode.value) {
-              console.log("⚠️ Backend reportou quebra. Bloqueando Kiosk.");
-              // O computed vai reagir automaticamente ao status do store
-          }
-      }
-  }, 3000);
+  // ❌ TODO O BLOCO DO setInterval FOI REMOVIDO! A máquina não vai mais bombardear o servidor.
 
   window.addEventListener('keydown', handleKeydown);
 });
+
 onUnmounted(() => {
-   clearInterval(pollingTimer);
+   // ❌ clearInterval(pollingTimer) removido
    window.removeEventListener('keydown', handleKeydown);
    void stopScanner();
+   if (socket) {
+     socket.onclose = null; // Evita loop de reconexão ao sair da página
+     socket.close();
+   }
 });
 
 // --- SCANNER DE CÂMERA ---
@@ -420,9 +459,8 @@ async function startScanner() {
         if (html5QrCode) await stopScanner();
         html5QrCode = new Html5Qrcode("reader");
         
-        // Configuração do layout preferido (Caixa Horizontal 400x150)
         const config = { 
-            fps: 20, // Aumentei para ficar mais ágil
+            fps: 20, 
             qrbox: { width: 400, height: 150 },
             aspectRatio: 1.0,
             formatsToSupport: [ 
@@ -433,7 +471,6 @@ async function startScanner() {
                 Html5QrcodeSupportedFormats.UPC_A,
                 Html5QrcodeSupportedFormats.ITF
             ],
-            // Tenta usar aceleração de hardware se disponível
             experimentalFeatures: {
                 useBarCodeDetectorIfSupported: true
             }
@@ -485,11 +522,7 @@ async function submitManualLogin() {
     $q.notify({ type: 'warning', message: 'Digite um código válido.' });
     return;
   }
-  
-  // Fecha o diálogo antes de tentar logar para evitar conflitos visuais
   isManualLoginOpen.value = false;
-  
-  // Reutiliza a função de login existente
   await handleLogin(manualBadgeInput.value);
 }
 
@@ -499,7 +532,6 @@ let keyBuffer = '';
 let keyTimeout: any = null;
 
 function handleKeydown(event: KeyboardEvent) {
-    // 1. CORREÇÃO: Ignora se o foco estiver em um campo de texto (como a senha do supervisor)
     const target = event.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return; 
@@ -508,7 +540,6 @@ function handleKeydown(event: KeyboardEvent) {
     if (isMaintenanceMode.value) return;
 
     if (event.key === 'Enter') {
-        // Só processa se tiver acumulado caracteres suficientes (evita Enter acidental)
         if (keyBuffer.length > 2) {
             const code = keyBuffer;
             keyBuffer = ''; 
@@ -516,12 +547,10 @@ function handleKeydown(event: KeyboardEvent) {
         }
         keyBuffer = '';
     } else {
-        // Filtra teclas de controle para não sujar o buffer
         if (event.key.length === 1) {
             keyBuffer += event.key;
             clearTimeout(keyTimeout);
-            // Zera o buffer se demorar muito (simula a velocidade de um scanner)
-            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000); // Aumentei um pouco o timeout por segurança
+            keyTimeout = setTimeout(() => { keyBuffer = ''; }, 2000);
         }
     }
 }
@@ -568,39 +597,32 @@ async function saveConfig() {
   if (selectedMachineOption.value) {
     await productionStore.configureKiosk(selectedMachineOption.value);
     isConfigOpen.value = false;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+       listenForMachineStatus();
+    }
   }
 }
 
 // --- MANUTENÇÃO (ABRIR O.M.) ---
 function openMaintenanceDialog() {
-    // 1. TENTA PEGAR DA URL (Prioridade: Quem acabou de reportar a quebra)
     let badge = route.query.last_operator;
 
-    // 2. Se não tiver na URL, tenta da store (Operador ativo no momento)
     if (!badge) {
         badge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
     }
     
-    // 3. Se ainda não tiver, tenta o usuário do sistema (Auth)
     if (!badge && authStore.user?.employee_id) {
         badge = authStore.user.employee_id;
     }
     
-    // --- Resolução do Nome ---
     let displayName = '';
     
     if (badge) {
-        // Tenta converter o crachá em nome
         const nameFromList = getOperatorName(String(badge));
-        
-        // Se achou o nome, usa. Se não, mostra o crachá.
         displayName = nameFromList || `Crachá: ${String(badge)}`;
     }
     
-    // Define o valor final
     maintenanceOperatorName.value = displayName || 'Operador não identificado';
-    
-    // Configurações restantes
     maintenanceTime.value = new Date().toLocaleString('pt-BR');
     maintenanceSubReason.value = 'Mecânica';
     maintenanceNote.value = '';
@@ -616,7 +638,6 @@ function cancelMaintenance() {
 async function submitMaintenance() {
     isLoading.value = true;
     
-    // Monta um relatório estruturado para o SAP / Equipe de Manutenção
     const finalDescription = `
 [SOLICITAÇÃO DE MANUTENÇÃO]
 👤 Solicitante: ${maintenanceOperatorName.value}
@@ -640,8 +661,6 @@ async function submitMaintenance() {
     }
 }
 
-
-
 // --- DESBLOQUEIO DE MÁQUINA ---
 function unlockMachine() {
     $q.dialog({
@@ -659,8 +678,6 @@ function unlockMachine() {
                 $q.loading.show({ message: 'Liberando sistema...' });
                 
                 try {
-                    // ✅ CORREÇÃO: Adicionei 'SUPERVISOR' no final
-                    // Isso força o envio mesmo sem operador logado
                     await productionStore.sendEvent('STATUS_CHANGE', { 
                         new_status: 'AVAILABLE', 
                         reason: 'Fim de Manutenção (Desbloqueio Manual)' 
@@ -687,7 +704,6 @@ function unlockMachine() {
 }
 
 </script>
-
 <style scoped>
 /* CORES VEMAG */
 .text-vemag-green { color: #008C7A !important; }
@@ -739,7 +755,7 @@ function unlockMachine() {
     animation: ringPulse 2s infinite;
 }
 
-/* SCANNER OVERLAY (ESTILO ORIGINAL RESTAURADO) */
+/* SCANNER OVERLAY */
 .scanner-frame {
     width: 90%;
     max-width: 500px;
@@ -765,7 +781,7 @@ function unlockMachine() {
 }
 
 .border-left-info {
-  border-left: 4px solid #008C7A; /* Cor Vemag ou Azul Info */
+  border-left: 4px solid #008C7A;
 }
 
 .sub-reason-btn {

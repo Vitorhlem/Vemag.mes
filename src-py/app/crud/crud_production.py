@@ -34,9 +34,29 @@ class CRUDProduction:
         return db_obj
     
     async def create_entry(self, db: AsyncSession, *, obj_in: dict):
-        # Normalização de tempo
-        raw_time = obj_in.get("start_time") or obj_in.get("timestamp") or datetime.now().isoformat()
-        dt_naive = datetime.fromisoformat(raw_time.replace('Z', '+00:00')).replace(tzinfo=None)
+        
+        # 1. Função auxiliar blindada para converter datas
+        def parse_safe_date(dt_val):
+            if not dt_val:
+                return None
+            # Se já for um objeto datetime (vindo do FastAPI), apenas remove o fuso horário
+            if isinstance(dt_val, datetime):
+                return dt_val.replace(tzinfo=None)
+            # Se for uma string (vindo do modo offline/JSON), converte tratando o 'Z'
+            if isinstance(dt_val, str):
+                try:
+                    return datetime.fromisoformat(dt_val.replace('Z', '+00:00')).replace(tzinfo=None)
+                except ValueError:
+                    return None
+            return None
+
+        # 2. Extração segura das datas usando a função auxiliar
+        raw_time = obj_in.get("start_time") or obj_in.get("timestamp")
+        dt_naive = parse_safe_date(raw_time)
+        
+        end_time_raw = obj_in.get("end_time")
+        # Se não houver end_time, usamos o start_time/timestamp como fallback
+        end_naive = parse_safe_date(end_time_raw) or dt_naive
 
         # DECISÃO: É um log de sistema ou um apontamento de fábrica?
         is_event = "event_type" in obj_in
@@ -45,43 +65,41 @@ class CRUDProduction:
             # GAVETA DE LOGS (ProductionLog)
             badge = str(obj_in.get("operator_badge") or obj_in.get("operator_id") or "")
             
-            # 1. Tenta encontrar o usuário pelo crachá para pegar o ID real
+            # 1. Tenta encontrar o nome do usuário para registro (opcional, para auditoria)
             user_id = None
-            user_name = "Operador"
-            if badge:
+            if badge and badge.isdigit():
                 stmt = select(User).where(User.employee_id == badge)
                 result = await db.execute(stmt)
                 user = result.scalars().first()
                 if user:
                     user_id = user.id
-                    user_name = user.full_name
 
-            db_log = ProductionLog(
-                vehicle_id=obj_in.get("machine_id") or obj_in.get("vehicle_id"),
-                operator_id=user_id, # ✅ Agora salva o ID numérico (Link funciona!)
-                operator_badge=badge, # ✅ Campo novo para mostrar o crachá visualmente
-                event_type=obj_in.get("event_type"),
-                timestamp=dt_naive,
-                new_status=obj_in.get("new_status"), # Importante para colorir a tabela
+            db_obj = ProductionLog(
+                vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
+                operator_id=badge if badge else "0",
+                op_number=obj_in.get("op_number"),
+                timestamp=dt_naive,      # ✅ TRATADO
+                end_time=end_naive,      # ✅ TRATADO
+                new_status=obj_in.get("new_status") or obj_in.get("status"),
                 reason=obj_in.get("reason"),
-                details=str(obj_in.get("reason") or obj_in.get("new_status") or ""),
-                operator_name=user_name
+                details=obj_in.get("details"),
+                position=obj_in.get("position"),
+                operation_code=obj_in.get("operation")
             )
-            db.add(db_log)
+            db.add(db_obj) # ✅ Corrigido de db_log para db_obj
             await db.commit()
             return "LOG_SAVED"
 
         else:
             # GAVETA DE APONTAMENTOS (ProductionAppointment)
-            # Mantemos a lógica original aqui, pois o SAP usa o crachá mesmo
             db_obj = ProductionAppointment(
                 vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
-                operator_id=str(obj_in.get("operator_id") or obj_in.get("operator_badge")),
-                op_number=obj_in.get("op_number") or "",
-                position=obj_in.get("position") or "",
-                operation_code=obj_in.get("operation") or "",
-                start_time=dt_naive,
-                end_time=datetime.fromisoformat(obj_in.get("end_time", raw_time).replace('Z', '+00:00')).replace(tzinfo=None),
+                operator_id=str(obj_in.get("operator_id") or obj_in.get("operator_badge") or "0"),
+                op_number=str(obj_in.get("op_number") or ""),
+                position=str(obj_in.get("position") or ""),
+                operation_code=str(obj_in.get("operation") or ""),
+                start_time=dt_naive,     # ✅ TRATADO
+                end_time=end_naive,       # ✅ CORREÇÃO: Usando a variável tratada aqui!
                 produced_qty=float(obj_in.get("produced_qty", 0.0)),
                 appointment_type="STOP" if obj_in.get("stop_reason") else "PRODUCTION",
                 stop_reason=obj_in.get("stop_reason"),

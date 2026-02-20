@@ -527,6 +527,7 @@ async function loginOperator(scannedCode: string) {
       Loading.show({ message: 'Buscando Ordem no SAP e Roteiros...' });
       // Aciona o backend que vai repassar pro Celery
       await api.get(`/production/orders/${qrCode}?machine_id=${machineId.value}`);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: any) { 
       Loading.hide();
       Notify.create({ type: 'negative', message: 'Erro de conexão ao solicitar O.P.' }); 

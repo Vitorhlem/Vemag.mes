@@ -393,6 +393,7 @@ class MachinePeriodStats(BaseModel):
     stop_reasons: List[dict]
 
 # --- BLOCO 3: ROTA DE AGREGAÇÃO PARA OS CARDS PROFISSIONAIS ---
+# --- BLOCO 3: ROTA DE AGREGAÇÃO PARA OS CARDS PROFISSIONAIS ---
 @router.get("/stats/{machine_id}/period-summary", response_model=production_schema.MachinePeriodSummary)
 async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncSession = Depends(get_db)):
     today = date.today()
@@ -405,78 +406,14 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
         "OCIOSO", "OCIOSIDADE", "SETUP", "PREPARAÇÃO", "SAÍDA", "SAIDA"
     ]
 
-    # ... (O restante da função de resumo permanece igual, pois ela usa a lógica do VehicleDailyMetric que já foi consolidada)
-    # Apenas certifique-se de que a lógica de "Hoje" (Parte B) também use os novos status se necessário
-    # Para brevidade, mantive o código original aqui, mas a lógica de IGNORED_LABELS acima já ajuda a limpar o gráfico.
-    
     # ---------------------------------------------------------
-    # PARTE B (HOJE) REVISADA RAPIDAMENTE PARA COMPATIBILIDADE
-    # ---------------------------------------------------------
-    start_of_today = datetime.combine(today, time.min)
-    end_of_today = datetime.now()
-    
-    stmt_logs = select(ProductionLog).filter(
-        ProductionLog.vehicle_id == machine_id,
-        ProductionLog.timestamp >= start_of_today
-    ).order_by(ProductionLog.timestamp.asc())
-    todays_logs = (await db.execute(stmt_logs)).scalars().all()
-
-    stmt_last = select(ProductionLog).filter(
-        ProductionLog.vehicle_id == machine_id,
-        ProductionLog.timestamp < start_of_today
-    ).order_by(ProductionLog.timestamp.desc()).limit(1)
-    last_log_before = (await db.execute(stmt_last)).scalars().first()
-
-    current_status = last_log_before.new_status if last_log_before else "IDLE"
-    current_reason = last_log_before.reason if last_log_before else ""
-    
-    timeline = []
-    timeline.append({"time": start_of_today, "status": current_status, "reason": current_reason})
-    for log in todays_logs:
-        timeline.append({"time": log.timestamp, "status": log.new_status, "reason": log.reason})
-    timeline.append({"time": end_of_today, "status": "IGNORE", "reason": ""})
-
-    today_running, today_setup, today_pause, today_maintenance, today_micro = 0.0, 0.0, 0.0, 0.0, 0.0
-    reasons_hours_map = {}
-
-    for i in range(len(timeline) - 1):
-        seg = timeline[i]
-        duration_hours = (timeline[i+1]["time"] - seg["time"]).total_seconds() / 3600
-        if duration_hours <= 0: continue
-
-        st = str(seg["status"]).strip().upper() # Adicionado strip()
-        reason_label = str(seg.get("reason") or "").strip()
-        if not reason_label and st not in IGNORED_LABELS and st not in ["RUNNING", "EM USO", "EM OPERAÇÃO"]:
-             reason_label = st
-
-        if any(x in st for x in ["MAINTENANCE", "MANUTENÇÃO", "QUEBRADA", "REPARO"]):
-            today_maintenance += duration_hours
-            if reason_label and reason_label.upper() not in IGNORED_LABELS:
-                reasons_hours_map[reason_label] = reasons_hours_map.get(reason_label, 0) + duration_hours
-        
-        elif any(x in st for x in ["RUNNING", "OPERAÇÃO", "USO", "PRODUCING", "AUTÔNOMA"]):
-            today_running += duration_hours
-
-        elif any(x in st for x in ["SETUP", "PREPARAÇÃO"]):
-            today_setup += duration_hours
-
-        else: # Paradas e Ociosidade
-            if duration_hours < 0.083:
-                today_micro += duration_hours
-            else:
-                today_pause += duration_hours
-                if reason_label and reason_label.upper() not in IGNORED_LABELS:
-                    reasons_hours_map[reason_label] = reasons_hours_map.get(reason_label, 0) + duration_hours
-
-    # ... (Restante da função de agregação histórica continua igual)
-    
-    # ---------------------------------------------------------
-    # PARTE A: DADOS HISTÓRICOS (REPITA A CONSULTA ORIGINAL)
+    # NOVA LÓGICA: APENAS DADOS CONSOLIDADOS PELO CELERY
+    # (Removido o cálculo em tempo real de "Hoje")
     # ---------------------------------------------------------
     query_history = select(VehicleDailyMetric).where(
         VehicleDailyMetric.vehicle_id == machine_id,
         VehicleDailyMetric.date >= start_date,
-        VehicleDailyMetric.date < today 
+        VehicleDailyMetric.date <= today # Permite incluir hoje, caso tenha rolado um fechamento forçado
     )
     metrics_history = (await db.execute(query_history)).scalars().all()
     
@@ -486,6 +423,7 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
     total_maintenance = sum(m.maintenance_hours for m in metrics_history)
     total_micro_stops = sum(m.micro_stop_hours for m in metrics_history)
     
+    reasons_hours_map = {}
     for m in metrics_history:
         for entry in (m.top_reasons_snapshot or []):
             lbl = entry.get('label', '').strip()
@@ -495,44 +433,33 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
             
             lbl_upper = lbl.upper()
             
-            # ✅ CORREÇÃO: Ignora se for o termo exato OU se contiver "SETUP" ou "PREPARAÇÃO"
+            # Ignora se for o termo exato OU se contiver "SETUP" ou "PREPARAÇÃO"
             if lbl_upper in IGNORED_LABELS or "SETUP" in lbl_upper or "PREPARAÇÃO" in lbl_upper: 
                 continue
                 
             reasons_hours_map[lbl] = reasons_hours_map.get(lbl, 0) + hours
 
-    final_running = total_running + today_running
-    final_setup = total_setup + today_setup
-    final_pause = total_pause + today_pause
-    final_maintenance = total_maintenance + today_maintenance
-    final_micro = total_micro_stops + today_micro
-
     sum_avail_history = sum(m.availability for m in metrics_history)
     count_history = len(metrics_history)
-    today_total_time = (end_of_today - start_of_today).total_seconds() / 3600
-    today_avail_base = today_total_time - today_setup
-    today_availability = (today_running / today_avail_base * 100) if today_avail_base > 0 else 0.0
-    if today_availability > 100: today_availability = 100.0
-
-    final_avg_availability = (sum_avail_history + today_availability) / (count_history + 1)
+    
+    # Média real baseada apenas nos dias já processados
+    final_avg_availability = (sum_avail_history / count_history) if count_history > 0 else 0.0
 
     sorted_stops = sorted([{"name": k, "value": round(v, 2)} for k, v in reasons_hours_map.items() if v > 0.01], key=lambda x: x['value'], reverse=True)
     avg_mtbf = round(sum(m.mtbf for m in metrics_history) / count_history, 1) if count_history > 0 else 0
     avg_mttr = round(sum(m.mttr for m in metrics_history) / count_history, 1) if count_history > 0 else 0
 
     return {
-        "total_running": round(final_running, 1),
-        "total_setup": round(final_setup, 1),
-        "total_pause": round(final_pause, 1),
-        "total_maintenance": round(final_maintenance, 1),
-        # ✅ GARANTA QUE O NOME SEJA total_micro_stops
-        "total_micro_stops": round(final_micro, 1), 
+        "total_running": round(total_running, 1),
+        "total_setup": round(total_setup, 1),
+        "total_pause": round(total_pause, 1),
+        "total_maintenance": round(total_maintenance, 1),
+        "total_micro_stops": round(total_micro_stops, 1), 
         "avg_availability": round(final_avg_availability, 1),
         "stop_reasons": sorted_stops[:10],
         "mtbf": avg_mtbf,
         "mttr": avg_mttr
     }
-
 @router.post("/consolidate/{machine_id}")
 async def force_machine_consolidation(machine_id: int, db: AsyncSession = Depends(get_db)):
     try:

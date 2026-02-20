@@ -2,6 +2,12 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
+// =========================================================
+// ⚙️ CONFIGURAÇÕES PRINCIPAIS DO EQUIPAMENTO
+// =========================================================
+const int MACHINE_ID = 1;  // 🔴 MUDE AQUI PARA O ID DA MÁQUINA (Ex: 2, 3, 4...)
+// =========================================================
+
 // --- CONFIGURAÇÕES DE REDE ---
 const char* ssid = "IOT";
 const char* password = "007481Ab";
@@ -26,6 +32,8 @@ void setup() {
   
   Serial.println("\n=========================================");
   Serial.println("🚀 INICIANDO SISTEMA MES - ESP32 🚀");
+  Serial.print("🏭 MÁQUINA CONFIGURADA: ID ");
+  Serial.println(MACHINE_ID);
   Serial.println("=========================================");
   
   Serial.print("🔧 Configurando Pinos... Principal: ");
@@ -149,7 +157,9 @@ bool enviarSinalParaSistema(int estado) {
 
   // Monta o Payload JSON
   StaticJsonDocument<200> doc;
-  doc["machine_id"] = 1;
+  
+  // ✅ CORREÇÃO: Agora ele usa a variável global definida no topo do código
+  doc["machine_id"] = MACHINE_ID; 
   doc["event_type"] = "STATUS_CHANGE";
   doc["new_status"] = (estado == 1) ? "1" : "0";
   doc["operator_badge"] = "ESP32_HARDWARE";

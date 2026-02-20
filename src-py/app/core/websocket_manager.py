@@ -1,4 +1,3 @@
-# Crie este arquivo: src-py/app/core/websocket_manager.py
 from typing import List
 from fastapi import WebSocket
 
@@ -11,15 +10,18 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        # ✅ CORREÇÃO: Só tenta remover se a conexão ainda estiver na lista
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
         # Envia a mensagem para todo mundo que estiver com o Andon aberto
-        for connection in self.active_connections:
+        for connection in self.active_connections.copy(): # Usa .copy() para iterar com segurança
             try:
                 await connection.send_json(message)
             except Exception:
-                # Remove conexões mortas
-                self.active_connections.remove(connection)
+                # Remove conexões mortas com segurança
+                if connection in self.active_connections:
+                    self.active_connections.remove(connection)
 
 manager = ConnectionManager()

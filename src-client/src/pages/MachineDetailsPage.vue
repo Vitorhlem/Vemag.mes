@@ -19,21 +19,7 @@
         >
           <template v-slot:prepend><q-icon name="date_range" color="primary" /></template>
         </q-select>
-        <q-btn color="primary" icon="refresh" label="Sincronizar" @click="loadAllData" :loading="loading" push />
       </div>
-    </div>
-
-    <div class="q-mb-md">
-      <q-btn 
-        color="orange-9" 
-        icon="auto_fix_high" 
-        label="Recalcular Métricas de Hoje" 
-        @click="forceDayClosing" 
-        :loading="closingLoading"
-        flat
-      >
-        <q-tooltip>Processa logs atuais para atualizar os indicadores em tempo real</q-tooltip>
-      </q-btn>
     </div>
 
     <div class="row q-col-gutter-lg q-mb-lg">
@@ -160,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import * as echarts from 'echarts';
 import { api } from 'boot/axios';
@@ -171,12 +157,14 @@ const route = useRoute();
 const machineId = route.params.id;
 
 const loading = ref(false);
-const closingLoading = ref(false);
 const period = ref(30);
 const machineInfo = ref({ name: 'Carregando...' });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const dailyMetrics = ref<any[]>([]);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const detailedLogs = ref<any[]>([]);
 const logSearch = ref('');
+let socket: WebSocket | null = null; // Variável para o WebSocket
 
 const summaryData = ref({
   total_running: 0,
@@ -195,6 +183,7 @@ const periodOptions = [
   { label: 'Últimos 30 dias', value: 30 },
   { label: 'Últimos 90 dias', value: 90 }
 ];
+
 const logColumns = [
   { name: 'timestamp', label: 'Data/Hora', align: 'left', field: 'timestamp', format: (val: string) => new Date(val).toLocaleString('pt-BR'), sortable: true },
   { name: 'event_type', label: 'Tipo', align: 'left', field: 'event_type', format: (val: string) => translateEventType(val), sortable: true },
@@ -202,6 +191,7 @@ const logColumns = [
   { name: 'reason', label: 'Motivo/Ação', align: 'left', field: 'reason' },
   { name: 'operator_name', label: 'Responsável', align: 'left', field: 'operator_name' }
 ];
+
 const reliabilityStatus = computed(() => {
   const mtbf = summaryData.value.mtbf;
   if (mtbf === 0) return { label: 'Em análise', color: 'grey-7' };
@@ -214,10 +204,11 @@ const reliabilityStatus = computed(() => {
 const stateCards = computed(() => [
   { label: 'Em Operação', value: summaryData.value.total_running, color: 'green', icon: 'precision_manufacturing' },
   { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_suggest' },
-  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'black', icon: 'bolt' }, // Voltou para 'black'
+  { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'black', icon: 'bolt' },
   { label: 'Pausa / Ocioso', value: summaryData.value.total_pause, color: 'orange', icon: 'timer' },
   { label: 'Manutenção', value: summaryData.value.total_maintenance, color: 'red', icon: 'engineering' }
 ]);
+
 function getStatusColor(status: string) {
   const s = String(status).toUpperCase();
   if (s.includes('USO') || s.includes('OPERAÇÃO')) return 'green-7';
@@ -242,43 +233,62 @@ function translateEventType(val: string) {
   return map[val] || val;
 }
 
-async function forceDayClosing() {
-  $q.dialog({
-    title: 'Confirmar Recálculo',
-    message: 'Deseja reprocessar os eventos de hoje para atualizar os indicadores diários?',
-    cancel: true,
-    persistent: true
-  }).onOk(async () => {
-    closingLoading.value = true;
+// =========================================================
+// 🔄 ESCUTA DO CELERY (Atualização em Tempo Real)
+// =========================================================
+function listenForSystemUpdates() {
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Conecta num canal genérico "admin" para escutar o Celery
+  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/admin`;
+
+  socket = new WebSocket(wsUrl);
+
+  socket.onmessage = (event) => {
     try {
-      await api.post(`/production/consolidate/${machineId}`);
-      $q.notify({ type: 'positive', message: 'Métricas recalculadas!' });
-      await loadAllData();
+      const data = JSON.parse(event.data);
+      
+      // Se o Celery avisar que fechou o dia...
+      if (data.type === 'DAILY_CLOSING_COMPLETED') {
+          console.log("🔄 Fechamento noturno detectado. Atualizando gráficos...");
+          
+          $q.notify({ 
+             type: 'positive', 
+             message: 'Sincronização do sistema concluída! Atualizando dados...',
+             icon: 'sync'
+          });
+          
+          // Chama a função para buscar os dados frescos
+          void loadAllData();
+      }
     } catch (e) {
-      $q.notify({ type: 'negative', message: 'Erro no processamento.' });
-    } finally {
-      closingLoading.value = false;
+      console.error("Erro ao ler mensagem do Celery", e);
     }
-  });
+  };
+
+  socket.onerror = (error) => {
+    console.warn("WebSocket para atualizações do sistema indisponível.", error);
+  };
 }
 
 async function loadAllData() {
   loading.value = true;
   try {
-    const resMac = await api.get(`/vehicles/${machineId}`);
+    const idStr = String(machineId); // Força a conversão uma única vez
+
+    const resMac = await api.get(`/vehicles/${idStr}`);
     machineInfo.value = { name: `${resMac.data.brand} ${resMac.data.model}` };
 
-    const resSummary = await api.get(`/production/stats/${machineId}/period-summary?days=${period.value}`);
+    const resSummary = await api.get(`/production/stats/${idStr}/period-summary?days=${period.value}`);
     summaryData.value = resSummary.data;
 
-    const resHistory = await api.get(`/production/stats/${machineId}/history?days=${period.value}`);
+    const resHistory = await api.get(`/production/stats/${idStr}/history?days=${period.value}`);
     dailyMetrics.value = resHistory.data;
 
-    // Busca os logs detalhados para a tabela
-    const resLogs = await api.get(`/production/history/${machineId}?limit=100`);
+    const resLogs = await api.get(`/production/history/${idStr}?limit=100`);
     detailedLogs.value = resLogs.data;
 
     renderBarCharts();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Erro ao carregar dados analíticos.' });
   } finally {
@@ -304,6 +314,7 @@ function renderBarCharts() {
       data: dailyMetrics.value.map(m => m.availability),
       label: { show: true, position: 'top', formatter: '{c}%', fontSize: 10 },
       itemStyle: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         color: (params: any) => params.value >= 85 ? '#43a047' : (params.value >= 70 ? '#fb8c00' : '#e53935'),
         borderRadius: [4, 4, 0, 0]
       }
@@ -318,11 +329,13 @@ function renderBarCharts() {
     xAxis: { type: 'value', axisLabel: { formatter: '{value}h' } },
     yAxis: { 
       type: 'category', 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: stopData.map((i: any) => i.name),
       inverse: true
     },
     series: [{
       type: 'bar',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: stopData.map((i: any) => i.value),
       itemStyle: { color: '#ef5350', borderRadius: [0, 4, 4, 0] },
       label: { show: true, position: 'right', formatter: '{c}h' }
@@ -335,7 +348,14 @@ window.addEventListener('resize', () => {
   echarts.getInstanceByDom(document.getElementById('stopReasonBarChart'))?.resize();
 });
 
-onMounted(loadAllData);
+onMounted(() => {
+  void loadAllData();
+  listenForSystemUpdates(); // Liga a escuta do Celery ao abrir a página
+});
+
+onUnmounted(() => {
+  if (socket) socket.close(); // Limpa o rádio ao sair da tela
+});
 </script>
 
 <style scoped>

@@ -215,49 +215,51 @@ function connectWebSocket() {
   
   if (!orgId) return;
 
+  // Garanta que a URL está batendo com a rota do FastAPI
   const wsUrl = `${protocol}//${host}/api/v1/andon/ws/${orgId}`;
+  console.log("📡 Conectando ao Andon via:", wsUrl);
+
   socket = new WebSocket(wsUrl);
 
   socket.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-  
-  if (message.type === 'NEW_CALL') {
-    // 1. Adiciona o novo chamado ao início da lista
-    // O Vue detecta o unshift e atualiza os cards e os KPIs automaticamente
-    calls.value.unshift(message.data);
-    
-    // 2. Feedback Visual
-    $q.notify({ 
-      icon: 'campaign', 
-      color: 'negative', 
-      message: `NOVO CHAMADO: ${message.data.machine_name}`,
-      position: 'top',
-      timeout: 10000 // Fica 10 segundos na tela
-    });
+    try {
+      const message = JSON.parse(event.data);
+      console.log("📥 Mensagem recebida no Andon:", message);
 
-    // 3. Alerta Sonoro (Opcional, mas muito útil em fábricas)
-    playAndonAlert();
-  } 
-  
-  else if (message.type === 'UPDATE_CALL') {
-    const index = calls.value.findIndex(c => c.id === message.data.id);
-    if (index !== -1) {
-      if (message.data.status === 'RESOLVED') {
-        // Se foi resolvido, removemos da tela de ativos
-        calls.value.splice(index, 1);
-      } else {
-        // Se mudou para IN_PROGRESS, atualizamos o card
-        calls.value[index] = message.data;
+      // 🔔 Independente do tipo (NEW_CALL ou UPDATE_CALL),
+      // nós recarregamos a lista oficial do servidor.
+      if (message.type === 'NEW_CALL' || message.type === 'UPDATE_CALL') {
+        
+        // 1. Recarrega os dados do banco (Garante 100% de sincronia)
+        void fetchCalls(); 
+        
+        // 2. Notificação e Som (Apenas para novos chamados)
+        if (message.type === 'NEW_CALL') {
+          $q.notify({ 
+            icon: 'campaign', 
+            color: 'negative', 
+            message: `NOVO CHAMADO: ${message.data?.machine_name || 'Equipamento'}`,
+            position: 'top',
+            padding: '20px',
+            classes: 'text-h6' // Deixa o aviso maior para a TV
+          });
+          playAndonAlert();
+        }
       }
+    } catch (e) {
+      console.error("Erro ao processar mensagem do rádio", e);
     }
-  }
-};
+  };
 
   socket.onclose = () => {
+    console.warn("⚠️ WebSocket Andon desconectado. Tentando reconectar...");
     setTimeout(connectWebSocket, 5000);
   };
+  
+  socket.onerror = (err) => {
+    console.error("❌ Erro no WebSocket do Andon:", err);
+  };
 }
-
 async function fetchCalls() {
   try {
     const data = await AndonService.getActiveCalls();

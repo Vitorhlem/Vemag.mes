@@ -21,17 +21,47 @@ def run_async(coro):
 @celery_app.task(name="task_daily_closing_yesterday")
 def task_daily_closing_yesterday():
     """
-    Consolida os indicadores (OEE, Disponibilidade) do dia anterior.
-    Recomendado rodar via Celery Beat às 01:00 AM.
+    Roda todo dia de madrugada para calcular a eficiência, paradas e tempo
+    de todos os operadores e máquinas referentes ao dia que acabou de terminar.
     """
+    # Como a task roda de madrugada (ex: 00:05 do dia 20), os dados que queremos são do dia 19
     yesterday = date.today() - timedelta(days=1)
     
-    async def _run():
+    async def _run_closing():
         async with SessionLocal() as db:
-            await ProductionService.consolidate_daily_metrics(db, yesterday)
+            print(f"🌙 [CELERY] Iniciando fechamento diário para o dia {yesterday}...")
             
-    run_async(_run())
-    return f"Fechamento realizado com sucesso para {yesterday}"
+            try:
+                # 1. Consolida as métricas das MÁQUINAS 
+                machines_processed = await ProductionService.consolidate_machine_metrics(db, target_date)
+                print(f"✅ [CELERY] Fechamento de MÁQUINAS concluído: {machines_processed} processadas.")
+
+                # 2. Consolida as métricas dos OPERADORES 
+                users_processed = await ProductionService.consolidate_daily_metrics(db, target_date)
+                print(f"✅ [CELERY] Fechamento de OPERADORES concluído: {users_processed} processados.")
+                
+                # 🚀 NOVIDADE: Avisa os painéis (WebSocket) para darem F5 sozinhos
+                import httpx
+                payload = {
+                    "type": "DAILY_CLOSING_COMPLETED",
+                    "message": "Fechamento diário concluído!"
+                }
+                try:
+                    async with httpx.AsyncClient() as client:
+                        await client.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload)
+                    print("📣 [CELERY] Telas avisadas para sincronizar.")
+                except Exception as e:
+                    print(f"⚠️ [CELERY] Aviso: Falha ao notificar o painel: {e}")
+
+            except Exception as e:
+                print(f"❌ [CELERY] Erro Crítico durante o fechamento diário: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+    # Usamos a nossa função segura 'run_async' em vez de asyncio.run()
+    run_async(_run_closing())
+    
+    return f"Fechamento do dia {yesterday} concluído."
 
 # --- TAREFA PRINCIPAL DE SINCRONISMO (SAP + MES) ---
 
@@ -52,9 +82,13 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             if not raw_time:
                 return "Erro: Payload sem carimbo de tempo."
 
-            # Converte para datetime e remove fuso horário (naive)
-            dt_obj = datetime.fromisoformat(raw_time.replace('Z', '+00:00'))
-            dt_naive = dt_obj.replace(tzinfo=None)
+            # ✅ CORREÇÃO: Verifica se é string ou se já é um objeto datetime
+            if isinstance(raw_time, datetime):
+                dt_naive = raw_time.replace(tzinfo=None)
+            elif isinstance(raw_time, str):
+                dt_naive = datetime.fromisoformat(raw_time.replace('Z', '+00:00')).replace(tzinfo=None)
+            else:
+                return "Erro: Tipo de data não suportado."
 
             # 2. RESOLUÇÃO DE IDENTIDADE
             op_badge = str(appointment_data.get('operator_id') or appointment_data.get('operator_badge') or "0")
@@ -128,24 +162,12 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
 
     return run_async(_logic())
 
-@celery_app.task(name="tasks.daily_production_closing")
-def daily_production_closing():
-    """Tarefa automática que roda à meia-noite para fechar o dia anterior."""
-    import asyncio
-    yesterday = date.today() - timedelta(days=1)
-    
-    async def run_closing():
-        async with async_session() as db:
-            await ProductionService.consolidate_machine_metrics(db, yesterday)
-            await ProductionService.consolidate_daily_metrics(db, yesterday)
-    
-    asyncio.run(run_closing())
-
 # Configuração do Beat (No arquivo de configuração do Celery)
 celery_app.conf.beat_schedule = {
-    'close-production-every-night': {
-        'task': 'tasks.daily_production_closing',
-        'schedule': crontab(hour=0, minute=5), # 00:05 AM
+    'fechamento-diario-meia-noite': {
+        'task': 'task_daily_closing_yesterday',
+        # Executa todo dia às 00:05 (Dá 5 minutos de margem para os últimos apontamentos do dia entrarem)
+        'schedule': crontab(hour=0, minute=5), 
     },
 }
 

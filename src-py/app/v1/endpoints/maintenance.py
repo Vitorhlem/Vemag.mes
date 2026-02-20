@@ -13,7 +13,7 @@ from app import crud, deps
 from app.core.config import settings 
 from app.core.email_utils import send_email 
 from app.models.user_model import User, UserRole
-
+from app.core.websocket_manager import manager
 # Schemas
 from app.schemas.maintenance_schema import (
     MaintenanceRequestPublic, MaintenanceRequestCreate, MaintenanceRequestUpdate,
@@ -344,6 +344,17 @@ async def update_request_status(
             # B. Atualiza o status oficial do cadastro da máquina
             vehicle.status = VehicleStatus.AVAILABLE.value
             db.add(vehicle)
+
+            # ✅ C. AVISA O KIOSK INSTANTANEAMENTE VIA WEBSOCKET!
+            try:
+                await manager.broadcast({
+                    "type": "MACHINE_STATUS_CHANGED",
+                    "machine_id": vehicle.id,
+                    "status": "AVAILABLE"
+                })
+                print("📣 Kiosk avisado via WebSocket para remover a tela vermelha.")
+            except Exception as e:
+                print(f"⚠️ Erro ao tentar avisar o Kiosk: {e}")
 
     await db.commit()
     await db.refresh(db_obj)
