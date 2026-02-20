@@ -6,60 +6,61 @@ from alembic import context
 import os
 import sys
 
-# ===========================================================================
 # 1. AJUSTE DE PATH (CRÍTICO)
-# Adiciona o diretório pai (src-py) ao path do Python para ele encontrar o 'app'
-# ===========================================================================
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-# ===========================================================================
-# 2. IMPORTAÇÕES DO PROJETO
-# ===========================================================================
 from app.core.config import settings
 from app.db.base_class import Base
-
-# IMPORTANTE: Ao importar 'app.models', o arquivo app/models/__init__.py é executado.
-# Como ele contém imports de TODOS os seus modelos (ProductionOrder, Vehicle, etc.),
-# eles são automaticamente registrados na Base.metadata neste momento.
 from app import models 
 
-# ===========================================================================
-# 3. CONFIGURAÇÃO DO ALEMBIC
-# ===========================================================================
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Define a metadata alvo para o autogenerate
 target_metadata = Base.metadata
 
-# Sobrescreve a URL do arquivo .ini com a URL das variáveis de ambiente (Docker/Env)
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
+# ===========================================================================
+# 🔥 A SOLUÇÃO: FORÇAR A LEITURA DO DOCKER PRIMEIRO
+# ===========================================================================
+def get_database_url():
+    # 1º Tenta pegar a variável exata que o Docker Compose injeta
+    env_url = os.environ.get("DATABASE_URI") or os.environ.get("DATABASE_URL")
+    
+    if env_url:
+        print(f"🔗 [ALEMBIC] Usando banco do Docker: {env_url.split('@')[-1]}")
+        return env_url
+        
+    # 2º Se rodar fora do Docker, usa o que tá no código
+    print(f"🔗 [ALEMBIC] Usando banco do settings local: {settings.DATABASE_URI.split('@')[-1]}")
+    return settings.DATABASE_URI
+
+# Sobrescreve pro offline mode
+config.set_main_option("sqlalchemy.url", get_database_url())
 
 def run_migrations_offline() -> None:
     """Modo offline: gera SQL direto."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
-
     with context.begin_transaction():
         context.run_migrations()
 
 async def run_migrations_online() -> None:
     """Modo online: conecta ao banco e executa."""
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.DATABASE_URI
+    
+    # 🔥 Força a URL correta aqui antes de conectar
+    configuration["sqlalchemy.url"] = get_database_url()
 
     connectable = async_engine_from_config(
         configuration,

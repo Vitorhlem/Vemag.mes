@@ -1,0 +1,20 @@
+services:
+  db:
+    ports:
+      - "5432:5432" # Abre o banco para você acessar via DBeaver/PgAdmin no seu PC
+
+  backend:
+    volumes:
+      - ./src-py:/app # O Hot Reload acontece graças a esta linha!
+    ports:
+      - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload # Comando de Dev
+
+  celery_worker:
+    volumes:
+      - ./src-py:/app # Worker também precisa ver as mudanças no código
+    command: celery -A app.core.celery_app worker --loglevel=debug --pool=solo # Modo solo é melhor para Dev no Windows
+
+  frontend:
+    ports:
+      - "9000:80"
