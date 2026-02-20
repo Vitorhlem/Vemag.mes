@@ -5,7 +5,8 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime, date, time, timedelta
 from typing import Any, List, Optional
 from pydantic import BaseModel
-from app.tasks.production_tasks import process_sap_appointment
+from app.tasks.production_tasks import process_sap_appointment, task_fetch_open_orders, task_fetch_order_details
+
 
 # Imports do Projeto
 from app.db.session import get_db, async_session
@@ -17,7 +18,6 @@ from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
 from app.schemas import production_schema, vehicle_schema, user_schema
 from app.schemas.production_schema import SessionStart, SessionResponse, AppointmentCreate, EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats
-
 # Import do Modelo Vehicle (com fallback de nome)
 try:
     from app.models.vehicle_model import Vehicle, VehicleStatus
@@ -884,47 +884,44 @@ async def notificar_quebra_maquina(op_number: str, machine_id: int, motivo: str,
                 enviar_push_lista(tokens=list(tokens), title="🛑 MÁQUINA PARADA", body=f"{machine_name} parou.\nMotivo: {motivo}{linha_ordem}", data={"tipo": "manutencao", "machineId": str(machine_id)})
         except Exception as e: print(f"❌ Erro ao notificar quebra: {e}")
 
-@router.post("/appoint")
-async def create_appointment(data: ProductionAppointmentCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(deps.get_db), current_user: Optional[User] = Depends(deps.get_current_active_user)):
-    sap_service = SAPIntegrationService(db, organization_id=1)
+from app.tasks.production_tasks import process_sap_appointment, task_fetch_open_orders, task_fetch_order_details
+
+# ============================================================================
+# 10. INTEGRAÇÃO SAP (ASYNC CELERY)
+# ============================================================================
+
+@router.post("/appoint", status_code=status.HTTP_202_ACCEPTED)
+async def create_appointment(
+    data: ProductionAppointmentCreate, 
+    db: AsyncSession = Depends(deps.get_db), 
+    current_user: Optional[User] = Depends(deps.get_current_active_user)
+):
+    org_id = current_user.organization_id if current_user else 1
     appointment_dict = data.model_dump() if hasattr(data, 'model_dump') else data.dict()
     
-    print(f"📡 [API] Enviando para SAP: OP {data.op_number}...")
-    if not await sap_service.create_production_appointment(appointment_dict, sap_resource_code=data.resource_code):
-        raise HTTPException(status_code=500, detail="Erro ao registrar no SAP")
+    # 🚀 Joga para o Celery fazer o trabalho pesado de rede com o SAP!
+    process_sap_appointment.delay(appointment_data=appointment_dict, organization_id=org_id)
+    
+    # Responde imediatamente pro Tablet
+    return {"message": "Apontamento na fila de processamento do SAP", "status": "processing"}
 
-    try:
-        appt_type = "STOP" if data.stop_reason else "PRODUCTION"
-        start_t = data.start_time.replace(tzinfo=None) if data.start_time else None
-        end_t = data.end_time.replace(tzinfo=None) if data.end_time else None
-        new_appointment = ProductionAppointment(
-            op_number=data.op_number, operator_id=data.operator_id, vehicle_id=data.vehicle_id,
-            start_time=start_t, end_time=end_t, position=data.position, operation_code=data.operation,
-            appointment_type=appt_type, stop_reason=data.stop_reason, sap_status="SENT", sap_message="Sincronizado via /appoint"
-        )
-        db.add(new_appointment)
-        await db.commit()
-    except Exception as e: print(f"⚠️ [API] Erro ao salvar histórico local: {str(e)}")
 
-    if data.stop_reason and str(data.stop_reason) in ['21', '34']:
-        org_id = current_user.organization_id if current_user else 1
-        background_tasks.add_task(notificar_quebra_maquina, op_number=data.op_number, machine_id=data.vehicle_id, motivo=f"Manutenção (Cód {data.stop_reason})", org_id=org_id)
+@router.get("/orders/open", status_code=status.HTTP_202_ACCEPTED)
+async def get_open_orders(machine_id: int = 0):
+    # 🚀 O FastAPI não vai mais esperar o SAP buscar todas as OPs. 
+    if machine_id > 0:
+        task_fetch_open_orders.delay(machine_id=machine_id)
+        
+    return {"message": "Buscando no SAP. Aguarde retorno via WebSocket.", "status": "processing"}
 
-    return {"message": "Apontamento realizado e salvo!"}
 
-@router.get("/orders/open", response_model=List[ProductionOrderRead])
-async def get_open_orders(db: AsyncSession = Depends(deps.get_db)):
-    sap_service = SAPIntegrationService(db, organization_id=1)
-    ops = await sap_service.get_released_production_orders()
-    oss = await sap_service.get_open_service_orders()
-    return ops + oss
-
-@router.get("/orders/{code}", response_model=production_schema.ProductionOrderRead)
-async def get_production_order(code: str, db: AsyncSession = Depends(deps.get_db)):
-    sap_service = SAPIntegrationService(db, organization_id=1)
-    sap_data = await sap_service.get_production_order_by_code(code)
-    if sap_data: return sap_data
-    raise HTTPException(status_code=404, detail="Ordem não encontrada no SAP (O.P. ou O.S.)")
+@router.get("/orders/{code}", status_code=status.HTTP_202_ACCEPTED)
+async def get_production_order(code: str, machine_id: int = 0):
+    # 🚀 Dispara a busca e avisa para aguardar
+    if machine_id > 0:
+        task_fetch_order_details.delay(code=code, machine_id=machine_id)
+        
+    return {"message": "Buscando detalhes no SAP.", "status": "processing"}
 
 @router.get("/history/user/{user_id}")
 async def get_user_production_history(user_id: int, db: AsyncSession = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
@@ -946,3 +943,15 @@ async def get_user_production_history(user_id: int, db: AsyncSession = Depends(d
             "duration_minutes": duration_min, "efficiency": efficiency
         })
     return history
+
+@router.post("/internal/broadcast")
+async def internal_broadcast(payload: dict):
+    """
+    Rota interna usada pelo Celery para avisar o FastAPI
+    para disparar mensagens no WebSocket.
+    """
+    from app.core.websocket_manager import manager
+    
+    print(f"📣 [PONTE] Repassando evento do Celery para WebSockets: {payload.get('type')}")
+    await manager.broadcast(payload)
+    return {"status": "broadcasted"}

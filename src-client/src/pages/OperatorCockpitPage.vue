@@ -759,46 +759,21 @@ const updateOnlineStatus = () => {
 async function openOpListDialog() {
   showOpList.value = true;
   loadingOps.value = true;
+  openOps.value = []; // Limpa a tabela
   try {
-    openOps.value = await ProductionService.getOpenOrders();
+    // 🚀 Chama o FastAPI, que repassa pro Celery. O loading vai ficar girando.
+    await api.get(`/production/orders/open?machine_id=${productionStore.machineId}`);
   } catch (error) {
     console.error(error);
-    $q.notify({ type: 'negative', message: 'Erro ao carregar OPs' });
-  } finally {
+    $q.notify({ type: 'negative', message: 'Erro ao solicitar OPs' });
     loadingOps.value = false;
   }
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
-  // 1. Define os dados completos garantindo a tipagem correta
-  productionStore.activeOrder = {
-    code: String(op.op_number),
-    op_number: String(op.op_number), // Garante o número original
-    custom_ref: op.custom_ref || '', // Garante o DocNum ou Cliente
-    is_service: op.type === 'Service' || String(op.op_number).startsWith('OS-'), // ✅ FLAG CRUCIAL PARA O VUE
-    part_name: op.part_name,
-    part_code: op.item_code,
-    planned_qty: Number(op.planned_qty || 0), // Salva a quantidade planejada correta
-    target_quantity: Number(op.planned_qty || 0), // Fallback
-    uom: op.uom || 'pç',
-    drawing: op.drawing || '', // Salva a referência do desenho (vazio na OS)
-    produced_quantity: 0,
-    scrap_quantity: 0,
-    status: 'PENDING',
-    steps: op.steps || [] 
-  };
-
-  // 2. Delega todo o processo de início (Session Start + Setup Log) para a Store
-  // Isso evita o "double log" no momento da seleção
-  await productionStore.loadOrderFromQr(String(op.op_number));
-  
-  connectWebSocket();
-  if (productionStore.currentStepIndex !== -1) {
-    viewedStepIndex.value = productionStore.currentStepIndex;
-  }
-  
+  // Apenas fecha a tela de seleção e pede para a Store iniciar a busca
   showOpList.value = false;
-  resetTimer();
+  await productionStore.requestOrderFromSAP(String(op.op_number));
 }
 function openDrawing() {
   if (!productionStore.activeOrder?.part_code) {
@@ -983,7 +958,7 @@ async function applyNormalPause(fromPlc = false) {
 
     // Dados auxiliares
     const rawSeq = Number(currentViewedStep.value?.seq || 10);
-    const position = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
+    const position = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
     const sapData = getCurrentSapData(position);
 
     // Monta o Payload igual ao que gerou o log de sucesso
@@ -1110,7 +1085,7 @@ async function triggerCriticalBreakdown() {
         // 1. Encerra a Produção atual (se houver OP ativa)
         if (activeOrder.value?.code) {
             const rawSeq = Number(currentViewedStep.value?.seq || 10);
-            const stageStr = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
+            const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
             const sapData = getCurrentSapData(stageStr);
 
             const productionPayload = {
@@ -1316,7 +1291,11 @@ function confirmFinishOp() {
 }
 
 function getCurrentSapData(stageStr: string) {
-  let sapData = getSapOperation(stageStr);
+  // Verifica se a OP atual é de serviço
+  const isService = productionStore.activeOrder?.is_service || false;
+  
+  // Repassa a flag para a nova função inteligente
+  let sapData = getSapOperation(stageStr, isService);
 
   if (stageStr === '999' || !sapData.code) {
     const step = currentViewedStep.value;
@@ -1337,10 +1316,8 @@ function handleLogout() {
 }
 
 async function simulateOpScan() {
-  await productionStore.loadOrderFromQr('OP-TESTE-4500');
-  resetTimer();
+  await productionStore.requestOrderFromSAP('OP-TESTE-4500');
 }
-
 async function confirmAndonCall(sector: string) {
     isAndonDialogOpen.value = false;
     
@@ -1455,7 +1432,7 @@ async function handleSetupClick() {
               const machineName = productionStore.machineName || '';
 
               const rawSeq = Number(currentViewedStep.value?.seq || 10);
-              const stageStr = rawSeq === 999 ? '999' : Math.floor(rawSeq / 10 * 10).toString().padStart(3, '0');
+              const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
               const sapData = getCurrentSapData(stageStr);
 
               const productionPayload = {
@@ -1683,23 +1660,59 @@ function connectWebSocket() {
   };
 
   socket.onmessage = async (event) => {
-    // 🛡️ TRAVA DE SEGURANÇA: TROCA DE TURNO
-    // Se o operador está com o diálogo "Vai parar ou continuar?" aberto,
-    // IGNORAMOS qualquer sinal do PLC. Isso evita que, se ele parar a máquina
-    // para decidir, o sistema gere um evento de "Parada" indesejado.
-    if (isShiftChangeDialogOpen.value) {
-        console.log("⏸️ WebSocket ignorado: Decisão de Troca de Turno em andamento.");
-        return;
-    }
-
     try {
       const data = JSON.parse(event.data);
+
+      // =========================================================
+      // 📡 ESCUTADORES DO CELERY (Integração SAP Assíncrona)
+      // =========================================================
+
+      // 1. Recebimento da Lista de OPs Abertas
+      if (data.type === 'SAP_OPEN_ORDERS' && Number(data.machine_id) === Number(productionStore.machineId)) {
+          console.log("📥 OPs recebidas via Celery!");
+          openOps.value = data.data || [];
+          loadingOps.value = false; // Libera o loading da tabela
+          return; // Finaliza o processamento desta mensagem
+      }
+
+      // 2. Recebimento dos Detalhes de uma OP específica (Ex: Via QR Code)
+      if (data.type === 'SAP_ORDER_DETAILS' && Number(data.machine_id) === Number(productionStore.machineId)) {
+          if (data.data) {
+             console.log("📥 OP Encontrada via Celery:", data.code);
+             
+             // ✅ AGORA SIM! Ele recebe os dados e roda a lógica de achar a etapa certa e iniciar a sessão
+             await productionStore.processReceivedOrder(data.data);
+             
+             // Atualiza a visualização na tela para mostrar a etapa encontrada
+             if (productionStore.currentStepIndex !== -1) {
+                 viewedStepIndex.value = productionStore.currentStepIndex;
+             }
+             resetTimer();
+             
+          } else {
+             $q.loading.hide(); // Esconde o loading se não achar nada
+             $q.notify({ type: 'negative', message: 'O.P. não encontrada no SAP' });
+          }
+          return;
+      }
+
+      // =========================================================
+      // 🛡️ TRAVA DE SEGURANÇA: TROCA DE TURNO
+      // =========================================================
+      // Se o operador está com o diálogo "Vai parar ou continuar?" aberto,
+      // IGNORAMOS qualquer sinal físico do PLC para evitar paradas indesejadas.
+      if (isShiftChangeDialogOpen.value) {
+          console.log("⏸️ WebSocket (PLC) ignorado: Decisão de Troca de Turno em andamento.");
+          return;
+      }
       
-      // Filtra apenas eventos de mudança de estado da MINHA máquina
+      // =========================================================
+      // 🏭 SINAIS FÍSICOS DA MÁQUINA (PLC)
+      // =========================================================
       if (
         data.type === 'MACHINE_STATE_CHANGED' && 
         Number(data.machine_id) === Number(productionStore.machineId) &&
-        !isProcessingSignal.value // Evita processar dois sinais ao mesmo tempo
+        !isProcessingSignal.value // Evita processar dois sinais simultâneos
       ) {
         const rawStatus = String(data.new_status).toUpperCase();
         
@@ -1764,7 +1777,6 @@ function connectWebSocket() {
 }
 
 
-
 onMounted(async () => {
   // 1. Inicialização de Roteiro e Timers
   if (productionStore.currentStepIndex !== -1) {
@@ -1824,9 +1836,10 @@ onMounted(async () => {
   }
 
   // 6. CONEXÃO WEBSOCKET (Fundamental)
-  // Só conecta agora, depois que já definimos o operador e ajustamos o status inicial
-  if (productionStore.activeOrder && productionStore.activeOrder.code) {
-      console.log("🔌 Iniciando conexão com PLC...");
+  // ✅ CORREÇÃO: Conecta IMEDIATAMENTE ao abrir a página (se tiver ID da máquina).
+  // Isso garante que o tablet já esteja escutando as respostas do SAP enviadas pelo Celery.
+  if (productionStore.machineId) {
+      console.log("🔌 Iniciando conexão com Servidor (WebSocket)...");
       connectWebSocket();
   }
 });

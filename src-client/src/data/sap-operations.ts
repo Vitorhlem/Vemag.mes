@@ -1,5 +1,3 @@
-// Arquivo: src-client/src/data/sap-operations.ts
-
 export interface SapOperationMap {
   code: string;           // Código da Operação (Ex: 701)
   description: string;    // Descrição da Operação (Ex: PPCP)
@@ -64,50 +62,54 @@ export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
   '703': { code: '703', description: 'TERCEIRIZACAO SERVICOS E ATIVIDADES', resourceCode: '7.03.01', resourceName: 'Tercerização Serviços e Atividades' },
 };
 
+// =======================================================
+// MAPAS DE POSIÇÃO (SEQ) PARA CÓDIGO DE OPERAÇÃO
+// =======================================================
 
-// Mapeamento sequencial legado (mantido para compatibilidade, mas simplificado)
-export const SAP_OPERATIONS: Record<string, SapOperationMap> = {
-  // --- ROTEIRO PADRÃO ---
-  '010': { ...SAP_OPERATIONS_MAP['701'] },
-  '020': { ...SAP_OPERATIONS_MAP['414'] },
-  '030': { ...SAP_OPERATIONS_MAP['410'] },
-  '040': { ...SAP_OPERATIONS_MAP['406'] },
-  '050': { ...SAP_OPERATIONS_MAP['703'] },
-  '060': { ...SAP_OPERATIONS_MAP['414'] },
-  '070': { ...SAP_OPERATIONS_MAP['202'] },
-  '080': { ...SAP_OPERATIONS_MAP['701'] },
+// Mapeamento específico para Ordem de Produção (O.P.)
+export const OP_SEQUENCE_MAP: Record<string, string> = {
+  '015': '213', '017': '703', '019': '213', '020': '302', '022': '208',
+  '030': '409', '060': '403', '070': '416', '075': '423', '077': '410',
+  '078': '406', '080': '202', '082': '213', '085': '206', '112': '703',
+  '113': '416', '115': '202', '117': '503', '120': '201', '130': '702', '140': '201'
 };
 
-export function getSapOperation(stageSeq: number | string): SapOperationMap {
+// Mapeamento específico para Ordem de Serviço (O.S.)
+export const OS_SEQUENCE_MAP: Record<string, string> = {
+  '010': '213', '020': '410', '025': '213', '030': '422', '040': '423',
+  '050': '202', '060': '503', '070': '201', '080': '702', '090': '201'
+};
+
+
+// NOVA FUNÇÃO: Agora sabe distinguir OP de OS e NÃO arredonda mais os valores.
+export function getSapOperation(stageSeq: number | string, isServiceOrder: boolean = false): SapOperationMap {
   const num = parseInt(String(stageSeq), 10);
   if (isNaN(num)) return { code: '', description: '', resourceCode: '', resourceName: '' };
 
-  const cleanSeq = Math.floor(num / 10) * 10;
-  const lookupKey = cleanSeq.toString().padStart(3, '0');
+  // Formata para 3 dígitos EXATOS (ex: 15 vira '015'). Removido o Math.floor.
+  const lookupKey = num.toString().padStart(3, '0');
 
-  if (SAP_OPERATIONS[lookupKey]) {
-    return SAP_OPERATIONS[lookupKey];
+  // Busca no dicionário correto
+  const opCode = isServiceOrder ? OS_SEQUENCE_MAP[lookupKey] : OP_SEQUENCE_MAP[lookupKey];
+
+  if (opCode && SAP_OPERATIONS_MAP[opCode]) {
+    return SAP_OPERATIONS_MAP[opCode];
   }
 
   return { code: '', description: '', resourceCode: '', resourceName: '' };
 }
 
-// --- NOVA FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
+// --- FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
 
 export function findGlobalOpByResource(machineResource: string): SapOperationMap | null {
   if (!machineResource) return null;
-  
-  // Procura no SAP_OPERATIONS_MAP algum item cujo resourceCode bata com o da máquina
-  const found = Object.values(SAP_OPERATIONS_MAP).find(op => 
-    op.resourceCode === machineResource.trim()
-  );
-
+  const found = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineResource.trim());
   return found || null;
 }
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
   if (!machineResourceCode || !steps || steps.length === 0) return -1;
-  
   const myResource = machineResourceCode.trim();
 
   // 1ª Tentativa: Buscar nas etapas PLANEJADAS (Diferentes de 999)
@@ -131,7 +133,6 @@ export function findBestStepIndex(machineResourceCode: string, steps: any[]): nu
       const isUnexpected = Number(step.seq) === 999;
 
       if (config && isUnexpected) {
-        // Verifica se essa 999 serve para o recurso desta máquina
         const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
         return match;
       }

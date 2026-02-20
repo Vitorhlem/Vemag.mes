@@ -506,67 +506,78 @@ async function loginOperator(scannedCode: string) {
     }
 }
 
-  async function loadOrderFromQr(qrCode: string) {
-  if (isMachineBroken.value) { 
-    Notify.create({ type: 'negative', message: 'Máquina em manutenção. Não é possível iniciar O.P.' }); 
-    return; 
-  }
+  async function requestOrderFromSAP(qrCode: string) {
+    if (isMachineBroken.value) { 
+      Notify.create({ type: 'negative', message: 'Máquina em manutenção. Não é possível iniciar O.P.' }); 
+      return; 
+    }
 
-  try {
-    Loading.show({ message: 'Buscando Ordem de Produção...' });
-    
-    let data: any;
+    // Se estiver offline, tenta puxar do cache local imediatamente
+    if (!window.navigator.onLine) {
+        const cached = await db.orders_cache.get(qrCode);
+        if (cached) {
+            await processReceivedOrder(cached.data, qrCode);
+        } else {
+            Notify.create({ type: 'negative', message: 'Sem internet e O.P. não está no cache local.' });
+        }
+        return;
+    }
+
     try {
-      const res = await api.get(`/production/orders/${qrCode}`);
-      data = res.data;
-      await db.orders_cache.put({ code: qrCode, data: data, last_updated: new Date().toISOString() });
-    } catch (apiError) {
-      const cached = await db.orders_cache.get(qrCode);
-      if (cached) {
-        data = cached.data;
-      } else {
-        throw new Error('O.P. não encontrada no cache local.');
-      }
+      Loading.show({ message: 'Buscando Ordem no SAP e Roteiros...' });
+      // Aciona o backend que vai repassar pro Celery
+      await api.get(`/production/orders/${qrCode}?machine_id=${machineId.value}`);
+    } catch (e: any) { 
+      Loading.hide();
+      Notify.create({ type: 'negative', message: 'Erro de conexão ao solicitar O.P.' }); 
     }
-
-    // ✅ CORREÇÃO CRUCIAL AQUI: Recriando as propriedades que o Vue usa para a cor e o título!
-    const safeCode = data.op_number || qrCode;
-    const isServiceOrder = data.type === 'Service' || String(safeCode).startsWith('OS-') || data.is_service;
-
-    // Processamento da Ordem (Preserva as flags)
-    activeOrder.value = { 
-      ...data, 
-      code: String(safeCode),      // O Template usa o activeOrder.code
-      is_service: isServiceOrder,  // O Template usa essa flag para ficar Azul
-      status: data.status || 'SETUP' 
-    };
-
-    const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
-    currentStepIndex.value = bestIndex;
-
-    // --- INÍCIO DE SESSÃO ÚNICO ---
-    if (currentOperatorBadge.value && machineId.value) {
-        const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
-        const stageStr = currentStep ? String(currentStep.seq) : '010';
-
-        await api.post('/production/session/start', {
-          machine_id: machineId.value, 
-          operator_badge: currentOperatorBadge.value, 
-          op_number: String(qrCode),
-          step_seq: stageStr
-        });
-        
-        isInSetup.value = true;
-        activeOrder.value.status = 'SETUP';
-    }
-
-  } catch (e: any) { 
-    Notify.create({ type: 'negative', message: e.message || 'Erro ao carregar O.P.' }); 
-    activeOrder.value = null;
-  } finally { 
-    Loading.hide(); 
   }
-}
+
+  // 2. Função que RODA A LÓGICA DE NEGÓCIO quando o Celery devolve os dados
+  async function processReceivedOrder(data: any, originalQrCode?: string) {
+    try {
+      // ✅ A SUA CORREÇÃO CRUCIAL RESTAURADA
+      const safeCode = data.op_number || data.code || originalQrCode;
+      const isServiceOrder = data.type === 'Service' || String(safeCode).startsWith('OS-') || data.is_service;
+
+      // Processamento da Ordem (Preserva as flags)
+      activeOrder.value = { 
+        ...data, 
+        code: String(safeCode),      // O Template usa o activeOrder.code
+        is_service: isServiceOrder,  // O Template usa essa flag para ficar Azul
+        status: data.status || 'SETUP' 
+      };
+
+      const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
+      currentStepIndex.value = bestIndex;
+
+      // --- INÍCIO DE SESSÃO ÚNICO ---
+      if (currentOperatorBadge.value && machineId.value) {
+          const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
+          const stageStr = currentStep ? String(currentStep.seq) : '010';
+
+          await api.post('/production/session/start', {
+            machine_id: machineId.value, 
+            operator_badge: currentOperatorBadge.value, 
+            op_number: String(safeCode), // Usando o safeCode que garantimos ali em cima
+            step_seq: stageStr
+          });
+          
+          isInSetup.value = true;
+          if (activeOrder.value) activeOrder.value.status = 'SETUP';
+      }
+
+      // Salva no cache
+      await db.orders_cache.put({ code: String(safeCode), data: data, last_updated: new Date().toISOString() });
+
+    } catch (e: any) { 
+      console.error(e);
+      Notify.create({ type: 'negative', message: 'Erro ao processar roteiro da O.P.' }); 
+      activeOrder.value = null;
+    } finally { 
+      Loading.hide(); 
+    }
+  }
 
 
   async function startProduction() { 
@@ -743,7 +754,7 @@ async function toggleSetup() {
     isKioskConfigured, isShiftActive, isMachineBroken, isRunning, hasActiveOrder,
     loadKioskConfig, _setMachineData, setMachineStatus,
     fetchAvailableMachines, configureKiosk, fetchMachineHistory,
-    loginOperator, logoutOperator, loadOrderFromQr, finishSession,
+    loginOperator, logoutOperator, requestOrderFromSAP, processReceivedOrder, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
     machineResource, setImprovisedStep, fetchMachine, executeShiftChange
