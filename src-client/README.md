@@ -1,6 +1,5 @@
-# TruCar (trucar)
+# VEMAGmes
 
-Gerenciamento Veículos
 
 ## Install the dependencies
 
