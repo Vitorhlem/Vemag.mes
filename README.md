@@ -1,14 +1,11 @@
-# TruCar / VEMAG.mes
+# VEMAG.mes
 
-**TruCar** (also known as VEMAG.mes) is a comprehensive Vehicle Management and Production Monitoring System (MES). It integrates a modern web interface with IoT hardware for real-time tracking and management.
+**VEMAGmes** is a comprehensive and Production Monitoring System (MES). It integrates a modern web interface with IoT hardware for real-time tracking and management.
 
 ## 🚀 Overview
 
 The system is designed to manage:
-- **Vehicles & Fleets**: Tracking maintenance, fuel logs, costs, and tires.
 - **Production Monitoring**: Real-time status updates from machinery via IoT devices.
-- **Inventory**: Parts and implements management.
-- **Logistics**: Freight orders and journey planning.
 
 ## 🏗 Architecture
 
