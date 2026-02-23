@@ -13,36 +13,32 @@ const char* ssid = "IOT";
 const char* password = "007481Ab";
 String serverPath = "http://192.168.0.22:8000/api/v1/production/event";
 
-// --- PINOS DE VALIDAÇÃO CRUZADA ---
-const int pinMain = 13;      // Contato N.A. (Normalmente Aberto)
-const int pinValidator = 14; // Contato N.F. (Normalmente Fechado) - SEGURO PARA BOOT
+// --- PINO DE LEITURA (SIMPLIFICADO) ---
+const int pinMain = 13;      // Único pino de leitura para o teste
 
 // --- VARIÁVEIS DE CONTROLE ---
 int lastSentState = -1; 
 unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 500; // 500ms de segurança
+unsigned long debounceDelay = 500; // 500ms de segurança (debounce)
 
-// Variáveis apenas para não flodar o painel de logs com mensagens repetidas
+// Variável apenas para não flodar o painel de logs com mensagens repetidas
 int lastLoggedMain = -1;
-int lastLoggedVal = -1;
 
 void setup() {
   Serial.begin(115200);
   delay(1000); // Dá um tempo para o monitor serial abrir
   
   Serial.println("\n=========================================");
-  Serial.println("🚀 INICIANDO SISTEMA MES - ESP32 🚀");
+  Serial.println("🚀 INICIANDO SISTEMA MES - ESP32 (MODO SIMPLIFICADO) 🚀");
   Serial.print("🏭 MÁQUINA CONFIGURADA: ID ");
   Serial.println(MACHINE_ID);
   Serial.println("=========================================");
   
-  Serial.print("🔧 Configurando Pinos... Principal: ");
-  Serial.print(pinMain);
-  Serial.print(" | Validador: ");
-  Serial.println(pinValidator);
+  Serial.print("🔧 Configurando Pino Principal: ");
+  Serial.println(pinMain);
 
+  // Configura o pino com resistor interno puxando pro GND quando estiver solto
   pinMode(pinMain, INPUT_PULLDOWN);
-  pinMode(pinValidator, INPUT_PULLDOWN);
 
   conectarWiFi();
 }
@@ -53,39 +49,21 @@ void loop() {
     conectarWiFi();
   }
 
-  // Leituras brutas
+  // Leitura bruta do único pino
   int stateMain = digitalRead(pinMain);
-  int stateVal = digitalRead(pinValidator);
   
-  // LOG: Só avisa se os pinos mudarem fisicamente (evita travar o console)
-  if (stateMain != lastLoggedMain || stateVal != lastLoggedVal) {
-    Serial.print("⚡ [LEITURA FÍSICA] Pino Principal: ");
-    Serial.print(stateMain);
-    Serial.print(" | Pino Validador: ");
-    Serial.println(stateVal);
+  // LOG: Só avisa se o pino mudar fisicamente (evita travar o console)
+  if (stateMain != lastLoggedMain) {
+    Serial.print("⚡ [LEITURA FÍSICA] Pino Principal (13) mudou para: ");
+    Serial.println(stateMain == HIGH ? "HIGH (LIGADO)" : "LOW (DESLIGADO)");
     
     lastLoggedMain = stateMain;
-    lastLoggedVal = stateVal;
   }
 
-  int confirmedState = -1;
+  // A lógica agora é direta: HIGH = 1 (LIGADA), LOW = 0 (DESLIGADA)
+  int confirmedState = (stateMain == HIGH) ? 1 : 0;
 
-  // Lógica de Redundância
-  if (stateMain == HIGH && stateVal == LOW) {
-    confirmedState = 1; // LIGADA
-  } 
-  else if (stateMain == LOW && stateVal == HIGH) {
-    confirmedState = 0; // DESLIGADA
-  } 
-  else {
-    // Estado inválido detectado (0-0 ou 1-1)
-    if (stateMain != lastLoggedMain || stateVal != lastLoggedVal) {
-      Serial.println("🚫 [IGNORADO] Estado ambíguo detectado (Ruído ou Transição). Nenhuma ação tomada.");
-    }
-    return; // Para a execução do loop aqui e recomeça
-  }
-
-  // Verifica se o estado confirmado é diferente do que o SAP/MES acha que é
+  // Verifica se o estado confirmado é diferente do que o backend já sabe
   if (confirmedState != lastSentState) {
     
     // Calcula o tempo do Debounce para ver se o sinal firmou
@@ -158,7 +136,6 @@ bool enviarSinalParaSistema(int estado) {
   // Monta o Payload JSON
   StaticJsonDocument<200> doc;
   
-  // ✅ CORREÇÃO: Agora ele usa a variável global definida no topo do código
   doc["machine_id"] = MACHINE_ID; 
   doc["event_type"] = "STATUS_CHANGE";
   doc["new_status"] = (estado == 1) ? "1" : "0";
@@ -182,7 +159,6 @@ bool enviarSinalParaSistema(int estado) {
     Serial.print("ms | Código: ");
     Serial.println(httpResponseCode);
     
-    // Pega o texto exato que o seu Python respondeu
     String responseBody = http.getString();
     Serial.print("   ↳ Corpo da Resposta: ");
     Serial.println(responseBody);

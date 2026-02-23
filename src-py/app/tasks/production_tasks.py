@@ -12,8 +12,18 @@ import httpx # Certifique-se de importar o httpx no topo do arquivo
 # --- UTILITÁRIOS ---
 
 def run_async(coro):
-    """Auxiliar para rodar funções assíncronas dentro do worker síncrono."""
-    loop = asyncio.get_event_loop()
+    """
+    Executa uma corotina de forma síncrona, garantindo que a thread
+    (como as threads background do Celery) tenha um event loop válido.
+    """
+    try:
+        # Tenta pegar o loop atual da thread
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Se falhar (não tem loop na thread), cria um novo e define como padrão
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
     return loop.run_until_complete(coro)
 
 # --- TAREFAS DE MÉTRICAS ---
