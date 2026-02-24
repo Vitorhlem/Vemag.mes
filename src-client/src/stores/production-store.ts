@@ -506,53 +506,23 @@ async function loginOperator(scannedCode: string) {
     }
 }
 
-  async function requestOrderFromSAP(qrCode: string) {
-    if (isMachineBroken.value) { 
-      Notify.create({ type: 'negative', message: 'Máquina em manutenção. Não é possível iniciar O.P.' }); 
-      return; 
-    }
+  let orderSocket: WebSocket | null = null;
 
-    // Se estiver offline, tenta puxar do cache local imediatamente
-    if (!window.navigator.onLine) {
-        const cached = await db.orders_cache.get(qrCode);
-        if (cached) {
-            await processReceivedOrder(cached.data, qrCode);
-        } else {
-            Notify.create({ type: 'negative', message: 'Sem internet e O.P. não está no cache local.' });
-        }
-        return;
-    }
-
-    try {
-      Loading.show({ message: 'Buscando Ordem no SAP e Roteiros...' });
-      // Aciona o backend que vai repassar pro Celery
-      await api.get(`/production/orders/${qrCode}?machine_id=${machineId.value}`);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e: any) { 
-      Loading.hide();
-      Notify.create({ type: 'negative', message: 'Erro de conexão ao solicitar O.P.' }); 
-    }
-  }
-
-  // 2. Função que RODA A LÓGICA DE NEGÓCIO quando o Celery devolve os dados
   async function processReceivedOrder(data: any, originalQrCode?: string) {
     try {
-      // ✅ A SUA CORREÇÃO CRUCIAL RESTAURADA
       const safeCode = data.op_number || data.code || originalQrCode;
       const isServiceOrder = data.type === 'Service' || String(safeCode).startsWith('OS-') || data.is_service;
 
-      // Processamento da Ordem (Preserva as flags)
       activeOrder.value = { 
         ...data, 
-        code: String(safeCode),      // O Template usa o activeOrder.code
-        is_service: isServiceOrder,  // O Template usa essa flag para ficar Azul
+        code: String(safeCode),      
+        is_service: isServiceOrder,  
         status: data.status || 'SETUP' 
       };
 
       const bestIndex = findBestStepIndex(machineResource.value, activeOrder.value.steps || []);
       currentStepIndex.value = bestIndex;
 
-      // --- INÍCIO DE SESSÃO ÚNICO ---
       if (currentOperatorBadge.value && machineId.value) {
           const currentStep = activeOrder.value.steps?.[currentStepIndex.value];
           const stageStr = currentStep ? String(currentStep.seq) : '010';
@@ -560,7 +530,7 @@ async function loginOperator(scannedCode: string) {
           await api.post('/production/session/start', {
             machine_id: machineId.value, 
             operator_badge: currentOperatorBadge.value, 
-            op_number: String(safeCode), // Usando o safeCode que garantimos ali em cima
+            op_number: String(safeCode),
             step_seq: stageStr
           });
           
@@ -568,16 +538,90 @@ async function loginOperator(scannedCode: string) {
           if (activeOrder.value) activeOrder.value.status = 'SETUP';
       }
 
-      // Salva no cache
       await db.orders_cache.put({ code: String(safeCode), data: data, last_updated: new Date().toISOString() });
-
     } catch (e: any) { 
       console.error(e);
       Notify.create({ type: 'negative', message: 'Erro ao processar roteiro da O.P.' }); 
       activeOrder.value = null;
-    } finally { 
-      Loading.hide(); 
     }
+  }
+
+  async function requestOrderFromSAP(qrCode: string): Promise<any> {
+    if (isMachineBroken.value) { 
+      Notify.create({ type: 'negative', message: 'Máquina em manutenção.' }); 
+      return null; 
+    }
+
+    if (!window.navigator.onLine) {
+        const cached = await db.orders_cache.get(qrCode);
+        if (cached) {
+            await processReceivedOrder(cached.data, qrCode);
+        }
+        return cached ? cached.data : null;
+    }
+
+    return new Promise((resolve, reject) => {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'; // 👈 Porta 8000 do novo ambiente
+        const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
+        const wsUrl = `${wsBase}/ws/${machineId.value}`; 
+
+        if (orderSocket) {
+            orderSocket.close();
+        }
+        
+        orderSocket = new WebSocket(wsUrl);
+
+        orderSocket.onopen = () => {
+            console.log(`📡 Escutando Celery via WebSocket (Máquina ${machineId.value})...`);
+            Loading.show({ message: 'Buscando O.P.s no SAP...' });
+
+            api.get(`/production/orders/${qrCode}?machine_id=${machineId.value}`).catch(e => {
+                Loading.hide();
+                if (orderSocket) orderSocket.close();
+                Notify.create({ type: 'negative', message: 'Erro ao acionar o SAP.' }); 
+                reject(e instanceof Error ? e : new Error(String(e)));
+            });
+        };
+
+        orderSocket.onmessage = async (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                
+                if (msg.type === 'SAP_OPEN_ORDERS' || msg.type === 'SAP_ORDER_DATA') {
+                    console.log('✅ OPs recebidas do Celery!');
+                    Loading.hide();
+                    
+                    if (qrCode === 'open') {
+                        if (orderSocket) orderSocket.close();
+                        resolve(msg.data); 
+                        return;
+                    }
+
+                    const orderData = Array.isArray(msg.data) 
+                      ? msg.data.find((o: any) => String(o.op_number) === String(qrCode) || String(o.code) === String(qrCode)) || msg.data[0] 
+                      : msg.data;
+
+                    if (orderData) {
+                        await processReceivedOrder(orderData, qrCode);
+                        resolve(orderData);
+                    } else {
+                        Notify.create({ type: 'warning', message: 'O.P. não encontrada no SAP.' });
+                        resolve(null);
+                    }
+
+                    if (orderSocket) orderSocket.close();
+                }
+            } catch (e) {
+                console.error('Erro ao processar mensagem WS:', e);
+            }
+        };
+
+        orderSocket.onerror = () => {
+            Loading.hide();
+            Notify.create({ type: 'negative', message: 'Falha na conexão em tempo real.' });
+            reject(new Error("Erro de conexão WebSocket com o Celery"));
+        };
+    });
   }
 
 

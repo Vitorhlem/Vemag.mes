@@ -423,8 +423,19 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 function connectNotificationSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/andon/ws/${authStore.user?.organization_id}`;
+    const orgId = authStore.user?.organization_id;
+    
+    // 1. Previne a conexão "undefined"
+    if (!orgId) {
+        console.warn('⏳ Aguardando dados do usuário para conectar o WebSocket...');
+        return;
+    }
+
+    // 2. Pega a URL dinâmica da API (vinda do .env) e transforma HTTP em WS
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    const wsBase = apiBase.replace(/^http/, 'ws'); 
+    
+    const wsUrl = `${wsBase}/andon/ws/${orgId}`;
     
     const socket = new WebSocket(wsUrl);
 

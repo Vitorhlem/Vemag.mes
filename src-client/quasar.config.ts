@@ -1,6 +1,7 @@
 import { defineConfig } from '#q-app/wrappers';
 
-export default defineConfig((/* ctx */) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default defineConfig((ctx: any) => {
   return {
     // REMOVI O BLOCO sourceFiles DAQUI
 
@@ -25,6 +26,9 @@ export default defineConfig((/* ctx */) => {
         vueShim: true,
       },
       vueRouterMode: 'hash',
+      env: {
+        VITE_API_URL: ctx.dev ? 'http://localhost:8000/api/v1' : 'http://192.168.0.22:8000/api/v1' 
+      },
       vitePlugins: [
         [
           'vite-plugin-checker',

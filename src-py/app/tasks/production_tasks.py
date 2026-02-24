@@ -8,7 +8,8 @@ from celery.schedules import crontab
 from app.models.production_model import ProductionAppointment
 from sqlalchemy import select
 from app.core.websocket_manager import manager
-import httpx # Certifique-se de importar o httpx no topo do arquivo
+import requests
+
 # --- UTILITÁRIOS ---
 
 def run_async(coro):
@@ -265,26 +266,24 @@ def task_fetch_open_orders(machine_id: int):
     async def _logic():
         async with SessionLocal() as db:
             sap_service = SAPIntegrationService(db, organization_id=1)
-            
             ops = await sap_service.get_released_production_orders()
             oss = await sap_service.get_open_service_orders()
-            all_orders = ops + oss
-            
-            # 🚀 EM VEZ DE USAR O MANAGER, CHAMA O FASTAPI PARA ELE FAZER ISSO
-            payload = {
-                "type": "SAP_OPEN_ORDERS",
-                "machine_id": machine_id,
-                "data": all_orders
-            }
-            
-            async with httpx.AsyncClient() as client:
-                try:
-                    # Ajuste para http://web:8000 se estiver no Docker, ou 127.0.0.1 se for local
-                    await client.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload)
-                except Exception as e:
-                    print(f"❌ Erro ao avisar o FastAPI: {e}")
+            return ops + oss # Retorna a lista para fora da função async
 
-    run_async(_logic())
+    all_orders = run_async(_logic())
+    
+    payload = {
+        "type": "SAP_OPEN_ORDERS",
+        "machine_id": machine_id,
+        "data": all_orders
+    }
+    
+    # 🚀 Disparo Síncrono e na rede correta do Docker (backend:8000)
+    try:
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+    except Exception as e:
+        print(f"❌ Erro ao avisar o FastAPI: {e}")
+
     return f"Busca de OPs concluída para Máquina {machine_id}"
 
 # ============================================================================
@@ -295,21 +294,20 @@ def task_fetch_order_details(code: str, machine_id: int):
     async def _logic():
         async with SessionLocal() as db:
             sap_service = SAPIntegrationService(db, organization_id=1)
-            
-            sap_data = await sap_service.get_production_order_by_code(code)
-            
-            payload = {
-                "type": "SAP_ORDER_DETAILS",
-                "code": code,
-                "machine_id": machine_id,
-                "data": sap_data
-            }
-            
-            async with httpx.AsyncClient() as client:
-                try:
-                    await client.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload)
-                except Exception as e:
-                    print(f"❌ Erro ao avisar o FastAPI: {e}")
+            return await sap_service.get_production_order_by_code(code)
 
-    run_async(_logic())
+    sap_data = run_async(_logic())
+    
+    payload = {
+        "type": "SAP_ORDER_DATA", # 👈 Nome da mensagem corrigida para o frontend ler
+        "code": code,
+        "machine_id": machine_id,
+        "data": sap_data
+    }
+    
+    try:
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+    except Exception as e:
+        print(f"❌ Erro ao avisar o FastAPI: {e}")
+
     return f"Busca de OP {code} concluída"
