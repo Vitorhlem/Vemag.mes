@@ -92,6 +92,62 @@
             </div>
 
             <div v-else>
+                
+                <q-card 
+                    v-if="selectedMachineData" 
+                    class="q-mb-md shadow-4 rounded-borders text-white transition-all sticky-status-bar"
+                    :class="`bg-${currentMachineStatusColor}`"
+                    style="border-left: 8px solid rgba(255,255,255,0.4);"
+                >
+                    <q-card-section class="row items-center justify-between q-py-sm q-px-lg">
+                        
+                        <div class="row items-center q-gutter-x-md">
+                            <q-icon :name="currentMachineStatusColor === 'positive' ? 'precision_manufacturing' : 'info'" size="28px" />
+                            <div>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Status em Tempo Real</div>
+                                <div class="text-h6 text-weight-bolder" style="line-height: 1;">{{ selectedMachineData.status || 'Desconhecido' }}</div>
+                            </div>
+                        </div>
+
+                        <div class="row items-center q-gutter-x-sm gt-sm">
+                            <q-icon name="badge" size="24px" class="opacity-80" />
+                            <div>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Operador / Responsável</div>
+                                <div class="text-subtitle1 text-weight-bold" style="line-height: 1;">{{ activeOperatorName }}</div>
+                            </div>
+                        </div>
+
+                        <div class="row items-center q-gutter-x-sm gt-xs">
+                            <q-icon name="assignment" size="24px" class="opacity-80" />
+                            <div>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Ordem de Produção (OP/OS)</div>
+                                <div class="text-subtitle1 text-weight-bold" style="line-height: 1;">{{ activeOp }}</div>
+                            </div>
+                        </div>
+
+                        <div class="text-right">
+                            <div class="text-caption opacity-80" style="font-size: 0.65rem;">Último Evento:</div>
+                            <div class="text-subtitle2 text-weight-bold" style="line-height: 1;">
+                                {{ mesStore.rawLogs[0] ? new Date(mesStore.rawLogs[0].timestamp).toLocaleTimeString('pt-BR') : '--:--' }}
+                            </div>
+                        </div>
+
+                    </q-card-section>
+                </q-card>
+                
+                <div class="row justify-center q-mb-lg">
+                    <q-btn 
+                        color="teal-10" 
+                        text-color="white"
+                        icon="manage_search" 
+                        icon-right="arrow_forward"
+                        label="Acessar Ficha Completa da Máquina" 
+                        size="xl"
+                        class="shadow-5 q-px-xl text-weight-bolder full-width"
+                        style="border-radius: 12px; height: 70px; font-size: 1.2rem;"
+                        @click="$router.push(`/vehicles/${selectedMachine}`)"
+                    />
+                </div>
                 <div class="row q-col-gutter-md q-mb-md">
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-green shadow-sm">
@@ -122,14 +178,14 @@
                         </q-card>
                     </div>
                     <div class="col-12 col-md">
-    <q-card class="full-height glass-card border-left-black shadow-sm">
-        <q-card-section>
-            <div class="text-caption text-uppercase text-weight-bold text-black opacity-80">Micro-paradas</div>
-            <div class="text-h4 text-weight-bolder q-mt-sm text-black">{{ machineStats?.formatted_micro_stop || '00:00:00' }}</div>
-            <div class="text-caption text-grey-8">Paradas - 5 min.</div>
-        </q-card-section>
-    </q-card>
-</div>
+                        <q-card class="full-height glass-card border-left-black shadow-sm">
+                            <q-card-section>
+                                <div class="text-caption text-uppercase text-weight-bold text-black opacity-80">Micro-paradas</div>
+                                <div class="text-h4 text-weight-bolder q-mt-sm text-black">{{ machineStats?.formatted_micro_stop || '00:00:00' }}</div>
+                                <div class="text-caption text-grey-8">Paradas - 5 min.</div>
+                            </q-card-section>
+                        </q-card>
+                    </div>
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-orange shadow-sm">
                             <q-card-section>
@@ -188,17 +244,17 @@
                         <q-card class="full-height glass-card shadow-green relative-position overflow-hidden">
                         <div class="absolute-full bg-teal-gradient-faded opacity-20"></div>
                         <q-card-section class="column items-center justify-center text-center q-py-lg">
-    <div class="text-h6 text-teal-9 text-uppercase">Disponibilidade</div>
-    <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
-        {{ mesStore.oeeData?.oee_percentage ?? 0 }}<span class="text-h5">%</span>
-    </div>
-    <q-badge 
-        :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
-        class="q-py-xs q-px-md text-caption text-weight-bold"
-    >
-        {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
-    </q-badge>
-</q-card-section>
+                            <div class="text-h6 text-teal-9 text-uppercase">Disponibilidade</div>
+                            <div class="text-h2 text-weight-bolder text-teal-10 q-my-sm">
+                                {{ mesStore.oeeData?.oee_percentage ?? 0 }}<span class="text-h5">%</span>
+                            </div>
+                            <q-badge 
+                                :color="getOeeColor(mesStore.oeeData?.oee_percentage)" 
+                                class="q-py-xs q-px-md text-caption text-weight-bold"
+                            >
+                                {{ getOeeLabel(mesStore.oeeData?.oee_percentage) }}
+                            </q-badge>
+                        </q-card-section>
                         </q-card>
                     </div>
 
@@ -471,23 +527,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue'; // 👈 Adicionado onUnmounted
 import { date, exportFile, useQuasar, setCssVar } from 'quasar';
 import type { QTableColumn } from 'quasar';
 import { useMesStore } from 'stores/mes-store';
 import type { EmployeeStat } from 'stores/mes-store';
 import { useProductionStore } from 'stores/production-store';
 import { ProductionService, type MachineStats } from 'src/services/production-service';
-import { useRouter } from 'vue-router';
-
+import { useRouter, useRoute } from 'vue-router'; // 👈 Adicionado useRoute
+import { api } from 'boot/axios'; // 👈 Importamos a API para buscar a Sessão Ativa
 const $q = useQuasar();
 const router = useRouter();
+const route = useRoute(); // 👈 Adicionado aqui
 const mesStore = useMesStore();
 const productionStore = useProductionStore();
-
+const activeOp = ref('Nenhuma');
+const activeOperatorName = ref('--');
 const activeTab = ref('machine'); 
 const filterDate = ref(date.formatDate(new Date(), 'YYYY-MM-DD'));
 const selectedMachine = ref<number | null>(null);
+const selectedMachineData = computed(() => {
+  if (!selectedMachine.value) return null;
+  return productionStore.machinesList.find(m => m.id === selectedMachine.value) || null;
+});
+
+const currentMachineStatusColor = computed(() => {
+  const status = selectedMachineData.value?.status || '';
+  return getStatusColor(status); // Usa sua função existente
+});
 const isLoading = ref(false);
 const machineStats = ref<MachineStats | null>(null);
 
@@ -643,23 +710,36 @@ function formatTime(isoStr: string) {
     return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-async function refreshData() {
-    isLoading.value = true;
+async function refreshData(isSilent = false) {
+    if (!isSilent) isLoading.value = true;
+    
     try {
         await mesStore.fetchEmployeeStats(filterDate.value, filterDate.value);
         if (selectedMachine.value) {
             await mesStore.fetchDailyTimeline(selectedMachine.value, filterDate.value);
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
             machineStats.value = await ProductionService.getMachineStats(selectedMachine.value, filterDate.value);
+
+            try {
+                const { data } = await api.get(`/production/session/active/${selectedMachine.value}`);
+                if (data && data.order) {
+                    activeOp.value = data.order.code || 'Nenhuma';
+                    activeOperatorName.value = data.operator?.full_name || data.operator_badge || 'Operador Logado';
+                } else {
+                    throw new Error("Sem sessão");
+                }
+            } catch (err) {
+                activeOp.value = 'Nenhuma';
+                activeOperatorName.value = mesStore.rawLogs[0]?.operator_name || '--';
+            }
         }
     } catch (e) {
-        console.error(e);
-        $q.notify({ type: 'negative', message: 'Erro ao atualizar dados.' });
+        console.error("Erro na atualização silenciosa:", e);
+        if (!isSilent) $q.notify({ type: 'negative', message: 'Erro ao atualizar dados.' });
     } finally {
-        isLoading.value = false;
+        if (!isSilent) isLoading.value = false;
     }
 }
-
 function exportToCsv() {
     let content = '';
     let filename = '';
@@ -703,12 +783,83 @@ function printReport() {
     window.open(routeData.href, '_blank');
 }
 
+let ws: WebSocket | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
+
+function connectWebSocket() {
+    // 1. Descobre a URL do seu backend automaticamente
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
+    
+    // 2. CORREÇÃO: Cria um ID estritamente numérico e alto para passar na segurança do FastAPI
+    // Exemplo: 99000 + número aleatório (ex: 99452)
+    const gestorId = 99000 + Math.floor(Math.random() * 999);
+    const wsUrl = `${wsBase}/ws/${gestorId}`; 
+    
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        console.log('🟢 [MES] Painel conectado ao servidor de eventos!');
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'MACHINE_STATE_CHANGED') {
+                console.log(`⚡ Evento WS Recebido: Máquina ${data.machine_id} -> ${data.machine_status_db || data.new_status}`);
+                
+                // 1. Atualiza a lista de máquinas na memória (Isso faz a Barra Fixa mudar de cor na hora!)
+                const machineIndex = productionStore.machinesList.findIndex(m => m.id === Number(data.machine_id));
+                if (machineIndex !== -1) {
+                    productionStore.machinesList[machineIndex].status = data.machine_status_db || data.new_status;
+                }
+
+                // 2. Se for a máquina que o gestor está olhando, atualiza os gráficos do Gantt/OEE
+                if (Number(data.machine_id) === selectedMachine.value) {
+                    refreshData(true);
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao ler o WebSocket:', error);
+        }
+    };
+    ws.onclose = () => {
+        console.warn('🟡 [MES] Conexão em tempo real perdida. Tentando reconectar...');
+        // 4. Se a internet cair, ele tenta voltar sozinho a cada 5 segundos
+        reconnectTimer = setTimeout(connectWebSocket, 5000);
+    };
+}
+
 onMounted(async () => {
     setCssVar('primary', '#128c7e');
     await productionStore.fetchAvailableMachines();
-    if (machineOptions.value && machineOptions.value.length > 0 && machineOptions.value[0]) {
+    
+    const machineIdFromUrl = route.query.machine;
+
+    if (machineIdFromUrl) {
+        selectedMachine.value = Number(machineIdFromUrl);
+        router.replace({ query: {} }); 
+        void refreshData();
+    } 
+    else if (machineOptions.value && machineOptions.value.length > 0 && machineOptions.value[0]) {
         selectedMachine.value = machineOptions.value[0].value;
         void refreshData();
+    }
+
+    // Liga a escuta em tempo real em vez de usar o relógio bobo!
+    connectWebSocket();
+});
+
+onUnmounted(() => {
+    // Quando o gestor sair desta tela, desligamos o rádio para economizar memória
+    if (ws) {
+        ws.onclose = null; // Impede que a função de reconectar seja chamada
+        ws.close();
+    }
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
     }
 });
 </script>
@@ -808,7 +959,13 @@ onMounted(async () => {
   50% { transform: scale(1.05); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }
 }
-
+.sticky-status-bar {
+  position: sticky;
+  top: 10px; /* Gruda a 10 pixels de distância do topo da tela */
+  z-index: 99; /* Garante que fica por cima dos cards e do gráfico Gantt ao rolar */
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.2);
+}
 /* =========================================
    DARK MODE OVERRIDES (DARK FOREST THEME)
    ========================================= */
@@ -829,6 +986,9 @@ onMounted(async () => {
         color: #b2dfdb !important;
     }
   }
+:deep(.q-tab-panels), :deep(.q-panel) {
+  overflow: visible !important;
+}
 
   .glass-menu {
     background: rgba(5, 20, 18, 0.95) !important;

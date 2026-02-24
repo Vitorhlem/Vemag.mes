@@ -400,6 +400,7 @@ function getManagerMenu(): MenuCategory[] {
   menu.push({ 
       label: 'Ativos & Recursos', 
       children: [
+        { title: 'Supervisorio', icon: 'precision_manufacturing', to: '/supervisory' },
         { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/vehicles' },
       ] 
   });

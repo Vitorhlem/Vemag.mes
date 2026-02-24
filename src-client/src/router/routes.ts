@@ -18,6 +18,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/DashboardPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance', 'cliente_ativo', 'cliente_demo'] }
       },
+      { 
+        path: 'supervisory', 
+        name: 'supervisory', 
+        component: () => import('pages/SupervisoryPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance'] }
+      },
 
       // ANDON VERSÃO COM MENU (Para Admin, PCP e Manutenção)
       { 

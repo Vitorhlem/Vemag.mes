@@ -499,6 +499,8 @@ async def set_machine_status(data: MachineStatusUpdate, db: AsyncSession = Depen
     """
     Define o status da máquina manualmente, respeitando a nova arquitetura explícita.
     """
+    from app.core.websocket_manager import manager # 👈 Import do Megafone!
+
     print(f"🔄 [BACKEND] Mudança Manual de Status: {data.status} -> Máquina {data.machine_id}")
 
     vehicle = await db.get(Vehicle, data.machine_id)
@@ -557,7 +559,34 @@ async def set_machine_status(data: MachineStatusUpdate, db: AsyncSession = Depen
     await db.commit()
     await db.refresh(vehicle)
     
+    # 🚀 A MÁGICA: Grita para todos os WebSockets conectados que a máquina mudou!
+    await manager.broadcast({
+        "type": "MACHINE_STATE_CHANGED",
+        "machine_id": vehicle.id,
+        "new_status": category_mes,
+        "machine_status_db": vehicle.status
+    })
+    
     return {"message": "Status atualizado", "new_status": vehicle.status}
+
+class MachineLayoutUpdate(BaseModel):
+    machine_id: int
+    layout_x: float
+    layout_y: float
+
+@router.post("/machine/layout")
+async def update_machine_layout(data: MachineLayoutUpdate, db: AsyncSession = Depends(get_db)):
+    """Atualiza a posição X e Y da máquina na tela de Supervisório."""
+    vehicle = await db.get(Vehicle, data.machine_id)
+    if not vehicle: 
+        raise HTTPException(404, "Máquina não encontrada")
+    
+    vehicle.layout_x = data.layout_x
+    vehicle.layout_y = data.layout_y
+    
+    db.add(vehicle)
+    await db.commit()
+    return {"status": "success", "message": "Layout salvo com sucesso."}
 
 # ============================================================================
 # 4. LISTAR MÁQUINAS
@@ -670,6 +699,8 @@ async def get_machine_history(machine_id: int, skip: int = 0, limit: int = 20, e
 # ============================================================================
 # 8. SESSÕES (START/STOP)
 # ============================================================================
+
+
 @router.post("/session/start", response_model=SessionResponse)
 async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.get_db)):
     op_code_str = str(payload.op_number)
@@ -762,7 +793,45 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
     db.add(session)
     await db.commit()
     return {"status": "success", "stats": {"total_time": session.duration_seconds, "productive": session.productive_seconds, "unproductive": session.unproductive_seconds}}
-
+@router.get("/session/active/{machine_id}")
+async def get_active_session(machine_id: int, db: AsyncSession = Depends(deps.get_db)):
+    """Busca a O.P. e o Operador que estão rodando na máquina neste exato momento."""
+    
+    # 1. Busca a sessão ativa (Apenas com o user, sem o production_order no selectinload)
+    query = select(ProductionSession).options(
+        selectinload(ProductionSession.user)
+    ).where(
+        ProductionSession.vehicle_id == machine_id,
+        ProductionSession.end_time.is_(None)
+    )
+    
+    session = (await db.execute(query)).scalars().first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Nenhuma sessão ativa encontrada")
+        
+    # 2. Busca a O.P. manualmente pelo ID (Estratégia segura)
+    order_data = None
+    if session.production_order_id:
+        order = await db.get(ProductionOrder, session.production_order_id)
+        if order:
+            order_data = {
+                "id": order.id,
+                "code": order.code,
+                "part_name": getattr(order, 'part_name', 'N/A'),
+                "status": getattr(order, 'status', 'N/A')
+            }
+            
+    return {
+        "session_id": session.id,
+        "start_time": session.start_time,
+        "operator": {
+            "id": session.user.id if session.user else None,
+            "full_name": session.user.full_name if session.user else None,
+            "employee_id": session.user.employee_id if session.user else None
+        } if session.user else None,
+        "order": order_data
+    }
 @router.get("/stats/machine/{machine_id}/oee")
 async def get_machine_oee(machine_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None, db: AsyncSession = Depends(deps.get_db)):
     if not start_date: start_date = date.today()

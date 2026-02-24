@@ -11,8 +11,8 @@ class VehicleBase(BaseModel):
     model: str
     year: int
     photo_url: Optional[str] = None
-    
-    # CORREÇÃO: Status movido para a Base para ser aceito na criação (POST)
+    layout_x: Optional[float] = None
+    layout_y: Optional[float] = None
     status: Optional[VehicleStatus] = VehicleStatus.AVAILABLE
     sap_resource_code: Optional[str] = None
     current_km: Optional[int] = 0
@@ -35,6 +35,8 @@ class VehicleUpdate(BaseModel):
     brand: Optional[str] = None
     model: Optional[str] = None
     year: Optional[int] = None
+    layout_x: Optional[float] = None
+    layout_y: Optional[float] = None
     photo_url: Optional[str] = None
     status: Optional[VehicleStatus] = None
     current_km: Optional[int] = None

@@ -17,7 +17,9 @@ export interface Machine {
   status?: string; 
   category?: string;
   current_driver_id?: number;
-  sap_resource_code?: string; // <--- CAMPO IMPORTANTE ADICIONADO
+  sap_resource_code?: string;
+  layout_x?: number;
+  layout_y?: number;
 }
 
 export interface OperationStep {
@@ -792,6 +794,26 @@ async function toggleSetup() {
     }
   }
 
+  async function saveMachineLayout(machineId: number, x: number, y: number) {
+      try {
+          await api.post('/production/machine/layout', {
+              machine_id: machineId,
+              layout_x: x,
+              layout_y: y
+          });
+          
+          // Atualiza a lista local para não precisar dar F5
+          const index = machinesList.value.findIndex(m => m.id === machineId);
+          if (index !== -1) {
+              machinesList.value[index].layout_x = x;
+              machinesList.value[index].layout_y = y;
+          }
+      } catch (error) {
+          console.error("Erro ao salvar layout:", error);
+          Notify.create({ type: 'negative', message: 'Erro ao salvar posição da máquina.' });
+      }
+  }
+
   return {
     machinesList, machineId, currentMachine, machineName, machineSector,
     currentOperator, currentOperatorBadge, activeOrder, machineHistory,
@@ -802,6 +824,6 @@ async function toggleSetup() {
     loginOperator, logoutOperator, requestOrderFromSAP, processReceivedOrder, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
     startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
-    machineResource, setImprovisedStep, fetchMachine, executeShiftChange
+    machineResource, setImprovisedStep, fetchMachine, executeShiftChange, saveMachineLayout
   };
 });

@@ -45,6 +45,8 @@ class Vehicle(Base):
     identifier: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     # ---------------------------------------------
     sap_resource_code = Column(String, nullable=True)
+    layout_x: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    layout_y: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     photo_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     status: Mapped[VehicleStatus] = mapped_column(SAEnum(VehicleStatus), nullable=False, default=VehicleStatus.AVAILABLE)
