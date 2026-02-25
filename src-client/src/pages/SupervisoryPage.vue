@@ -1,40 +1,98 @@
 <template>
-  <q-page class="q-pa-md bg-grey-1 column">
+  <q-page class="q-pa-none overflow-hidden bg-grey-1" style="min-height: calc(100vh - 50px) !important; height: calc(100vh - 50px) !important;">
     
-    <div class="row items-center q-mb-md">
-      <div class="column">
-        <h1 class="text-h5 text-weight-bold text-teal-9 q-ma-none flex items-center">
-          <q-icon name="schema" size="md" class="q-mr-sm" /> 
-          Supervisório Digital (Planta)
-        </h1>
-        <p class="text-caption text-grey-6 q-ma-none">Visão em tempo real da alocação de máquinas.</p>
-      </div>
-
-      <q-space />
-
-      <q-btn
-        :color="isEditMode ? 'orange-9' : 'teal-8'"
-        :icon="isEditMode ? 'lock_open' : 'lock'"
-        :label="isEditMode ? 'Finalizar Edição' : 'Editar Layout'"
-        :outline="!isEditMode"
-        class="shadow-2 q-px-md font-weight-bold transition-all"
-        @click="toggleEditMode"
-      >
-        <q-tooltip v-if="!isEditMode">Destravar para arrastar máquinas</q-tooltip>
-      </q-btn>
-    </div>
-
     <div 
-      class="blueprint-container shadow-4 rounded-borders relative-position overflow-hidden col-grow"
-      ref="mapAreaRef"
+      class="viewport-container absolute-full bg-grey-1"
+      ref="viewportRef"
+      @mousedown="startPan" 
+      @mousemove="onPan" 
+      @mouseup="endPan" 
+      @mouseleave="endPan"
+      @wheel.prevent="onWheel"
       @dragover.prevent
       @drop="onDrop"
+      :style="{ cursor: isPanning ? 'grabbing' : (isEditMode ? 'grab' : 'default') }"
     >
+      <div class="absolute-top-left q-pa-md" style="z-index: 100;">
+        <q-btn
+          :color="isEditMode ? 'orange-9' : 'teal-8'"
+          :icon="isEditMode ? 'lock_open' : 'lock'"
+          :label="isEditMode ? 'Finalizar Edição' : 'Editar Layout'"
+          :outline="!isEditMode"
+          class="shadow-4 font-weight-bold transition-all bg-white"
+          @click="toggleEditMode"
+        >
+          <q-tooltip v-if="!isEditMode">Destravar para arrastar máquinas</q-tooltip>
+        </q-btn>
+      </div>
+
+      <div class="zoom-controls-panel shadow-4 bg-white rounded-borders q-pa-xs">
+        <q-btn flat round dense icon="add" color="teal-9" @click="zoomIn">
+          <q-tooltip>Aproximar</q-tooltip>
+        </q-btn>
+        <q-separator />
+        <q-btn flat round dense icon="remove" color="teal-9" @click="zoomOut">
+          <q-tooltip>Afastar</q-tooltip>
+        </q-btn>
+        <q-separator />
+        <q-btn flat round dense icon="filter_center_focus" color="primary" @click="resetView">
+          <q-tooltip>Centralizar Mapa</q-tooltip>
+        </q-btn>
+      </div>
+
       <div 
-        v-if="unplacedMachines.length > 0 && isEditMode"
-        class="unplaced-dock shadow-2 bg-white q-pa-sm"
+        class="blueprint-canvas"
+        ref="mapAreaRef"
+        :style="{ 
+          transform: `translate(${panX}px, ${panY}px) scale(${scale})`,
+          width: '4000px', 
+          height: '4000px'
+        }"
       >
-        <div class="text-caption text-weight-bold text-grey-8 q-mb-xs">Máquinas não alocadas (Arraste p/ o mapa):</div>
+        <transition-group name="fade">
+          <div 
+            v-for="machine in placedMachines" 
+            :key="machine.id"
+            class="machine-card map-card shadow-5"
+            :class="[
+               getStatusColorClass(machine.status), 
+               { 'edit-mode-active': isEditMode, 'pulse-effect': isRunning(machine.status) }
+            ]"
+            :style="{ left: `${machine.layout_x}%`, top: `${machine.layout_y}%` }"
+            :draggable="isEditMode"
+            @dragstart.stop="onDragStart($event, machine)"
+            @click="goToMachineDetails(machine.id)"
+          >
+            <div class="card-header absolute-top row items-center justify-between no-wrap">
+              <div class="machine-id-badge shadow-2">{{ machine.id }}</div>
+              <q-btn v-if="isEditMode" round dense flat icon="close" size="xs" class="remove-btn shadow-2" @click.stop="removeMachineFromMap(machine)" />
+            </div>
+
+            <div class="card-body">
+              <div v-if="machine.photo_url" class="machine-bg-layer" :style="{ backgroundImage: `url(${getImageUrl(machine.photo_url)})` }"></div>
+              <div v-if="machine.photo_url" class="machine-gradient-overlay"></div>
+
+              <div class="card-content-layer column items-center">
+                <q-icon v-if="!machine.photo_url" :name="getMachineIcon(machine.category)" size="32px" class="q-mb-sm opacity-60 text-teal-8" />
+                <div class="machine-model text-weight-bolder text-center full-width" :class="machine.photo_url ? 'text-white' : 'text-teal-10'">
+                  {{ machine.model }}
+                </div>
+                <div class="machine-brand text-caption text-center full-width" :class="machine.photo_url ? 'text-grey-4' : 'text-grey-7'">
+                  {{ machine.brand }}
+                </div>
+              </div>
+            </div>
+
+            <div class="card-footer text-center q-pt-xs">
+              <span class="status-label text-weight-bold text-uppercase">{{ formatStatus(machine.status) }}</span>
+            </div>
+          </div>
+        </transition-group>
+      </div> <div 
+        v-if="unplacedMachines.length > 0 && isEditMode"
+        class="unplaced-dock shadow-4 bg-white q-pa-sm"
+      >
+        <div class="text-caption text-weight-bold text-grey-8 q-mb-xs">Máquinas na Doca (Arraste):</div>
         <div class="row q-gutter-sm">
           <div 
             v-for="machine in unplacedMachines" 
@@ -47,56 +105,10 @@
               <img :src="getImageUrl(machine.photo_url)" style="object-fit: cover;" />
             </q-avatar>
             <div v-else class="machine-id">{{ machine.id }}</div>
-            
-            <div class="machine-model text-truncate full-width q-px-xs" style="font-size: 0.6rem;">
-              {{ machine.model }}
-            </div>
-          </div>
-        </div> </div> <transition-group name="fade">
-        <div 
-          v-for="machine in placedMachines" 
-          :key="machine.id"
-          class="machine-card map-card shadow-5"
-          :class="[
-             getStatusColorClass(machine.status), 
-             { 'edit-mode-active': isEditMode, 'pulse-effect': isRunning(machine.status) }
-          ]"
-          :style="{ left: `${machine.layout_x}%`, top: `${machine.layout_y}%` }"
-          :draggable="isEditMode"
-          @dragstart="onDragStart($event, machine)"
-          @click="goToMachineDetails(machine.id)"
-        >
-          <div class="card-header absolute-top row items-center justify-between no-wrap">
-            <div class="machine-id-badge shadow-2">{{ machine.id }}</div>
-            <q-btn v-if="isEditMode" round dense flat icon="close" size="xs" class="remove-btn shadow-2" @click.stop="removeMachineFromMap(machine)" />
-          </div>
-
-          <div class="card-body">
-            <div 
-              v-if="machine.photo_url"
-              class="machine-bg-layer"
-              :style="{ backgroundImage: `url(${getImageUrl(machine.photo_url)})` }"
-            ></div>
-
-            <div v-if="machine.photo_url" class="machine-gradient-overlay"></div>
-
-            <div class="card-content-layer column items-center">
-              <q-icon v-if="!machine.photo_url" :name="getMachineIcon(machine.category)" size="32px" class="q-mb-sm opacity-60 text-teal-8" />
-              
-              <div class="machine-model text-weight-bolder text-center full-width" :class="machine.photo_url ? 'text-white' : 'text-teal-10'">
-                {{ machine.model }}
-              </div>
-              <div class="machine-brand text-caption text-center full-width" :class="machine.photo_url ? 'text-grey-4' : 'text-grey-7'">
-                {{ machine.brand }}
-              </div>
-            </div>
-          </div>
-
-          <div class="card-footer text-center q-pt-xs">
-            <span class="status-label text-weight-bold text-uppercase">{{ formatStatus(machine.status) }}</span>
+            <div class="machine-model text-truncate full-width q-px-xs" style="font-size: 0.6rem;">{{ machine.model }}</div>
           </div>
         </div>
-      </transition-group>
+      </div>
 
     </div>
   </q-page>
@@ -111,16 +123,40 @@ import type { Machine } from 'stores/production-store';
 const router = useRouter();
 const $q = useQuasar();
 const store = useProductionStore();
-
+const isPanning = ref(false);
+const panX = ref(0);
+const panY = ref(0);
+const scale = ref(0.85); // Começa em 85% para ter uma visão boa inicial
+let startMouseX = 0;
+let startMouseY = 0;
 const mapAreaRef = ref<HTMLElement | null>(null);
 const isEditMode = ref(false);
+
+const viewportRef = ref<HTMLElement | null>(null);
+
+function centerMap() {
+  // Centro físico do Canvas Gigante (4000 / 2 = 2000)
+  const centerCanvasX = 2000;
+  const centerCanvasY = 2000;
+  
+  // Pega o tamanho real da janela visível
+  const viewWidth = viewportRef.value ? viewportRef.value.clientWidth : window.innerWidth;
+  const viewHeight = viewportRef.value ? viewportRef.value.clientHeight : window.innerHeight;
+
+  // Matemática Mágica: Move as coordenadas panX e panY para o centro da tela
+  panX.value = (viewWidth / 2) - (centerCanvasX * scale.value);
+  panY.value = (viewHeight / 2) - (centerCanvasY * scale.value);
+}
 
 // Variável global simples para o Drag'n'Drop
 let draggedMachine: Machine | null = null;
 
-// =========================================================================
-// COMPUTADOS E FILTROS
-// =========================================================================
+function zoomIn() { scale.value = Math.min(scale.value + 0.1, 2.5); }
+function zoomOut() { scale.value = Math.max(scale.value - 0.1, 0.3); }
+function resetView() { 
+  scale.value = 0.85; 
+  centerMap(); 
+}
 
 // Máquinas que JÁ TEM x e y definidos
 const placedMachines = computed(() => {
@@ -135,6 +171,34 @@ const unplacedMachines = computed(() => {
 // =========================================================================
 // LÓGICA DE DRAG AND DROP (O Segredo Matemático)
 // =========================================================================
+
+function onWheel(event: WheelEvent) {
+  // Apenas rolando o botão do mouse já dá o Zoom agora!
+  if (event.deltaY > 0) zoomOut();
+  else zoomIn();
+}
+
+function startPan(event: MouseEvent) {
+  if ((event.target as HTMLElement).closest('.machine-card') || 
+      (event.target as HTMLElement).closest('.unplaced-dock') ||
+      (event.target as HTMLElement).closest('.zoom-controls-panel') ||
+      (event.target as HTMLElement).closest('.q-btn')) return;
+  
+  isPanning.value = true;
+  startMouseX = event.clientX - panX.value;
+  startMouseY = event.clientY - panY.value;
+}
+
+function onPan(event: MouseEvent) {
+  if (!isPanning.value) return;
+  panX.value = event.clientX - startMouseX;
+  panY.value = event.clientY - startMouseY;
+}
+
+function endPan() {
+  isPanning.value = false;
+}
+
 function getImageUrl(url: string | null | undefined) { 
   if (!url) return ''; 
   
@@ -158,15 +222,30 @@ function toggleEditMode() {
   }
 }
 
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
 function onDragStart(event: DragEvent, machine: Machine) {
   if (!isEditMode.value) {
-    event.preventDefault(); // Impede arrastar se estiver travado
+    event.preventDefault(); 
     return;
   }
   draggedMachine = machine;
+
+  // Calcula AONDE o usuário clicou DENTRO do card para evitar o "Pulo" ao soltar
+  const target = (event.target as HTMLElement).closest('.machine-card');
+  if (target && event.clientX) {
+     const rect = target.getBoundingClientRect();
+     // Divide pela escala para saber a distância em pixels reais da planta
+     dragOffsetX = (event.clientX - rect.left) / scale.value;
+     dragOffsetY = (event.clientY - rect.top) / scale.value;
+  } else {
+     dragOffsetX = 70;
+     dragOffsetY = 65;
+  }
+
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
-    // Truque: Imagem fantasma transparente para ficar mais limpo
     const emptyImage = new Image();
     emptyImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     event.dataTransfer.setDragImage(emptyImage, 0, 0);
@@ -176,32 +255,27 @@ function onDragStart(event: DragEvent, machine: Machine) {
 async function onDrop(event: DragEvent) {
   if (!isEditMode.value || !draggedMachine || !mapAreaRef.value) return;
 
-  const mapRect = mapAreaRef.value.getBoundingClientRect();
+  const canvasRect = mapAreaRef.value.getBoundingClientRect();
   
-  // Calcula a posição do mouse em relação ao canto esquerdo superior do mapa (em Pixels)
-  let rawX = event.clientX - mapRect.left;
-  let rawY = event.clientY - mapRect.top;
+  // Pega a coordenada em tela e converte para pixel real da planta gigante
+  let rawX = (event.clientX - canvasRect.left) / scale.value;
+  let rawY = (event.clientY - canvasRect.top) / scale.value;
 
-  // Centraliza o mouse no meio do Card (O card tem aprox 110x110px)
-  rawX = rawX - 55; 
-  rawY = rawY - 55;
+  // Desconta exatamente o local onde o mouse estava segurando o card
+  rawX -= dragOffsetX;
+  rawY -= dragOffsetY;
 
-  // Matemática Mágica: Converte os Pixels para Porcentagem (0 a 100%)
-  let percentX = (rawX / mapRect.width) * 100;
-  let percentY = (rawY / mapRect.height) * 100;
+  // Converte para as famosas porcentagens
+  let percentX = (rawX / 4000) * 100;
+  let percentY = (rawY / 4000) * 100;
 
-  // Travas de borda para a máquina não sair voando para fora do monitor
-  if (percentX < 0) percentX = 0;
-  if (percentX > 90) percentX = 90;
-  if (percentY < 0) percentY = 0;
-  if (percentY > 85) percentY = 85;
+  // Travas de segurança pra não cair fora do quadro
+  percentX = Math.max(0, Math.min(percentX, 98));
+  percentY = Math.max(0, Math.min(percentY, 98));
 
-  // Chama a função da store (que vai bater no backend via Axios)
-  await store.saveMachineLayout(draggedMachine.id, Number(percentX.toFixed(2)), Number(percentY.toFixed(2)));
-  
+  await store.saveMachineLayout(draggedMachine.id, Number(percentX.toFixed(3)), Number(percentY.toFixed(3)));
   draggedMachine = null;
 }
-
 async function removeMachineFromMap(machine: Machine) {
   await store.saveMachineLayout(machine.id, null as any, null as any);
   $q.notify({ type: 'warning', message: `${machine.model} voltou para a doca.`, timeout: 1000 });
@@ -338,19 +412,42 @@ onUnmounted(() => {
 /* -------------------------------------------------------------------------
    MALHA (PAPEL MILIMETRADO DE ENGENHARIA)
    ------------------------------------------------------------------------- */
-.blueprint-container {
+.zoom-controls-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(18, 140, 126, 0.2);
+}
+
+.viewport-container {
+  /* Fundo exato da malha para se fundir perfeitamente */
   background-color: #f8fafc;
-  /* Cria uma grade usando Gradientes (Mágica do CSS) */
+  
+  /* Sem bordas, sem limites! */
+  border: none !important;
+  outline: none !important;
+  margin: 0;
+  padding: 0;
+}
+
+.blueprint-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  
   background-image: 
     linear-gradient(rgba(18, 140, 126, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 140, 126, 0.05) 1px, transparent 1px),
     linear-gradient(rgba(18, 140, 126, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 140, 126, 0.1) 1px, transparent 1px);
   background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
-  background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
   
-  border: 2px solid rgba(18, 140, 126, 0.2);
-  min-height: 600px;
+  /* Mantém a transição só no Scale para ser macio o scroll */
+  transition: transform 0.05s linear; 
 }
 
 /* -------------------------------------------------------------------------
