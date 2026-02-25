@@ -62,83 +62,47 @@ export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
   '703': { code: '703', description: 'TERCEIRIZACAO SERVICOS E ATIVIDADES', resourceCode: '7.03.01', resourceName: 'Tercerização Serviços e Atividades' },
 };
 
-// =======================================================
-// MAPAS DE POSIÇÃO (SEQ) PARA CÓDIGO DE OPERAÇÃO
-// =======================================================
-
-// Mapeamento específico para Ordem de Produção (O.P.)
-export const OP_SEQUENCE_MAP: Record<string, string> = {
-  '015': '213', '017': '703', '019': '213', '020': '302', '022': '208',
-  '030': '409', '060': '403', '070': '416', '075': '423', '077': '410',
-  '078': '406', '080': '202', '082': '213', '085': '206', '112': '703',
-  '113': '416', '115': '202', '117': '503', '120': '201', '130': '702', '140': '201'
-};
-
-// Mapeamento específico para Ordem de Serviço (O.S.)
-export const OS_SEQUENCE_MAP: Record<string, string> = {
-  '010': '213', '020': '410', '025': '213', '030': '422', '040': '423',
-  '050': '202', '060': '503', '070': '201', '080': '702', '090': '201', '200': '423'
-};
-
-
-// NOVA FUNÇÃO: Agora sabe distinguir OP de OS e NÃO arredonda mais os valores.
-export function getSapOperation(stageSeq: number | string, isServiceOrder: boolean = false): SapOperationMap {
-  const num = parseInt(String(stageSeq), 10);
-  if (isNaN(num)) return { code: '', description: '', resourceCode: '', resourceName: '' };
-
-  // Formata para 3 dígitos EXATOS (ex: 15 vira '015'). Removido o Math.floor.
-  const lookupKey = num.toString().padStart(3, '0');
-
-  // Busca no dicionário correto
-  const opCode = isServiceOrder ? OS_SEQUENCE_MAP[lookupKey] : OP_SEQUENCE_MAP[lookupKey];
-
+/**
+ * Busca a configuração da Operação pelo Código recebido do SAP (ex: '423')
+ */
+export function getSapOperationByCode(opCode: string): SapOperationMap | null {
   if (opCode && SAP_OPERATIONS_MAP[opCode]) {
     return SAP_OPERATIONS_MAP[opCode];
   }
-
-  return { code: '', description: '', resourceCode: '', resourceName: '' };
+  return null;
 }
 
-// --- FUNÇÃO DE ROTEAMENTO INTELIGENTE ---
-
+/**
+ * Busca qual é a operação dona do recurso logado no tablet
+ */
 export function findGlobalOpByResource(machineResource: string): SapOperationMap | null {
   if (!machineResource) return null;
   const found = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineResource.trim());
   return found || null;
 }
 
+/**
+ * FUNÇÃO INTELIGENTE DE ROTEAMENTO
+ * Varre as etapas que vieram do SAP e retorna o índice da etapa cuja
+ * operação exigida corresponda à máquina que o operador está logado.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
   if (!machineResourceCode || !steps || steps.length === 0) return -1;
   const myResource = machineResourceCode.trim();
 
-  // 1ª Tentativa: Buscar nas etapas PLANEJADAS (Diferentes de 999)
-  let index = steps.findIndex(step => {
+  const index = steps.findIndex(step => {
+    // step.resource agora contém o U_Operacao que veio do SAP (ex: '423')
     const opCode = String(step.resource || '').trim();
     const config = SAP_OPERATIONS_MAP[opCode];
-    const isPlanned = Number(step.seq) !== 999;
 
-    if (config && isPlanned) {
+    if (config) {
+      // Confirma se o Recurso exigido pelo SAP (ex: 4.23.01) bate com o do Tablet
       const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
       return match && step.status !== 'COMPLETED';
     }
     return false;
   });
-
-  // 2ª Tentativa: Se não achou planejada, busca nas etapas IMPREVISTAS (seq: 999)
-  if (index === -1) {
-    index = steps.findIndex(step => {
-      const opCode = String(step.resource || '').trim();
-      const config = SAP_OPERATIONS_MAP[opCode];
-      const isUnexpected = Number(step.seq) === 999;
-
-      if (config && isUnexpected) {
-        const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
-        return match;
-      }
-      return false;
-    });
-  }
 
   return index;
 }

@@ -19,6 +19,7 @@ export interface Machine {
   current_driver_id?: number;
   sap_resource_code?: string;
   layout_x?: number;
+  photo_url?: string; 
   layout_y?: number;
 }
 

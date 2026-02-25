@@ -539,7 +539,7 @@ import { api } from 'boot/axios';
 import { db } from 'src/db/offline-db';
 
 import { getOperatorName } from 'src/data/operators'; 
-import { getSapOperation, SAP_OPERATIONS_MAP, findBestStepIndex } from 'src/data/sap-operations';
+import { SAP_OPERATIONS_MAP, findBestStepIndex } from 'src/data/sap-operations';
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
 const isSocketConnected = ref(false);
@@ -913,14 +913,11 @@ async function applyNormalPause(fromPlc = false) {
   try {
     const prodStart = statusStartTime.value ? new Date(statusStartTime.value) : new Date();
     
-    // 🚀 MÁGICA DE VERDADE: Ignora a UI e varre a ordem inteira buscando a etapa dona desta máquina
+    // 🚀 MÁGICA DINÂMICA: Acha a etapa do roteiro pela máquina (ignorando se é OP ou OS)
     const machineRes = productionStore.machineResource;
-    
-    // Usa a sua própria função de roteamento para achar a etapa certa!
     const targetIndex = findBestStepIndex(machineRes, currentOrder.steps || []);
     let actualStep = targetIndex !== -1 ? (currentOrder.steps ? currentOrder.steps[targetIndex] : null) : null;
     
-    // Se não achar (ex: O.P. sem roteiro), tenta usar o que está na tela
     if (!actualStep) {
          actualStep = currentViewedStep.value;
     }
@@ -928,11 +925,12 @@ async function applyNormalPause(fromPlc = false) {
     const rawSeq = Number(actualStep?.seq || 10);
     const position = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
     
-    let sapData = getCurrentSapData(position);
-    if (!sapData || !sapData.code) {
-        // Fallback final: Acha pelo recurso da máquina
-        const foundByRes = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes);
-        if (foundByRes) sapData = foundByRes;
+    // 🚀 AQUI ESTÁ A CORREÇÃO: Lê a operação DIRETAMENTE do step do SAP, sem tentar adivinhar a etapa
+    let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
+    
+    // Fallback caso a etapa do SAP tenha vindo vazia ou quebrado
+    if (!sapData) {
+        sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
     }
 
     const productionPayload = {
@@ -1011,7 +1009,7 @@ async function triggerCriticalBreakdown() {
         // 1. Encerra a Produção atual (se houver OP ativa)
         if (activeOrder.value?.code) {
             
-            // 🚀 MÁGICA AQUI TAMBÉM: Usa a função findBestStepIndex do seu roteador global
+            // 🚀 MÁGICA DINÂMICA
             const targetIndex = findBestStepIndex(machineRes, activeOrder.value.steps || []);
             let actualStep = targetIndex !== -1 ? (activeOrder.value.steps ? activeOrder.value.steps[targetIndex] : null) : null;
             
@@ -1022,10 +1020,10 @@ async function triggerCriticalBreakdown() {
             const rawSeq = Number(actualStep?.seq || 10);
             const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
             
-            let sapData = getCurrentSapData(stageStr);
-            if (!sapData || !sapData.code) {
-                const foundByRes = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes);
-                if (foundByRes) sapData = foundByRes;
+            // 🚀 LÊ DIRETO DO SAP
+            let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
+            if (!sapData) {
+                sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
             }
 
             const productionPayload = {
@@ -1232,21 +1230,6 @@ function confirmFinishOp() {
   });
 }
 
-function getCurrentSapData(stageStr: string) {
-  // Verifica se a OP atual é de serviço
-  const isService = productionStore.activeOrder?.is_service || false;
-  
-  // Repassa a flag para a nova função inteligente
-  let sapData = getSapOperation(stageStr, isService);
-
-  if (stageStr === '999' || !sapData.code) {
-    const step = currentViewedStep.value;
-    if (step && step.resource && SAP_OPERATIONS_MAP[step.resource]) {
-      sapData = SAP_OPERATIONS_MAP[step.resource];
-    }
-  }
-  return sapData;
-}
 
 function handleLogout() {
   $q.dialog({ title: 'Sair', message: 'Fazer logoff?', cancel: true }).onOk(() => {

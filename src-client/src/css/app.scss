@@ -18,3 +18,18 @@
 .animated {
   animation-duration: 0.6s;
 }
+body.desktop {
+  /* Aplica 75% de zoom para navegadores baseados em Chromium (Chrome, Edge, Opera, Safari) */
+  zoom: 0.75; 
+
+  /* O Firefox tradicionalmente prefere o uso de transform para zoom */
+  @-moz-document url-prefix() {
+    transform: scale(0.75);
+    transform-origin: top left;
+    
+    /* Quando escalamos no Firefox, o fundo pode encolher, isso compensa a diferença */
+    width: 133.33%; 
+    height: 133.33%;
+    overflow-x: hidden;
+  }
+}

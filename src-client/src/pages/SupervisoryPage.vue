@@ -39,17 +39,20 @@
           <div 
             v-for="machine in unplacedMachines" 
             :key="machine.id"
-            class="machine-card dock-card"
+            class="machine-card dock-card text-center"
             draggable="true"
             @dragstart="onDragStart($event, machine)"
           >
-            <div class="machine-id">{{ machine.id }}</div>
-            <div class="machine-model text-truncate">{{ machine.model }}</div>
+            <q-avatar v-if="machine.photo_url" rounded size="26px" class="q-mb-xs shadow-1">
+              <img :src="getImageUrl(machine.photo_url)" style="object-fit: cover;" />
+            </q-avatar>
+            <div v-else class="machine-id">{{ machine.id }}</div>
+            
+            <div class="machine-model text-truncate full-width q-px-xs" style="font-size: 0.6rem;">
+              {{ machine.model }}
+            </div>
           </div>
-        </div>
-      </div>
-
-      <transition-group name="fade">
+        </div> </div> <transition-group name="fade">
         <div 
           v-for="machine in placedMachines" 
           :key="machine.id"
@@ -58,23 +61,35 @@
              getStatusColorClass(machine.status), 
              { 'edit-mode-active': isEditMode, 'pulse-effect': isRunning(machine.status) }
           ]"
-          :style="{
-            left: `${machine.layout_x}%`,
-            top: `${machine.layout_y}%`,
-          }"
+          :style="{ left: `${machine.layout_x}%`, top: `${machine.layout_y}%` }"
           :draggable="isEditMode"
           @dragstart="onDragStart($event, machine)"
           @click="goToMachineDetails(machine.id)"
         >
-          <div class="card-header row items-center justify-between no-wrap">
-            <div class="machine-id-badge shadow-1">{{ machine.id }}</div>
-            <q-btn v-if="isEditMode" round dense flat icon="close" size="xs" class="remove-btn" @click.stop="removeMachineFromMap(machine)" />
+          <div class="card-header absolute-top row items-center justify-between no-wrap">
+            <div class="machine-id-badge shadow-2">{{ machine.id }}</div>
+            <q-btn v-if="isEditMode" round dense flat icon="close" size="xs" class="remove-btn shadow-2" @click.stop="removeMachineFromMap(machine)" />
           </div>
 
-          <div class="card-body column items-center justify-center">
-            <q-icon :name="getMachineIcon(machine.category)" size="sm" class="q-mb-xs opacity-80" />
-            <div class="machine-model text-weight-bolder text-center" style="line-height: 1.1;">{{ machine.model }}</div>
-            <div class="machine-brand text-caption" style="font-size: 0.65rem;">{{ machine.brand }}</div>
+          <div class="card-body">
+            <div 
+              v-if="machine.photo_url"
+              class="machine-bg-layer"
+              :style="{ backgroundImage: `url(${getImageUrl(machine.photo_url)})` }"
+            ></div>
+
+            <div v-if="machine.photo_url" class="machine-gradient-overlay"></div>
+
+            <div class="card-content-layer column items-center">
+              <q-icon v-if="!machine.photo_url" :name="getMachineIcon(machine.category)" size="32px" class="q-mb-sm opacity-60 text-teal-8" />
+              
+              <div class="machine-model text-weight-bolder text-center full-width" :class="machine.photo_url ? 'text-white' : 'text-teal-10'">
+                {{ machine.model }}
+              </div>
+              <div class="machine-brand text-caption text-center full-width" :class="machine.photo_url ? 'text-grey-4' : 'text-grey-7'">
+                {{ machine.brand }}
+              </div>
+            </div>
           </div>
 
           <div class="card-footer text-center q-pt-xs">
@@ -86,7 +101,6 @@
     </div>
   </q-page>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
@@ -121,7 +135,20 @@ const unplacedMachines = computed(() => {
 // =========================================================================
 // LÓGICA DE DRAG AND DROP (O Segredo Matemático)
 // =========================================================================
+function getImageUrl(url: string | null | undefined) { 
+  if (!url) return ''; 
+  
+  // 1. O SEGREDO: Troca todas as barras do Windows (\) por barras normais (/)
+  const fixedUrl = url.replace(/\\/g, '/');
 
+  if (fixedUrl.startsWith('http')) return fixedUrl; 
+
+  const cleanUrl = fixedUrl.startsWith('/') ? fixedUrl : `/${fixedUrl}`;
+
+  // 2. BÔNUS: Isso garante que a foto vai carregar no Tablet e no Celular também!
+  const host = window.location.hostname;
+  return `http://${host}:8000${cleanUrl}`; 
+}
 function toggleEditMode() {
   isEditMode.value = !isEditMode.value;
   if (!isEditMode.value) {
@@ -342,7 +369,7 @@ onUnmounted(() => {
 
 .dock-card {
   width: 80px;
-  height: 40px;
+  height: 80px;
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -365,72 +392,121 @@ onUnmounted(() => {
 
 .map-card {
   position: absolute;
-  width: 125px; /* Um pouco mais largo para ajudar com nomes longos */
-  min-height: 115px; /* Em vez de altura fixa, usamos altura mínima */
-  height: fit-content; /* Cresce automaticamente se o texto for gigante */
+  width: 160px; /* Ligeiramente mais largo para acomodar bem as fotos */
+  min-height: 200px; 
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(5px);
   border-radius: 12px;
   border: 3px solid #ccc;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s;
   display: flex;
   flex-direction: column;
   z-index: 2;
   cursor: pointer;
+  overflow: hidden; /* Mantém a foto contida dentro das bordas arredondadas */
   
   &:hover {
-    transform: translateY(-5px) scale(1.05);
+    transform: translateY(-5px) scale(1.03);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.2) !important;
     z-index: 5; 
+    
+    .machine-bg-layer {
+      transform: scale(1.15); /* Efeito elegante de zoom na foto ao focar a máquina */
+    }
   }
 }
+
 .edit-mode-active {
   cursor: grab !important;
   &:active { cursor: grabbing !important; }
 }
 
+/* Header agora flutua por cima da foto */
 .card-header {
-  padding: 4px 6px;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
+  z-index: 10;
+  padding: 6px;
   
   .machine-id-badge {
-    background: #333; color: white;
-    font-size: 10px; font-weight: 800;
-    padding: 2px 6px; border-radius: 12px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 3px 8px;
+    border-radius: 6px;
   }
   
-  .remove-btn { color: #f44336; margin-top: -2px; margin-right: -2px; }
+  .remove-btn { 
+    background-color: #e53935;
+    color: white;
+  }
 }
 
+/* Corpo flexível */
 .card-body {
   flex-grow: 1;
-  padding: 5px;
-  color: #334e4b;
+  position: relative; 
+  display: flex;
+  flex-direction: column;
+}
 
+/* Camada da Foto: Alta opacidade */
+.machine-bg-layer {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.9; /* Muito mais viva */
+  z-index: 0;
+  transition: transform 0.5s ease; /* Transição suave do zoom */
+}
+
+/* A MÁGICA: Gradiente escuro subindo de baixo pra cima */
+.machine-gradient-overlay {
+  position: absolute;
+  bottom: 0; left: 0; width: 100%; height: 75%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 50%, transparent 100%);
+  z-index: 1;
+}
+
+/* Camada dos Textos: Empurrados para baixo sobre o gradiente */
+.card-content-layer {
+  position: relative;
+  z-index: 2; 
+  flex-grow: 1;
+  padding: 8px 6px;
+  justify-content: flex-end; /* Joga os textos lá pro pé do card, perto do footer */
+  
   .machine-model {
-    font-size: 0.70rem; /* Fonte levemente menor para encaixar melhor */
+    font-size: 0.8rem;
+    line-height: 1.1;
     display: -webkit-box;
-    -webkit-line-clamp: 3; /* Limite máximo de 3 linhas */
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.2;
+    text-shadow: 0px 1px 3px rgba(0,0,0,0.8); /* Reforça o contraste da letra */
+  }
+  
+  .machine-brand {
+    font-size: 0.65rem;
     margin-top: 2px;
   }
 }
 
 .card-footer {
-  /* Removemos o fundo cinza claro para usar as cores sólidas */
   border-top: 1px solid rgba(0,0,0,0.05);
   padding: 5px;
-  border-bottom-left-radius: 9px;
-  border-bottom-right-radius: 9px;
+  position: relative;
+  z-index: 10; 
   
   .status-label { 
-    font-size: 0.6rem; 
+    font-size: 0.65rem; 
     letter-spacing: 0.5px; 
-    color: white; /* Letra branca para dar contraste com os fundos coloridos */
+    color: white; 
   }
 }
+
 /* -------------------------------------------------------------------------
    CORES DE STATUS (A Borda e a Sombra)
    ------------------------------------------------------------------------- */
@@ -455,8 +531,12 @@ onUnmounted(() => {
   .card-footer { background-color: #F44336; }
 }
 .status-brown {
-  border-color: #4E342E; /* Usando o equivalente HEX ao brown-8 do Quasar */
+  border-color: #4E342E; 
   .card-footer { background-color: #4E342E; }
+}
+.status-grey {
+  border-color: #9E9E9E;
+  .card-footer { background-color: #9E9E9E; }
 }
 
 /* -------------------------------------------------------------------------
@@ -465,10 +545,7 @@ onUnmounted(() => {
 .pulse-effect {
   animation: machine-pulse 2s infinite;
 }
-.status-grey {
-  border-color: #9E9E9E;
-  .card-footer { background-color: #9E9E9E; }
-}
+
 @keyframes machine-pulse {
   0% { box-shadow: 0 0 0 0 rgba(18, 140, 126, 0.4); }
   70% { box-shadow: 0 0 0 15px rgba(18, 140, 126, 0); }
