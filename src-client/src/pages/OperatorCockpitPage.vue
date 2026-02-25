@@ -614,15 +614,14 @@ const elapsedTime = computed(() => {
 const timeDisplay = computed(() => currentTime.value.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 
 const normalizedStatus = computed(() => {
-  // Pega o status direto do objeto da máquina (vindo do Backend/WebSocket)
-  const s = productionStore.currentMachine?.status || '';
+  const s = String(productionStore.currentMachine?.status || '').toUpperCase();
 
-  if (s === 'Em uso') return 'EM OPERAÇÃO';
-  if (s === 'Produção Autônoma') return 'AUTÔNOMO';
-  if (s === 'Setup') return 'SETUP';
-  if (s === 'Em manutenção') return 'MANUTENÇÃO';
-  if (s === 'Parada') return 'PARADA';
-  if (s === 'Ociosidade') return 'OCIOSO'; // Novo estado explícito
+  if (s.includes('USO') || s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('PRODUCING')) return 'EM OPERAÇÃO';
+  if (s.includes('AUTÔNOM') || s.includes('AUTONOMOUS')) return 'AUTÔNOMO';
+  if (s.includes('SETUP') || s.includes('PREPARA')) return 'SETUP';
+  if (s.includes('MANUTEN') || s.includes('MAINTENANCE')) return 'MANUTENÇÃO';
+  if (s.includes('PARADA') || s.includes('PAUS') || s.includes('STOPPED')) return 'PARADA';
+  if (s.includes('OCIOS') || s.includes('DISPON') || s.includes('IDLE')) return 'OCIOSO';
 
   return 'DISPONÍVEL';
 });
@@ -747,8 +746,15 @@ async function openOpListDialog() {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
-  // Apenas fecha a tela de seleção e pede para a Store iniciar a busca
   showOpList.value = false;
+  
+  // 🚀 ATUALIZAÇÃO OTIMISTA: Força a tela a ficar Roxa (SETUP) imediatamente no clique!
+  if (productionStore.currentMachine) {
+      productionStore.currentMachine.status = 'SETUP';
+  }
+  productionStore.isInSetup = true;
+  isPaused.value = false;
+
   await productionStore.requestOrderFromSAP(String(op.op_number));
 }
 function openDrawing() {
@@ -1369,15 +1375,12 @@ const isProcessingSignal = ref(false); // Trava para evitar loop infinito de eve
 let socket: WebSocket | null = null;
 
 function connectWebSocket() {
-  // SE já existir, mata o anterior para garantir que o 'onmessage' 
-  // esteja vinculado às variáveis DESTE componente atual.
   if (socket) {
       socket.close();
       socket = null;
   }
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Ajuste o IP/Porta conforme sua env
   const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${productionStore.machineId}`;
 
   console.log(`🔌 Conectando ao WebSocket: ${wsUrl}`);
@@ -1393,92 +1396,85 @@ function connectWebSocket() {
       const data = JSON.parse(event.data);
 
       // =========================================================
+      // 🚀 1. ATUALIZAÇÃO UNIVERSAL E SINCRONISMO (Os 500ms)
+      // =========================================================
+      if (data.machine_id && Number(data.machine_id) === Number(productionStore.machineId)) {
+          if (data.new_status || data.machine_status_db) {
+              // Atualiza a interface instantaneamente
+              if (productionStore.currentMachine) {
+                  productionStore.currentMachine.status = data.machine_status_db || data.new_status;
+              }
+              
+              // Dá 500ms pro banco respirar e busca a verdade absoluta (evita a "corrida de dados")
+              setTimeout(() => {
+                  productionStore.fetchMachine(productionStore.machineId);
+              }, 500);
+          }
+      }
+
+      // =========================================================
       // 📡 ESCUTADORES DO CELERY (Integração SAP Assíncrona)
       // =========================================================
-
-      // 1. Recebimento da Lista de OPs Abertas
       if (data.type === 'SAP_OPEN_ORDERS' && Number(data.machine_id) === Number(productionStore.machineId)) {
           console.log("📥 OPs recebidas via Celery!");
           openOps.value = data.data || [];
-          loadingOps.value = false; // Libera o loading da tabela
-          return; // Finaliza o processamento desta mensagem
+          loadingOps.value = false; 
+          return; 
       }
 
-      // 2. Recebimento dos Detalhes de uma OP específica (Ex: Via QR Code)
       if (data.type === 'SAP_ORDER_DETAILS' && Number(data.machine_id) === Number(productionStore.machineId)) {
           if (data.data) {
              console.log("📥 OP Encontrada via Celery:", data.code);
              
-             // ✅ AGORA SIM! Ele recebe os dados e roda a lógica de achar a etapa certa e iniciar a sessão
+             // Reforça o modo SETUP quando os dados chegam
+             if (productionStore.currentMachine) productionStore.currentMachine.status = 'SETUP';
+             productionStore.isInSetup = true;
+
              await productionStore.processReceivedOrder(data.data);
              
-             // Atualiza a visualização na tela para mostrar a etapa encontrada
              if (productionStore.currentStepIndex !== -1) {
                  viewedStepIndex.value = productionStore.currentStepIndex;
              }
              resetTimer();
              
           } else {
-             $q.loading.hide(); // Esconde o loading se não achar nada
+             $q.loading.hide();
              $q.notify({ type: 'negative', message: 'O.P. não encontrada no SAP' });
           }
           return;
       }
 
       // =========================================================
-      // 🛡️ TRAVA DE SEGURANÇA: TROCA DE TURNO
+      // 🛡️ TRAVA DE SEGURANÇA: TROCA DE TURNO E SINAIS PLC
       // =========================================================
-      // Se o operador está com o diálogo "Vai parar ou continuar?" aberto,
-      // IGNORAMOS qualquer sinal físico do PLC para evitar paradas indesejadas.
-      if (isShiftChangeDialogOpen.value) {
-          console.log("⏸️ WebSocket (PLC) ignorado: Decisão de Troca de Turno em andamento.");
-          return;
-      }
+      if (isShiftChangeDialogOpen.value) return;
       
-      // =========================================================
-      // 🏭 SINAIS FÍSICOS DA MÁQUINA (PLC)
-      // =========================================================
       if (
         data.type === 'MACHINE_STATE_CHANGED' && 
         Number(data.machine_id) === Number(productionStore.machineId) &&
-        !isProcessingSignal.value // Evita processar dois sinais simultâneos
+        !isProcessingSignal.value 
       ) {
         const rawStatus = String(data.new_status).toUpperCase();
         
-        // --- CENÁRIO: SAÍDA AUTOMÁTICA DE SETUP (Sinal 1) ---
         if (['1', 'RUNNING', 'PRODUCING', 'EM USO', 'IN_USE'].includes(rawStatus) && productionStore.isInSetup) {
-             console.log("🚀 Detectado início de produção! Finalizando Setup...");
              isProcessingSignal.value = true;
              await finishAutoSetup(); 
              isProcessingSignal.value = false;
              return;
         }
 
-        // --- CENÁRIO: PARADA (Sinal 0 - UNPLANNED) ---
         if (data.category === 'UNPLANNED_STOP') {
-          // Se está em setup, ignora paradas (o setup já é uma parada planejada)
-          if (productionStore.isInSetup) return;
-
-          // Se JÁ ESTÁ pausado (isPaused = true), IGNORA para não duplicar envio
-          if (isPaused.value) {
-             console.log("🛑 WebSocket: Sinal 0 recebido, mas sistema JÁ está em pausa. Ignorando.");
-             return; 
-          }
-
-          console.log("🛑 WebSocket: Sinal de Parada Recebido (Iniciando Pausa).");
+          if (productionStore.isInSetup || isPaused.value) return;
           isProcessingSignal.value = true;
-          await applyNormalPause(true); // true = veio do PLC
+          await applyNormalPause(true); 
           isProcessingSignal.value = false;
         }
         
-        // --- CENÁRIO: RETOMADA DE PAUSA (Sinal 1 - PRODUCING) ---
         else if (data.category === 'PRODUCING') {
-          // Se estava pausado, retoma a produção e fecha o diálogo
           if (isPaused.value) {
-            console.log("🚀 WebSocket: Sinal de Retomada Recebido.");
             isProcessingSignal.value = true;
             isStopDialogOpen.value = false; 
-            await finishPauseAndResume(true); // true = veio do PLC
+            await finishPauseAndResume(true); 
             isProcessingSignal.value = false;
           }
         }
@@ -1492,7 +1488,6 @@ function connectWebSocket() {
   socket.onclose = () => {
     console.warn("⚠️ WebSocket Desconectado.");
     isSocketConnected.value = false;
-    // Tenta reconectar a cada 5s se a ordem ainda estiver ativa
     if (productionStore.activeOrder && !socket) {
         setTimeout(() => {
             if (productionStore.activeOrder) connectWebSocket();
@@ -1500,11 +1495,8 @@ function connectWebSocket() {
     }
   };
 
-  socket.onerror = (error) => {
-    console.error("❌ Erro no WebSocket:", error);
-  };
+  socket.onerror = (error) => { console.error("❌ Erro no WebSocket:", error); };
 }
-
 
 onMounted(async () => {
   // 1. Inicialização de Roteiro e Timers

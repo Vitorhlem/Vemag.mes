@@ -213,8 +213,11 @@ function getStatusColorClass(raw: string | undefined): string {
     case 'OPERAÇÃO': return 'status-green';
     case 'AUTÔNOMO': return 'status-blue';
     case 'SETUP': return 'status-purple';
-    case 'OCIOSO': return 'status-orange'; // Conforme legenda: Pausa/Ocioso = Laranja
-    case 'PARADA': return 'status-orange';
+    
+    // 🚀 CORREÇÃO: Ocioso/Disponível agora usa a classe cinza!
+    case 'OCIOSO': return 'status-grey'; 
+    
+    case 'PARADA': return 'status-orange'; // Laranja fica apenas para Pausa/Parada com OP ativa
     case 'MANUTENÇÃO': return 'status-red';
     default: return 'status-grey'; // Se não reconhecer o status, fica cinza neutro
   }

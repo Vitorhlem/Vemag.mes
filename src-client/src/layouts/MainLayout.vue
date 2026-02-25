@@ -9,6 +9,7 @@
       :breakpoint="800"
       class="glass-drawer drawer-style"
     >
+    
       <q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: '0.5' }">        
         <div class="q-pa-md row items-center justify-center relative-position" style="height: 110px;">
           <img src="~assets/trucar-logo-dark.png" class="logo-light animate-fade" style="height: 65px; max-width: 90%; transition: all 0.3s;" alt="Trucar Logo">
@@ -54,6 +55,18 @@
 
     <q-header bordered class="glass-header text-grey-9 header-style">
       <q-toolbar style="height: 70px;">
+        <q-btn 
+          flat 
+          dense 
+          round 
+          :icon="leftDrawerOpen ? 'menu_open' : 'menu'" 
+          color="teal-9" 
+          aria-label="Menu" 
+          @click="toggleLeftDrawer" 
+          class="q-mr-sm" 
+        >
+          <q-tooltip>{{ leftDrawerOpen ? 'Recolher Menu' : 'Expandir Menu' }}</q-tooltip>
+        </q-btn>
         <q-btn flat dense round icon="menu_open" color="teal-9" aria-label="Menu" @click="toggleLeftDrawer" class="lt-md" />
         
         <div class="row items-center q-ml-sm cursor-pointer logo-area" @click="router.push('/')">
@@ -72,7 +85,47 @@
         <q-space />
 
         <div class="row q-gutter-sm items-center">
+          <q-space /> <q-select
+          v-model="searchModel"
+          use-input
+          hide-selected
+          fill-input
+          hide-dropdown-icon
+          input-debounce="400"
+          :options="searchResults"
+          @filter="onSearchFilter"
+          @update:model-value="onItemSelected"
+          placeholder="Pesquisar O.S, Máquina ou Operador (Ex: 3943)..."
+          dense
+          standout="bg-teal-9 text-white"
+          class="q-mx-md omni-search-bar"
+        >
+          <template v-slot:prepend>
+            <q-icon name="search" color="teal-8" />
+          </template>
           
+          <template v-slot:no-option>
+            <q-item>
+              <q-item-section class="text-grey">
+                Nenhum resultado encontrado.
+              </q-item-section>
+            </q-item>
+          </template>
+
+          <template v-slot:option="scope">
+            <q-item v-bind="scope.itemProps" class="q-py-md border-bottom-light hover-grey">
+              <q-item-section avatar>
+                <q-avatar :color="scope.opt.color" text-color="white" :icon="scope.opt.icon" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="text-weight-bold text-dark">{{ scope.opt.label }}</q-item-label>
+                <q-item-label caption :class="{'text-red-10 text-weight-bold': scope.opt.sublabel.includes('RODANDO AGORA')}">
+                  {{ scope.opt.sublabel }}
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </template>
+        </q-select>
           <q-btn v-if="authStore.isManager" flat round dense class="text-teal-9 relative-position hover-scale q-mr-sm">
             <q-icon name="notifications_none" size="26px" />
             <q-badge v-if="notificationStore.unreadCount > 0" color="red" floating rounded mini class="shadow-1 animate-pulse" style="top: 4px; right: 4px;" />
@@ -227,13 +280,44 @@ import defaultAvatar from 'assets/default-avatar.png';
 
 // --- NOVOS IMPORTS PARA NOTIFICAÇÃO ---
 import { api } from 'boot/axios';
-
-const leftDrawerOpen = ref(false);
+const leftDrawerOpen = ref(true);
 const customColor = ref('#128c7e');
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const $q = useQuasar();
+const searchModel = ref(null);
+const searchResults = ref([]);
+
+// Função que bate no servidor enquanto o usuário digita
+async function onSearchFilter(val: string, update: (fn: () => void) => void, abort: () => void) {
+  if (val.length < 2) {
+    abort();
+    return;
+  }
+
+  try {
+    // Chama a rota que acabamos de criar no backend
+    const { data } = await api.get(`/production/search?q=${val}`);
+    update(() => {
+      searchResults.value = data;
+    });
+  } catch (error) {
+    console.error('Erro na busca global:', error);
+    abort();
+  }
+}
+
+// Função executada quando o usuário CLICA em uma opção da lista
+function onItemSelected(item: any) {
+  if (item && item.route) {
+    // Joga o usuário pra página correspondente!
+    router.push(item.route);
+    
+    // Limpa a barra depois de clicar
+    searchModel.value = null; 
+  }
+}
 
 // --- Lógica de Tema ---
 function changeTheme(color: string) {
@@ -241,8 +325,9 @@ function changeTheme(color: string) {
   setCssVar('primary', color);
   setCssVar('secondary', color); 
 }
-
-function toggleLeftDrawer() { leftDrawerOpen.value = !leftDrawerOpen.value; }
+function toggleLeftDrawer() {
+  leftDrawerOpen.value = !leftDrawerOpen.value;
+}
 
 function handleLogout() {
   authStore.logout();

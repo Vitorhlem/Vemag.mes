@@ -105,7 +105,9 @@
                             <q-icon :name="currentMachineStatusColor === 'positive' ? 'precision_manufacturing' : 'info'" size="28px" />
                             <div>
                                 <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Status em Tempo Real</div>
-                                <div class="text-h6 text-weight-bolder" style="line-height: 1;">{{ selectedMachineData.status || 'Desconhecido' }}</div>
+                                <div class="text-h6 text-weight-bolder" style="line-height: 1;">
+                                    {{ translateStatus(selectedMachineData.status) }}
+                                </div>
                             </div>
                         </div>
 
@@ -118,10 +120,14 @@
                         </div>
 
                         <div class="row items-center q-gutter-x-sm gt-xs">
-                            <q-icon name="assignment" size="24px" class="opacity-80" />
+                            <q-icon :name="activeOpTitle === 'Ordem de Serviço' ? 'build' : 'assignment'" size="24px" class="opacity-80" />
                             <div>
-                                <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Ordem de Produção (OP/OS)</div>
-                                <div class="text-subtitle1 text-weight-bold" style="line-height: 1;">{{ activeOp }}</div>
+                                <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">
+                                    {{ activeOpTitle }}
+                                </div>
+                                <div class="text-subtitle1 text-weight-bold" style="line-height: 1;">
+                                    {{ activeOpCode }}
+                                </div>
                             </div>
                         </div>
 
@@ -156,7 +162,7 @@
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-teal-10">{{ machineStats?.formatted_running_operator || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo efetivo logado.</div>
                             </q-card-section>
-                        </q-card>
+                        </q-card>f
                     </div>
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-blue shadow-sm">
@@ -332,13 +338,17 @@
                                 v-for="(block, idx) in mesStore.timeline" 
                                 :key="idx"
                                 :class="`bg-${getGanttColor(block)} relative-position hover-highlight`"
-                                :style="{ width: getBlockWidth(block.duration_min) + '%', minWidth: '2px' }"
+                                :style="{ width: getBlockWidth(block) + '%', minWidth: '2px' }"
                             >
-                                <q-tooltip anchor="top middle" self="bottom middle">
-                                    <div class="text-bold">{{ translateStatus(block.status) }}</div>
-                                    <div>{{ formatTime(block.start) }} - {{ formatTime(block.end) }}</div>
-                                    <div>Duração: {{ block.duration_min }} min</div>
-                                    <div v-if="block.reason" class="text-yellow-2">{{ block.reason }}</div>
+                                <q-tooltip anchor="top middle" self="bottom middle" class="bg-dark text-body2 shadow-4">
+                                    <div class="text-bold text-uppercase">{{ translateStatus(block.status, block) }}</div>
+                                    <div class="q-mb-xs opacity-80">
+                                        {{ formatTime(block.start) }} - {{ (!block.end || new Date(block.end) > new Date()) ? 'Agora' : formatTime(block.end) }}
+                                    </div>
+                                    <div>Duração: <span class="text-weight-bold">{{ getRealDurationText(block) }}</span></div>
+                                    <div v-if="block.reason" class="text-warning text-caption q-mt-xs text-weight-medium">
+                                        {{ block.reason }}
+                                    </div>
                                 </q-tooltip>
                             </div>
                         </div>
@@ -537,11 +547,12 @@ import { ProductionService, type MachineStats } from 'src/services/production-se
 import { useRouter, useRoute } from 'vue-router'; // 👈 Adicionado useRoute
 import { api } from 'boot/axios'; // 👈 Importamos a API para buscar a Sessão Ativa
 const $q = useQuasar();
+const activeOpTitle = ref('Ordem de Produção');
+const activeOpCode = ref('Nenhuma');
 const router = useRouter();
 const route = useRoute(); // 👈 Adicionado aqui
 const mesStore = useMesStore();
 const productionStore = useProductionStore();
-const activeOp = ref('Nenhuma');
 const activeOperatorName = ref('--');
 const activeTab = ref('machine'); 
 const filterDate = ref(date.formatDate(new Date(), 'YYYY-MM-DD'));
@@ -614,70 +625,92 @@ function translateEventType(type: string): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function translateStatus(status: string, block?: any): string {
-    const s = String(status || '').toUpperCase();
-    const cat = String(block?.category || '').toUpperCase();
-    const duration = block?.duration_min || 0;
+    const s = String(status || '').toUpperCase().trim();
+    const cat = String(block?.category || '').toUpperCase().trim();
+    const reason = String(block?.reason || '').toUpperCase().trim();
+    
+    // Identifica se a função foi chamada pelo Gráfico (tem bloco com duração) ou pela Tabela de Logs
+    const isGanttBlock = block && block.hasOwnProperty('duration_min');
+    const duration = isGanttBlock ? Number(block.duration_min) : null;
 
-    // 1. Regra de Micro-parada (Menos de 5 minutos e não ser Produção)
-    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO');
-    if (cat === 'MICRO_STOP' || (duration > 0 && duration < 5 && !isProducing)) {
+    // 1. Identifica os contextos de cara (Adicionei o 'EM USO' aqui)
+    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
+    const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
+    const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
+    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA');
+    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
+
+    // 2. Retornos Prioritários (Garante que esses NUNCA fiquem pretos)
+    if (isAvailable) return 'DISPONÍVEL';
+    if (isProducing) return 'EM OPERAÇÃO';
+    if (isSetup) return 'EM SETUP';
+    if (isMaintenance) return 'MANUTENÇÃO';
+    if (isAutonomous) return 'AUTÔNOMO';
+
+    // 3. Regra de Micro-parada (Pausa real, com tempo, menor que 5 min, incluindo 0)
+    if (cat === 'MICRO_STOP' || (isGanttBlock && duration !== null && duration < 5)) {
         return 'MICRO-PARADA';
     }
-    
-    if (isProducing) return 'EM OPERAÇÃO';
-    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA')) return 'PAUSADA';
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'MANUTENÇÃO';
-    if (s.includes('IDLE') || s.includes('DISPONÍVEL')) return 'DISPONÍVEL';
-    if (s.includes('SETUP')) return 'EM SETUP';
+
+    // 4. Se passou de 5 minutos ou se for só uma linha de log na tabela
+    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA') || cat === 'UNPLANNED_STOP' || s === '0') return 'PAUSADA';
     
     return status;
 }
+
+// =====================================================================
+// 2. COR DO GANTT CHART
+// =====================================================================
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
-    // Adicionamos .trim() em tudo para evitar que um espaço em branco quebre a lógica
     const s = String(block.status || '').toUpperCase().trim();
     const cat = String(block.category || '').toUpperCase().trim();
-    const duration = block.duration_min || 0;
+    const duration = Number(block.duration_min || 0);
     const reason = String(block.reason || '').toUpperCase().trim(); 
 
-    // 0. PRIORIDADE MÁXIMA: SEM MOTIVO (MARROM)
-    // Cobre "SEM MOTIVO", "STATUS: PARADA" (que é o padrão do backend) ou quando vier totalmente vazio.
+    // 1. Identifica os contextos
+    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
+    const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
+    const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
+    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA');
+    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
+
+    // 2. Cores Oficiais Prioritárias
+    if (isAvailable) return 'grey';
+    if (isProducing) return 'green';
+    if (isSetup) return 'purple';
+    if (isMaintenance) return 'red';
+    if (isAutonomous) return 'blue';
+
+    // 3. Regra de Micro-parada (Menor que 5 min, incluindo 0!)
+    if (cat === 'MICRO_STOP' || duration < 5) {
+        return 'black';
+    }
+
+    // 4. Pausa SEM MOTIVO
     if (
         reason === 'SEM MOTIVO' || 
         reason === 'STATUS: PARADA' || 
         ((s.includes('PAUSED') || s.includes('PARADA') || s === '0') && !reason)
     ) {
-        return 'brown'; // Deixamos apenas 'brown' para o Quasar reconhecer a classe nativa bg-brown
+        return 'brown';
     }
 
-    // 1. REGRA DE MICRO-PARADA (PRETO)
-    const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s === '1';
-    
-    if (cat === 'MICRO_STOP' || (duration > 0 && duration < 5 && !isProducing)) {
-        return 'black';
-    }
-
-    // 2. Outras cores normais
-    if (s === 'AUTONOMOUS') return 'blue';
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'red';
-    if (s.includes('SETUP') || s.includes('PREPARAÇÃO')) return 'purple';
-    if (isProducing) return 'green';
-    if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA') || s === '0') return 'orange';
-    
-    return 'grey';
+    // 5. Pausa normal justificada
+    return 'orange';
 }
-
 function getStatusColor(status: string) {
-    const s = String(status).toUpperCase();
+    // 🚀 MÁGICA: Agora a cor confia na nossa função de tradução inteligente!
+    const s = translateStatus(status);
     
-    // Se o backend já mandou como MICRO_STOP
-    if (s === 'MICRO_STOP') return 'black';
+    if (s === 'MICRO-PARADA') return 'black';
+    if (s === 'EM OPERAÇÃO') return 'positive';
+    if (s === 'PAUSADA') return 'orange';
+    if (s === 'MANUTENÇÃO') return 'negative';
+    if (s === 'DISPONÍVEL') return 'grey-7';
+    if (s === 'EM SETUP') return 'purple';
+    if (s === 'AUTÔNOMO') return 'blue';
     
-    if (s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('EM USO')) return 'positive';
-    if (s.includes('STOPPED') || s.includes('PAUSA')) return 'orange';
-    if (s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO')) return 'negative';
-    if (s.includes('IDLE') || s.includes('DISPONÍVEL')) return 'grey-7';
-    if (s.includes('SETUP')) return 'purple';
     return 'grey';
 }
 
@@ -702,8 +735,60 @@ function getOeeColor(val?: number) {
     return 'red-10';                  
 }
 
-function getBlockWidth(minutes: number) {
-    return (minutes / 1440) * 100;
+function getRealDurationText(block: any) {
+    if (!block.start) return '0 min';
+    
+    const start = new Date(block.start);
+    let end = block.end ? new Date(block.end) : new Date();
+    
+    // Se não acabou, corta no Agora
+    const now = new Date();
+    if (end > now) end = now;
+
+    let mins = Math.round((end.getTime() - start.getTime()) / 60000);
+    if (mins < 0) mins = 0;
+    
+    // Formata bonitinho (ex: 1h 25m em vez de 85 min)
+    if (mins >= 60) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${h}h ${m}m`;
+    }
+    return `${mins} min`;
+}
+
+function getBlockWidth(block: any) {
+    if (!block.start) return 0;
+    
+    const blockStart = new Date(block.start);
+    let blockEnd = block.end ? new Date(block.end) : new Date();
+    
+    // REGRA 1: Não desenha a barra no futuro. Corta no momento exato de AGORA.
+    const now = new Date();
+    if (blockEnd > now) {
+        blockEnd = now;
+    }
+
+    // REGRA 2: Isola a barra apenas para o dia selecionado no filtro (filterDate)
+    const [year, month, day] = filterDate.value.split('-').map(Number);
+    const viewStart = new Date(year, month - 1, day, 0, 0, 0); // 00:00:00 do dia visualizado
+    const viewEnd = new Date(year, month - 1, day, 23, 59, 59); // 23:59:59 do dia visualizado
+
+    // Se a barra estiver totalmente fora desse dia, não tem largura
+    if (blockEnd < viewStart || blockStart > viewEnd) return 0;
+
+    // Corta o início e o fim da barra para caberem exatamente dentro da visualização de 24h
+    const actualStart = blockStart < viewStart ? viewStart : blockStart;
+    const actualEnd = blockEnd > viewEnd ? viewEnd : blockEnd;
+
+    let realMinutes = (actualEnd.getTime() - actualStart.getTime()) / 60000;
+    if (realMinutes < 0) realMinutes = 0;
+
+    // Converte os minutos filtrados em porcentagem (O dia tem 1440 minutos)
+    const percentage = (realMinutes / 1440) * 100;
+    
+    // Previne qualquer bug que tente fazer a barra passar de 100% de largura
+    return Math.min(percentage, 100);
 }
 
 function formatTime(isoStr: string) {
@@ -720,16 +805,48 @@ async function refreshData(isSilent = false) {
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
             machineStats.value = await ProductionService.getMachineStats(selectedMachine.value, filterDate.value);
 
+            // 🚀 CORREÇÃO DO STATUS: Força a barra fixa a ler o último evento que acabou de acontecer!
+            if (mesStore.rawLogs && mesStore.rawLogs.length > 0) {
+                const latestLog = mesStore.rawLogs[0];
+                const machineIndex = productionStore.machinesList.findIndex(m => m.id === selectedMachine.value);
+                if (machineIndex !== -1 && latestLog.new_status) {
+                    productionStore.machinesList[machineIndex].status = latestLog.new_status;
+                }
+            }
+
             try {
                 const { data } = await api.get(`/production/session/active/${selectedMachine.value}`);
                 if (data && data.order) {
-                    activeOp.value = data.order.code || 'Nenhuma';
+                    const order = data.order;
+                    
+                    // Tratamento seguro para is_service (evita erro se for undefined)
+                    const isService = order.is_service === true || String(order.code || '').startsWith('OS-');
+                    
+                    // Define o Rótulo superior
+                    activeOpTitle.value = isService ? 'Ordem de Serviço' : 'Ordem de Produção';
+                    
+                    // Lógica para pegar o número correto (com o /0)
+                    let displayCode = isService ? order.code : (order.custom_ref || order.code);
+                    
+                    // Se for OP, e o custom_ref for só "4147", mas o code for "4147/0", usamos o code!
+                    if (!isService && !String(displayCode).includes('/')) {
+                        displayCode = `${displayCode}/0`;
+                    }
+                    // Se a sua coluna de desdobramento tiver outro nome no banco (ex: split, seq), concatenamos aqui por garantia:
+                    if (!String(displayCode).includes('/') && order.split !== undefined && order.split !== null) {
+                        displayCode = `${displayCode}/${order.split}`;
+                    }
+
+                    // 🚀 AQUI ESTAVA O ERRO! Agora sim usamos a variável que você calculou:
+                    activeOpCode.value = displayCode || 'Nenhuma';
+                    
                     activeOperatorName.value = data.operator?.full_name || data.operator_badge || 'Operador Logado';
                 } else {
                     throw new Error("Sem sessão");
                 }
             } catch (err) {
-                activeOp.value = 'Nenhuma';
+                activeOpTitle.value = 'Ordem de Produção';
+                activeOpCode.value = 'Nenhuma';
                 activeOperatorName.value = mesStore.rawLogs[0]?.operator_name || '--';
             }
         }
@@ -806,20 +923,25 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            console.log('⚡ Evento WS Recebido no Painel:', data);
             
-            if (data.type === 'MACHINE_STATE_CHANGED') {
-                console.log(`⚡ Evento WS Recebido: Máquina ${data.machine_id} -> ${data.machine_status_db || data.new_status}`);
-                
-                // 1. Atualiza a lista de máquinas na memória (Isso faz a Barra Fixa mudar de cor na hora!)
+            // 1. Se vier um status novo (não importa o tipo do evento), atualiza a lista de máquinas silenciosamente
+            if (data.machine_id && (data.new_status || data.machine_status_db)) {
                 const machineIndex = productionStore.machinesList.findIndex(m => m.id === Number(data.machine_id));
                 if (machineIndex !== -1) {
                     productionStore.machinesList[machineIndex].status = data.machine_status_db || data.new_status;
                 }
+            }
 
-                // 2. Se for a máquina que o gestor está olhando, atualiza os gráficos do Gantt/OEE
-                if (Number(data.machine_id) === selectedMachine.value) {
+            // 2. A MÁGICA: Se qualquer evento aconteceu na máquina que estamos olhando, atualiza a tela toda!
+            if (data.machine_id && Number(data.machine_id) === selectedMachine.value) {
+                
+                // O setTimeout de 500ms (meio segundo) dá tempo para o banco de dados 
+                // do Python dar o "Commit" final e salvar a sessão antes do Vue tentar ler.
+                setTimeout(() => {
                     refreshData(true);
-                }
+                }, 500);
+                
             }
         } catch (error) {
             console.error('Erro ao ler o WebSocket:', error);

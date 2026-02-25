@@ -755,7 +755,7 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
         
         event_type="STATUS_CHANGE", 
         new_status="Setup",
-        reason="Setup Inicial (Seleção de O.P.)",
+        reason="Setup Inicial,
         timestamp=datetime.now()
     )
     db.add(log)
@@ -819,7 +819,9 @@ async def get_active_session(machine_id: int, db: AsyncSession = Depends(deps.ge
                 "id": order.id,
                 "code": order.code,
                 "part_name": getattr(order, 'part_name', 'N/A'),
-                "status": getattr(order, 'status', 'N/A')
+                "status": getattr(order, 'status', 'N/A'),
+                # A MÁGICA ESTÁ AQUI: Envia o custom_ref para o front!
+                "custom_ref": getattr(order, 'custom_ref', None) 
             }
             
     return {
@@ -951,3 +953,94 @@ async def internal_broadcast(payload: dict):
     print(f"📣 [PONTE] Repassando evento do Celery para WebSockets: {payload.get('type')}")
     await manager.broadcast(payload)
     return {"status": "broadcasted"}
+
+@router.get("/search")
+async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
+    """
+    Busca global: Vasculha Ordens de Produção, Máquinas e Operadores.
+    """
+    if len(q) < 2:
+        return []
+
+    results = []
+    search_term = f"%{q}%"
+
+    # 1. Buscar Ordens de Produção (O.S. / O.P.)
+    query_orders = select(ProductionOrder).where(
+        or_(
+            ProductionOrder.code.ilike(search_term),
+            ProductionOrder.part_name.ilike(search_term)
+        )
+    ).limit(5)
+    orders = (await db.execute(query_orders)).scalars().all()
+    
+    for order in orders:
+        # Verifica se essa O.P. está rodando em alguma máquina agora
+        active_session_query = select(ProductionSession).options(selectinload(ProductionSession.vehicle)).where(
+            ProductionSession.production_order_id == order.id,
+            ProductionSession.end_time.is_(None)
+        )
+        active_session = (await db.execute(active_session_query)).scalars().first()
+        
+        # Textos e Rotas padrão (Caso a O.S. já tenha encerrado ou não tenha começado)
+        sublabel = f"Peça: {getattr(order, 'part_name', 'N/A')} | Status: {getattr(order, 'status', 'N/A')}"
+        route_url = f"/production/orders/{order.id}" # Rota fallback (se for clicar numa O.S antiga)
+
+        # Se a O.S estiver ativa em alguma máquina, a mágica acontece aqui:
+        if active_session and active_session.vehicle:
+            sublabel = f"🔴 RODANDO AGORA na {active_session.vehicle.brand} {active_session.vehicle.model}"
+            # MUDA A ROTA PARA A TELA DE EMPLOYEES DA MÁQUINA ATUAL!
+            route_url = f"/employees?machine={active_session.vehicle.id}"
+
+        results.append({
+            "id": order.id,
+            "type": "order",
+            "label": f"O.S: {order.code}",
+            "sublabel": sublabel,
+            "icon": "assignment",
+            "color": "teal-9" if not active_session else "red-10",
+            "route": route_url
+        })
+
+    # 2. Buscar Máquinas (Vehicles)
+    query_machines = select(Vehicle).where(
+        or_(
+            Vehicle.brand.ilike(search_term),
+            Vehicle.model.ilike(search_term)
+            # Retiramos a busca por "plate" aqui!
+        )
+    ).limit(5)
+    machines = (await db.execute(query_machines)).scalars().all()
+    
+    for mac in machines:
+        results.append({
+            "id": mac.id,
+            "type": "machine",
+            "label": f"Máquina: {mac.brand} {mac.model}",
+            "sublabel": f"Status atual: {mac.status}",
+            "icon": "precision_manufacturing",
+            "color": "blue-9",
+            "route": f"/employees?machine={mac.id}" 
+        })
+
+    # 3. Buscar Operadores (Users)
+    query_users = select(User).where(
+        or_(
+            User.full_name.ilike(search_term),
+            User.employee_id.ilike(search_term)
+        )
+    ).limit(5)
+    users = (await db.execute(query_users)).scalars().all()
+    
+    for user in users:
+        results.append({
+            "id": user.id,
+            "type": "user",
+            "label": f"Operador: {user.full_name}",
+            "sublabel": f"Matrícula: {user.employee_id or 'N/A'}",
+            "icon": "badge",
+            "color": "orange-9",
+            "route": f"/users/{user.id}/stats"
+        })
+
+    return results
