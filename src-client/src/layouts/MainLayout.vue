@@ -478,14 +478,13 @@ function getManagerMenu(): MenuCategory[] {
     children: [
       { title: 'Dashboard da Planta', icon: 'analytics', to: '/dashboard' },
       { title: 'Apontamentos', icon: 'groups', to: '/employees' }, 
-      { title: 'Relatórios', icon: 'summarize', to: '/reports' },
+      { title: 'Supervisorio', icon: 'dashboard', to: '/supervisory' },
     ]
   });
 
   menu.push({ 
       label: 'Ativos & Recursos', 
-      children: [
-        { title: 'Supervisorio', icon: 'precision_manufacturing', to: '/supervisory' },
+      children: [        
         { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/vehicles' },
       ] 
   });

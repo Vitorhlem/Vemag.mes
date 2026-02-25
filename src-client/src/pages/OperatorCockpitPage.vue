@@ -539,7 +539,7 @@ import { api } from 'boot/axios';
 import { db } from 'src/db/offline-db';
 
 import { getOperatorName } from 'src/data/operators'; 
-import { getSapOperation, SAP_OPERATIONS_MAP } from 'src/data/sap-operations'; 
+import { getSapOperation, SAP_OPERATIONS_MAP, findBestStepIndex } from 'src/data/sap-operations';
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
 const isSocketConnected = ref(false);
@@ -893,54 +893,56 @@ async function applyNormalPause(fromPlc = false) {
   const currentOrder = productionStore.activeOrder;
   const currentBadge = productionStore.activeOperator?.badge || productionStore.currentOperatorBadge;
   const now = new Date();
-  
-  // ✅ CORREÇÃO CRUCIAL: Usamos a variável computada que sabe achar o número '4152'
   const codeToSend = opNumberToSend.value;
 
-  // Se não tiver ordem ou número de OP, aborta o apontamento de produção
   if (!currentOrder || !codeToSend) {
       console.warn("⚠️ Sem ordem ativa ou código inválido. Pulando apontamento de produção.");
-      
-      // Apenas muda o visual para parada
       isPaused.value = true;
       if (productionStore.currentMachine) productionStore.currentMachine.status = 'Parada';
       isStopDialogOpen.value = true;
       return;
   }
 
-  // Garante objeto para a tela de motivos
   if (!currentPauseObj.value) {
     currentPauseObj.value = { startTime: now, reasonCode: '0', reasonLabel: 'SEM MOTIVO' };
   }
 
-  // Bloqueio visual
   isPaused.value = true;
   $q.loading.show({ message: 'Encerrando ciclo de produção...' });
 
   try {
-    // --- APONTAMENTO DE PRODUÇÃO (FECHAR O CICLO ANTERIOR) ---
-    // Pega o horário que começou a produzir (statusStartTime)
     const prodStart = statusStartTime.value ? new Date(statusStartTime.value) : new Date();
     
-    console.log(`🕒 Intervalo Produção: ${prodStart.toLocaleTimeString()} até ${now.toLocaleTimeString()}`);
+    // 🚀 MÁGICA DE VERDADE: Ignora a UI e varre a ordem inteira buscando a etapa dona desta máquina
+    const machineRes = productionStore.machineResource;
+    
+    // Usa a sua própria função de roteamento para achar a etapa certa!
+    const targetIndex = findBestStepIndex(machineRes, currentOrder.steps || []);
+    let actualStep = targetIndex !== -1 ? (currentOrder.steps ? currentOrder.steps[targetIndex] : null) : null;
+    
+    // Se não achar (ex: O.P. sem roteiro), tenta usar o que está na tela
+    if (!actualStep) {
+         actualStep = currentViewedStep.value;
+    }
 
-    // Dados auxiliares
-    const rawSeq = Number(currentViewedStep.value?.seq || 10);
+    const rawSeq = Number(actualStep?.seq || 10);
     const position = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
-    const sapData = getCurrentSapData(position);
+    
+    let sapData = getCurrentSapData(position);
+    if (!sapData || !sapData.code) {
+        // Fallback final: Acha pelo recurso da máquina
+        const foundByRes = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes);
+        if (foundByRes) sapData = foundByRes;
+    }
 
-    // Monta o Payload igual ao que gerou o log de sucesso
     const productionPayload = {
-        op_number: String(opNumberToSend.value), 
+        op_number: String(codeToSend), 
         position: position, 
         operation: sapData.code || '', 
-        operation_desc: sapData.description || '', 
+        operation_desc: actualStep?.name || sapData.description || '', 
         part_description: currentOrder.part_name || '', 
-        
-        // ✅ CORREÇÃO: Tenta ler 'item_code' (da API) OU 'part_code' (local)
         item_code: currentOrder.item_code || currentOrder.part_code || '', 
-        
-        resource_code: productionStore.machineResource || '4.02.01',
+        resource_code: machineRes || '4.02.01',
         resource_name: productionStore.machineName || 'Máquina',
         operator_id: String(currentBadge || '0'),
         operator_name: getOperatorName(String(currentBadge || '')),
@@ -954,21 +956,17 @@ async function applyNormalPause(fromPlc = false) {
 
     console.log("🚀 Enviando Payload de Produção:", productionPayload);
 
-    // Envia ao Backend
     try {
         const resp = await ProductionService.sendAppointment(productionPayload);
         console.log("✅ Produção registrada com sucesso!", resp);
     } catch (innerError) {
         console.error("❌ Erro ao enviar produção:", innerError);
-        // Não travamos a parada se o apontamento falhar (ex: erro de rede), mas avisamos
         $q.notify({ type: 'warning', message: 'Aviso: Falha ao registrar tempo de produção.' });
     }
 
-    // --- ATUALIZA STATUS PARA PARADO ---
     if (activeOrder.value) activeOrder.value.status = 'PAUSED';
     if (productionStore.currentMachine) productionStore.currentMachine.status = 'Parada';
 
-    // Se foi manual, avisa o backend da mudança de status
     if (!fromPlc) {
       await productionStore.setMachineStatus('STOPPED');
       await productionStore.sendEvent('STATUS_CHANGE', { 
@@ -977,15 +975,12 @@ async function applyNormalPause(fromPlc = false) {
       });
     }
 
-    // Reinicia o relógio para contar o tempo de PARADA a partir de agora
     statusStartTime.value = new Date(); 
-    
-    // Abre tela de motivos
     isStopDialogOpen.value = true;
 
   } catch (error) {
     console.error("🔥 ERRO CRÍTICO NA PAUSA:", error);
-    isPaused.value = false; // Reverte se der erro fatal
+    isPaused.value = false; 
   } finally {
     $q.loading.hide();
   }
@@ -1015,15 +1010,29 @@ async function triggerCriticalBreakdown() {
 
         // 1. Encerra a Produção atual (se houver OP ativa)
         if (activeOrder.value?.code) {
-            const rawSeq = Number(currentViewedStep.value?.seq || 10);
+            
+            // 🚀 MÁGICA AQUI TAMBÉM: Usa a função findBestStepIndex do seu roteador global
+            const targetIndex = findBestStepIndex(machineRes, activeOrder.value.steps || []);
+            let actualStep = targetIndex !== -1 ? (activeOrder.value.steps ? activeOrder.value.steps[targetIndex] : null) : null;
+            
+            if (!actualStep) {
+                 actualStep = currentViewedStep.value;
+            }
+
+            const rawSeq = Number(actualStep?.seq || 10);
             const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
-            const sapData = getCurrentSapData(stageStr);
+            
+            let sapData = getCurrentSapData(stageStr);
+            if (!sapData || !sapData.code) {
+                const foundByRes = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes);
+                if (foundByRes) sapData = foundByRes;
+            }
 
             const productionPayload = {
                 op_number: String(opNumberToSend.value),
                 position: stageStr,
                 operation: sapData.code || '',        
-                operation_desc: sapData.description || '', 
+                operation_desc: actualStep?.name || sapData.description || '', 
                 part_description: activeOrder.value.part_name || '',
                 resource_code: machineRes,
                 resource_name: machineName,            
@@ -1052,7 +1061,7 @@ async function triggerCriticalBreakdown() {
             DataSource: 'I',
             start_time: eventTime,
             end_time: eventTime, 
-            stop_reason: currentPauseObj.value.reasonCode, // Deve ser '21' ou similar
+            stop_reason: currentPauseObj.value.reasonCode, 
             stop_description: 'Manutenção',
             U_TipoDocumento: '2'
         };
@@ -1060,7 +1069,7 @@ async function triggerCriticalBreakdown() {
         console.log("📤 [2/2] Registrando Parada de Recurso:", stopPayload);
         await ProductionService.sendAppointment(stopPayload);
 
-        // 3. MUDANÇA CRÍTICA: Envia status explícito 'MAINTENANCE' ao Backend
+        // 3. Envia status explícito 'MAINTENANCE' ao Backend
         await productionStore.sendEvent('STATUS_CHANGE', { 
             new_status: 'MAINTENANCE', 
             reason: 'Manutenção / Conserto' 
@@ -1069,7 +1078,7 @@ async function triggerCriticalBreakdown() {
         // 4. Atualiza estado local e desloga
         await productionStore.setMachineStatus('Em manutenção');
         await productionStore.finishSession();
-        await productionStore.logoutOperator('MAINTENANCE'); // Passa o motivo para log
+        await productionStore.logoutOperator('MAINTENANCE'); 
 
         await router.push({ 
             name: 'machine-kiosk', 

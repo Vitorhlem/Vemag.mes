@@ -65,28 +65,32 @@ class CRUDProduction:
             # GAVETA DE LOGS (ProductionLog)
             badge = str(obj_in.get("operator_badge") or obj_in.get("operator_id") or "")
             
-            # 1. Tenta encontrar o nome do usuário para registro (opcional, para auditoria)
-            user_id = None
+            # 1. Tenta encontrar o nome do usuário para registro
+            user_id_found = None
             if badge and badge.isdigit():
                 stmt = select(User).where(User.employee_id == badge)
                 result = await db.execute(stmt)
                 user = result.scalars().first()
                 if user:
-                    user_id = user.id
+                    user_id_found = user.id
 
+            # 🚀 CORREÇÃO AQUI: Removemos os campos que não existem na tabela de log (op_number, position, end_time, etc)
             db_obj = ProductionLog(
                 vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
-                operator_id=badge if badge else "0",
-                op_number=obj_in.get("op_number"),
+                
+                # operator_id na tabela Log é Integer (Chave Estrangeira). 
+                # operator_badge é String (Histórico). 
+                operator_id=user_id_found,
+                operator_badge=badge,
+                operator_name=obj_in.get("operator_name"),
+                
+                event_type=obj_in.get("event_type", "SYSTEM"),
                 timestamp=dt_naive,      # ✅ TRATADO
-                end_time=end_naive,      # ✅ TRATADO
                 new_status=obj_in.get("new_status") or obj_in.get("status"),
                 reason=obj_in.get("reason"),
-                details=obj_in.get("details"),
-                position=obj_in.get("position"),
-                operation_code=obj_in.get("operation")
+                details=obj_in.get("details")
             )
-            db.add(db_obj) # ✅ Corrigido de db_log para db_obj
+            db.add(db_obj)
             await db.commit()
             return "LOG_SAVED"
 

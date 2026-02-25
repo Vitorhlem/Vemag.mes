@@ -77,7 +77,7 @@ export const OP_SEQUENCE_MAP: Record<string, string> = {
 // Mapeamento específico para Ordem de Serviço (O.S.)
 export const OS_SEQUENCE_MAP: Record<string, string> = {
   '010': '213', '020': '410', '025': '213', '030': '422', '040': '423',
-  '050': '202', '060': '503', '070': '201', '080': '702', '090': '201'
+  '050': '202', '060': '503', '070': '201', '080': '702', '090': '201', '200': '423'
 };
 
 
