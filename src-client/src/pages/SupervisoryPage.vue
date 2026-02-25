@@ -223,6 +223,8 @@ function getStatusColorClass(raw: string | undefined): string {
   }
 }
 
+
+
 function isRunning(raw: string | undefined): boolean {
   return formatStatus(raw) === 'PRODUZINDO';
 }

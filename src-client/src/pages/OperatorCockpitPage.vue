@@ -252,46 +252,103 @@
     </q-page-container>
 
     <q-dialog v-model="showOpList" maximized transition-show="slide-up" transition-hide="slide-down">
-      <q-card>
-        <q-bar class="vemag-bg-primary text-white">
-          <q-icon name="list" />
-          <div class="text-h6 q-ml-sm">Ordens de Produção Liberadas (SAP)</div>
-          <q-space />
-          <q-btn dense flat icon="close" v-close-popup />
-        </q-bar>
-        <q-card-section class="q-pa-none">
-          <q-table :rows="openOps" :columns="opColumns" row-key="op_number" :loading="loadingOps" flat bordered separator="cell">
+  <q-card>
+    <q-bar class="vemag-bg-primary text-white">
+      <q-icon name="list" />
+      <div class="text-h6 q-ml-sm">Ordens de Produção Liberadas (SAP)</div>
+      <q-space />
+      <q-btn dense flat icon="close" v-close-popup />
+    </q-bar>
+    
+    <div class="bg-grey-2 q-pa-sm border-bottom-light row items-center">
+      <q-input 
+        v-model="searchQuery" 
+        debounce="300" 
+        outlined 
+        dense 
+        bg-color="white"
+        placeholder="Pesquisar por O.P., Item ou Código..." 
+        class="col-12 col-md-4"
+        hide-bottom-space
+      >
+        <template v-slot:prepend>
+          <q-icon name="search" color="teal-9" />
+        </template>
+        <template v-slot:append v-if="searchQuery">
+            <q-icon name="close" @click="searchQuery = ''" class="cursor-pointer text-grey-6" />
+        </template>
+      </q-input>
+      <q-space />
+      <div class="text-caption text-grey-7 gt-sm">
+        Use a barra para encontrar rapidamente a O.P. desejada.
+      </div>
+    </div>
+
+    <q-card-section class="q-pa-none">
+      <q-table 
+        :rows="openOps" 
+        :columns="opColumns" 
+        row-key="op_number" 
+        :loading="loadingOps" 
+        flat 
+        bordered 
+        separator="cell"
+        :filter="searchQuery"
+        v-model:pagination="pagination"
+        :rows-per-page-options="[10, 25, 50, 100, 0]"
+      >
             <template v-slot:body="props">
-              <q-tr @click="selectOp(props.row)" class="cursor-pointer hover-bg-grey-3">
+              <q-tr 
+                @click="(!props.row.steps || props.row.steps.length === 0) ? null : selectOp(props.row)" 
+                :class="(!props.row.steps || props.row.steps.length === 0) ? 'bg-red-1 cursor-not-allowed opacity-70' : 'cursor-pointer hover-bg-grey-3'"
+              >
                 
                 <q-td key="op_number" :props="props">
                   <template v-if="String(props.row.op_number).startsWith('OS-')">
-                    <div class="text-weight-bold text-subtitle1">{{ props.row.op_number }}</div>
+                    <div class="text-weight-bold text-subtitle1 text-blue-9">{{ props.row.op_number }}</div>
                     <div class="text-caption text-grey-7">{{ props.row.custom_ref }}</div>
                   </template>
 
                   <template v-else>
-                    <div class="text-weight-bold text-subtitle1">{{ props.row.custom_ref || props.row.op_number }}</div>
+                    <div class="text-weight-bold text-subtitle1 text-orange-9">{{ props.row.custom_ref || props.row.op_number }}</div>
                     <div v-if="props.row.custom_ref" class="text-caption text-grey-7">DocNum: {{ props.row.op_number }}</div>
                   </template>
+                  
+                  <q-badge v-if="!props.row.steps || props.row.steps.length === 0" color="negative" class="q-mt-xs text-weight-bold">
+                    <q-icon name="warning" size="xs" class="q-mr-xs"/> Sem Roteiro / Operações
+                  </q-badge>
                 </q-td>
 
                 <q-td key="part_name" :props="props">
-                  <div class="text-weight-medium">{{ props.row.part_name }}</div>
-                  <div class="text-caption text-grey-6">{{ props.row.item_code }}</div>
+                  <div class="text-body2 text-weight-medium">{{ props.row.part_name }}</div>
                 </q-td>
 
-                <q-td key="planned_qty" :props="props" class="text-center text-weight-bold">
-                  {{ props.row.planned_qty }} {{ props.row.uom }}
+                <q-td key="planned_qty" :props="props" class="text-center">
+                  <q-badge color="teal-9" outline class="text-weight-bold" style="font-size: 0.85rem;">
+                    {{ props.row.planned_qty }}
+                  </q-badge>
+                </q-td>
+
+                <q-td key="action" :props="props" class="text-center">
+                  <q-btn 
+                    push 
+                    color="teal-9" 
+                    icon="play_arrow" 
+                    label="Selecionar" 
+                    size="sm"
+                    class="text-weight-bold"
+                    :disable="!props.row.steps || props.row.steps.length === 0"
+                    @click.stop="selectOp(props.row)"
+                  >
+                    <q-tooltip v-if="!props.row.steps || props.row.steps.length === 0" class="bg-red-9">
+                      Esta ordem não possui operações no SAP
+                    </q-tooltip>
+                  </q-btn>
                 </q-td>
                 
-                <q-td key="action" :props="props" class="text-center">
-                  <q-btn round color="secondary" icon="arrow_forward" size="sm" />
-                </q-td>
-
               </q-tr>
             </template>
-          </q-table>
+        </q-table>
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -488,6 +545,13 @@ import { ANDON_OPTIONS } from 'src/data/andon-options';
 const isSocketConnected = ref(false);
 const router = useRouter();
 const $q = useQuasar();
+const searchQuery = ref('');
+const pagination = ref({
+  sortBy: 'op_number', // (Opcional) Já traz ordenado pelo número da OP
+  descending: true,    // (Opcional) As OPs mais novas primeiro
+  page: 1,
+  rowsPerPage: 50      // 🚀 AQUI: Define 50 como o padrão ao abrir a tela!
+});
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
@@ -735,8 +799,9 @@ async function openOpListDialog() {
   showOpList.value = true;
   loadingOps.value = true;
   openOps.value = []; // Limpa a tabela
+  searchQuery.value = ''; // 🚀 Limpa a pesquisa anterior toda vez que abrir a tela
+  
   try {
-    // 🚀 Chama o FastAPI, que repassa pro Celery. O loading vai ficar girando.
     await api.get(`/production/orders/open?machine_id=${productionStore.machineId}`);
   } catch (error) {
     console.error(error);
@@ -746,6 +811,16 @@ async function openOpListDialog() {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
+  // 🚀 TRAVA DE SEGURANÇA: Se não tem etapas (steps) ou se é um array vazio, bloqueia!
+  if (!op.steps || op.steps.length === 0) {
+      $q.notify({ 
+          type: 'negative', 
+          message: 'Esta O.P. não possui operações/roteiro cadastrado no SAP.',
+          icon: 'block' 
+      });
+      return; // Interrompe a função aqui
+  }
+
   showOpList.value = false;
   
   // 🚀 ATUALIZAÇÃO OTIMISTA: Força a tela a ficar Roxa (SETUP) imediatamente no clique!
@@ -756,19 +831,6 @@ async function selectOp(op: any) {
   isPaused.value = false;
 
   await productionStore.requestOrderFromSAP(String(op.op_number));
-}
-function openDrawing() {
-  if (!productionStore.activeOrder?.part_code) {
-      $q.notify({ type: 'warning', message: 'O.P. sem código de item definido.' });
-      return;
-  }
-
-  const itemCode = productionStore.activeOrder.part_code;
-  
-  const baseUrl = 'http://localhost:8000'; 
-  drawingUrl.value = `${baseUrl}/drawings/${encodeURIComponent(itemCode)}?t=${new Date().getTime()}`;
-  
-  isDrawingDialogOpen.value = true;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -629,30 +629,26 @@ function translateStatus(status: string, block?: any): string {
     const cat = String(block?.category || '').toUpperCase().trim();
     const reason = String(block?.reason || '').toUpperCase().trim();
     
-    // Identifica se a função foi chamada pelo Gráfico (tem bloco com duração) ou pela Tabela de Logs
     const isGanttBlock = block && block.hasOwnProperty('duration_min');
     const duration = isGanttBlock ? Number(block.duration_min) : null;
 
-    // 1. Identifica os contextos de cara (Adicionei o 'EM USO' aqui)
+    // 🚀 AQUI: Ensinamos o sistema que "Fim de Manutenção" = Disponível
     const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
     const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
     const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
-    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA');
+    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA') || reason.includes('FIM DE MANUTENÇÃO');
     const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
 
-    // 2. Retornos Prioritários (Garante que esses NUNCA fiquem pretos)
     if (isAvailable) return 'DISPONÍVEL';
     if (isProducing) return 'EM OPERAÇÃO';
     if (isSetup) return 'EM SETUP';
     if (isMaintenance) return 'MANUTENÇÃO';
     if (isAutonomous) return 'AUTÔNOMO';
 
-    // 3. Regra de Micro-parada (Pausa real, com tempo, menor que 5 min, incluindo 0)
     if (cat === 'MICRO_STOP' || (isGanttBlock && duration !== null && duration < 5)) {
         return 'MICRO-PARADA';
     }
 
-    // 4. Se passou de 5 minutos ou se for só uma linha de log na tabela
     if (s.includes('PAUSED') || s.includes('STOPPED') || s.includes('PARADA') || cat === 'UNPLANNED_STOP' || s === '0') return 'PAUSADA';
     
     return status;
@@ -668,26 +664,23 @@ function getGanttColor(block: any) {
     const duration = Number(block.duration_min || 0);
     const reason = String(block.reason || '').toUpperCase().trim(); 
 
-    // 1. Identifica os contextos
+    // 🚀 AQUI: Mesma regra, ensinando a cor cinza a abraçar o Fim de Manutenção
     const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
     const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
     const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
-    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA');
+    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA') || reason.includes('FIM DE MANUTENÇÃO');
     const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
 
-    // 2. Cores Oficiais Prioritárias
     if (isAvailable) return 'grey';
     if (isProducing) return 'green';
     if (isSetup) return 'purple';
     if (isMaintenance) return 'red';
     if (isAutonomous) return 'blue';
 
-    // 3. Regra de Micro-parada (Menor que 5 min, incluindo 0!)
     if (cat === 'MICRO_STOP' || duration < 5) {
         return 'black';
     }
 
-    // 4. Pausa SEM MOTIVO
     if (
         reason === 'SEM MOTIVO' || 
         reason === 'STATUS: PARADA' || 
@@ -696,9 +689,10 @@ function getGanttColor(block: any) {
         return 'brown';
     }
 
-    // 5. Pausa normal justificada
     return 'orange';
 }
+
+
 function getStatusColor(status: string) {
     // 🚀 MÁGICA: Agora a cor confia na nossa função de tradução inteligente!
     const s = translateStatus(status);

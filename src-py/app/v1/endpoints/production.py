@@ -755,7 +755,7 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
         
         event_type="STATUS_CHANGE", 
         new_status="Setup",
-        reason="Setup Inicial,
+        reason="Setup Inicial",
         timestamp=datetime.now()
     )
     db.add(log)
