@@ -277,6 +277,7 @@ async function onDrop(event: DragEvent) {
   draggedMachine = null;
 }
 async function removeMachineFromMap(machine: Machine) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await store.saveMachineLayout(machine.id, null as any, null as any);
   $q.notify({ type: 'warning', message: `${machine.model} voltou para a doca.`, timeout: 1000 });
 }
@@ -287,7 +288,7 @@ async function removeMachineFromMap(machine: Machine) {
 
 function goToMachineDetails(machineId: number) {
   if (isEditMode.value) return; // No modo edição, o clique é bloqueado para não irritar ao arrastar
-  router.push(`/employees?machine=${machineId}`);
+  void router.push(`/employees?machine=${machineId}`);
 }
 
 function formatStatus(raw: string | undefined): string {
@@ -370,7 +371,7 @@ function connectWebSocket() {
                   store.machinesList[machineIndex].status = data.machine_status_db || data.new_status;
               } else {
                   // Prevenção de erro: Se a máquina não estiver no mapa, busca tudo do servidor
-                  store.fetchAvailableMachines();
+                  void store.fetchAvailableMachines();
               }
           }
       } catch (error) {

@@ -930,6 +930,7 @@ async function applyNormalPause(fromPlc = false) {
     
     // Fallback caso a etapa do SAP tenha vindo vazia ou quebrado
     if (!sapData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
     }
 
@@ -1023,6 +1024,7 @@ async function triggerCriticalBreakdown() {
             // 🚀 LÊ DIRETO DO SAP
             let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
             if (!sapData) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
             }
 
@@ -1434,8 +1436,10 @@ function connectWebSocket() {
       socket = null;
   }
 
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${productionStore.machineId}`;
+  // 🚀 NOVA MÁGICA: Usa o mesmo endereço que o Axios usa (O IP do Servidor), ignorando o localhost do Android.
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';
+  const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
+  const wsUrl = `${wsBase}/ws/${productionStore.machineId}`;
 
   console.log(`🔌 Conectando ao WebSocket: ${wsUrl}`);
   socket = new WebSocket(wsUrl);
@@ -1454,14 +1458,11 @@ function connectWebSocket() {
       // =========================================================
       if (data.machine_id && Number(data.machine_id) === Number(productionStore.machineId)) {
           if (data.new_status || data.machine_status_db) {
-              // Atualiza a interface instantaneamente
               if (productionStore.currentMachine) {
                   productionStore.currentMachine.status = data.machine_status_db || data.new_status;
               }
-              
-              // Dá 500ms pro banco respirar e busca a verdade absoluta (evita a "corrida de dados")
               setTimeout(() => {
-                  productionStore.fetchMachine(productionStore.machineId);
+                  void productionStore.fetchMachine(productionStore.machineId);
               }, 500);
           }
       }
@@ -1476,11 +1477,10 @@ function connectWebSocket() {
           return; 
       }
 
-      if (data.type === 'SAP_ORDER_DETAILS' && Number(data.machine_id) === Number(productionStore.machineId)) {
+      if (data.type === 'SAP_ORDER_DATA' && Number(data.machine_id) === Number(productionStore.machineId)) {
           if (data.data) {
              console.log("📥 OP Encontrada via Celery:", data.code);
              
-             // Reforça o modo SETUP quando os dados chegam
              if (productionStore.currentMachine) productionStore.currentMachine.status = 'SETUP';
              productionStore.isInSetup = true;
 

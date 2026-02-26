@@ -309,10 +309,11 @@ async function onSearchFilter(val: string, update: (fn: () => void) => void, abo
 }
 
 // Função executada quando o usuário CLICA em uma opção da lista
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onItemSelected(item: any) {
   if (item && item.route) {
     // Joga o usuário pra página correspondente!
-    router.push(item.route);
+    void router.push(item.route);
     
     // Limpa a barra depois de clicar
     searchModel.value = null; 

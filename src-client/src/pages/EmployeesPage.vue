@@ -629,7 +629,7 @@ function translateStatus(status: string, block?: any): string {
     const cat = String(block?.category || '').toUpperCase().trim();
     const reason = String(block?.reason || '').toUpperCase().trim();
     
-    const isGanttBlock = block && block.hasOwnProperty('duration_min');
+    const isGanttBlock = block && 'duration_min' in block;
     const duration = isGanttBlock ? Number(block.duration_min) : null;
 
     // 🚀 AQUI: Ensinamos o sistema que "Fim de Manutenção" = Disponível
@@ -729,6 +729,7 @@ function getOeeColor(val?: number) {
     return 'red-10';                  
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRealDurationText(block: any) {
     if (!block.start) return '0 min';
     
@@ -750,7 +751,7 @@ function getRealDurationText(block: any) {
     }
     return `${mins} min`;
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getBlockWidth(block: any) {
     if (!block.start) return 0;
     
@@ -838,6 +839,7 @@ async function refreshData(isSilent = false) {
                 } else {
                     throw new Error("Sem sessão");
                 }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (err) {
                 activeOpTitle.value = 'Ordem de Produção';
                 activeOpCode.value = 'Nenhuma';
@@ -933,7 +935,7 @@ function connectWebSocket() {
                 // O setTimeout de 500ms (meio segundo) dá tempo para o banco de dados 
                 // do Python dar o "Commit" final e salvar a sessão antes do Vue tentar ler.
                 setTimeout(() => {
-                    refreshData(true);
+                    void refreshData(true);
                 }, 500);
                 
             }
@@ -956,9 +958,9 @@ onMounted(async () => {
 
     if (machineIdFromUrl) {
         selectedMachine.value = Number(machineIdFromUrl);
-        router.replace({ query: {} }); 
+        void router.replace({ query: {} }); 
         void refreshData();
-    } 
+    }
     else if (machineOptions.value && machineOptions.value.length > 0 && machineOptions.value[0]) {
         selectedMachine.value = machineOptions.value[0].value;
         void refreshData();

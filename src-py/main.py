@@ -91,7 +91,9 @@ manual_origins = [
     "http://192.168.0.22:8080", # Quasar dev default
     "http://192.168.0.22",
     "https://trumachine.netlify.app",
-    "http://192.168.0.22:8000/docs"
+    "http://192.168.0.22:8000/docs",
+    "capacitor://localhost",
+    "http://localhost:8000" # Importante para o Android
 ]
 origins_list.extend(manual_origins)
 origins_list = list(set(origins_list))
@@ -102,6 +104,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"] # 🚀 ADICIONE ESTA LINHA: Essencial para o Axios no Mobile ler a resposta
 )
 
 # ======================= ROTA WEBSOCKET (PLC/ANDON) =======================
