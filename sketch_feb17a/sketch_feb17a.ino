@@ -1,177 +1,141 @@
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <SPI.h>
+#include <Ethernet.h>
 #include <ArduinoJson.h>
 
 // =========================================================
-// ⚙️ CONFIGURAÇÕES PRINCIPAIS DO EQUIPAMENTO
+// ⚙️ CONFIGURAÇÕES
 // =========================================================
-const int MACHINE_ID = 1;  // 🔴 MUDE AQUI PARA O ID DA MÁQUINA (Ex: 2, 3, 4...)
-// =========================================================
+const int MACHINE_ID = 1;
 
-// --- CONFIGURAÇÕES DE REDE ---
-const char* ssid = "IOT";
-const char* password = "007481Ab";
-String serverPath = "http://192.168.0.22:8000/api/v1/production/event";
+// --- REDE ---
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress server(192, 168, 0, 22);
+int serverPort = 8000;
+String endpoint = "/api/v1/production/event";
 
-// --- PINO DE LEITURA (SIMPLIFICADO) ---
-const int pinMain = 13;      // Único pino de leitura para o teste
+EthernetClient client;
 
-// --- VARIÁVEIS DE CONTROLE ---
+// --- PINOS (O Loop de Sinal) ---
+const int pinSource = 3;  // PINO DE SAÍDA (Vai agir como Terra/GND)
+const int pinSensor = 2;  // PINO DE ENTRADA (Vai ler o sinal)
+
+// --- CONTROLE ---
 int lastSentState = -1; 
 unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 500; // 500ms de segurança (debounce)
-
-// Variável apenas para não flodar o painel de logs com mensagens repetidas
-int lastLoggedMain = -1;
+unsigned long debounceDelay = 2000; // Aumentei para 2s para evitar falsos positivos do disjuntor batendo
 
 void setup() {
+  // 1. SOLUÇÃO DA FONTE 9V: Espera a energia estabilizar antes de ligar o Shield
+  delay(5000); 
+
   Serial.begin(115200);
-  delay(1000); // Dá um tempo para o monitor serial abrir
-  
-  Serial.println("\n=========================================");
-  Serial.println("🚀 INICIANDO SISTEMA MES - ESP32 (MODO SIMPLIFICADO) 🚀");
-  Serial.print("🏭 MÁQUINA CONFIGURADA: ID ");
-  Serial.println(MACHINE_ID);
-  Serial.println("=========================================");
-  
-  Serial.print("🔧 Configurando Pino Principal: ");
-  Serial.println(pinMain);
+  while (!Serial) { ; } 
 
-  // Configura o pino com resistor interno puxando pro GND quando estiver solto
-  pinMode(pinMain, INPUT_PULLDOWN);
+  Serial.println("\n🚀 INICIANDO SISTEMA MES - LOOP 2 PINOS");
 
-  conectarWiFi();
+  // 2. CONFIGURAÇÃO DOS PINOS (A Mágica do Loop)
+  
+  // Configura o Pino 3 como SAÍDA e força ele a ser NEGATIVO (LOW)
+  // Ele vai agir como se fosse um pino GND, mas controlado por software.
+  pinMode(pinSource, OUTPUT);
+  digitalWrite(pinSource, LOW); 
+
+  // Configura o Pino 2 como ENTRADA com resistor interno ativado
+  pinMode(pinSensor, INPUT_PULLUP);
+
+  conectarRede();
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ [ALERTA] Conexão WiFi perdida! Interrompendo leituras...");
-    conectarWiFi();
+  // Reconexão automática se o cabo cair
+  if (Ethernet.linkStatus() == LinkOFF) {
+    Serial.println("⚠️ Cabo de rede desconectado!");
+    delay(2000);
+    return;
   }
 
-  // Leitura bruta do único pino
-  int stateMain = digitalRead(pinMain);
+  // --- LEITURA DO LOOP ---
+  // Se o relé FECHAR, o Pino 2 encosta no Pino 3 (LOW). Leitura = 0.
+  // Se o relé ABRIR, o Pino 2 fica solto (PullUp). Leitura = 1.
+  int leituraSensor = digitalRead(pinSensor);
   
-  // LOG: Só avisa se o pino mudar fisicamente (evita travar o console)
-  if (stateMain != lastLoggedMain) {
-    Serial.print("⚡ [LEITURA FÍSICA] Pino Principal (13) mudou para: ");
-    Serial.println(stateMain == HIGH ? "HIGH (LIGADO)" : "LOW (DESLIGADO)");
-    
-    lastLoggedMain = stateMain;
-  }
+  // Converte a leitura elétrica para Lógica de Negócio
+  // Leitura 0 (LOW) significa que o circuito fechou -> MÁQUINA LIGADA
+  int estadoAtual = (leituraSensor == LOW) ? 1 : 0;
 
-  // A lógica agora é direta: HIGH = 1 (LIGADA), LOW = 0 (DESLIGADA)
-  int confirmedState = (stateMain == HIGH) ? 1 : 0;
-
-  // Verifica se o estado confirmado é diferente do que o backend já sabe
-  if (confirmedState != lastSentState) {
-    
-    // Calcula o tempo do Debounce para ver se o sinal firmou
+  // Lógica de envio (Só envia se mudar)
+  if (estadoAtual != lastSentState) {
     if ((millis() - lastDebounceTime) > debounceDelay) {
-      Serial.println("⏱️ [DEBOUNCE] Sinal estabilizado. Preparando para envio...");
       
-      // Tenta enviar. Se der certo, atualiza a memória do ESP32
-      if (enviarSinalParaSistema(confirmedState)) {
-        lastSentState = confirmedState;
-        Serial.println("✅ [SISTEMA] Estado interno do ESP32 atualizado com sucesso!");
-      } else {
-        Serial.println("❌ [SISTEMA] Falha ao notificar a API. Tentarei novamente em 500ms.");
+      Serial.print("⚡ Estado Mudou para: ");
+      Serial.println(estadoAtual == 1 ? "LIGADA (RUNNING)" : "DESLIGADA (STOPPED)");
+      
+      if (enviarSinalParaSistema(estadoAtual)) {
+        lastSentState = estadoAtual;
       }
       
       lastDebounceTime = millis();
-      Serial.println("-----------------------------------------");
     }
   } else {
-    // Mantém o timer zerado enquanto não houver mudança real
     lastDebounceTime = millis();
   }
 }
 
 // ---------------------------------------------------------
-// FUNÇÕES AUXILIARES COM LOGS DETALHADOS
+// FUNÇÕES AUXILIARES
 // ---------------------------------------------------------
 
-void conectarWiFi() {
-  WiFi.disconnect();
-  delay(100);
-  WiFi.begin(ssid, password);
-  
-  Serial.print("📡 [WIFI] Conectando à rede '");
-  Serial.print(ssid);
-  Serial.print("' ");
-  
-  int tentativas = 0;
-  while (WiFi.status() != WL_CONNECTED && tentativas < 20) {
-    delay(500);
-    Serial.print(".");
-    tentativas++;
+void conectarRede() {
+  Serial.println("🔌 Conectando Ethernet (DHCP)...");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("🔴 Falha DHCP. Verifique cabo/roteador.");
+    while (true) delay(1000); // Trava se não tiver rede
   }
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n🟢 [WIFI] Conectado com Sucesso!");
-    Serial.print("   ↳ IP Recebido: ");
-    Serial.println(WiFi.localIP());
-    Serial.print("   ↳ Força do Sinal (RSSI): ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
-  } else {
-    Serial.println("\n🔴 [WIFI] Falha ao reconectar. O loop tentará novamente.");
-  }
+  delay(1000);
+  Serial.print("🟢 IP: ");
+  Serial.println(Ethernet.localIP());
 }
 
 bool enviarSinalParaSistema(int estado) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ [HTTP] Abortado: Sem conexão WiFi.");
-    return false;
+  if (!client.connected()) {
+    client.stop();
+    if (!client.connect(server, serverPort)) return false;
   }
 
-  HTTPClient http;
-  
-  Serial.print("🌐 [HTTP] Iniciando conexão com: ");
-  Serial.println(serverPath);
-  
-  http.begin(serverPath);
-  http.addHeader("Content-Type", "application/json");
-
-  // Monta o Payload JSON
-  StaticJsonDocument<200> doc;
-  
-  doc["machine_id"] = MACHINE_ID; 
+  // Monta JSON Otimizado
+  StaticJsonDocument<128> doc;
+  doc["machine_id"] = MACHINE_ID;
   doc["event_type"] = "STATUS_CHANGE";
-  doc["new_status"] = (estado == 1) ? "1" : "0";
-  doc["operator_badge"] = "ESP32_HARDWARE";
+  // Envia as strings exatas que o Python espera
+  doc["new_status"] = (estado == 1) ? "RUNNING" : "STOPPED";
+  doc["operator_badge"] = "ARDUINO_LOOP";
 
-  String jsonOutput;
-  serializeJson(doc, jsonOutput);
+  size_t len = measureJson(doc);
 
-  Serial.print("📦 [HTTP] Payload montado: ");
-  Serial.println(jsonOutput);
+  // Envia HTTP
+  client.print("POST ");
+  client.print(endpoint);
+  client.println(" HTTP/1.1");
+  client.print("Host: ");
+  client.println(server);
+  client.println("Connection: close");
+  client.println("Content-Type: application/json");
+  client.print("Content-Length: ");
+  client.println(len);
+  client.println();
+  
+  serializeJson(doc, client); // Envia corpo direto para a rede
 
-  // Faz o disparo POST
-  unsigned long startTimer = millis();
-  int httpResponseCode = http.POST(jsonOutput);
-  unsigned long timeTaken = millis() - startTimer;
-
-  // Analisa a resposta
-  if (httpResponseCode > 0) {
-    Serial.print("📩 [HTTP] Resposta recebida em ");
-    Serial.print(timeTaken);
-    Serial.print("ms | Código: ");
-    Serial.println(httpResponseCode);
-    
-    String responseBody = http.getString();
-    Serial.print("   ↳ Corpo da Resposta: ");
-    Serial.println(responseBody);
-    
-    http.end();
-    return true; 
-  } else {
-    Serial.print("🛑 [HTTP] ERRO FATAL de rede | Código do erro: ");
-    Serial.println(httpResponseCode);
-    Serial.print("   ↳ Detalhe: ");
-    Serial.println(http.errorToString(httpResponseCode).c_str());
-    
-    http.end();
-    return false; 
+  // Aguarda resposta rápida
+  unsigned long t = millis();
+  bool ok = false;
+  while (client.connected() && millis() - t < 2000) {
+    if (client.available()) { client.read(); ok = true; t = millis(); }
   }
+  client.stop();
+  
+  if(ok) Serial.println("✅ Enviado!");
+  else Serial.println("❌ Erro de Envio");
+  
+  return ok;
 }

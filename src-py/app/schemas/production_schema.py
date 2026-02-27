@@ -30,18 +30,22 @@ class ProductionTimeSliceRead(ProductionTimeSliceBase):
 # ============================================================================
 class ProductionEventCreate(BaseModel):
     machine_id: int
-    operator_badge: str
+    # Deixe o operador opcional também, caso o Arduino esqueça de mandar
+    operator_badge: Optional[str] = "ARDUINO_DEFAULT" 
     order_code: Optional[str] = None
     
-    event_type: str  # STATUS_CHANGE, COUNT, SHIFT_END, ETC
-    new_status: Optional[str] = None  # EM OPERAÇÃO, MANUTENÇÃO, PARADA (Ou EN_US)
+    event_type: str  # STATUS_CHANGE
+    new_status: Optional[str] = None  # RUNNING ou STOPPED
     
-    reason: Optional[str] = None # Motivo da parada selecionado (Ex: "Quebra Mecânica")
+    # 🚀 A CORREÇÃO MÁGICA ESTÁ AQUI:
+    # Adicionamos '= None' para o Pydantic entender que pode vir vazio.
+    timestamp: Optional[datetime] = None 
+    
+    reason: Optional[str] = None 
     details: Optional[str] = None
     
     quantity_good: Optional[int] = 0
     quantity_scrap: Optional[int] = 0
-
 # ============================================================================
 # 3. ORDENS DE PRODUÇÃO (Modelos Internos)
 # ============================================================================
