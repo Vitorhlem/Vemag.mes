@@ -121,7 +121,7 @@
 
             <div class="row q-col-gutter-sm q-mb-md">
               <div class="col-6">
-                <q-select outlined dense v-model="form.vehicle_id" :options="vehicleOptions" label="Equipamento" emit-value map-options :readonly="isReadOnly" />
+                <q-select outlined dense v-model="form.machine_id" :options="machineOptions" label="Equipamento" emit-value map-options :readonly="isReadOnly" />
               </div>
               <div class="col-6">
                 <q-input outlined dense v-model="form.cost_center" label="Centro de Custo" :readonly="isReadOnly" />
@@ -247,7 +247,7 @@ const authStore = useAuthStore();
 
 const columns = [
   { name: 'id', label: 'ID', field: 'id', sortable: true, align: 'left' },
-  { name: 'vehicle', label: 'Equipamento', field: row => row.vehicle?.identifier, sortable: true, align: 'left' },
+  { name: 'machine', label: 'Equipamento', field: row => row.machine?.identifier, sortable: true, align: 'left' },
   { name: 'date', label: 'Data', field: row => date.formatDate(row.created_at, 'DD/MM/YYYY'), sortable: true, align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
   { name: 'actions', label: 'Ações', align: 'right' }
@@ -280,7 +280,7 @@ const tableConfigs = [
 
 const initialForm = () => ({
   id: null, 
-  vehicle_id: null, 
+  machine_id: null, 
   cost_center: '', 
   stopped_at: '', 
   returned_at: '',
@@ -326,7 +326,7 @@ const totalMonthCost = computed(() => {
     }, 0);
 });
 
-const vehicleOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
+const machineOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
 const grandTotal = computed(() => (Number(form.value.labor_total)||0) + (Number(form.value.material_total)||0) + (Number(form.value.services_total)||0) + (Number(form.value.others_total)||0));
 
 // --- CÁLCULO AUTOMÁTICO DE TOTAIS ---
@@ -366,7 +366,7 @@ function openEdit(os: any) {
   form.value = {
     ...initialForm(),
     id: os.id,
-    vehicle_id: os.vehicle_id,
+    machine_id: os.machine_id,
     cost_center: os.cost_center || '',
     responsible: os.responsible || meta.responsible || '', 
     supervisor: os.supervisor || meta.supervisor || '',

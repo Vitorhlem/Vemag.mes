@@ -103,13 +103,13 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
 
             # 2. RESOLUÇÃO DE IDENTIDADE
             op_badge = str(appointment_data.get('operator_id') or appointment_data.get('operator_badge') or "0")
-            vh_id = appointment_data.get('vehicle_id') or appointment_data.get('machine_id')
+            vh_id = appointment_data.get('machine_id') or appointment_data.get('machine_id')
 
             # 3. CHECAGEM DE DUPLICIDADE INTELIGENTE
             stmt = select(ProductionAppointment).where(
                 ProductionAppointment.operator_id == op_badge,
                 ProductionAppointment.start_time == dt_naive,
-                ProductionAppointment.vehicle_id == vh_id
+                ProductionAppointment.machine_id == vh_id
             )
             exists = (await db.execute(stmt)).scalars().first()
             
@@ -224,7 +224,7 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             new_appointment = ProductionAppointment(
                 op_number=appointment_data.get('op_number'),
                 operator_id=str(appointment_data.get('operator_id', '0')),
-                vehicle_id=appointment_data.get('vehicle_id'),
+                machine_id=appointment_data.get('machine_id'),
                 start_time=start_t,
                 end_time=end_t,
                 position=appointment_data.get('position'),
@@ -243,8 +243,8 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             if reason in ['21', '34']:
                 from app.services.fcm_service import enviar_push_lista
                 from app.models.user_model import User, UserRole
-                from app.models.vehicle_model import Vehicle
-                machine = await db.get(Vehicle, appointment_data.get('vehicle_id'))
+                from app.models.machine_model import Machine
+                machine = await db.get(Machine, appointment_data.get('machine_id'))
                 m_name = f"{machine.brand} {machine.model}" if machine else "Máquina"
                 
                 query = select(User.device_token).where(

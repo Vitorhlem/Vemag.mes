@@ -10,7 +10,7 @@
          <div class="row q-col-gutter-md">
              <div class="col-12">
                  <div class="text-caption text-grey">Equipamento</div>
-                 <div class="text-h6">{{ request.vehicle?.brand }} {{ request.vehicle?.model }}</div>
+                 <div class="text-h6">{{ request.machine?.brand }} {{ request.machine?.model }}</div>
                  <div class="text-subtitle2 text-grey-8">{{ request.problem_description }}</div>
              </div>
          </div>

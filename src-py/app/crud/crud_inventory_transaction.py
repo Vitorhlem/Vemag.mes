@@ -18,7 +18,7 @@ async def _create_transaction_no_commit(
     item_id: int,
     quantity_change: int = 0,
     notes: Optional[str] = None,
-    related_vehicle_id: Optional[int] = None,
+    related_machine_id: Optional[int] = None,
 ) -> InventoryTransaction:
     """
     Cria o objeto da transação.
@@ -28,7 +28,7 @@ async def _create_transaction_no_commit(
         user_id=user_id,
         transaction_type=transaction_type,
         notes=notes,
-        related_vehicle_id=related_vehicle_id,
+        related_machine_id=related_machine_id,
         item_id=item_id
     )
     db.add(db_obj)
@@ -43,7 +43,7 @@ async def create_transaction(
     item_id: int,
     quantity_change: int = 0,
     notes: Optional[str] = None,
-    related_vehicle_id: Optional[int] = None,
+    related_machine_id: Optional[int] = None,
     related_user_id: Optional[int] = None,
 ) -> InventoryTransaction:
     """
@@ -56,7 +56,7 @@ async def create_transaction(
         transaction_type=transaction_type,
         quantity_change=quantity_change,
         notes=notes,
-        related_vehicle_id=related_vehicle_id,
+        related_machine_id=related_machine_id,
         item_id=item_id
     )
     
@@ -80,7 +80,7 @@ async def create_transaction(
         .options(
             selectinload(InventoryTransaction.user).selectinload(User.organization),
             selectinload(InventoryTransaction.related_user).selectinload(User.organization),
-            selectinload(InventoryTransaction.related_vehicle),
+            selectinload(InventoryTransaction.related_machine),
             selectinload(InventoryTransaction.item),
             selectinload(InventoryTransaction.part_template).selectinload(Part.items)
         )
@@ -100,7 +100,7 @@ async def get_transactions_by_part_id(
         .order_by(InventoryTransaction.timestamp.desc())
         .options(
             selectinload(InventoryTransaction.user).selectinload(User.organization),
-            selectinload(InventoryTransaction.related_vehicle),
+            selectinload(InventoryTransaction.related_machine),
             selectinload(InventoryTransaction.related_user).selectinload(User.organization),
             selectinload(InventoryTransaction.item),
             selectinload(InventoryTransaction.part_template).selectinload(Part.items)
@@ -112,17 +112,17 @@ async def get_transactions_by_part_id(
     return result.scalars().all()
 
 
-async def get_transactions_by_vehicle_id(
-    db: AsyncSession, *, vehicle_id: int, skip: int = 0, limit: int = 100
+async def get_transactions_by_machine_id(
+    db: AsyncSession, *, machine_id: int, skip: int = 0, limit: int = 100
 ) -> List[InventoryTransaction]:
     stmt = (
         select(InventoryTransaction)
-        .where(InventoryTransaction.related_vehicle_id == vehicle_id)
+        .where(InventoryTransaction.related_machine_id == machine_id)
         .order_by(InventoryTransaction.timestamp.desc())
         .options(
             selectinload(InventoryTransaction.user).selectinload(User.organization),
             selectinload(InventoryTransaction.related_user).selectinload(User.organization),
-            selectinload(InventoryTransaction.related_vehicle),
+            selectinload(InventoryTransaction.related_machine),
             selectinload(InventoryTransaction.item),
             selectinload(InventoryTransaction.part_template).selectinload(Part.items)
         )

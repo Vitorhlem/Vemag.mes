@@ -8,7 +8,7 @@ export interface DocumentCreatePayload {
   document_type: string;
   expiry_date: string; // formato YYYY-MM-DD
   notes?: string;
-  vehicle_id?: number;
+  machine_id?: number;
   driver_id?: number;
   file: File;
 }
@@ -49,7 +49,7 @@ export const useDocumentStore = defineStore('document', {
         formData.append('document_type', payload.document_type);
         formData.append('expiry_date', payload.expiry_date);
         if (payload.notes) formData.append('notes', payload.notes);
-        if (payload.vehicle_id) formData.append('vehicle_id', String(payload.vehicle_id));
+        if (payload.machine_id) formData.append('machine_id', String(payload.machine_id));
         if (payload.driver_id) formData.append('driver_id', String(payload.driver_id));
         
         // Adiciona o arquivo

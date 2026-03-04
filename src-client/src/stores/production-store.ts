@@ -195,7 +195,7 @@ async function loadKioskConfig() {
     if (savedId) {
         machineId.value = Number(savedId);
         try {
-            const { data } = await api.get<Machine>(`/vehicles/${savedId}`);
+            const { data } = await api.get<Machine>(`/machines/${savedId}`);
             _setMachineData(data);
             
             // NOVIDADE: Busca no banco se existe uma ordem rodando ANTES do login
@@ -238,7 +238,7 @@ async function loadKioskConfig() {
 
   async function configureKiosk(id: number) {
     try {
-      const { data } = await api.get<Machine>(`/vehicles/${id}`);
+      const { data } = await api.get<Machine>(`/machines/${id}`);
       _setMachineData(data);
       
       // MUDANÇA AQUI: sessionStorage isola por aba
@@ -492,7 +492,7 @@ async function loginOperator(scannedCode: string) {
     if (!targetId) return;
 
     try {
-        const { data } = await api.get(`/vehicles/${targetId}`);
+        const { data } = await api.get(`/machines/${targetId}`);
         
         // Atualiza a fonte da verdade
         currentMachine.value = data;
@@ -743,7 +743,7 @@ async function toggleSetup() {
       if (!machineId.value) return;
       try {
           Loading.show();
-          const payload = { vehicle_id: machineId.value, problem_description: `Kiosk: ${notes}`, category: 'Mecânica', maintenance_type: 'CORRETIVA' };
+          const payload = { machine_id: machineId.value, problem_description: `Kiosk: ${notes}`, category: 'Mecânica', maintenance_type: 'CORRETIVA' };
           await api.post('/maintenance/requests', payload);
           
           // Força status de manutenção

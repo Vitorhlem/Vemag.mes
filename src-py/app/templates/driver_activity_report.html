@@ -121,7 +121,7 @@
             {% for journey in data.journeys %}
             <tr>
                 <td>{{ journey.start_time.strftime('%d/%m/%Y') }}</td>
-                <td>{{ journey.vehicle.brand }} {{ journey.vehicle.model }}</td>
+                <td>{{ journey.machine.brand }} {{ journey.machine.model }}</td>
                 <td>{{ journey.destination_address or journey.trip_description }}</td>
                 <td>{{ journey.end_mileage - journey.start_mileage }}</td>
             </tr>
@@ -147,7 +147,7 @@
             {% for log in data.fuel_logs %}
             <tr>
                 <td>{{ log.timestamp.strftime('%d/%m/%Y') }}</td>
-                <td>{{ log.vehicle.brand }} {{ log.vehicle.model }}</td>
+                <td>{{ log.machine.brand }} {{ log.machine.model }}</td>
                 <td>{{ "%.2f"|format(log.liters) }} L</td>
                 <td>R$ {{ "%.2f"|format(log.total_cost) }}</td>
             </tr>

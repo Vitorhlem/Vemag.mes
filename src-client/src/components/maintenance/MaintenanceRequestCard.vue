@@ -11,10 +11,10 @@
              {{ request.category || 'Industrial' }}
           </div>
           <div class="text-subtitle1 text-weight-bold ellipsis text-primary">
-             {{ request.vehicle?.brand }} {{ request.vehicle?.model }}
+             {{ request.machine?.brand }} {{ request.machine?.model }}
           </div>
           <div class="text-caption text-grey-7">
-             Tag: <strong>{{ request.vehicle?.license_plate || request.vehicle?.identifier || 'N/A' }}</strong>
+             Tag: <strong>{{ request.machine?.license_plate || request.machine?.identifier || 'N/A' }}</strong>
           </div>
         </div>
         

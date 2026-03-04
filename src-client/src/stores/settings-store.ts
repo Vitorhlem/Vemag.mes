@@ -4,10 +4,8 @@ import { ref } from 'vue';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
 import type { 
-  OrganizationFuelIntegrationPublic, 
-  OrganizationFuelIntegrationUpdate,
-  OrganizationPublic,  // <-- Importar
-  OrganizationUpdate   // <-- Importar
+  OrganizationPublic,  
+  OrganizationUpdate 
 } from 'src/models/organization-models';
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -26,41 +24,13 @@ export const useSettingsStore = defineStore('settings', () => {
     Dark.set(darkMode.value);
   }
 
-  // --- Fuel Integration State ---
-  const fuelIntegrationSettings = ref<OrganizationFuelIntegrationPublic | null>(null);
-  const isLoadingFuelSettings = ref(false);
+  
 
   // --- ORGANIZATION STATE (NOVO) ---
   const organizationSettings = ref<OrganizationPublic | null>(null);
   const isLoadingOrgSettings = ref(false);
   // --------------------------------
 
-  // --- AÇÕES PARA INTEGRAÇÃO DE COMBUSTÍVEL ---
-  async function fetchFuelIntegrationSettings() {
-    isLoadingFuelSettings.value = true;
-    try {
-      const response = await api.get<OrganizationFuelIntegrationPublic>('/settings/fuel-integration');
-      fuelIntegrationSettings.value = response.data;
-    } catch (error) {
-      console.error('Falha ao buscar configurações de integração:', error);
-    } finally {
-      isLoadingFuelSettings.value = false;
-    }
-  }
-
-  async function updateFuelIntegrationSettings(payload: OrganizationFuelIntegrationUpdate) {
-    isLoadingFuelSettings.value = true;
-    try {
-      const response = await api.put<OrganizationFuelIntegrationPublic>('/settings/fuel-integration', payload);
-      fuelIntegrationSettings.value = response.data;
-      Notify.create({ type: 'positive', message: 'Configurações de integração salvas com sucesso!' });
-    } catch (error) {
-      console.error('Falha ao salvar configurações de integração:', error);
-      Notify.create({ type: 'negative', message: 'Erro ao salvar as configurações.' });
-    } finally {
-      isLoadingFuelSettings.value = false;
-    }
-  }
 
   // --- AÇÕES PARA ORGANIZAÇÃO (NOVO) ---
   async function fetchOrganizationSettings() {
@@ -95,11 +65,6 @@ export const useSettingsStore = defineStore('settings', () => {
     darkMode,
     setDarkMode,
     init,
-    fuelIntegrationSettings,
-    isLoadingFuelSettings,
-    fetchFuelIntegrationSettings,
-    updateFuelIntegrationSettings,
-    // Exporta os novos:
     organizationSettings,
     isLoadingOrgSettings,
     fetchOrganizationSettings,

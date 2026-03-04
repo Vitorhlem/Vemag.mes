@@ -40,11 +40,11 @@ class EmployeeDailyMetric(Base):
     # primaryjoin ajuda o SQLAlchemy a saber como ligar as tabelas sem a ForeignKey explícita na coluna
     user = relationship("User", primaryjoin="foreign(EmployeeDailyMetric.user_id) == User.id")
 
-class VehicleDailyMetric(Base):
+class MachineDailyMetric(Base):
     """
     Snapshot Diário de Performance da Máquina.
     """
-    __tablename__ = "vehicle_daily_metrics"
+    __tablename__ = "machine_daily_metrics"
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
@@ -52,7 +52,7 @@ class VehicleDailyMetric(Base):
     mtbf = Column(Float, default=0.0)
     mttr = Column(Float, default=0.0)
     # Sem ForeignKey explícita para evitar conflito de importação
-    vehicle_id = Column(Integer, nullable=False)
+    machine_id = Column(Integer, nullable=False)
     organization_id = Column(Integer, nullable=False)
     
     # KPIs
@@ -72,7 +72,7 @@ class VehicleDailyMetric(Base):
     closed_at = Column(DateTime, default=datetime.now)
 
     # Relacionamento Lazy
-    vehicle = relationship("Vehicle", primaryjoin="foreign(VehicleDailyMetric.vehicle_id) == Vehicle.id")
+    machine = relationship("Machine", primaryjoin="foreign(MachineDailyMetric.machine_id) == Machine.id")
 
 class ProductionOrder(Base):
     __tablename__ = "production_orders"
@@ -103,7 +103,7 @@ class ProductionSession(Base):
     __tablename__ = "production_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey("machines.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     production_order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_orders.id"), nullable=True)
     
@@ -120,7 +120,7 @@ class ProductionSession(Base):
     unproductive_seconds: Mapped[int] = mapped_column(Integer, default=0)  
     
     # Relacionamentos
-    vehicle = relationship("Vehicle")
+    machine = relationship("Machine")
     user = relationship("User")
     order: Mapped["ProductionOrder"] = relationship("ProductionOrder", back_populates="sessions")
     
@@ -139,7 +139,7 @@ class ProductionTimeSlice(Base):
     __tablename__ = "production_time_slices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey("machines.id"), nullable=False)
     session_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_sessions.id"), nullable=True)
     order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("production_orders.id"), nullable=True)
     
@@ -157,7 +157,7 @@ class ProductionTimeSlice(Base):
     is_productive: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relacionamentos
-    vehicle = relationship("Vehicle")
+    machine = relationship("Machine")
     session = relationship("ProductionSession", back_populates="time_slices")
     order = relationship("ProductionOrder", back_populates="time_slices")
 
@@ -167,7 +167,7 @@ class ProductionLog(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     
     # Máquina (Obrigatório)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey("machines.id"), nullable=False)
     
     # --- MUDANÇAS AQUI ---
     # 1. ID real do usuário (Para o Link funcionar)
@@ -203,7 +203,7 @@ class AndonAlert(Base):
     __tablename__ = "andon_alerts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey("machines.id"), nullable=False)
     operator_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     
     sector: Mapped[str] = mapped_column(String(50), nullable=False) # Mecânica, Elétrica...
@@ -213,7 +213,7 @@ class AndonAlert(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    vehicle = relationship("Vehicle", back_populates="andon_alerts")
+    machine = relationship("Machine", back_populates="andon_alerts")
     operator = relationship("User")
 
 class ProductionAppointment(Base):
@@ -226,7 +226,7 @@ class ProductionAppointment(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Vínculos
-    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
     # Armazenamos o CRACHÁ (String) ou ID do usuário, conforme sua lógica de negócio
     operator_id = Column(String(50), index=True, nullable=False) 
     
@@ -255,5 +255,5 @@ class ProductionAppointment(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     # Relacionamentos
-    vehicle = relationship("Vehicle")
+    machine = relationship("Machine")
     

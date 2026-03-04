@@ -11,76 +11,9 @@
           Peças de reposição, ferramentas e insumos
         </div>
       </div>
-
-      <div class="col-12 col-md-auto">
-        <div class="d-inline-block relative-position">
-          <q-btn 
-            color="primary" 
-            icon="add_box" 
-            label="Cadastrar Material" 
-            size="md"
-            unelevated 
-            class="shadow-2"
-            @click="openDialog()"
-            :disable="isLimitReached"
-          />
-          <q-tooltip 
-            v-if="isLimitReached" 
-            class="bg-negative text-body2 shadow-4" 
-            anchor="bottom middle" 
-            self="top middle"
-            :offset="[10, 10]"
-          >
-            <div class="row items-center no-wrap">
-                <q-icon name="lock" size="sm" class="q-mr-sm" />
-                <div>
-                    <div class="text-weight-bold">Limite do Plano Demo</div>
-                    <div class="text-caption">Máximo de {{ demoUsageLimitLabel }} materiais.</div>
-                    <div class="text-caption q-mt-xs text-yellow-2 cursor-pointer" @click="showComparisonDialog = true">Saiba mais</div>
-                </div>
-            </div>
-          </q-tooltip>
-        </div>
-      </div>
     </div>
 
-    <div v-if="isDemo" class="q-mb-xl animate-fade">
-      <q-card flat bordered class="demo-card-gradient">
-        <q-card-section class="q-pa-md">
-          <div class="row items-center justify-between">
-            <div class="col-grow row items-center q-gutter-x-md">
-              <q-circular-progress
-                show-value
-                font-size="14px"
-                :value="usagePercentage"
-                size="60px"
-                :thickness="0.22"
-                :color="usageColor"
-                track-color="white"
-                class="text-white q-my-xs"
-              >
-                {{ usagePercentage }}%
-              </q-circular-progress>
-              
-              <div>
-                <div class="text-subtitle2 text-uppercase text-white text-opacity-80">Capacidade do Almoxarifado</div>
-                <div class="text-h4 text-white text-weight-bold">
-                  {{ demoUsageCount }} <span class="text-h6 text-white text-opacity-70">/ {{ demoUsageLimitLabel }} Itens</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-auto">
-               <q-btn flat dense color="white" icon="info" round>
-                 <q-tooltip>Você utilizou {{ usagePercentage }}% da cota de cadastro de materiais.</q-tooltip>
-               </q-btn>
-            </div>
-          </div>
-          <q-linear-progress :value="usagePercentage / 100" class="q-mt-md rounded-borders" color="white" track-color="white-30" />
-        </q-card-section>
-      </q-card>
-    </div>
-
+      
     <div class="row q-col-gutter-md q-mb-lg">
         <div class="col-12 col-md-4">
             <q-card flat bordered class="full-height" :class="$q.dark.isActive ? '' : 'bg-white'">
@@ -251,53 +184,7 @@
       </q-table>
     </q-card>
 
-    <q-dialog v-model="showComparisonDialog">
-      <q-card style="width: 750px; max-width: 95vw;" :class="$q.dark.isActive ? '' : 'bg-white'">
-        <q-card-section class="bg-primary text-white q-py-lg text-center relative-position overflow-hidden">
-          <div class="absolute-full bg-white opacity-10" style="transform: skewY(-5deg) scale(1.5);"></div>
-          <q-icon name="inventory" size="4em" class="q-mb-sm" />
-          <div class="text-h4 text-weight-bold relative-position">Gestão Profissional de Materiais</div>
-          <div class="text-subtitle1 text-blue-2 relative-position">Controle total do almoxarifado sem limites</div>
-        </q-card-section>
-
-        <q-card-section class="q-pa-none">
-          <q-markup-table flat :dark="$q.dark.isActive" :class="$q.dark.isActive ? 'bg-transparent' : ''">
-            <thead>
-              <tr :class="$q.dark.isActive ? 'bg-grey-8' : 'bg-grey-1 text-grey-7'">
-                <th class="text-left q-pa-md text-uppercase text-caption">Recurso</th>
-                <th class="text-center text-weight-bold q-pa-md bg-amber-1 text-amber-9 border-left">Plano Demo</th>
-                <th class="text-center text-weight-bold q-pa-md text-primary bg-blue-1">Plano PRO</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="category" color="grey-6" size="xs" /> SKUs (Part Numbers)</td>
-                <td class="text-center bg-amber-1 text-amber-10">Até {{ demoUsageLimitLabel }}</td>
-                <td class="text-center text-primary text-weight-bold bg-blue-1"><q-icon name="check_circle" /> Ilimitado</td>
-              </tr>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="qr_code" color="grey-6" size="xs" /> Rastreabilidade Serial</td>
-                <td class="text-center bg-amber-1 text-amber-10">Básica</td>
-                <td class="text-center text-primary text-weight-bold bg-blue-1"><q-icon name="check_circle" /> Completa</td>
-              </tr>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="history" color="grey-6" size="xs" /> Histórico (Kardex)</td>
-                <td class="text-center bg-amber-1 text-amber-10">Últimos 7 dias</td>
-                <td class="text-center text-primary text-weight-bold bg-blue-1"><q-icon name="check_circle" /> Vitalício</td>
-              </tr>
-            </tbody>
-          </q-markup-table>
-        </q-card-section>
-
-        <q-card-actions align="center" class="q-pa-lg" :class="$q.dark.isActive ? 'bg-grey-10' : 'bg-grey-1'">
-          <div class="column items-center full-width q-gutter-y-md">
-            <div class="text-h6 text-weight-bold">Sua operação precisa de mais controle?</div>
-            <q-btn color="positive" label="Falar com Consultor" size="lg" unelevated icon="whatsapp" class="full-width shadow-2" />
-            <q-btn flat color="grey-7" label="Continuar no Demo" v-close-popup />
-          </div>
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+    
 
     <q-dialog v-model="isDialogOpen" persistent>
       <q-card style="width: 750px; max-width: 95vw;" :class="$q.dark.isActive ? '' : ''">
@@ -413,7 +300,6 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useQuasar, type QTableProps } from 'quasar';
 import { usePartStore, type PartCreatePayload } from 'stores/part-store';
-import { useDemoStore } from 'stores/demo-store';
 import { useAuthStore } from 'stores/auth-store';
 import type { Part, PartCategory } from 'src/models/part-models';
 import ManageStockDialog from 'components/ManageStockDialog.vue';
@@ -435,9 +321,6 @@ function getImageUrl(url: string | null | undefined): string | undefined {
 
 const $q = useQuasar();
 const partStore = usePartStore();
-const authStore = useAuthStore();
-const demoStore = useDemoStore();
-
 const isDialogOpen = ref(false);
 const isStockDialogOpen = ref(false);
 const isHistoryDialogOpen = ref(false);
@@ -450,34 +333,6 @@ const photoFile = ref<File | null>(null);
 const photoPreview = ref<string | null>(null);
 const invoiceFile = ref<File | null>(null);
 
-const isDemo = computed(() => authStore.user?.role === 'cliente_demo');
-const showComparisonDialog = ref(false);
-
-const demoUsageCount = computed(() => demoStore.stats?.part_count ?? 0);
-const demoUsageLimit = computed(() => demoStore.stats?.part_limit ?? authStore.user?.organization?.part_limit ?? 15);
-const demoUsageLimitLabel = computed(() => {
-    const limit = demoUsageLimit.value;
-    return (limit === undefined || limit === null || limit < 0) ? 'Ilimitado' : limit.toString();
-});
-
-const isLimitReached = computed(() => {
-  if (!isDemo.value) return false;
-  const limit = demoUsageLimit.value;
-  if (limit === undefined || limit === null || limit < 0) return false;
-  return demoUsageCount.value >= limit;
-});
-
-const usagePercentage = computed(() => {
-  if (!isDemo.value || demoUsageLimit.value <= 0) return 0;
-  const pct = Math.round((demoUsageCount.value / demoUsageLimit.value) * 100);
-  return Math.min(pct, 100);
-});
-
-const usageColor = computed(() => {
-  if (usagePercentage.value >= 100) return 'red-4';
-  if (usagePercentage.value >= 80) return 'orange-4';
-  return 'white';
-});
 
 // KPIs
 const totalInventoryValue = computed(() => {
@@ -606,10 +461,7 @@ async function handleSubmit() {
   if (success) {
     isDialogOpen.value = false;
     resetForm();
-    if (authStore.isDemo && !isEditing.value) {
-        void demoStore.fetchDemoStats(true);
-    }
-  }
+      }
 }
 
 function confirmDelete(part: Part) {
@@ -632,27 +484,18 @@ function confirmDelete(part: Part) {
   }).onOk(() => {
     void (async () => {
       await partStore.deletePart(part.id);
-      if (authStore.isDemo) { 
-          await demoStore.fetchDemoStats(true); 
-      }
-    })();
+          })();
   });
 }
 
 onMounted(() => {
   void partStore.fetchParts();
-  if (authStore.isDemo) {
-    void demoStore.fetchDemoStats();
-  }
+  
 });
 </script>
 
 <style scoped lang="scss">
-.demo-card-gradient {
-  background: linear-gradient(135deg, var(--q-primary) 0%, darken($primary, 20%) 100%);
-  border: none;
-  border-radius: 12px;
-}
+
 .opacity-80 { opacity: 0.8; }
 .search-input { width: 300px; @media (max-width: 599px) { width: 100%; } }
 </style>

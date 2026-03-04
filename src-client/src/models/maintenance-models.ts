@@ -1,9 +1,7 @@
-// src-client/src/models/maintenance-models.ts
-
 import type { User } from './auth-models';
-import type { Vehicle } from './vehicle-models';
+import type { Machine as Machine } from './machine-models';
 import type { InventoryItemStatus } from './inventory-item-models';
-import type { VehicleComponent } from './vehicle-component-models';
+import type { MachineComponent } from './machine-component-models';
 
 export enum MaintenanceStatus {
   PENDENTE = 'PENDENTE',
@@ -15,9 +13,9 @@ export enum MaintenanceStatus {
 
 export enum MaintenanceCategory {
   MECHANICAL = 'Mecânica',
-  ELECTRICAL = 'Elétrica',   // Verifique se está com acento
-  HYDRAULIC = 'Hidráulica',  // Verifique se está com acento
-  PNEUMATIC = 'Pneumática',  // Verifique se está com acento
+  ELECTRICAL = 'Elétrica',  
+  HYDRAULIC = 'Hidráulica',  
+  PNEUMATIC = 'Pneumática',  
   BODYWORK = 'Funilaria',
   OTHER = 'Outro'
 }
@@ -47,8 +45,8 @@ export interface MaintenancePartChangePublic {
   timestamp: string;
   user: User;
   notes: string | null;
-  component_removed: VehicleComponent | null;
-  component_installed: VehicleComponent;
+  component_removed: MachineComponent | null;
+  component_installed: MachineComponent;
   is_reverted: boolean;
 }
 
@@ -66,7 +64,6 @@ export interface InstallComponentResponse {
   new_comment: MaintenanceComment;
 }
 
-// --- ADICIONADO ---
 export interface MaintenanceServiceItem {
   id: number;
   description: string;
@@ -84,7 +81,6 @@ export interface MaintenanceServiceItemCreate {
   notes?: string | null;
   item_type: string;
 }
-// --- FIM DA ADIÇÃO ---
 
 export interface MaintenanceRequest {
   id: number;
@@ -92,7 +88,7 @@ export interface MaintenanceRequest {
   status: MaintenanceStatus;
   category: MaintenanceCategory;
   reporter: User | null;
-  vehicle: Vehicle;
+  machine: Machine;
   approver: User | null;
   manager_notes: string | null;
   created_at: string;
@@ -100,11 +96,11 @@ export interface MaintenanceRequest {
   comments: MaintenanceComment[];
   part_changes: MaintenancePartChangePublic[];
   maintenance_type: 'PREVENTIVA' | 'CORRETIVA'; 
-  services: MaintenanceServiceItem[]; // <-- Adicionado anteriormente
+  services: MaintenanceServiceItem[];
 }
 
 export interface MaintenanceRequestCreate {
-  vehicle_id: number;
+  machine_id: number;
   problem_description: string;
   category: MaintenanceCategory;
   maintenance_type?: 'PREVENTIVA' | 'CORRETIVA';
@@ -113,7 +109,7 @@ export interface MaintenanceRequestCreate {
 export interface MaintenanceRequestUpdate {
   status: MaintenanceStatus;
   manager_notes?: string | null;
-  next_maintenance_date?: string | null; // Formato YYYY-MM-DD
+  next_maintenance_date?: string | null; 
   next_maintenance_km?: number | null;
 }
 

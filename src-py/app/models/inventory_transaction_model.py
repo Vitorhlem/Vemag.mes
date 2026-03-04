@@ -36,7 +36,7 @@ class InventoryTransaction(Base):
     transaction_type = Column(SAEnum(TransactionType), nullable=False)
     
     notes = Column(Text, nullable=True)
-    related_vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    related_machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
     related_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -51,8 +51,8 @@ class InventoryTransaction(Base):
         back_populates="inventory_transactions_performed"
     )
     
-    related_vehicle = relationship(
-        "Vehicle", 
+    related_machine = relationship(
+        "Machine", 
         back_populates="inventory_transactions"
     )
     
@@ -62,8 +62,8 @@ class InventoryTransaction(Base):
         back_populates="inventory_transactions_received"
     )
 
-    vehicle_component = relationship(
-        "VehicleComponent", 
+    machine_component = relationship(
+        "MachineComponent", 
         back_populates="inventory_transaction", 
         uselist=False
     )

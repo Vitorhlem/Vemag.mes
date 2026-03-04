@@ -8,8 +8,8 @@
       <q-card-section>
         <q-form @submit="onSubmit">
           <q-select
-            v-model="form.vehicle_id"
-            :options="vehicleOptions"
+            v-model="form.machine_id"
+            :options="machineOptions"
             label="Máquina / Equipamento *"
             option-value="id"
             option-label="identifier"
@@ -67,28 +67,28 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { useVehicleStore } from 'stores/vehicle-store';
+import { useMachineStore } from 'stores/machine-store';
 import { useMaintenanceStore } from 'stores/maintenance-store';
 import { MaintenanceCategory } from 'src/models/maintenance-models';
 
 const props = defineProps<{
   modelValue: boolean;
-  preSelectedVehicleId?: number | null;
+  preSelectedMachineId?: number | null;
   maintenanceType?: 'PREVENTIVA' | 'CORRETIVA';
 }>();
 
 const emit = defineEmits(['update:modelValue', 'request-created']);
 
-const vehicleStore = useVehicleStore();
+const machineStore = useMachineStore();
 const maintenanceStore = useMaintenanceStore();
 
 const loading = ref(false);
 
-interface VehicleOption {
+interface MachineOption {
   id: number;
   identifier: string;
 }
-const vehicleOptions = ref<VehicleOption[]>([]);
+const machineOptions = ref<MachineOption[]>([]);
 
 // Categorias Industriais
 const categoryOptions = [
@@ -99,15 +99,15 @@ const categoryOptions = [
 ];
 
 const form = ref({
-  vehicle_id: null as number | null,
+  machine_id: null as number | null,
   problem_description: '',
   category: MaintenanceCategory.MECHANICAL,
   maintenance_type: 'CORRETIVA' as string
 });
 
 onMounted(async () => {
-  await vehicleStore.fetchAllVehicles({ rowsPerPage: 100 });
-  vehicleOptions.value = vehicleStore.vehicles.map(v => ({
+  await machineStore.fetchAllMachines({ rowsPerPage: 100 });
+  machineOptions.value = machineStore.machines.map(v => ({
     id: v.id,
     identifier: `${v.brand} ${v.model} (Tag: ${v.license_plate || v.identifier || 'N/A'})`
   }));
@@ -115,10 +115,10 @@ onMounted(async () => {
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    if (props.preSelectedVehicleId) {
-      form.value.vehicle_id = props.preSelectedVehicleId;
+    if (props.preSelectedMachineId) {
+      form.value.machine_id = props.preSelectedMachineId;
     } else {
-      form.value.vehicle_id = null;
+      form.value.machine_id = null;
     }
     form.value.maintenance_type = props.maintenanceType || 'CORRETIVA';
     
@@ -132,11 +132,11 @@ watch(() => props.modelValue, (isOpen) => {
 });
 
 async function onSubmit() {
-  if (!form.value.vehicle_id) return;
+  if (!form.value.machine_id) return;
   
   loading.value = true;
   const success = await maintenanceStore.createRequest({
-    vehicle_id: form.value.vehicle_id,
+    machine_id: form.value.machine_id,
     problem_description: form.value.problem_description,
     category: form.value.category,
     // CORREÇÃO: Envia o tipo selecionado (Preventiva/Corretiva) para o Backend

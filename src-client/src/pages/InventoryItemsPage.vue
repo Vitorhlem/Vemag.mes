@@ -17,21 +17,18 @@
             icon="file_download" 
             label="Exportar Relatório" 
             @click="exportTable"
-            :disable="isDemo"
+
          />
       </div>
     </div>
 
-    <q-card flat bordered class="q-mb-lg relative-position overflow-hidden" v-if="isDemo">
+    <q-card flat bordered class="q-mb-lg relative-position overflow-hidden">
       <div 
         class="absolute-full z-top flex flex-center column" 
         :style="$q.dark.isActive ? 'background: rgba(0,0,0,0.8)' : 'background: rgba(255,255,255,0.8)'"
         style="cursor: not-allowed; backdrop-filter: blur(3px);"
       >
         <q-icon name="lock_person" size="4em" color="primary" class="q-mb-sm" />
-        <div class="text-h6 text-weight-bold">Rastreabilidade Avançada Bloqueada</div>
-        <div class="text-caption q-mb-md text-center" style="max-width: 400px">
-            O Plano Demo oferece uma visão limitada. Para auditar status e filtrar por serial, faça o upgrade para o <strong>Plano PRO</strong>.
         </div>
         <q-btn 
           color="primary" 
@@ -41,11 +38,7 @@
           @click="showFilterUpgradeDialog"
           class="shadow-3"
         />
-      </div>
 
-      <div class="column blur-content">
-          <div class="q-pa-md text-center text-grey">Dados ocultos no modo demonstração.</div>
-      </div>
     </q-card>
 
     <q-card flat bordered class="q-mb-md" :class="$q.dark.isActive ? '' : 'bg-white'">
@@ -144,11 +137,11 @@
           </q-td>
         </template>
         
-        <template v-slot:body-cell-vehicle="props">
+        <template v-slot:body-cell-machine="props">
           <q-td :props="props">
             <router-link 
                 v-if="props.value" 
-                :to="{ name: 'vehicle-details', params: { id: props.value.id } }" 
+                :to="{ name: 'machine-details', params: { id: props.value.id } }" 
                 class="link-hover flex items-center text-grey-9 no-wrap" 
                 :class="$q.dark.isActive ? 'text-white' : ''"
                 style="text-decoration: none; max-width: 200px;"
@@ -197,7 +190,6 @@ const $q = useQuasar();
 const partStore = usePartStore();
 const authStore = useAuthStore();
 
-const isDemo = computed(() => authStore.user?.role === 'cliente_demo');
 
 function showFilterUpgradeDialog() {
   $q.dialog({
@@ -212,7 +204,7 @@ const filters = ref({
   search: null as string | null,
   status: '' as InventoryItemStatus | '' | null,
   partId: null as number | null,
-  vehicleId: null as number | null
+  machineId: null as number | null
 });
 
 const pagination = ref({
@@ -226,7 +218,7 @@ const pagination = ref({
 const columns: QTableProps['columns'] = [
   { name: 'item_identifier', label: 'Serial / ID Único', field: 'item_identifier', align: 'left', sortable: true, style: 'width: 140px' },
   { name: 'part_name', label: 'Material', field: (row) => row.part.name, align: 'left', sortable: true },
-  { name: 'vehicle', label: 'Localização Atual', field: 'installed_on_vehicle', align: 'left', sortable: false },
+  { name: 'machine', label: 'Localização Atual', field: 'installed_on_machine', align: 'left', sortable: false },
   { name: 'status', label: 'Situação', field: 'status', align: 'center', sortable: true, style: 'width: 120px' },
   { name: 'created_at', label: 'Cadastro', field: 'created_at', align: 'right', sortable: true, format: (val: string) => new Date(val).toLocaleDateString(), style: 'width: 120px' },
   { name: 'actions', label: 'Ações', field: 'id', align: 'center', style: 'width: 100px' },
@@ -243,7 +235,7 @@ async function fetchTableData() {
     rowsPerPage: pagination.value.rowsPerPage,
     status: filters.value.status || null,
     partId: filters.value.partId,
-    vehicleId: filters.value.vehicleId,
+    machineId: filters.value.machineId,
     search: filters.value.search,
     userId: technicalUserId, // <-- PASSA O ID PARA A STORE
   });
@@ -260,16 +252,12 @@ const onTableRequest: QTableProps['onRequest'] = (props) => {
 };
 
 function refreshTable() {
-  if (isDemo.value) return;
   pagination.value.page = 1;
   void fetchTableData();
 }
 
 function exportTable() {
-    if (isDemo.value) {
-        showFilterUpgradeDialog();
-        return;
-    }
+
     const content = [
       ['ID', 'Nome', 'Serial', 'Status', 'Máquina'].join(';'),
       ...partStore.masterItemList.map(row => [
@@ -277,7 +265,7 @@ function exportTable() {
         `"${row.part.name}"`,
         row.item_identifier,
         row.status,
-        row.installed_on_vehicle ? row.installed_on_vehicle.license_plate : 'Almoxarifado'
+        row.installed_on_machine ? row.installed_on_machine.license_plate : 'Almoxarifado'
       ].join(';'))
     ].join('\r\n');
 
@@ -286,11 +274,9 @@ function exportTable() {
 }
 
 watch(filters, () => {
-  if (!isDemo.value) refreshTable();
 }, { deep: true });
 
 onMounted(() => {
-  if (!isDemo.value) void fetchTableData();
 });
 
 function statusColor(status: InventoryItemStatus): string {

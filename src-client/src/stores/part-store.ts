@@ -60,7 +60,7 @@ export const usePartStore = defineStore('part', {
       status?: InventoryItemStatus | null,
       userId?: number; 
       partId?: number | null,
-      vehicleId?: number | null,
+      machineId?: number | null,
       search?: string | null 
     }) {
       this.isMasterListLoading = true;
@@ -70,7 +70,7 @@ export const usePartStore = defineStore('part', {
           limit: options.rowsPerPage,
           status: options.status || undefined,
           part_id: options.partId || undefined,
-          vehicle_id: options.vehicleId || undefined,
+          machine_id: options.machineId || undefined,
           search: options.search || undefined,
           user_id: options.userId || undefined, // <-- ADICIONE ESTA LINHA PARA ENVIAR À API
         };
@@ -196,10 +196,10 @@ export const usePartStore = defineStore('part', {
       }
     },
 
-    async setItemStatus(partId: number, itemId: number, newStatus: InventoryItemStatus, vehicleId?: number, notes?: string): Promise<boolean> {
+    async setItemStatus(partId: number, itemId: number, newStatus: InventoryItemStatus, machineId?: number, notes?: string): Promise<boolean> {
       this.isLoading = true;
       try {
-        const payload = { new_status: newStatus, related_vehicle_id: vehicleId, notes };
+        const payload = { new_status: newStatus, related_machine_id: machineId, notes };
         await api.put(`/parts/items/${itemId}/set-status`, payload);
         
         Notify.create({ type: 'positive', message: 'Status do item atualizado com sucesso!' });

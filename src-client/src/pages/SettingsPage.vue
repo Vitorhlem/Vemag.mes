@@ -192,40 +192,7 @@
               </q-list>
             </q-tab-panel>
 
-            <q-tab-panel name="organization" class="q-pa-lg" v-if="authStore.isManager">
-              <div class="row items-center justify-between q-mb-md">
-                <div>
-                  <div class="text-h6">Planta Industrial</div>
-                  <p class="text-grey-6">Dados da unidade fabril.</p>
-                </div>
-                <q-btn v-if="isDemo" label="Ativar Licença Full" color="amber-9" icon="star" unelevated @click="showUpgradeDialog" />
-              </div>
-
-              <q-form @submit.prevent="handleUpdateOrg" class="q-gutter-y-md">
-                <div class="row q-col-gutter-md">
-                  <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.name" label="Nome da Planta / Unidade" :readonly="isDemo" />
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <q-input outlined v-model="orgForm.cnpj" label="CNPJ / ID Fiscal" mask="##.###.###/####-##" :readonly="isDemo" />
-                  </div>
-                  <div class="col-12">
-                    <q-input outlined v-model="orgForm.address" label="Localização" :readonly="isDemo" />
-                  </div>
-                </div>
-                <div class="text-right">
-                  <q-btn 
-                    type="submit" 
-                    label="Salvar Dados" 
-                    color="primary" 
-                    unelevated 
-                    :loading="isSavingOrg" 
-                    :disable="isDemo" 
-                  />
-                </div>
-              </q-form>
-            </q-tab-panel>
-
+            
             <q-tab-panel name="integrations" class="q-pa-lg" v-if="authStore.isManager">
               <div class="text-h6 q-mb-xs">Integrações ERP & IoT</div>
               <p class="text-grey-6 q-mb-lg">Conecte o TruMachine aos seus sistemas corporativos.</p>
@@ -320,7 +287,6 @@ const settingsStore = useSettingsStore();
 const userStore = useUserStore();
 
 const currentTab = ref('account');
-const isDemo = computed(() => authStore.isDemo);
 
 // --- UTILITÁRIOS ---
 function getAvatarUrl(url: string | null | undefined): string {
@@ -506,13 +472,6 @@ async function handleUpdateOrg() {
   }
 }
 
-function showUpgradeDialog() {
-  $q.dialog({
-    title: 'Licença Enterprise',
-    message: 'Contate o suporte para remover os limites de demonstração.',
-    ok: { label: 'OK', flat: true }
-  });
-}
 
 // --- INTEGRAÇÃO SAP (NOVO CÓDIGO) ---
 const isSyncingSap = ref(false);

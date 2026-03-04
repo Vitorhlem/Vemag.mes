@@ -27,9 +27,9 @@ class Alert(Base):
     longitude = Column(Float, nullable=True)
 
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    machine_id = Column(Integer, ForeignKey("machines.id"), nullable=True)
     driver_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     organization = relationship("Organization", back_populates="alerts")
-    vehicle = relationship("Vehicle", back_populates="alerts")
+    machine = relationship("Machine", back_populates="alerts")
     driver = relationship("User", back_populates="alerts")

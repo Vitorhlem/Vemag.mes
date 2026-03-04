@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import date, timedelta
 
 from app.models.document_model import Document
-from app.models.vehicle_model import Vehicle
+from app.models.machine_model import Machine
 from app.models.user_model import User
 from app.schemas.document_schema import DocumentCreate, DocumentUpdate, DocumentPublic
 
@@ -51,7 +51,7 @@ async def get_multi_by_org(
     stmt = (
         select(Document)
         .where(Document.organization_id == organization_id)
-        .options(selectinload(Document.vehicle), selectinload(Document.driver))
+        .options(selectinload(Document.machine), selectinload(Document.driver))
         .order_by(Document.expiry_date.asc())
     )
 
@@ -74,8 +74,8 @@ async def get_multi_by_org(
     response_documents = []
     for doc in documents:
         doc_public = DocumentPublic.from_orm(doc)
-        if doc.vehicle:
-            doc_public.owner_info = f"Veículo: {doc.vehicle.license_plate or doc.vehicle.identifier}"
+        if doc.machine:
+            doc_public.owner_info = f"Veículo: {doc.machine.license_plate or doc.machine.identifier}"
         elif doc.driver:
             doc_public.owner_info = f"Motorista: {doc.driver.full_name}"
         response_documents.append(doc_public)

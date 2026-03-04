@@ -5,7 +5,7 @@
       <div class="col-12 col-md-auto">
         <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
           <q-icon name="precision_manufacturing" size="md" class="text-primary" />
-          {{ terminologyStore.vehiclePageTitle }}
+          {{ terminologyStore.machinePageTitle }}
         </h1>
         <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
           Gestão de Ativos, CNCs e Equipamentos Industriais
@@ -35,12 +35,12 @@
           class="glass-toggle"
         />
         
-        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" :label="terminologyStore.addVehicleButtonLabel" unelevated class="q-ml-sm shadow-green" />
+        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" :label="terminologyStore.addMachineButtonLabel" unelevated class="q-ml-sm shadow-green" />
       </div>
     </div>
 
-    <div v-if="vehicleStore.isLoading" class="row justify-center q-py-xl"><q-spinner-dots size="3em" color="primary" /></div>
-    <div v-else-if="!hasVehicles" class="text-center q-pa-xl text-grey-6 glass-card opacity-60">
+    <div v-if="machineStore.isLoading" class="row justify-center q-py-xl"><q-spinner-dots size="3em" color="primary" /></div>
+    <div v-else-if="!hasMachines" class="text-center q-pa-xl text-grey-6 glass-card opacity-60">
         <q-icon name="precision_manufacturing" size="4em" />
         <div class="text-h6 q-mt-md">Nenhuma máquina encontrada</div>
     </div>
@@ -49,7 +49,7 @@
       
       <div v-if="viewMode === 'folders'" class="q-gutter-y-md animate-fade">
         <q-expansion-item 
-          v-for="(machines, brandName) in groupedVehicles" 
+          v-for="(machines, brandName) in groupedMachines" 
           :key="brandName" 
           class="shadow-1 overflow-hidden glass-card rounded-borders" 
           header-class="bg-glass-header text-primary text-weight-bold" 
@@ -64,38 +64,38 @@
           <q-card class="bg-transparent">
             <q-card-section class="q-pa-none">
               <q-list separator class="glass-separator">
-                <q-item v-for="vehicle in machines" :key="vehicle.id" clickable v-ripple @click="handleCardClick(vehicle)" class="hover-bg-teal transition-bg">
+                <q-item v-for="machine in machines" :key="machine.id" clickable v-ripple @click="handleCardClick(machine)" class="hover-bg-teal transition-bg">
                   <q-item-section avatar>
                     <q-avatar rounded size="50px" class="shadow-1">
-                      <img v-if="getImageUrl(vehicle.photo_url)" :src="getImageUrl(vehicle.photo_url)!" style="object-fit: cover">
+                      <img v-if="getImageUrl(machine.photo_url)" :src="getImageUrl(machine.photo_url)!" style="object-fit: cover">
                       <q-icon v-else name="precision_manufacturing" color="grey-5" size="28px" class="bg-grey-2 full-width full-height" />
                     </q-avatar>
                   </q-item-section>
                   <q-item-section>
                     <div class="row items-center q-gutter-x-sm">
-                        <span class="text-weight-bold text-grey-9 vehicle-title">{{ vehicle.model }}</span>
-                        <q-badge outline color="primary" size="sm" class="glass-badge-outline">{{ vehicle.year }}</q-badge>
+                        <span class="text-weight-bold text-grey-9 machine-title">{{ machine.model }}</span>
+                        <q-badge outline color="primary" size="sm" class="glass-badge-outline">{{ machine.year }}</q-badge>
                     </div>
                     <q-item-label caption class="row items-center q-gutter-x-xs q-mt-xs text-grey-7">
-                      <q-icon name="qr_code" size="xs" /><span>{{ vehicle.identifier || 'S/N' }}</span>
+                      <q-icon name="qr_code" size="xs" /><span>{{ machine.identifier || 'S/N' }}</span>
                       <span class="text-grey-5">|</span>
-                      <q-icon name="speed" size="xs" /><span>{{ (vehicle.current_engine_hours || 0).toFixed(1) }} h</span>
-                      <span v-if="vehicle.sap_resource_code" class="text-primary text-weight-bold q-ml-sm">
-                         [SAP: {{ vehicle.sap_resource_code }}]
+                      <q-icon name="speed" size="xs" /><span>{{ (machine.current_engine_hours || 0).toFixed(1) }} h</span>
+                      <span v-if="machine.sap_resource_code" class="text-primary text-weight-bold q-ml-sm">
+                         [SAP: {{ machine.sap_resource_code }}]
                       </span>
                     </q-item-label>
                     
                     <div class="q-mt-xs" style="max-width: 180px">
                         <div class="row justify-between text-caption" style="font-size: 10px; line-height: 10px">
                           <span class="text-grey-7">Manutenção</span>
-                          <span :class="'text-weight-bold text-' + getMaintenanceColor(vehicle)">
-                             {{ getHoursRemaining(vehicle) }}h rest.
+                          <span :class="'text-weight-bold text-' + getMaintenanceColor(machine)">
+                             {{ getHoursRemaining(machine) }}h rest.
                           </span>
                         </div>
                         <q-linear-progress 
-                            :value="getMaintenanceProgress(vehicle)" 
+                            :value="getMaintenanceProgress(machine)" 
                             rounded size="4px" 
-                            :color="getMaintenanceColor(vehicle)" 
+                            :color="getMaintenanceColor(machine)" 
                             track-color="grey-3" 
                             class="q-mt-xs glass-progress" 
                         />
@@ -103,8 +103,8 @@
                   </q-item-section>
                   <q-item-section side>
                     <div class="row items-center q-gutter-x-sm">
-                        <q-chip dense :color="getStatusColor(vehicle.status)" text-color="white" class="text-caption text-weight-bold shadow-1">{{ translateStatusShort(vehicle.status) }}</q-chip>
-                        <q-btn flat round dense icon="edit" color="grey-7" @click.stop="openEditDialog(vehicle)" />
+                        <q-chip dense :color="getStatusColor(machine.status)" text-color="white" class="text-caption text-weight-bold shadow-1">{{ translateStatusShort(machine.status) }}</q-chip>
+                        <q-btn flat round dense icon="edit" color="grey-7" @click.stop="openEditDialog(machine)" />
                     </div>
                   </q-item-section>
                 </q-item>
@@ -115,43 +115,43 @@
       </div>
 
       <div v-else class="row q-col-gutter-md animate-fade">
-        <div v-for="vehicle in filteredList" :key="vehicle.id" class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
-          <q-card class="column no-wrap full-height vehicle-card glass-card" flat bordered @click="handleCardClick(vehicle)">
+        <div v-for="machine in filteredList" :key="machine.id" class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
+          <q-card class="column no-wrap full-height machine-card glass-card" flat bordered @click="handleCardClick(machine)">
             <div class="relative-position">
-              <q-img :src="getImageUrl(vehicle.photo_url) ?? undefined" height="180px" fit="cover" class="bg-grey-3">
+              <q-img :src="getImageUrl(machine.photo_url) ?? undefined" height="180px" fit="cover" class="bg-grey-3">
                 <template v-slot:error><div class="absolute-full flex flex-center bg-grey-3 text-grey-5"><q-icon name="precision_manufacturing" size="56px" /></div></template>
                 <div class="absolute-bottom text-subtitle2 text-white p-2" style="background: linear-gradient(to top, rgba(5,20,18,0.9), transparent);">
-                    <div class="text-weight-bold">{{ vehicle.identifier || 'Sem ID' }}</div>
+                    <div class="text-weight-bold">{{ machine.identifier || 'Sem ID' }}</div>
                 </div>
               </q-img>
-              <q-badge :color="getStatusColor(vehicle.status)" class="absolute-top-right q-ma-sm shadow-2">{{ translateStatus(vehicle.status) }}</q-badge>
+              <q-badge :color="getStatusColor(machine.status)" class="absolute-top-right q-ma-sm shadow-2">{{ translateStatus(machine.status) }}</q-badge>
             </div>
 
             <q-card-section class="col q-pb-none">
               <div class="row justify-between items-start">
                   <div>
-                      <div class="text-overline text-grey-7">{{ vehicle.brand }}</div>
-                      <div class="text-h6 text-weight-bold ellipsis text-teal-10">{{ vehicle.model }}</div>
-                      <div v-if="vehicle.sap_resource_code" class="text-caption text-primary text-weight-bold">
-                        SAP: {{ vehicle.sap_resource_code }}
+                      <div class="text-overline text-grey-7">{{ machine.brand }}</div>
+                      <div class="text-h6 text-weight-bold ellipsis text-teal-10">{{ machine.model }}</div>
+                      <div v-if="machine.sap_resource_code" class="text-caption text-primary text-weight-bold">
+                        SAP: {{ machine.sap_resource_code }}
                       </div>
                   </div>
-                  <q-btn round flat icon="qr_code_2" size="sm" color="primary" @click.stop="openQrDialog(vehicle)" />
+                  <q-btn round flat icon="qr_code_2" size="sm" color="primary" @click.stop="openQrDialog(machine)" />
               </div>
             </q-card-section>
 
             <q-card-section class="q-py-sm">
                 <div class="row items-center justify-between text-caption text-grey-7 q-mb-xs">
                     <span>Prox. Revisão</span>
-                    <span :class="'text-weight-bold text-' + getMaintenanceColor(vehicle)">
-                        {{ getHoursRemaining(vehicle) }}h restantes
+                    <span :class="'text-weight-bold text-' + getMaintenanceColor(machine)">
+                        {{ getHoursRemaining(machine) }}h restantes
                     </span>
                 </div>
                 <q-linear-progress 
-                    :value="1 - getMaintenanceProgress(vehicle)" 
+                    :value="1 - getMaintenanceProgress(machine)" 
                     rounded 
                     size="8px" 
-                    :color="getMaintenanceColor(vehicle)" 
+                    :color="getMaintenanceColor(machine)" 
                     track-color="red-1"
                     class="q-mb-sm glass-progress"
                 />
@@ -162,13 +162,13 @@
                   <div class="col-6">
                     <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
                       <div class="text-caption text-grey-6 text-uppercase">Horímetro</div>
-                      <div class="text-weight-bold text-primary">{{ (vehicle.current_engine_hours || 0).toFixed(0) }} h</div>
+                      <div class="text-weight-bold text-primary">{{ (machine.current_engine_hours || 0).toFixed(0) }} h</div>
                     </div>
                   </div>
                   <div class="col-6">
                     <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
                       <div class="text-caption text-grey-6 text-uppercase">Meta (h)</div>
-                      <div class="text-weight-bold text-grey-8">{{ vehicle.next_maintenance_km ? vehicle.next_maintenance_km.toFixed(0) : '--' }}</div>
+                      <div class="text-weight-bold text-grey-8">{{ machine.next_maintenance_km ? machine.next_maintenance_km.toFixed(0) : '--' }}</div>
                     </div>
                   </div>
                 </div>
@@ -176,8 +176,8 @@
             
             <q-separator class="glass-separator" />
             <q-card-actions align="right" class="q-px-md">
-                <q-btn flat round dense size="sm" color="primary" icon="edit" @click.stop="openEditDialog(vehicle)" />
-                <q-btn flat round dense size="sm" color="negative" icon="delete" @click.stop="promptToDelete(vehicle)" />
+                <q-btn flat round dense size="sm" color="primary" icon="edit" @click.stop="openEditDialog(machine)" />
+                <q-btn flat round dense size="sm" color="negative" icon="delete" @click.stop="promptToDelete(machine)" />
             </q-card-actions>
           </q-card>
         </div>
@@ -318,14 +318,14 @@
         <q-card style="width: 350px" class="glass-card-dialog">
             <q-card-section class="bg-primary text-white text-center">
                 <div class="text-h6">Etiqueta de Máquina</div>
-                <div class="text-caption">{{ selectedVehicleForQr?.model }}</div>
+                <div class="text-caption">{{ selectedMachineForQr?.model }}</div>
             </q-card-section>
             <q-card-section class="flex flex-center q-pa-lg">
-                <img v-if="selectedVehicleForQr" :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${getQrData(selectedVehicleForQr)}`" style="width: 200px; height: 200px" class="shadow-2 bg-white q-pa-sm rounded-borders">
+                <img v-if="selectedMachineForQr" :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${getQrData(selectedMachineForQr)}`" style="width: 200px; height: 200px" class="shadow-2 bg-white q-pa-sm rounded-borders">
             </q-card-section>
             <q-card-section class="text-center text-teal-9">
-                <div class="text-weight-bold">{{ selectedVehicleForQr?.identifier }}</div>
-                <div class="text-caption text-grey-7" v-if="selectedVehicleForQr?.sap_resource_code">SAP: {{ selectedVehicleForQr?.sap_resource_code }}</div>
+                <div class="text-weight-bold">{{ selectedMachineForQr?.identifier }}</div>
+                <div class="text-caption text-grey-7" v-if="selectedMachineForQr?.sap_resource_code">SAP: {{ selectedMachineForQr?.sap_resource_code }}</div>
             </q-card-section>
             <q-card-actions align="center" class="q-pb-md"><q-btn label="Fechar" flat v-close-popup color="primary" /></q-card-actions>
         </q-card>
@@ -339,14 +339,14 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar, setCssVar } from 'quasar';
 import { api } from 'boot/axios';
-import { useVehicleStore } from 'stores/vehicle-store';
+import { useMachineStore } from 'stores/machine-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useTerminologyStore } from 'stores/terminology-store';
-import { VehicleStatus, type Vehicle, type VehicleCreate, type VehicleUpdate } from 'src/models/vehicle-models';
+import { MachineStatus, type Machine, type MachineCreate, type MachineUpdate } from 'src/models/machine-models';
 import { format, parse, isValid } from 'date-fns';
 
 const $q = useQuasar();
-const vehicleStore = useVehicleStore();
+const machineStore = useMachineStore();
 const authStore = useAuthStore();
 const terminologyStore = useTerminologyStore();
 const router = useRouter();
@@ -358,9 +358,9 @@ const isFormDialogOpen = ref(false);
 const isQrDialogOpen = ref(false);
 const isSubmitting = ref(false);
 const isUploading = ref(false);
-const editingVehicleId = ref<number | null>(null);
-const selectedVehicleForQr = ref<Vehicle | null>(null);
-const isEditing = computed(() => editingVehicleId.value !== null);
+const editingMachineId = ref<number | null>(null);
+const selectedMachineForQr = ref<Machine | null>(null);
+const isEditing = computed(() => editingMachineId.value !== null);
 const photoFile = ref<File | null>(null);
 
 const currentParams = { page: 1, rowsPerPage: 100, search: '' };
@@ -369,7 +369,7 @@ interface MachineFormData {
     brand: string;
     model: string;
     year: number;
-    status: VehicleStatus;
+    status: MachineStatus;
     license_plate: string | null;
     identifier: string | null;
     sap_resource_code: string | null;
@@ -384,7 +384,7 @@ const formData = ref<MachineFormData>({
     brand: '',
     model: '',
     year: new Date().getFullYear(),
-    status: VehicleStatus.AVAILABLE,
+    status: MachineStatus.AVAILABLE,
     license_plate: '',
     identifier: '',
     sap_resource_code: '', 
@@ -399,7 +399,7 @@ const maintenanceInterval = ref<number>(0);
 
 // --- FILTROS ---
 const filteredList = computed(() => {
-  const all = vehicleStore.vehicles;
+  const all = machineStore.machines;
   if (!searchTerm.value) return all;
   const lower = searchTerm.value.toLowerCase();
   return all.filter(v => 
@@ -410,34 +410,34 @@ const filteredList = computed(() => {
   );
 });
 
-const groupedVehicles = computed(() => {
-  const groups: Record<string, Vehicle[]> = {};
+const groupedMachines = computed(() => {
+  const groups: Record<string, Machine[]> = {};
   const sortedList = [...filteredList.value].sort((a, b) => {
       const brandA = a.brand || 'OUTROS';
       const brandB = b.brand || 'OUTROS';
       return brandA.localeCompare(brandB);
   });
-  sortedList.forEach(vehicle => {
-    const folderName = vehicle.brand ? vehicle.brand.toUpperCase() : 'DIVERSOS';
+  sortedList.forEach(machine => {
+    const folderName = machine.brand ? machine.brand.toUpperCase() : 'DIVERSOS';
     if (!groups[folderName]) groups[folderName] = [];
-    groups[folderName].push(vehicle);
+    groups[folderName].push(machine);
   });
   return groups;
 });
 
-const hasVehicles = computed(() => filteredList.value.length > 0);
+const hasMachines = computed(() => filteredList.value.length > 0);
 
 // --- CÁLCULOS VISUAIS ---
 
-function getHoursRemaining(vehicle: Vehicle) {
-    if (!vehicle.next_maintenance_km || !vehicle.current_engine_hours) return 0;
-    const remaining = vehicle.next_maintenance_km - vehicle.current_engine_hours;
+function getHoursRemaining(machine: Machine) {
+    if (!machine.next_maintenance_km || !machine.current_engine_hours) return 0;
+    const remaining = machine.next_maintenance_km - machine.current_engine_hours;
     return remaining > 0 ? remaining.toFixed(0) : 0;
 }
 
-function getMaintenanceProgress(vehicle: Vehicle) {
-    if (!vehicle.next_maintenance_km || !vehicle.current_engine_hours) return 0;
-    const remaining = vehicle.next_maintenance_km - vehicle.current_engine_hours;
+function getMaintenanceProgress(machine: Machine) {
+    if (!machine.next_maintenance_km || !machine.current_engine_hours) return 0;
+    const remaining = machine.next_maintenance_km - machine.current_engine_hours;
     if (remaining <= 0) return 1;
     
     const visualCycle = 500; 
@@ -448,40 +448,40 @@ function getMaintenanceProgress(vehicle: Vehicle) {
     return progress;
 }
 
-function getMaintenanceColor(vehicle: Vehicle) {
-    const p = getMaintenanceProgress(vehicle);
+function getMaintenanceColor(machine: Machine) {
+    const p = getMaintenanceProgress(machine);
     if (p >= 1) return 'negative';
     if (p > 0.8) return 'warning';
     return 'positive';
 }
 
-const statusTranslationShort: Record<VehicleStatus, string> = {
-    [VehicleStatus.AVAILABLE]: 'Disp.',
-    [VehicleStatus.IN_USE]: 'Oper.',
-    [VehicleStatus.MAINTENANCE]: 'Manut.'
+const statusTranslationShort: Record<MachineStatus, string> = {
+    [MachineStatus.AVAILABLE]: 'Disp.',
+    [MachineStatus.IN_USE]: 'Oper.',
+    [MachineStatus.MAINTENANCE]: 'Manut.'
 };
 
-const statusTranslation: Record<VehicleStatus, string> = {
-    [VehicleStatus.AVAILABLE]: 'DISPONÍVEL',
-    [VehicleStatus.IN_USE]: 'EM OPERAÇÃO',
-    [VehicleStatus.MAINTENANCE]: 'MANUTENÇÃO'
+const statusTranslation: Record<MachineStatus, string> = {
+    [MachineStatus.AVAILABLE]: 'DISPONÍVEL',
+    [MachineStatus.IN_USE]: 'EM OPERAÇÃO',
+    [MachineStatus.MAINTENANCE]: 'MANUTENÇÃO'
 };
 
-const statusColors: Record<VehicleStatus, string> = {
-    [VehicleStatus.AVAILABLE]: 'positive',
-    [VehicleStatus.IN_USE]: 'blue-8',
-    [VehicleStatus.MAINTENANCE]: 'negative'
+const statusColors: Record<MachineStatus, string> = {
+    [MachineStatus.AVAILABLE]: 'positive',
+    [MachineStatus.IN_USE]: 'blue-8',
+    [MachineStatus.MAINTENANCE]: 'negative'
 };
 
-function translateStatus(status: VehicleStatus): string {
+function translateStatus(status: MachineStatus): string {
     return statusTranslation[status] || status;
 }
 
-function translateStatusShort(status: VehicleStatus): string {
+function translateStatusShort(status: MachineStatus): string {
     return statusTranslationShort[status] || status;
 }
 
-function getStatusColor(status: VehicleStatus): string {
+function getStatusColor(status: MachineStatus): string {
     return statusColors[status] || 'grey';
 }
 
@@ -497,12 +497,12 @@ function recalcTarget() {
 }
 
 function openCreateDialog() {
-    editingVehicleId.value = null;
+    editingMachineId.value = null;
     photoFile.value = null;
     maintenanceInterval.value = 500;
     formData.value = {
         brand: '', model: '', year: new Date().getFullYear(),
-        status: VehicleStatus.AVAILABLE,
+        status: MachineStatus.AVAILABLE,
         current_engine_hours: 0, 
         current_km: 0, 
         license_plate: '',
@@ -515,30 +515,30 @@ function openCreateDialog() {
     isFormDialogOpen.value = true;
 }
 
-function openEditDialog(vehicle: Vehicle) {
-    editingVehicleId.value = vehicle.id;
+function openEditDialog(machine: Machine) {
+    editingMachineId.value = machine.id;
     photoFile.value = null;
     
-    const remaining = (vehicle.next_maintenance_km || 0) - (vehicle.current_engine_hours || 0);
+    const remaining = (machine.next_maintenance_km || 0) - (machine.current_engine_hours || 0);
     maintenanceInterval.value = remaining > 0 ? remaining : 0; 
 
-    const nextDate = vehicle.next_maintenance_date 
-        ? format(new Date(vehicle.next_maintenance_date), 'dd/MM/yyyy') 
+    const nextDate = machine.next_maintenance_date 
+        ? format(new Date(machine.next_maintenance_date), 'dd/MM/yyyy') 
         : null;
         
     formData.value = { 
-        brand: vehicle.brand,
-        model: vehicle.model,
-        year: vehicle.year,
-        status: vehicle.status,
-        license_plate: vehicle.license_plate ?? '',
-        identifier: vehicle.identifier ?? '',
-        sap_resource_code: vehicle.sap_resource_code ?? '', 
-        current_engine_hours: vehicle.current_engine_hours ?? 0,
-        current_km: vehicle.current_km,
-        next_maintenance_km: vehicle.next_maintenance_km ?? null,
+        brand: machine.brand,
+        model: machine.model,
+        year: machine.year,
+        status: machine.status,
+        license_plate: machine.license_plate ?? '',
+        identifier: machine.identifier ?? '',
+        sap_resource_code: machine.sap_resource_code ?? '', 
+        current_engine_hours: machine.current_engine_hours ?? 0,
+        current_km: machine.current_km,
+        next_maintenance_km: machine.next_maintenance_km ?? null,
         next_maintenance_date: nextDate,
-        photo_url: vehicle.photo_url ?? null
+        photo_url: machine.photo_url ?? null
     };
     isFormDialogOpen.value = true;
 }
@@ -576,19 +576,19 @@ async function onFormSubmit() {
             photo_url: rawData.photo_url || undefined
         };
 
-        if (isEditing.value && editingVehicleId.value) {
-            const updatePayload: VehicleUpdate = { ...commonPayload };
-            await vehicleStore.updateVehicle(editingVehicleId.value, updatePayload, currentParams);
+        if (isEditing.value && editingMachineId.value) {
+            const updatePayload: MachineUpdate = { ...commonPayload };
+            await machineStore.updateMachine(editingMachineId.value, updatePayload, currentParams);
         } else {
-            const createPayload: VehicleCreate = { 
+            const createPayload: MachineCreate = { 
                 ...commonPayload, 
                 current_km: 0 
             };
-            await vehicleStore.addNewVehicle(createPayload, currentParams);
+            await machineStore.addNewMachine(createPayload, currentParams);
         }
 
         isFormDialogOpen.value = false;
-        await vehicleStore.fetchAllVehicles(currentParams);
+        await machineStore.fetchAllMachines(currentParams);
         $q.notify({ type: 'positive', message: 'Salvo com sucesso!' });
     } catch (error) {
         console.error(error);
@@ -599,13 +599,13 @@ async function onFormSubmit() {
 }
 
 // --- OUTROS MÉTODOS ---
-function openQrDialog(vehicle: Vehicle) { 
-    selectedVehicleForQr.value = vehicle; 
+function openQrDialog(machine: Machine) { 
+    selectedMachineForQr.value = machine; 
     isQrDialogOpen.value = true; 
 }
 
-function getQrData(vehicle: Vehicle) { 
-    return `${window.location.origin}/vehicles/${vehicle.id}`; 
+function getQrData(machine: Machine) { 
+    return `${window.location.origin}/machines/${machine.id}`; 
 }
 
 function getImageUrl(url: string | null | undefined) { 
@@ -629,22 +629,22 @@ async function handlePhotoUpload(file: File | null) {
     } 
 }
 
-function handleCardClick(vehicle: Vehicle) { 
-    void router.push(`/vehicles/${vehicle.id}`); 
+function handleCardClick(machine: Machine) { 
+    void router.push(`/machines/${machine.id}`); 
 }
 
-function promptToDelete(vehicle: Vehicle) { 
+function promptToDelete(machine: Machine) { 
     $q.dialog({ title: 'Excluir', message: 'Tem certeza?', cancel: true }).onOk(() => {
         void (async () => {
-             await vehicleStore.deleteVehicle(vehicle.id, currentParams); 
-             await vehicleStore.fetchAllVehicles(currentParams); 
+             await machineStore.deleteMachine(machine.id, currentParams); 
+             await machineStore.fetchAllMachines(currentParams); 
         })();
     }); 
 }
 
 onMounted(() => { 
     setCssVar('primary', '#128c7e');
-    void vehicleStore.fetchAllVehicles(currentParams); 
+    void machineStore.fetchAllMachines(currentParams); 
 });
 </script>
 
@@ -703,11 +703,11 @@ onMounted(() => {
 }
 
 /* --- INTERACTIONS --- */
-.vehicle-card { 
+.machine-card { 
   cursor: pointer; 
   transition: transform 0.2s, box-shadow 0.2s; 
 }
-.vehicle-card:hover { 
+.machine-card:hover { 
   transform: translateY(-5px); 
   box-shadow: 0 10px 25px -5px rgba(18, 140, 126, 0.2);
   border-color: #128c7e;
@@ -773,7 +773,7 @@ onMounted(() => {
   .text-teal-9, .text-teal-10 { color: #80cbc4 !important; }
   .text-grey-9 { color: #ffffff !important; }
   .text-grey-7, .text-grey-6, .text-grey-8 { color: #b0bec5 !important; }
-  .vehicle-title { color: #80cbc4 !important; }
+  .machine-title { color: #80cbc4 !important; }
 
   /* Buttons */
   .q-btn-toggle {

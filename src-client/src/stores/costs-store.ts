@@ -1,26 +1,24 @@
 import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
-import { type IVehicleCost, type ICostCreate } from 'src/models/cost-models';
+import { type IMachineCost, type ICostCreate } from 'src/models/cost-models';
 
 interface CostsState {
-  costs: IVehicleCost[];
+  costs: IMachineCost[];
   isLoading: boolean;
 }
 
-// Renomeie a store para evitar conflitos de nome
-export const useVehicleCostStore = defineStore('vehicleCost', {
+export const useMachineCostStore = defineStore('machineCost', {
   state: (): CostsState => ({
     costs: [],
     isLoading: false,
   }),
 
   actions: {
-    // Ação para buscar todos os custos da organização (para a página de Análise)
     async fetchAllCosts(params?: { startDate?: Date, endDate?: Date }) {
       this.isLoading = true;
       try {
-        const response = await api.get<IVehicleCost[]>('/costs/', { params });
+        const response = await api.get<IMachineCost[]>('/costs/', { params });
         this.costs = response.data;
       } catch (error) {
         console.error('Falha ao buscar todos os custos:', error);
@@ -30,28 +28,25 @@ export const useVehicleCostStore = defineStore('vehicleCost', {
       }
     },
 
-    // Ação para buscar custos de um veículo específico
-    async fetchCostsByVehicle(vehicleId: number) {
+    async fetchCostsByMachine(machineId: number) {
       this.isLoading = true;
       try {
-        const response = await api.get<IVehicleCost[]>(`/vehicles/${vehicleId}/costs`);
+        const response = await api.get<IMachineCost[]>(`/machines/${machineId}/costs`);
         this.costs = response.data;
       } catch (error) {
-        console.error('Falha ao buscar custos do veículo:', error);
+        console.error('Falha ao buscar custos da máquina:', error);
         Notify.create({ type: 'negative', message: 'Não foi possível carregar os custos do veículo.' });
       } finally {
         this.isLoading = false;
       }
     },
 
-    // Ação para adicionar um novo custo a um veículo
-    async addCost(vehicleId: number, costData: Omit<ICostCreate, 'vehicle_id'>) {
+    async addCost(machineId: number, costData: Omit<ICostCreate, 'machine_id'>) {
       try {
-        const payload = { ...costData, vehicle_id: vehicleId };
-        await api.post('/vehicle_costs/', payload);
+        const payload = { ...costData, machine_id: machineId };
+        await api.post('/machine_costs/', payload);
         
-        // Atualiza a lista de custos do veículo
-        await this.fetchCostsByVehicle(vehicleId);
+        await this.fetchCostsByMachine(machineId);
       } catch (error) {
         console.error('Erro ao adicionar custo:', error);
         Notify.create({ type: 'negative', message: 'Erro ao salvar o novo custo.' });

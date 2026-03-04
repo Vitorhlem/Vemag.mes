@@ -5,10 +5,10 @@ from typing import List, Optional
 import logging
 import datetime 
 
-from app.models.vehicle_component_model import VehicleComponent
-from app.models.vehicle_cost_model import VehicleCost, CostType
+from app.models.machine_component_model import MachineComponent
+from app.models.machine_cost_model import MachineCost, CostType
 from app.models.inventory_transaction_model import InventoryTransaction
-from app.models.vehicle_model import Vehicle 
+from app.models.machine_model import Machine 
 from app.crud.crud_user import count_by_org
 from app.models.part_model import Part, InventoryItem, InventoryItemStatus, PartCategory
 from . import crud_inventory_transaction as crud_transaction
@@ -18,7 +18,7 @@ from app.models.inventory_transaction_model import TransactionType
 def log_transaction(
     db: AsyncSession, *, item_id: int, part_id: int, user_id: int, 
     transaction_type: TransactionType, notes: Optional[str] = None, 
-    related_vehicle_id: Optional[int] = None
+    related_machine_id: Optional[int] = None
 ) -> InventoryTransaction:
     log_entry = InventoryTransaction(
         item_id=item_id,
@@ -26,7 +26,7 @@ def log_transaction(
         user_id=user_id,
         transaction_type=transaction_type,
         notes=notes,
-        related_vehicle_id=related_vehicle_id
+        related_machine_id=related_machine_id
     )
     return log_entry
 
@@ -84,7 +84,7 @@ async def get_all_items_paginated(
     limit: int, 
     status: Optional[InventoryItemStatus] = None, 
     part_id: Optional[int] = None, 
-    vehicle_id: Optional[int] = None,
+    machine_id: Optional[int] = None,
     user_id: Optional[int] = None, # <-- ADICIONE ESTE PARÂMETRO
     search: Optional[str] = None
 ):
@@ -92,7 +92,7 @@ async def get_all_items_paginated(
         InventoryItem.organization_id == organization_id
     ).options(
         selectinload(InventoryItem.part), 
-        selectinload(InventoryItem.installed_on_vehicle) 
+        selectinload(InventoryItem.installed_on_machine) 
     )
     
     count_stmt = select(func.count()).select_from(InventoryItem).where(
@@ -115,9 +115,9 @@ async def get_all_items_paginated(
     if part_id:
         stmt = stmt.where(InventoryItem.part_id == part_id)
         count_stmt = count_stmt.where(InventoryItem.part_id == part_id)
-    if vehicle_id:
-        stmt = stmt.where(InventoryItem.installed_on_vehicle_id == vehicle_id)
-        count_stmt = count_stmt.where(InventoryItem.installed_on_vehicle_id == vehicle_id)
+    if machine_id:
+        stmt = stmt.where(InventoryItem.installed_on_machine_id == machine_id)
+        count_stmt = count_stmt.where(InventoryItem.installed_on_machine_id == machine_id)
     
     if search:
         search_term_text = f"%{search.lower()}%"
@@ -148,7 +148,7 @@ async def get_item_with_details(db: AsyncSession, *, item_id: int, organization_
         selectinload(InventoryItem.part), 
         selectinload(InventoryItem.transactions).options( 
             selectinload(InventoryTransaction.user),       
-            selectinload(InventoryTransaction.related_vehicle),
+            selectinload(InventoryTransaction.related_machine),
             selectinload(InventoryTransaction.item),      
             selectinload(InventoryTransaction.part_template) 
         )
@@ -158,7 +158,7 @@ async def get_item_with_details(db: AsyncSession, *, item_id: int, organization_
 
 async def change_item_status(
     db: AsyncSession, *, item: InventoryItem, new_status: InventoryItemStatus, 
-    user_id: int, vehicle_id: Optional[int] = None, notes: Optional[str] = None
+    user_id: int, machine_id: Optional[int] = None, notes: Optional[str] = None
 ) -> InventoryItem:
     
     current_status = item.status
@@ -169,8 +169,8 @@ async def change_item_status(
     if new_status == InventoryItemStatus.EM_USO:
         if current_status != InventoryItemStatus.DISPONIVEL:
             raise ValueError(f"Não é possível instalar o item (status atual: {current_status}).")
-        if not vehicle_id:
-            raise ValueError("vehicle_id é obrigatório para instalar um item.")
+        if not machine_id:
+            raise ValueError("machine_id é obrigatório para instalar um item.")
             
     elif new_status == InventoryItemStatus.FIM_DE_VIDA:
         if current_status not in [InventoryItemStatus.DISPONIVEL, InventoryItemStatus.EM_USO]:
@@ -202,11 +202,11 @@ async def change_item_status(
     item.status = new_status
     
     if new_status == InventoryItemStatus.EM_USO:
-        item.installed_on_vehicle_id = vehicle_id
+        item.installed_on_machine_id = machine_id
         item.installed_at = func.now()
     else:
         # Se saiu do veículo (Reparo, Descarte ou Estoque), removemos o vínculo
-        item.installed_on_vehicle_id = None
+        item.installed_on_machine_id = None
         item.installed_at = None
     
     # Registra a transação no banco
@@ -214,7 +214,7 @@ async def change_item_status(
         db=db, item_id=item.id, part_id=item.part_id, user_id=user_id,
         transaction_type=transaction_type,
         notes=notes,
-        related_vehicle_id=vehicle_id or item.installed_on_vehicle_id 
+        related_machine_id=machine_id or item.installed_on_machine_id 
     )
     
     db.add(item)
@@ -224,15 +224,15 @@ async def change_item_status(
     if not part_template:
         part_template = await db.get(Part, item.part_id)
 
-    if new_status == InventoryItemStatus.EM_USO and vehicle_id:
+    if new_status == InventoryItemStatus.EM_USO and machine_id:
         await db.flush() 
-        stmt_find_old = select(VehicleComponent).join(
-            InventoryTransaction, VehicleComponent.inventory_transaction_id == InventoryTransaction.id
+        stmt_find_old = select(MachineComponent).join(
+            InventoryTransaction, MachineComponent.inventory_transaction_id == InventoryTransaction.id
         ).where(
             InventoryTransaction.item_id == item.id,
-            VehicleComponent.vehicle_id == vehicle_id,
-            VehicleComponent.is_active == False
-        ).order_by(VehicleComponent.uninstallation_date.desc()).limit(1)
+            MachineComponent.machine_id == machine_id,
+            MachineComponent.is_active == False
+        ).order_by(MachineComponent.uninstallation_date.desc()).limit(1)
         
         result = await db.execute(stmt_find_old)
         existing_inactive_component = result.scalars().first()
@@ -243,8 +243,8 @@ async def change_item_status(
             existing_inactive_component.inventory_transaction_id = log_entry.id
             db.add(existing_inactive_component)
         else:
-            new_component = VehicleComponent(
-                vehicle_id=vehicle_id,
+            new_component = MachineComponent(
+                machine_id=machine_id,
                 part_id=part_template.id,
                 is_active=True,
                 installation_date=func.now(),
@@ -253,12 +253,12 @@ async def change_item_status(
             db.add(new_component)
             
             if part_template.value and part_template.value > 0:
-                new_cost = VehicleCost(
+                new_cost = MachineCost(
                     description=f"Instalação: {part_template.name} (Cód. Item: {item.item_identifier})",
                     amount=part_template.value, 
                     date=datetime.date.today(), 
                     cost_type=CostType.PECAS_COMPONENTES, 
-                    vehicle_id=vehicle_id,
+                    machine_id=machine_id,
                     organization_id=item.organization_id
                 )
                 db.add(new_cost)
@@ -275,9 +275,9 @@ async def change_item_status(
         install_transaction_id = (await db.execute(install_transaction_stmt)).scalar_one_or_none()
         
         if install_transaction_id:
-            update_component_stmt = sa_update(VehicleComponent).where(
-                VehicleComponent.inventory_transaction_id == install_transaction_id,
-                VehicleComponent.is_active == True
+            update_component_stmt = sa_update(MachineComponent).where(
+                MachineComponent.inventory_transaction_id == install_transaction_id,
+                MachineComponent.is_active == True
             ).values(
                 is_active = False,
                 uninstallation_date = func.now()
@@ -286,15 +286,15 @@ async def change_item_status(
         
         if new_status == InventoryItemStatus.DISPONIVEL:
             if part_template and part_template.value and part_template.value > 0:
-                cost_vehicle_id = vehicle_id or item.installed_on_vehicle_id
-                if cost_vehicle_id:
+                cost_machine_id = machine_id or item.installed_on_machine_id
+                if cost_machine_id:
                     description = f"Retorno Estoque (Estorno): {part_template.name} (Cód. Item: {item.item_identifier})"
-                    new_cost = VehicleCost(
+                    new_cost = MachineCost(
                         description=description,
                         amount= -part_template.value, 
                         date=datetime.date.today(), 
                         cost_type=CostType.PECAS_COMPONENTES, 
-                        vehicle_id=cost_vehicle_id,
+                        machine_id=cost_machine_id,
                         organization_id=item.organization_id
                     )
                     db.add(new_cost)
@@ -412,7 +412,7 @@ async def remove(db: AsyncSession, *, id: int, organization_id: int) -> Optional
     """
     Remove uma peça (Template).
     Executa limpeza PROFUNDA (Cascade Manual) para remover:
-    1. Componentes de veículos (VehicleComponent) ligados ao histórico.
+    1. Componentes de veículos (MachineComponent) ligados ao histórico.
     2. Histórico de transações (InventoryTransaction).
     3. Itens de estoque (InventoryItem), mesmo os descartados.
     4. O registro da Peça (Part).
@@ -434,9 +434,9 @@ async def remove(db: AsyncSession, *, id: int, organization_id: int) -> Optional
 
         if tx_ids:
             # 3. Deletar Componentes de Veículo ligados a essas transações
-            # Necessário pois VehicleComponent tem FK para InventoryTransaction
+            # Necessário pois MachineComponent tem FK para InventoryTransaction
             await db.execute(
-                delete(VehicleComponent).where(VehicleComponent.inventory_transaction_id.in_(tx_ids))
+                delete(MachineComponent).where(MachineComponent.inventory_transaction_id.in_(tx_ids))
             )
             
             # 4. Deletar as Transações

@@ -6,8 +6,8 @@ from typing import List, Optional
 
 from app.db.base_class import Base
 from .user_model import User
-from .vehicle_model import Vehicle
-from .vehicle_component_model import VehicleComponent 
+from .machine_model import Machine
+from .machine_component_model import MachineComponent 
 
 class MaintenanceStatus(str, enum.Enum):
     RASCUNHO = "RASCUNHO"
@@ -46,15 +46,15 @@ class MaintenanceRequest(Base):
     is_electrical: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)
     reported_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_by_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    vehicle_id: Mapped[int] = mapped_column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
+    machine_id: Mapped[int] = mapped_column(Integer, ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
     maintenance_type: Mapped[Optional[str]] = mapped_column(String, default="CORRETIVA", nullable=True)
     supervisor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True) # <-- ADICIONE ESTA LINHA
-    reporter: Mapped[Optional["User"]] = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_requests")
+    reporter: Mapped["User"] = relationship("User", foreign_keys=[reported_by_id], back_populates="reported_requests")
+    approver: Mapped["User"] = relationship("User", foreign_keys=[approved_by_id])
     approver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by_id])
-    vehicle: Mapped["Vehicle"] = relationship("Vehicle", back_populates="maintenance_requests")
-    comments: Mapped[List["MaintenanceComment"]] = relationship("MaintenanceComment", back_populates="request", cascade="all, delete-orphan")
-    
+    machine: Mapped["Machine"] = relationship("Machine", back_populates="maintenance_requests")
+    comments: Mapped[List["MaintenanceComment"]] = relationship("MaintenanceComment", back_populates="request", cascade="all, delete-orphan")    
     part_changes: Mapped[List["MaintenancePartChange"]] = relationship(
         "MaintenancePartChange", 
         back_populates="maintenance_request", 
@@ -91,8 +91,8 @@ class MaintenancePartChange(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    component_removed_id = Column(Integer, ForeignKey("vehicle_components.id"), nullable=True)
-    component_installed_id = Column(Integer, ForeignKey("vehicle_components.id"), nullable=True)
+    component_removed_id = Column(Integer, ForeignKey("machine_components.id"), nullable=True)
+    component_installed_id = Column(Integer, ForeignKey("machine_components.id"), nullable=True)
 
     # --- CAMPO NOVO (BÔNUS) ---
     is_reverted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
@@ -101,12 +101,12 @@ class MaintenancePartChange(Base):
     maintenance_request: Mapped["MaintenanceRequest"] = relationship("MaintenanceRequest", back_populates="part_changes")
     user: Mapped["User"] = relationship("User")
     
-    component_removed: Mapped["VehicleComponent"] = relationship(
-        "VehicleComponent", 
+    component_removed: Mapped["MachineComponent"] = relationship(
+        "MachineComponent", 
         foreign_keys=[component_removed_id]
     )
-    component_installed: Mapped["VehicleComponent"] = relationship(
-        "VehicleComponent", 
+    component_installed: Mapped["MachineComponent"] = relationship(
+        "MachineComponent", 
         foreign_keys=[component_installed_id]
     )
 

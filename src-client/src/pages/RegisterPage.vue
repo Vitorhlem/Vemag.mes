@@ -215,7 +215,7 @@ const stepper = ref<QStepper | null>(null);
 
 const formData = ref<UserRegister>({
   organization_name: '',
-  sector: 'servicos', // Mantém 'servicos' para compatibilidade com backend
+  sector: 'manufatura',
   full_name: '',
   email: '',
   password: '',
@@ -223,7 +223,7 @@ const formData = ref<UserRegister>({
 
 // Opção Única Fixa
 const sectorOptions: { label: string, value: UserSector }[] = [
-  { label: 'Indústria Metalúrgica / Manufatura', value: 'servicos' }, 
+  { label: 'Indústria Metalúrgica / Manufatura', value: 'manufatura' }, 
 ];
 
 async function onSubmit() {

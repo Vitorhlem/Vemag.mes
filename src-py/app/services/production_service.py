@@ -4,8 +4,8 @@ from datetime import datetime, date, time
 from typing import Optional, List, Dict, Any
 
 # Models
-from app.models.production_model import VehicleDailyMetric, EmployeeDailyMetric, ProductionLog, ProductionOrder, ProductionSession, ProductionTimeSlice
-from app.models.vehicle_model import Vehicle, VehicleStatus
+from app.models.production_model import MachineDailyMetric, EmployeeDailyMetric, ProductionLog, ProductionOrder, ProductionSession, ProductionTimeSlice
+from app.models.machine_model import Machine, MachineStatus
 from app.models.user_model import User
 
 # Schemas
@@ -14,20 +14,20 @@ from app.schemas.production_schema import ProductionEventCreate
 class ProductionService:
     
     @staticmethod
-    async def get_active_slice(db: AsyncSession, vehicle_id: int) -> Optional[ProductionTimeSlice]:
+    async def get_active_slice(db: AsyncSession, machine_id: int) -> Optional[ProductionTimeSlice]:
         """Busca a fatia de tempo que está aberta (sem end_time) para a máquina."""
         query = select(ProductionTimeSlice).where(
-            ProductionTimeSlice.vehicle_id == vehicle_id,
+            ProductionTimeSlice.machine_id == machine_id,
             ProductionTimeSlice.end_time == None
         ).order_by(desc(ProductionTimeSlice.start_time))
         result = await db.execute(query)
         return result.scalars().first()
 
     @staticmethod
-    async def close_current_slice(db: AsyncSession, vehicle_id: int, end_time: datetime = None):
+    async def close_current_slice(db: AsyncSession, machine_id: int, end_time: datetime = None):
         """Fecha a fatia atual aplicando a regra de micro-parada APENAS para pausas comuns."""
         if not end_time: end_time = datetime.now()
-        current_slice = await ProductionService.get_active_slice(db, vehicle_id)
+        current_slice = await ProductionService.get_active_slice(db, machine_id)
         
         if current_slice:
             current_slice.end_time = end_time
@@ -54,8 +54,8 @@ class ProductionService:
         Calcula e salva o desempenho das MÁQUINAS consolidando fatias de tempo.
         Persiste OEE, MTBF, MTTR e o Pareto de motivos no histórico diário.
         """
-        from app.models.vehicle_model import Vehicle
-        from app.models.production_model import ProductionTimeSlice, VehicleDailyMetric
+        from app.models.machine_model import Machine
+        from app.models.production_model import ProductionTimeSlice, MachineDailyMetric
         from sqlalchemy import select, or_
         from datetime import datetime, time as dt_time
 
@@ -65,7 +65,7 @@ class ProductionService:
         end_of_day = datetime.combine(target_date, dt_time.max)
         
         # 1. Busca todas as máquinas cadastradas
-        machines = (await db.execute(select(Vehicle))).scalars().all()
+        machines = (await db.execute(select(Machine))).scalars().all()
         print(f"[DEBUG CONSOLIDATE] {len(machines)} máquinas encontradas para processamento.")
         
         count = 0
@@ -84,9 +84,9 @@ class ProductionService:
                     continue
 
                 # 4. Persistência (Upsert): Busca registro existente ou cria um novo
-                q_exist = select(VehicleDailyMetric).where(
-                    VehicleDailyMetric.date == target_date, 
-                    VehicleDailyMetric.vehicle_id == machine.id
+                q_exist = select(MachineDailyMetric).where(
+                    MachineDailyMetric.date == target_date, 
+                    MachineDailyMetric.machine_id == machine.id
                 )
                 metric = (await db.execute(q_exist)).scalars().first()
                 
@@ -94,9 +94,9 @@ class ProductionService:
                     print(f"    - Criando novo registro de métrica diária...")
                     # Tenta pegar a organização da máquina, se não existir usa 1 como padrão
                     org_id = getattr(machine, 'organization_id', 1) or 1
-                    metric = VehicleDailyMetric(
+                    metric = MachineDailyMetric(
                         date=target_date, 
-                        vehicle_id=machine.id, 
+                        machine_id=machine.id, 
                         organization_id=org_id
                     )
                     db.add(metric)
@@ -142,7 +142,7 @@ class ProductionService:
     @staticmethod
     async def open_new_slice(
         db: AsyncSession, 
-        vehicle_id: int, 
+        machine_id: int, 
         category: str, 
         reason: Optional[str] = None,
         session_id: Optional[int] = None,
@@ -152,7 +152,7 @@ class ProductionService:
         is_productive = category == "PRODUCING"
         
         new_slice = ProductionTimeSlice(
-            vehicle_id=vehicle_id,
+            machine_id=machine_id,
             start_time=datetime.now(),
             category=category,
             reason=reason,
@@ -193,7 +193,7 @@ class ProductionService:
                 ProductionLog.operator_id == user_id,
                 ProductionLog.timestamp >= start_of_day,
                 ProductionLog.timestamp <= end_of_day
-            ).order_by(ProductionLog.vehicle_id, ProductionLog.timestamp)
+            ).order_by(ProductionLog.machine_id, ProductionLog.timestamp)
             
             user_logs = (await db.execute(q_logs)).scalars().all()
             
@@ -204,7 +204,7 @@ class ProductionService:
             # Algoritmo de Reconstrução de Linha do Tempo
             for log in user_logs:
                 q_next = select(ProductionLog).where(
-                    ProductionLog.vehicle_id == log.vehicle_id,
+                    ProductionLog.machine_id == log.machine_id,
                     ProductionLog.timestamp > log.timestamp
                 ).order_by(ProductionLog.timestamp.asc()).limit(1)
                 next_log = (await db.execute(q_next)).scalars().first()
@@ -281,7 +281,7 @@ class ProductionService:
     @staticmethod
     async def handle_event(db: AsyncSession, event: ProductionEventCreate) -> Dict[str, Any]:
         timestamp = datetime.now()
-        machine = await db.get(Vehicle, event.machine_id)
+        machine = await db.get(Machine, event.machine_id)
         if not machine: raise ValueError("Machine not found")
 
         sinal_recebido = str(event.new_status).upper() 
@@ -295,7 +295,7 @@ class ProductionService:
         if badge == "ESP32_HARDWARE":
             # Busca a sessão que está aberta para esta máquina agora
             stmt_session = select(ProductionSession).where(
-                ProductionSession.vehicle_id == machine.id,
+                ProductionSession.machine_id == machine.id,
                 ProductionSession.end_time == None
             ).order_by(desc(ProductionSession.start_time)).limit(1)
             
@@ -323,42 +323,42 @@ class ProductionService:
                 user_name = user.full_name
 
         # Busca o último log para decisões inteligentes
-        stmt_last = select(ProductionLog).where(ProductionLog.vehicle_id == machine.id).order_by(ProductionLog.timestamp.desc()).limit(1)
+        stmt_last = select(ProductionLog).where(ProductionLog.machine_id == machine.id).order_by(ProductionLog.timestamp.desc()).limit(1)
         last_log = (await db.execute(stmt_last)).scalars().first()
         last_log_status = last_log.new_status if last_log else machine.status
 
         # ---------------------------------------------------------
         # 1. LÓGICA DE MÁQUINA DE ESTADOS
         # ---------------------------------------------------------
-        new_status_enum = VehicleStatus.STOPPED 
+        new_status_enum = MachineStatus.STOPPED 
         category = "UNPLANNED_STOP" 
 
         # Cenario A: Produção
         if sinal_recebido in ["1", "RUNNING", "EM OPERAÇÃO", "PRODUCING"]:
-            if last_log_status == VehicleStatus.IN_USE_AUTONOMOUS and sinal_recebido == "1":
-                new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+            if last_log_status == MachineStatus.IN_USE_AUTONOMOUS and sinal_recebido == "1":
+                new_status_enum = MachineStatus.IN_USE_AUTONOMOUS
                 category = "PRODUCING"
             else:
-                new_status_enum = VehicleStatus.IN_USE
+                new_status_enum = MachineStatus.IN_USE
                 category = "PRODUCING"
 
         # Cenario B: Parada
         elif sinal_recebido in ["0", "STOPPED", "PAUSADA", "PARADA"]:
-            new_status_enum = VehicleStatus.STOPPED
+            new_status_enum = MachineStatus.STOPPED
             category = "UNPLANNED_STOP"
 
         # Cenario C: Overrides (Setup, Manutenção, Autônomo)
         elif sinal_recebido == "SETUP":
-            new_status_enum = VehicleStatus.SETUP
+            new_status_enum = MachineStatus.SETUP
             category = "PLANNED_STOP"
         elif sinal_recebido in ["MAINTENANCE", "EM MANUTENÇÃO"]:
-            new_status_enum = VehicleStatus.MAINTENANCE
+            new_status_enum = MachineStatus.MAINTENANCE
             category = "MAINTENANCE"
         elif sinal_recebido in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA"]:
-            new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+            new_status_enum = MachineStatus.IN_USE_AUTONOMOUS
             category = "PRODUCING"
         elif sinal_recebido in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONIVEL", "LIBERADA"]:
-            new_status_enum = VehicleStatus.AVAILABLE 
+            new_status_enum = MachineStatus.AVAILABLE 
             category = "IDLE"
             if not event.reason or event.reason == "null":
                 event.reason = "Máquina Disponível"
@@ -373,16 +373,16 @@ class ProductionService:
 
             if not is_end_of_process:
                 if "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper:
-                    new_status_enum = VehicleStatus.SETUP
+                    new_status_enum = MachineStatus.SETUP
                     category = "PLANNED_STOP"
                 elif "MANUTENÇÃO" in reason_upper or "QUEBRA" in reason_upper or "CONSERTO" in reason_upper:
-                    new_status_enum = VehicleStatus.MAINTENANCE
+                    new_status_enum = MachineStatus.MAINTENANCE
                     category = "MAINTENANCE"
                 elif "AUTÔNOMA" in reason_upper:
-                    new_status_enum = VehicleStatus.IN_USE_AUTONOMOUS
+                    new_status_enum = MachineStatus.IN_USE_AUTONOMOUS
                     category = "PRODUCING"
 
-        if new_status_enum == VehicleStatus.STOPPED and not final_reason:
+        if new_status_enum == MachineStatus.STOPPED and not final_reason:
             final_reason = "SEM MOTIVO"
         elif not final_reason:
             final_reason = new_status_enum.value
@@ -390,7 +390,7 @@ class ProductionService:
         # ---------------------------------------------------------
         # 🚨 FILTRO ANTI-LIXO
         # ---------------------------------------------------------
-        if last_log_status in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
+        if last_log_status in [MachineStatus.MAINTENANCE, MachineStatus.SETUP]:
             if final_reason and ("SAÍDA" in final_reason.upper() or "LOGOFF" in final_reason.upper()):
                 return {"status": "ignored", "reason": "Ignored generic logout during specialized state"}
 
@@ -402,16 +402,16 @@ class ProductionService:
         
         if machine.status == new_status_enum.value and final_reason != "SEM MOTIVO":
             should_overwrite = True
-        elif is_last_stopped and new_status_enum in [VehicleStatus.SETUP, VehicleStatus.MAINTENANCE, VehicleStatus.IN_USE_AUTONOMOUS]:
+        elif is_last_stopped and new_status_enum in [MachineStatus.SETUP, MachineStatus.MAINTENANCE, MachineStatus.IN_USE_AUTONOMOUS]:
             should_overwrite = True
-        elif last_log_status == new_status_enum.value and new_status_enum in [VehicleStatus.MAINTENANCE, VehicleStatus.SETUP]:
+        elif last_log_status == new_status_enum.value and new_status_enum in [MachineStatus.MAINTENANCE, MachineStatus.SETUP]:
              should_overwrite = True
 
         if should_overwrite and last_log:
              allow_update = (
                  last_log.reason in ["SEM MOTIVO", "Parada", "STOPPED"] or 
                  "TROCA DE TURNO" in str(last_log.reason).upper() or
-                 new_status_enum == VehicleStatus.MAINTENANCE
+                 new_status_enum == MachineStatus.MAINTENANCE
              )
 
              if allow_update:
@@ -440,11 +440,11 @@ class ProductionService:
         # ---------------------------------------------------------
         machine.status = new_status_enum.value
         await ProductionService.close_current_slice(db, machine.id, timestamp)
-        await ProductionService.open_new_slice(db, vehicle_id=machine.id, category=category, reason=final_reason)
+        await ProductionService.open_new_slice(db, machine_id=machine.id, category=category, reason=final_reason)
 
         # ✅ CORREÇÃO FINAL: Usa os campos separados
         log = ProductionLog(
-            vehicle_id=machine.id, 
+            machine_id=machine.id, 
             operator_id=user_id,      # ID Numérico (ou None)
             operator_badge=badge,     # String (ex: "ESP32_HARDWARE")
             operator_name=user_name,  # String
@@ -458,7 +458,7 @@ class ProductionService:
         
         return {"id": log.id, "status": "processed", "category": category, "new_machine_status": machine.status}
     @staticmethod
-    async def update_current_slice_reason(db: AsyncSession, vehicle_id: int, new_reason: str, new_category: str = None):
+    async def update_current_slice_reason(db: AsyncSession, machine_id: int, new_reason: str, new_category: str = None):
         """
         Atualiza motivo e opcionalmente a categoria da fatia aberta.
         """
@@ -466,7 +466,7 @@ class ProductionService:
         from sqlalchemy import select
 
         stmt = select(ProductionTimeSlice).where(
-            ProductionTimeSlice.vehicle_id == vehicle_id,
+            ProductionTimeSlice.machine_id == machine_id,
             ProductionTimeSlice.end_time == None
         ).order_by(ProductionTimeSlice.start_time.desc()).limit(1)
 
@@ -484,10 +484,10 @@ class ProductionService:
         return False
     
     @staticmethod
-    async def calculate_oee(db: AsyncSession, vehicle_id: int, start_date: datetime, end_date: datetime):
+    async def calculate_oee(db: AsyncSession, machine_id: int, start_date: datetime, end_date: datetime):
         """Calcula métricas e gera Pareto livre de Whitelist."""
         query = select(ProductionTimeSlice).where(
-            ProductionTimeSlice.vehicle_id == vehicle_id,
+            ProductionTimeSlice.machine_id == machine_id,
             ProductionTimeSlice.start_time >= start_date,
             ProductionTimeSlice.start_time <= end_date
         )

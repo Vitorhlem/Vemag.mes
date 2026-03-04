@@ -7,11 +7,11 @@ from datetime import date
 
 from app import crud, deps
 from app.models.user_model import User
-from app.schemas.vehicle_cost_schema import VehicleCostPublic
+from app.schemas.machine_cost_schema import MachineCostPublic
 
 router = APIRouter()
 
-@router.get("/", response_model=List[VehicleCostPublic])
+@router.get("/", response_model=List[MachineCostPublic])
 async def read_organization_costs(
     *,
     db: AsyncSession = Depends(deps.get_db),
@@ -24,7 +24,7 @@ async def read_organization_costs(
     """
     Lista todos os custos da organização do usuário logado, com filtros opcionais.
     """
-    costs = await crud.vehicle_cost.get_costs_by_organization(
+    costs = await crud.machine_cost.get_costs_by_organization(
         db, 
         organization_id=current_user.organization_id,
         start_date=start_date,

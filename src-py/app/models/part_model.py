@@ -64,7 +64,7 @@ class InventoryItem(Base):
     part_id: Mapped[int] = mapped_column(Integer, ForeignKey("parts.id"), nullable=False)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
     
-    installed_on_vehicle_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("vehicles.id"), nullable=True)
+    installed_on_machine_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("machines.id"), nullable=True)
     
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     installed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -72,7 +72,7 @@ class InventoryItem(Base):
     # Relações
     part: Mapped["Part"] = relationship("Part", back_populates="items")
     organization: Mapped["Organization"] = relationship("Organization")
-    installed_on_vehicle: Mapped[Optional["Vehicle"]] = relationship("Vehicle")
+    installed_on_machine: Mapped[Optional["Machine"]] = relationship("Machine")
     
     transactions: Mapped[List["InventoryTransaction"]] = relationship("InventoryTransaction", back_populates="item", cascade="all, delete-orphan")
 

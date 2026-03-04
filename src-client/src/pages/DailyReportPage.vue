@@ -72,7 +72,7 @@
           narrow-indicator
         >
           <q-tab name="employees" icon="badge" label="Visão Operadores" />
-          <q-tab name="vehicles" icon="precision_manufacturing" label="Visão Máquinas" />
+          <q-tab name="machines" icon="precision_manufacturing" label="Visão Máquinas" />
         </q-tabs>
 
         <q-separator />
@@ -104,9 +104,9 @@
             </q-table>
           </q-tab-panel>
 
-          <q-tab-panel name="vehicles" class="q-pa-none">
+          <q-tab-panel name="machines" class="q-pa-none">
             <q-table
-                :rows="mesStore.dailyVehicleHistory"
+                :rows="mesStore.dailyMachineHistory"
                 :columns="vehColumns"
                 row-key="id"
                 flat
@@ -154,7 +154,7 @@ const empColumns = [
 ];
 
 const vehColumns = [
-  { name: 'vehicle_name', label: 'Equipamento', field: 'vehicle_name', align: 'left', sortable: true },
+  { name: 'machine_name', label: 'Equipamento', field: 'machine_name', align: 'left', sortable: true },
   { name: 'running_hours', label: 'Hrs Rodando', field: 'running_hours', classes: 'text-green-9 text-weight-bold' },
   { name: 'maintenance_hours', label: 'Hrs Manut.', field: 'maintenance_hours', classes: 'text-red-9' },
   { name: 'idle_hours', label: 'Hrs Ocioso', field: 'idle_hours', classes: 'text-orange-9' },
@@ -172,19 +172,19 @@ const kpiEmployeeEfficiency = computed(() => {
 });
 
 const kpiFleetAvailability = computed(() => {
-    const list = mesStore.dailyVehicleHistory;
+    const list = mesStore.dailyMachineHistory;
     if (!list.length) return 0;
     const avg = list.reduce((acc, curr) => acc + curr.availability, 0) / list.length;
     return Math.round(avg);
 });
 
 const kpiTotalProduction = computed(() => {
-    const total = mesStore.dailyVehicleHistory.reduce((acc, curr) => acc + curr.running_hours, 0);
+    const total = mesStore.dailyMachineHistory.reduce((acc, curr) => acc + curr.running_hours, 0);
     return total.toFixed(1);
 });
 
 const kpiTotalMaintenance = computed(() => {
-    const total = mesStore.dailyVehicleHistory.reduce((acc, curr) => acc + curr.maintenance_hours, 0);
+    const total = mesStore.dailyMachineHistory.reduce((acc, curr) => acc + curr.maintenance_hours, 0);
     return total.toFixed(1);
 });
 

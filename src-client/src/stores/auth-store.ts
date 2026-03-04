@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
-import { isAxiosError } from 'axios'; // <-- IMPORTAÇÃO ESSENCIAL
+import { isAxiosError } from 'axios';
 import type { UserNotificationPrefsUpdate } from 'src/models/user-models';
 import type {
   LoginForm,
@@ -14,7 +14,6 @@ import type {
 } from 'src/models/auth-models';
 import { useTerminologyStore } from './terminology-store';
 
-// Helper para ler do LocalStorage com segurança
 function getFromLocalStorage<T>(key: string): T | null {
   const itemString = localStorage.getItem(key);
   if (!itemString || itemString === 'undefined') return null;
@@ -28,14 +27,11 @@ function getFromLocalStorage<T>(key: string): T | null {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  // --- ESTADO PRINCIPAL ---
   const accessToken = ref<string | null>(localStorage.getItem('accessToken'));
   const user = ref<User | null>(getFromLocalStorage<User>('user'));
 
-  // --- ESTADO PARA O LOGIN SOMBRA (IMPERSONATION) ---
   const originalUser = ref<User | null>(getFromLocalStorage<User>('original_user'));
 
-  // --- GETTERS (COMPUTED) ---
   const isAuthenticated = computed(() => !!accessToken.value);
   const isManager = computed(() => ['cliente_ativo', 'cliente_demo', 'admin'].includes(user.value?.role ?? ''));
   const canEditMaintenance = computed(() => 
@@ -47,17 +43,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isDemo = computed(() => user.value?.role === 'cliente_demo');
   const isImpersonating = computed(() => !!originalUser.value);
 
-  // --- AÇÕES ---
-
-  // 1. Login Tradicional (Email/Senha)
   async function login(loginForm: LoginForm): Promise<void> {
     const params = new URLSearchParams();
     params.append('username', loginForm.email);
     params.append('password', loginForm.password);
     
     try {
-      // O endpoint /login/token geralmente retorna { access_token, user, ... }
-      // Se o seu backend retornar apenas o token, você precisará chamar getMe() depois.
       const response = await api.post<TokenData>('/login/token', params);
       _setSession(response.data.access_token, response.data.user);
     } catch (error) {
@@ -67,20 +58,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // 2. Login por Crachá (PARA O KIOSK)
   async function loginByBadge(badge: string): Promise<void> {
     try {
-      // 1. Obtém o token usando apenas o crachá
       const response = await api.post('/login/badge', { badge });
       const { access_token } = response.data;
 
-      // 2. Define o header temporariamente para buscar os dados do usuário
       api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
-      // 3. Busca os dados completos do usuário (necessário para pegar o employee_id, nome, etc)
       const userResponse = await getMe();
 
-      // 4. Salva a sessão completa
       _setSession(access_token, userResponse);
       
     } catch (error) {
@@ -90,13 +76,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // 3. Buscar dados do usuário atual
   async function getMe(): Promise<User> {
     const response = await api.get<User>('/users/me');
     return response.data;
   }
 
-  // 4. Atualizar Preferências
   async function updateMyPreferences(payload: UserNotificationPrefsUpdate) {
     try {
       const response = await api.put<User>('/users/me/preferences', payload);
@@ -109,7 +93,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // 5. Logout
   function logout() {
     console.log('Iniciando logout...');
     accessToken.value = null;
@@ -125,18 +108,15 @@ export const useAuthStore = defineStore('auth', () => {
     console.log('Logout concluído.');
   }
 
-  // --- AÇÕES DO LOGIN SOMBRA ---
   function startImpersonation(newToken: string, targetUser: User) {
     if (!user.value || !accessToken.value) {
       console.error('Erro: Admin não logado para iniciar impersonation.');
       return;
     }
-    // Salva o admin original
     localStorage.setItem('original_accessToken', accessToken.value);
     localStorage.setItem('original_user', JSON.stringify(user.value));
     originalUser.value = user.value;
 
-    // Loga como o alvo
     _setSession(newToken, targetUser);
     window.location.href = '/dashboard';
   }
@@ -152,10 +132,8 @@ export const useAuthStore = defineStore('auth', () => {
       return;
     }
 
-    // Restaura o admin
     _setSession(originalToken, originalAdminUser);
     
-    // Limpa dados temporários
     localStorage.removeItem('original_accessToken');
     localStorage.removeItem('original_user');
     originalUser.value = null;
@@ -163,7 +141,6 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.href = '/admin';
   }
   
-  // --- RECUPERAÇÃO DE SENHA ---
   async function requestPasswordReset(payload: PasswordRecoveryRequest): Promise<void> {
     try {
       await api.post('/login/password-recovery', payload);
@@ -173,7 +150,6 @@ export const useAuthStore = defineStore('auth', () => {
       });
     } catch (error) {
       console.error('Erro requestPasswordReset:', error);
-      // Mantém a mesma mensagem por segurança
       Notify.create({
         type: 'positive',
         message: 'Se o e-mail existir, um link de redefinição será enviado.',
@@ -195,7 +171,6 @@ export const useAuthStore = defineStore('auth', () => {
       
       let detail = 'Ocorreu um erro. Token inválido ou expirado.';
       
-      // Validação correta com isAxiosError
       if (isAxiosError(error) && error.response?.data?.detail) {
         detail = error.response.data.detail;
       }
@@ -209,7 +184,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Atualização local do usuário (sem ir ao backend)
   function updateUser(updates: Partial<User>) {
     if (user.value) {
       user.value = { ...user.value, ...updates };
@@ -217,29 +191,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // --- HELPERS INTERNOS ---
   function _setSession(token: string, userData: User) {
     accessToken.value = token;
     user.value = userData;
 
-    // Configura Terminologia baseada no setor
     if (userData.organization) {
       useTerminologyStore().setSector(userData.organization.sector);
     }
 
-    // Persistência
     localStorage.setItem('accessToken', token);
     localStorage.setItem('user', JSON.stringify(userData));
     
-    // Configura Axios
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-    // --- GATILHO DE NOTIFICAÇÃO (NOVO) ---
-    // Verifica se existe um token que chegou antes do login
     const pendingToken = localStorage.getItem('fcm_token_pending');
     if (pendingToken) {
         console.log('🚀 [Auth] Token Pendente encontrado. Enviando...');
-        // Envia em segundo plano (sem await para não travar o login visualmente)
         api.post('/users/me/device-token', { token: pendingToken })
            .then(() => {
                console.log('✅ [Auth] Token vinculado com sucesso!');
@@ -249,13 +216,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Inicialização (Roda ao recarregar a página)
   function init() {
     const token = accessToken.value;
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    // Restaura terminologia se usuário existir
     useTerminologyStore().setSector(user.value?.organization?.sector ?? null);
   }
 
@@ -275,11 +240,12 @@ export const useAuthStore = defineStore('auth', () => {
     isSuperuser,
     isDemo,
     isImpersonating,
+    canEditMaintenance,
     
     // Actions
     login,
-    loginByBadge, // Nova ação
-    getMe,        // Nova ação
+    loginByBadge, 
+    getMe,       
     logout,
     updateMyPreferences,
     updateUser,
@@ -287,6 +253,6 @@ export const useAuthStore = defineStore('auth', () => {
     stopImpersonation,
     requestPasswordReset,
     resetPassword,
-    canEditMaintenance
+    
   };
 });

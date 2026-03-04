@@ -1,15 +1,15 @@
 import type { ISectorStrategy } from './strategy.interface';
 
 export const ConstructionStrategy: ISectorStrategy = {
-  vehicleNoun: 'Equipamento',
-  vehicleNounPlural: 'Equipamentos',
+  machineNoun: 'Equipamento',
+  machineNounPlural: 'Equipamentos',
   journeyNoun: 'Tarefa',
   journeyNounPlural: 'Tarefas',
   distanceUnit: 'Horas de Uso',
   plateOrIdentifierLabel: 'Identificador',
   startJourneyButtonLabel: 'Iniciar Tarefa',
-  vehiclePageTitle: 'Gerenciamento de Equipamentos',
-  addVehicleButtonLabel: 'Adicionar Equipamento',
+  machinePageTitle: 'Gerenciamento de Equipamentos',
+  addMachineButtonLabel: 'Adicionar Equipamento',
   editButtonLabel: 'Editar Equipamento',
   newButtonLabel: 'Novo Equipamento',
   journeyPageTitle: 'Registro de Tarefas',

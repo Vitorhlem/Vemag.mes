@@ -41,28 +41,17 @@ from app.core.websocket_manager import manager # Importação do WebSocket Manag
 from app.db.base_class import Base
 from app.models.organization_model import Organization
 from app.models.user_model import User
-from app.models.vehicle_model import Vehicle
-from app.models.implement_model import Implement
+from app.models.machine_model import Machine
+from app.models.tool_model import Tool
 from app.models.part_model import Part, InventoryItem 
-from app.models.client_model import Client
-from app.models.freight_order_model import FreightOrder
-from app.models.stop_point_model import StopPoint
-from app.models.journey_model import Journey
 from app.models.maintenance_model import MaintenanceRequest, MaintenanceComment
-from app.models.fuel_log_model import FuelLog
 from app.models.notification_model import Notification
 from app.models.location_history_model import LocationHistory
-from app.models.achievement_model import Achievement, UserAchievement
 from app.models.inventory_transaction_model import InventoryTransaction
 from app.models.document_model import Document
-from app.models.goal_model import Goal
 from app.models.alert_model import Alert
-from app.models.vehicle_cost_model import VehicleCost
-from app.models.vehicle_component_model import VehicleComponent
-from app.models.tire_model import VehicleTire
-from app.models.fine_model import Fine
+from app.models.machine_component_model import MachineComponent
 from app.models.feedback_model import Feedback
-from app.models.demo_usage_model import DemoUsage
 from app.routers import drawings
 # ==============================================================================
 

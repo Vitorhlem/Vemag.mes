@@ -14,13 +14,13 @@ class ProductionTimeSliceBase(BaseModel):
     is_productive: bool = False
 
 class ProductionTimeSliceCreate(ProductionTimeSliceBase):
-    vehicle_id: int
+    machine_id: int
     session_id: Optional[int] = None
     order_id: Optional[int] = None
 
 class ProductionTimeSliceRead(ProductionTimeSliceBase):
     id: int
-    vehicle_id: int
+    machine_id: int
     
     class Config:
         from_attributes = True
@@ -167,7 +167,7 @@ class ProductionAppointmentCreate(BaseModel):
     item_code: Optional[str] = ""          # CODIGO ITEM
     
     # Controle Interno
-    vehicle_id: Optional[int] = None
+    machine_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -244,7 +244,7 @@ class SessionResponse(BaseModel):
 class AppointmentCreate(BaseModel):
     op_number: str
     operator_id: str  # Crachá
-    vehicle_id: Optional[int] = None
+    machine_id: Optional[int] = None
     DataSource: Optional[str] = "I"
     start_time: datetime
     end_time: datetime
@@ -261,10 +261,10 @@ class AppointmentCreate(BaseModel):
     
     resource_code: Optional[str] = None
 
-class VehicleDailyMetricRead(BaseModel):
+class MachineDailyMetricRead(BaseModel):
     id: int
     date: date
-    vehicle_id: int
+    machine_id: int
     organization_id: int
     total_hours: float
     running_hours: float

@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 from datetime import datetime, timezone, date # <--- ADICIONADO date
 
 # --- IMPORTS NECESSÁRIOS ---
-from app.models.vehicle_component_model import VehicleComponent
+from app.models.machine_component_model import MachineComponent
 from app.models.maintenance_model import (
     MaintenanceRequest, 
     MaintenanceComment, 
@@ -13,7 +13,7 @@ from app.models.maintenance_model import (
     MaintenanceServiceItem, 
     MaintenanceStatus
 )
-from app.models.vehicle_model import Vehicle
+from app.models.machine_model import Machine
 from app.models.inventory_transaction_model import InventoryTransaction, TransactionType
 from app.models.user_model import User
 from app.models.part_model import Part, InventoryItem, InventoryItemStatus
@@ -38,8 +38,8 @@ async def create_request(
     """Cria uma nova solicitação de manutenção e dispara notificação via Celery."""
     
     # 1. Validação do Veículo/Máquina
-    vehicle = await db.get(Vehicle, request_in.vehicle_id)
-    if not vehicle or vehicle.organization_id != organization_id:
+    machine = await db.get(Machine, request_in.machine_id)
+    if not machine or machine.organization_id != organization_id:
         raise ValueError("Veículo não encontrado nesta organização.")
 
     # 2. Preparação dos dados
@@ -58,7 +58,7 @@ async def create_request(
     
     request_id = db_obj.id
     org_id = db_obj.organization_id
-    machine_label = f"{vehicle.brand} {vehicle.model}" # Nome legível para a notificação
+    machine_label = f"{machine.brand} {machine.model}" # Nome legível para a notificação
     
     await db.commit()
     
@@ -93,24 +93,24 @@ async def perform_component_replacement(
     request = await db.get(MaintenanceRequest, request_id)
     if not request or request.organization_id != user.organization_id:
         raise ValueError("Chamado de manutenção não encontrado.")
-    if not request.vehicle_id:
+    if not request.machine_id:
         raise ValueError("Chamado não está associado a um veículo.")
         
-    vehicle_id = request.vehicle_id
+    machine_id = request.machine_id
     organization_id = user.organization_id
     reported_by_id = request.reported_by_id 
 
     # 2. Obter e Desinstalar o COMPONENTE ANTIGO
-    component_to_remove = await db.get(VehicleComponent, payload.component_to_remove_id)
+    component_to_remove = await db.get(MachineComponent, payload.component_to_remove_id)
     if not component_to_remove:
         raise ValueError(f"Componente a ser removido (ID: {payload.component_to_remove_id}) não encontrado.")
     if not component_to_remove.is_active:
         raise ValueError("Este componente já foi removido/descartado.")
-    if component_to_remove.vehicle_id != vehicle_id:
+    if component_to_remove.machine_id != machine_id:
         raise ValueError("Este componente não pertence ao veículo do chamado.")
 
     try:
-        uninstalled_component = await crud.crud_vehicle_component.discard_component(
+        uninstalled_component = await crud.crud_machine_component.discard_component(
             db=db,
             component_id=component_to_remove.id,
             user_id=user.id,
@@ -138,14 +138,14 @@ async def perform_component_replacement(
             item=new_item,
             new_status=InventoryItemStatus.EM_USO,
             user_id=user.id,
-            vehicle_id=vehicle_id,
+            machine_id=machine_id,
             notes=install_notes 
         )
     except Exception as e:
         raise e
 
-    stmt_comp = select(VehicleComponent).join(
-        InventoryTransaction, VehicleComponent.inventory_transaction_id == InventoryTransaction.id
+    stmt_comp = select(MachineComponent).join(
+        InventoryTransaction, MachineComponent.inventory_transaction_id == InventoryTransaction.id
     ).where(
         InventoryTransaction.item_id == updated_item.id,
         InventoryTransaction.transaction_type == TransactionType.INSTALACAO
@@ -247,10 +247,10 @@ async def perform_new_installation(
     request = await db.get(MaintenanceRequest, request_id)
     if not request or request.organization_id != user.organization_id:
         raise ValueError("Chamado de manutenção não encontrado.")
-    if not request.vehicle_id:
+    if not request.machine_id:
         raise ValueError("Chamado não está associado a um veículo.")
         
-    vehicle_id = request.vehicle_id
+    machine_id = request.machine_id
     organization_id = user.organization_id
     reported_by_id = request.reported_by_id 
 
@@ -272,15 +272,15 @@ async def perform_new_installation(
             item=new_item,
             new_status=InventoryItemStatus.EM_USO,
             user_id=user.id,
-            vehicle_id=vehicle_id,
+            machine_id=machine_id,
             notes=install_notes 
         )
     except Exception as e:
         raise e
 
     # 4. Buscar o Componente recém-criado
-    stmt_comp = select(VehicleComponent).join(
-        InventoryTransaction, VehicleComponent.inventory_transaction_id == InventoryTransaction.id
+    stmt_comp = select(MachineComponent).join(
+        InventoryTransaction, MachineComponent.inventory_transaction_id == InventoryTransaction.id
     ).where(
         InventoryTransaction.item_id == updated_item.id,
         InventoryTransaction.transaction_type == TransactionType.INSTALACAO
@@ -359,12 +359,12 @@ async def revert_part_change(
         MaintenancePartChange.id == change_id
     ).options(
         selectinload(MaintenancePartChange.component_installed).options(
-            selectinload(VehicleComponent.part),
-            selectinload(VehicleComponent.inventory_transaction).selectinload(InventoryTransaction.item)
+            selectinload(MachineComponent.part),
+            selectinload(MachineComponent.inventory_transaction).selectinload(InventoryTransaction.item)
         ),
         selectinload(MaintenancePartChange.component_removed).options(
-            selectinload(VehicleComponent.part),
-            selectinload(VehicleComponent.inventory_transaction).selectinload(InventoryTransaction.item)
+            selectinload(MachineComponent.part),
+            selectinload(MachineComponent.inventory_transaction).selectinload(InventoryTransaction.item)
         ),
         selectinload(MaintenancePartChange.maintenance_request)
     )
@@ -387,12 +387,12 @@ async def revert_part_change(
     if not component_to_revert.is_active:
         raise ValueError("O componente instalado (errado) já está inativo. Não pode ser revertido.")
         
-    vehicle_id = log_entry.maintenance_request.vehicle_id
+    machine_id = log_entry.maintenance_request.machine_id
 
     # 2. Reverte a instalação (Remove o instalado)
     try:
         revert_notes = f"Reversão da troca #{log_entry.id} (Chamado #{log_entry.maintenance_request_id})"
-        await crud.crud_vehicle_component.discard_component(
+        await crud.crud_machine_component.discard_component(
             db=db,
             component_id=component_to_revert.id,
             user_id=user.id,
@@ -421,7 +421,7 @@ async def revert_part_change(
                     item=item_to_reactivate,
                     new_status=InventoryItemStatus.DISPONIVEL, 
                     user_id=user.id,
-                    vehicle_id=None, 
+                    machine_id=None, 
                     notes=f"Retorno ao estoque para reversão da troca #{log_entry.id}"
                 )
             except Exception as e:
@@ -435,7 +435,7 @@ async def revert_part_change(
                 item=item_to_reactivate, 
                 new_status=InventoryItemStatus.EM_USO, 
                 user_id=user.id,
-                vehicle_id=vehicle_id,
+                machine_id=machine_id,
                 notes=reinstall_notes
             )
             part_name_reactivated = component_to_reactivate.part.name
@@ -492,7 +492,7 @@ async def get_request(
     ).options(
         selectinload(MaintenanceRequest.reporter).selectinload(User.organization),
         selectinload(MaintenanceRequest.approver).selectinload(User.organization),
-        selectinload(MaintenanceRequest.vehicle),
+        selectinload(MaintenanceRequest.machine),
         selectinload(MaintenanceRequest.services), 
         selectinload(MaintenanceRequest.comments).options(
             selectinload(MaintenanceComment.user).selectinload(User.organization)
@@ -500,15 +500,15 @@ async def get_request(
         selectinload(MaintenanceRequest.part_changes).options(
             selectinload(MaintenancePartChange.user).selectinload(User.organization),
             selectinload(MaintenancePartChange.component_removed).options(
-                selectinload(VehicleComponent.part).options(selectinload(Part.items)),
-                selectinload(VehicleComponent.inventory_transaction).options(
+                selectinload(MachineComponent.part).options(selectinload(Part.items)),
+                selectinload(MachineComponent.inventory_transaction).options(
                     selectinload(InventoryTransaction.item),
                     selectinload(InventoryTransaction.user).selectinload(User.organization)
                 )
             ),
             selectinload(MaintenancePartChange.component_installed).options(
-                selectinload(VehicleComponent.part).options(selectinload(Part.items)),
-                selectinload(VehicleComponent.inventory_transaction).options(
+                selectinload(MachineComponent.part).options(selectinload(Part.items)),
+                selectinload(MachineComponent.inventory_transaction).options(
                     selectinload(InventoryTransaction.item),
                     selectinload(InventoryTransaction.user).selectinload(User.organization)
                 )
@@ -526,32 +526,32 @@ async def get_all_requests(
     search: str | None = None, 
     skip: int = 0, 
     limit: int = 100,
-    vehicle_id: int | None = None
+    machine_id: int | None = None
 ) -> List[MaintenanceRequest]:
     """Busca todas as solicitações, carregando TODAS as relações necessárias."""
     stmt = select(MaintenanceRequest).where(MaintenanceRequest.organization_id == organization_id)
 
-    if vehicle_id:
-        stmt = stmt.where(MaintenanceRequest.vehicle_id == vehicle_id)
+    if machine_id:
+        stmt = stmt.where(MaintenanceRequest.machine_id == machine_id)
     
     if search:
         search_term_text = f"%{search}%"
         search_filters = [
             MaintenanceRequest.problem_description.ilike(search_term_text),
-            Vehicle.brand.ilike(search_term_text),
-            Vehicle.model.ilike(search_term_text)
+            Machine.brand.ilike(search_term_text),
+            Machine.model.ilike(search_term_text)
         ]
         try:
             search_id = int(search)
             search_filters.append(MaintenanceRequest.id == search_id)
         except ValueError:
             pass 
-        stmt = stmt.join(MaintenanceRequest.vehicle).where(or_(*search_filters))
+        stmt = stmt.join(MaintenanceRequest.machine).where(or_(*search_filters))
 
     stmt = stmt.order_by(MaintenanceRequest.created_at.desc()).offset(skip).limit(limit).options(
         selectinload(MaintenanceRequest.reporter).selectinload(User.organization),
         selectinload(MaintenanceRequest.approver).selectinload(User.organization),
-        selectinload(MaintenanceRequest.vehicle),
+        selectinload(MaintenanceRequest.machine),
         selectinload(MaintenanceRequest.services),
         selectinload(MaintenanceRequest.comments).options(
              selectinload(MaintenanceComment.user).selectinload(User.organization)
@@ -559,15 +559,15 @@ async def get_all_requests(
         selectinload(MaintenanceRequest.part_changes).options(
             selectinload(MaintenancePartChange.user).selectinload(User.organization),
             selectinload(MaintenancePartChange.component_removed).options(
-                selectinload(VehicleComponent.part).options(selectinload(Part.items)),
-                selectinload(VehicleComponent.inventory_transaction).options(
+                selectinload(MachineComponent.part).options(selectinload(Part.items)),
+                selectinload(MachineComponent.inventory_transaction).options(
                     selectinload(InventoryTransaction.item),
                     selectinload(InventoryTransaction.user).selectinload(User.organization)
                 )
             ),
             selectinload(MaintenancePartChange.component_installed).options(
-                selectinload(VehicleComponent.part).options(selectinload(Part.items)),
-                selectinload(VehicleComponent.inventory_transaction).options(
+                selectinload(MachineComponent.part).options(selectinload(Part.items)),
+                selectinload(MachineComponent.inventory_transaction).options(
                     selectinload(InventoryTransaction.item),
                     selectinload(InventoryTransaction.user).selectinload(User.organization)
                 )
@@ -592,20 +592,20 @@ async def update_request_status(
     db_obj.approver_id = manager_id
     
     if update_data.status == MaintenanceStatus.CONCLUIDA:
-        vehicle = await db.get(Vehicle, db_obj.vehicle_id)
+        machine = await db.get(Machine, db_obj.machine_id)
         
-        if vehicle:
+        if machine:
             changed = False
             if update_data.next_maintenance_date:
-                vehicle.next_maintenance_date = update_data.next_maintenance_date
+                machine.next_maintenance_date = update_data.next_maintenance_date
                 changed = True
             
             if update_data.next_maintenance_km is not None:
-                vehicle.next_maintenance_km = update_data.next_maintenance_km
+                machine.next_maintenance_km = update_data.next_maintenance_km
                 changed = True
             
             if changed:
-                db.add(vehicle)
+                db.add(machine)
 
     db.add(db_obj)
     

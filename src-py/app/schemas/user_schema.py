@@ -9,8 +9,6 @@ class OrganizationNestedInUser(BaseModel):
     id: int
     name: str
     sector: Sector
-    vehicle_limit: int
-    driver_limit: int
     model_config = { "from_attributes": True }
 
 class UserBase(BaseModel):
@@ -21,6 +19,7 @@ class UserBase(BaseModel):
     phone: Optional[str] = None
     job_title: Optional[str] = None
     employee_id: Optional[str] = None
+
 class UserCreate(UserBase):
     password: str
     role: Optional[UserRole] = None
@@ -29,38 +28,24 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    phone: Optional[str] = None # <--- Adicionado aqui
+    phone: Optional[str] = None 
     email: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
     role: Optional[UserRole] = None
-    notify_in_app: Optional[bool] = None
-    notify_by_email: Optional[bool] = None
-    notification_email: Optional[str] = None
-    employee_id: Optional[str] = None # Permite a edição do ID se necessário
+    employee_id: Optional[str] = None 
     avatar_url: Optional[str] = None
 
 class UserPasswordUpdate(BaseModel):
     current_password: str
     new_password: str
 
-class UserNotificationPrefsUpdate(BaseModel):
-    notify_in_app: bool
-    notify_by_email: bool
-    notification_email: Optional[str] = None
-
 class UserPublic(UserBase):
     id: int
     organization: Optional[OrganizationNestedInUser] = None
     role: UserRole
     is_superuser: bool
-    notify_in_app: bool
-    notify_by_email: bool
-    notification_email: Optional[str] = None
-    
-    # --- CAMPO ADICIONADO PARA EXIBIÇÃO ---
     employee_id: Optional[str] = None
-    # --- FIM DA ADIÇÃO ---
 
     model_config = { "from_attributes": True }
 
@@ -71,32 +56,14 @@ class UserRegister(BaseModel):
     organization_name: str
     sector: Sector
 
-class PerformanceByVehicle(BaseModel):
-    vehicle_info: str
-    value: float
-
 class UserStats(BaseModel):
-    total_journeys: int
     primary_metric_label: str
     primary_metric_value: float
     primary_metric_unit: str
-    performance_by_vehicle: List[PerformanceByVehicle]
     maintenance_requests_count: int
     avg_km_per_liter: Optional[float] = None
     avg_cost_per_km: Optional[float] = None
     fleet_avg_km_per_liter: Optional[float] = None
-
-class LeaderboardUser(BaseModel):
-    id: int
-    full_name: str
-    avatar_url: Optional[str] = None
-    primary_metric_value: float
-    total_journeys: int
-    model_config = { "from_attributes": True }
-
-class LeaderboardResponse(BaseModel):
-    leaderboard: List[LeaderboardUser]
-    primary_metric_unit: str
 
 class UserDeviceToken(BaseModel):
     token: str

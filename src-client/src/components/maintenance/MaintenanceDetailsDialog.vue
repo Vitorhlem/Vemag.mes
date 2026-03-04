@@ -6,7 +6,7 @@
     <q-card style="width: 800px; max-width: 90vw" class="rounded-borders" v-if="request">
       <q-card-section class="bg-primary text-white">
         <div class="text-h6">
-          OS #{{ request.id }}: {{ request.vehicle?.brand }} {{ request.vehicle?.model }}
+          OS #{{ request.id }}: {{ request.machine?.brand }} {{ request.machine?.model }}
         </div>
         <div class="text-subtitle2">
           Solicitante: {{ request.reporter?.full_name || 'N/A' }}
@@ -72,8 +72,8 @@
                   <q-item-section>
                     <q-item-label caption>Equipamento</q-item-label>
                     <q-item-label class="text-weight-bold">
-                      {{ request.vehicle?.brand }} {{ request.vehicle?.model }} 
-                      (Tag: {{ request.vehicle?.license_plate || request.vehicle?.identifier }})
+                      {{ request.machine?.brand }} {{ request.machine?.model }} 
+                      (Tag: {{ request.machine?.license_plate || request.machine?.identifier }})
                     </q-item-label>
                   </q-item-section>
                 </q-item>
@@ -376,7 +376,7 @@ import { ref, watch, computed } from 'vue';
 import { useQuasar, type QTableColumn } from 'quasar';
 import { useMaintenanceStore } from 'stores/maintenance-store';
 import { useAuthStore } from 'stores/auth-store';
-import { useVehicleComponentStore } from 'stores/vehicle-component-store';
+import { useMachineComponentStore } from 'src/stores/machine-component-store';
 import {
   MaintenanceStatus,
   type MaintenanceRequest,
@@ -384,7 +384,7 @@ import {
   type MaintenanceCommentCreate,
   type MaintenancePartChangePublic,
 } from 'src/models/maintenance-models';
-import type { VehicleComponent } from 'src/models/vehicle-component-models';
+import type { MachineComponent } from 'src/models/machine-component-models';
 
 import ReplaceComponentDialog from './ReplaceComponentDialog.vue';
 import InstallComponentDialog from './InstallComponentDialog.vue';
@@ -450,7 +450,7 @@ const allServices = computed(() => {
 const $q = useQuasar();
 const maintenanceStore = useMaintenanceStore();
 const authStore = useAuthStore();
-const componentStore = useVehicleComponentStore();
+const componentStore = useMachineComponentStore();
 
 const newCommentText = ref('');
 const tab = ref('details');
@@ -459,7 +459,7 @@ const isReplaceDialogOpen = ref(false);
 const isInstallDialogOpen = ref(false);
 const showFinishDialog = ref(false);
 
-const selectedComponent = ref<VehicleComponent | null>(null);
+const selectedComponent = ref<MachineComponent | null>(null);
 
 // --- LÓGICA DE CUSTOS INDUSTRIAIS ---
 const industrialData = computed(() => {
@@ -514,7 +514,7 @@ async function handleAddService() {
     isSubmittingService.value = false;
 }
 
-const componentColumns: QTableColumn<VehicleComponent>[] = [
+const componentColumns: QTableColumn<MachineComponent>[] = [
   { name: 'component_and_item', label: 'Componente / Serial', field: () => '', align: 'left', sortable: true },
   { name: 'installation_date', label: 'Instalado em', field: 'installation_date', format: (val) => new Date(val).toLocaleDateString('pt-BR'), align: 'left', sortable: true },
   { name: 'actions', label: 'Ações', field: () => '', align: 'center' },
@@ -532,14 +532,14 @@ async function postComment() {
   newCommentText.value = '';
 }
 
-function openReplaceDialog(component: VehicleComponent) {
+function openReplaceDialog(component: MachineComponent) {
   selectedComponent.value = component;
   isReplaceDialogOpen.value = true;
 }
 
 function handleReplacementDone() {
-  if (props.request?.vehicle?.id) {
-    void componentStore.fetchComponents(props.request.vehicle.id);
+  if (props.request?.machine?.id) {
+    void componentStore.fetchComponents(props.request.machine.id);
   }
 }
 
@@ -601,9 +601,9 @@ async function onFinishConfirmed(payload: MaintenanceRequestUpdate) {
 }
 
 watch(() => tab.value, (newTab) => {
-    if (newTab === 'components' && props.request?.vehicle?.id) {
-      if (componentStore.currentVehicleId !== props.request.vehicle.id) {
-        void componentStore.fetchComponents(props.request.vehicle.id);
+    if (newTab === 'components' && props.request?.machine?.id) {
+      if (componentStore.currentMachineId !== props.request.machine.id) {
+        void componentStore.fetchComponents(props.request.machine.id);
       }
     }
 });
@@ -611,8 +611,8 @@ watch(() => tab.value, (newTab) => {
 watch(() => props.request?.id, (newId, oldId) => {
     if (newId !== oldId) {
       tab.value = 'details';
-      if (props.request?.vehicle.id) {
-        void componentStore.fetchComponents(props.request.vehicle.id);
+      if (props.request?.machine.id) {
+        void componentStore.fetchComponents(props.request.machine.id);
       }
     }
 }, { immediate: true });

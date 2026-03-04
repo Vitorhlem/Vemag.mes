@@ -14,18 +14,18 @@ class CostByCategory(BaseModel):
     total_amount: float
 
 class DashboardKPIs(BaseModel):
-    total_vehicles: int
-    available_vehicles: int
-    in_use_vehicles: int
-    maintenance_vehicles: int
+    total_machines: int
+    available_machines: int
+    in_use_machines: int
+    maintenance_machines: int
 
 class KmPerDay(BaseModel):
     date: date
     total_km: float
 
 class UpcomingMaintenance(BaseModel):
-    vehicle_id: int 
-    vehicle_info: str
+    machine_id: int 
+    machine_info: str
     due_date: Optional[date] = None
     due_km: Optional[float] = None
 

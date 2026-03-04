@@ -9,11 +9,11 @@ export function usePermission() {
   // --- REGRAS DE NEGÓCIO ---
   
   const canViewReports = computed(() => {
-    return ['admin', 'cliente_ativo', 'manager', 'pcp'].includes(role.value || '');
+    return ['admin', 'manager', 'pcp'].includes(role.value || '');
   });
 
   const canManageUsers = computed(() => {
-    return ['admin', 'cliente_ativo', 'manager'].includes(role.value || '');
+    return ['admin', 'manager'].includes(role.value || '');
   });
 
   const canOpenMaintenanceRequest = computed(() => {
@@ -22,7 +22,7 @@ export function usePermission() {
   });
 
   const canEditSettings = computed(() => {
-    return ['admin', 'cliente_ativo'].includes(role.value || '');
+    return ['admin'].includes(role.value || '');
   });
 
   // Acesso à tela de Produção/Kiosk

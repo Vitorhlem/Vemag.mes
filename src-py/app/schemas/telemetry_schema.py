@@ -13,8 +13,8 @@ class PointSchema(BaseModel):
 
 class TelemetryBatch(BaseModel):
     # Aceita tanto ID numérico (novo padrão ESP32) quanto token string (legado)
-    vehicle_id: Optional[int] = None
-    vehicle_token: Optional[str] = None
+    machine_id: Optional[int] = None
+    machine_token: Optional[str] = None
     
     events: List[Dict[str, Any]] = [] # Aceita lista vazia, necessário para o ESP32
     points: List[PointSchema]
@@ -42,7 +42,7 @@ class TelemetryPoint(BaseModel):
     ts: int
 
 class TelemetryPacket(BaseModel):
-    vehicle_id: int
+    machine_id: int
     journey_id: Optional[int] = None
     points: List[TelemetryPoint]
     events: List[TelemetryEvent]

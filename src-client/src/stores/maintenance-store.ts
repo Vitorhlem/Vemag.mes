@@ -17,7 +17,7 @@ import { isAxiosError } from 'axios';
 // Interface para os parâmetros de busca
 interface FetchMaintenanceParams {
   search?: string | null;
-  vehicleId?: number;
+  machineId?: number;
   limit?: number;
 }
 

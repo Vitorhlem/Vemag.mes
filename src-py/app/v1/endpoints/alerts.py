@@ -26,11 +26,11 @@ async def receive_dms_alert(
     Recebe alertas do TruCar.Sentinel (Edge AI) e salva no banco.
     """
     # 1. Buscar veículo
-    vehicle = await crud.vehicle.get_by_id(db, id=alert_in.truck_id)
-    if not vehicle:
+    machine = await crud.machine.get_by_id(db, id=alert_in.truck_id)
+    if not machine:
         # Se não achar, loga e retorna 404
         print(f"❌ Veículo não encontrado para ID: {alert_in.truck_id}")
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail="machine not found")
 
     # 2. Mapeamento de Severidade (String -> Enum)
     # O YOLO envia "HIGH", "MEDIUM", mas o banco aceita "CRITICAL", "WARNING"
@@ -58,8 +58,8 @@ async def receive_dms_alert(
         # 4. Criar objeto AlertCreate
         # IMPORTANTE: Passamos 'timestamp' aqui, e não 'date'
         alert_create_data = AlertCreate(
-            organization_id=vehicle.organization_id,
-            vehicle_id=vehicle.id,
+            organization_id=machine.organization_id,
+            machine_id=machine.id,
             level=internal_level,
             message=alert_in.description,
             timestamp=alert_in.timestamp, # 👈 Campo correto

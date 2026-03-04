@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.db.base_class import Base
 
 # IMPORTANTE: Ao importar 'app.models', o arquivo app/models/__init__.py é executado.
-# Como ele contém imports de TODOS os seus modelos (ProductionOrder, Vehicle, etc.),
+# Como ele contém imports de TODOS os seus modelos (ProductionOrder, Machine, etc.),
 # eles são automaticamente registrados na Base.metadata neste momento.
 from app import models 
 

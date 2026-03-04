@@ -38,7 +38,7 @@ class Settings(BaseSettings):
         return v
     
     # --- INTEGRAÇÕES ---
-    OPENWEATHER_API_KEY: Optional[str] = None
+  
     REDIS_URL: Optional[str] = None
 
     # --- BANCO DE DADOS ---
@@ -100,26 +100,5 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[str] = None
     EMAILS_FROM_NAME: Optional[str] = None
-
-    # --- LIMITES ---
-    DEMO_TOTAL_LIMITS: Dict[str, int] = {
-        "vehicles": 3, "users": 2, "parts": 15, "clients": 5, "implements": 2, "vehicle_components": 10,
-    }
-    
-    @field_validator("DEMO_TOTAL_LIMITS", mode="before")
-    @classmethod
-    def parse_demo_total_limits(cls, v: Any) -> Any:
-        if isinstance(v, str): return json.loads(v)
-        return v
-
-    DEMO_MONTHLY_LIMITS: Dict[str, int] = {
-        "reports": 5, "fines": 3, "documents": 10, "freight_orders": 10, "maintenance_requests": 5, "fuel_logs": 20, "costs": 15
-    }
-
-    @field_validator("DEMO_MONTHLY_LIMITS", mode="before")
-    @classmethod
-    def parse_demo_monthly_limits(cls, v: Any) -> Any:
-        if isinstance(v, str): return json.loads(v)
-        return v
 
 settings = Settings()

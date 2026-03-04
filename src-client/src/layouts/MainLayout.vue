@@ -371,8 +371,8 @@ async function handleNotificationClick(notification: any) {
     void router.push('/maintenance');
   } else if (type === 'document') {
     void router.push('/documents');
-  } else if (type === 'vehicle' || type === 'machine') {
-    void router.push(`/vehicles/${notification.related_vehicle_id}`);
+  } else if (type === 'machine' || type === 'machine') {
+    void router.push(`/machines/${notification.related_machine_id}`);
   } else {
     void router.push('/dashboard');
   }
@@ -408,7 +408,7 @@ function getMaintenanceMenu(): MenuCategory[] {
             children: [
                 { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
                 { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
-                { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
+                { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Feedback', icon: 'chat', to: '/feedback' },
                 { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' }
@@ -424,7 +424,7 @@ function getPCPMenu(): MenuCategory[] {
             children: [
                 { title: 'Dashboard Geral', icon: 'dashboard', to: '/dashboard' },
                 { title: 'Performance (OEE)', icon: 'trending_up', to: '/employees' },
-                { title: 'Máquinas e Ativos', icon: 'precision_manufacturing', to: '/vehicles' },
+                { title: 'Máquinas e Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Relatórios Históricos', icon: 'bar_chart', to: '/reports' },
                 { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
@@ -441,7 +441,6 @@ function getOperatorMenu(): MenuCategory[] {
             label: 'Operacional',
             children: [
                 { title: 'Chão de Fábrica', icon: 'precision_manufacturing', to: '/dashboard' },
-                { title: 'Minhas O.P.s', icon: 'assignment', to: '/journeys' },
                 { title: 'Apontamento', icon: 'timer', to: '/driver-cockpit' }
             ]
         },
@@ -449,7 +448,7 @@ function getOperatorMenu(): MenuCategory[] {
             label: 'Suporte',
             children: [
                 { title: 'Abrir Chamado', icon: 'build', to: '/maintenance' },
-                { title: 'Minhas Máquinas', icon: 'dns', to: '/vehicles' }
+                { title: 'Minhas Máquinas', icon: 'dns', to: '/machines' }
             ]
         }
     ];
@@ -486,7 +485,7 @@ function getManagerMenu(): MenuCategory[] {
   menu.push({ 
       label: 'Ativos & Recursos', 
       children: [        
-        { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/vehicles' },
+        { title: 'Máquinas Industriais', icon: 'precision_manufacturing', to: '/machines' },
       ] 
   });
 

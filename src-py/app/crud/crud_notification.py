@@ -1,14 +1,12 @@
-# Em backend/app/crud/crud_notification.py
-
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload # Necessário para carregar os relacionamentos
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 
 from app.models.notification_model import Notification, NotificationType
 from app.models.user_model import User, UserRole
-from app.models.vehicle_model import Vehicle
+from app.models.machine_model import Machine
 from app.models.document_model import Document
 
 # --- FUNÇÃO DE CRIAÇÃO ATUALIZADA ---
@@ -22,20 +20,23 @@ async def create_notification(
     send_to_managers: bool = False,
     related_entity_type: str | None = None,
     related_entity_id: int | None = None,
-    related_vehicle_id: int | None = None
+    related_machine_id: int | None = None # Nome correto do parâmetro
 ):
     """
     Cria uma notificação para um usuário específico OU para todos os gestores.
-    Esta função agora gerencia seu próprio commit e é ideal para background tasks.
     """
     target_user_ids = []
     if user_id:
         target_user_ids.append(user_id)
         
     if send_to_managers:
+        # --- CORREÇÃO DE CARGOS ---
+        # Removido CLIENTE_ATIVO/DEMO. Usamos os novos cargos de gestão.
+        manager_roles = [UserRole.ADMIN, UserRole.MANAGER, UserRole.PCP, UserRole.MAINTENANCE]
+        
         manager_stmt = select(User.id).where(
             User.organization_id == organization_id,
-            User.role.in_([UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN]),
+            User.role.in_(manager_roles),
             User.is_active == True
         )
         manager_ids = (await db.execute(manager_stmt)).scalars().all()
@@ -51,7 +52,8 @@ async def create_notification(
             notification_type=notification_type,
             related_entity_type=related_entity_type,
             related_entity_id=related_entity_id,
-            related_vehicle_id=related_vehicle_id
+            # --- CORREÇÃO DO ERRO NameError ---
+            related_machine_id=related_machine_id 
         )
         db.add(new_notification)
         
@@ -64,7 +66,7 @@ async def get_notifications_for_user(db: AsyncSession, *, user_id: int, organiza
         select(Notification)
         .where(Notification.user_id == user_id, Notification.organization_id == organization_id)
         .order_by(Notification.created_at.desc())
-        .options(selectinload(Notification.vehicle))
+        .options(selectinload(Notification.machine))
     )
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -78,10 +80,7 @@ async def get_unread_notifications_count(db: AsyncSession, *, user_id: int, orga
     result = await db.execute(stmt)
     return result.scalar_one()
 
-# --- FUNÇÃO CORRIGIDA PARA O ERRO 500 ---
 async def mark_notification_as_read(db: AsyncSession, *, notification_id: int, user_id: int, organization_id: int) -> Notification | None:
-    # CORREÇÃO: Usar o selectinload para carregar 'user' e 'vehicle' E 'db.scalar'
-    # para garantir que a notificação tenha todos os dados necessários antes de ser retornada ao FastAPI.
     stmt = (
         select(Notification)
         .where(
@@ -89,8 +88,7 @@ async def mark_notification_as_read(db: AsyncSession, *, notification_id: int, u
             Notification.user_id == user_id,
             Notification.organization_id == organization_id
         )
-        # ESTA É A LINHA QUE CORRIGE O ResponseValidationError:
-        .options(selectinload(Notification.user), selectinload(Notification.vehicle)) 
+        .options(selectinload(Notification.user), selectinload(Notification.machine)) 
     )
     notification = await db.scalar(stmt)
     
@@ -100,41 +98,59 @@ async def mark_notification_as_read(db: AsyncSession, *, notification_id: int, u
         await db.commit()
         await db.refresh(notification)
     return notification
-# --- FIM DA CORREÇÃO ---
 
 async def run_system_checks_for_organization(db: AsyncSession, *, organization_id: int):
     print(f"A verificar alertas para a Organização ID: {organization_id}")
     
+    # 1. Manutenção por Data
     date_threshold = datetime.utcnow().date() + timedelta(days=14)
-    vehicles_due_date_stmt = select(Vehicle).where(
-        Vehicle.organization_id == organization_id,
-        Vehicle.next_maintenance_date != None,
-        Vehicle.next_maintenance_date <= date_threshold
+    machines_due_date_stmt = select(Machine).where(
+        Machine.organization_id == organization_id,
+        Machine.next_maintenance_date != None,
+        Machine.next_maintenance_date <= date_threshold
     )
-    for vehicle in (await db.execute(vehicles_due_date_stmt)).scalars().all():
-        message = f"Manutenção agendada para {vehicle.brand} {vehicle.model} em {vehicle.next_maintenance_date.strftime('%d/%m/%Y')}."
-        await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_DATE, organization_id=organization_id, send_to_managers=True, related_vehicle_id=vehicle.id)
+    for machine in (await db.execute(machines_due_date_stmt)).scalars().all():
+        message = f"Manutenção agendada para {machine.brand} {machine.model} em {machine.next_maintenance_date.strftime('%d/%m/%Y')}."
+        # Correção: related_machine_id
+        await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_DATE, organization_id=organization_id, send_to_managers=True, related_machine_id=machine.id)
 
-    vehicles_due_km_stmt = select(Vehicle).where(
-        Vehicle.organization_id == organization_id,
-        Vehicle.next_maintenance_km != None,
-        Vehicle.current_km != None,
-        Vehicle.next_maintenance_km - Vehicle.current_km <= 500
+    # 2. Manutenção por KM (uso da máquina)
+    machines_due_km_stmt = select(Machine).where(
+        Machine.organization_id == organization_id,
+        Machine.next_maintenance_km != None,
+        Machine.current_km != None,
+        (Machine.next_maintenance_km - Machine.current_km) <= 500
     )
-    for vehicle in (await db.execute(vehicles_due_km_stmt)).scalars().all():
-        message = f"{vehicle.brand} {vehicle.model} está a {vehicle.next_maintenance_km - vehicle.current_km}km da próxima manutenção."
-        await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_KM, organization_id=organization_id, send_to_managers=True, related_vehicle_id=vehicle.id)
+    for machine in (await db.execute(machines_due_km_stmt)).scalars().all():
+        diff = machine.next_maintenance_km - machine.current_km
+        message = f"{machine.brand} {machine.model} está a {diff}km da próxima manutenção."
+        # Correção: related_machine_id
+        await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_KM, organization_id=organization_id, send_to_managers=True, related_machine_id=machine.id)
 
+    # 3. Documentos a Vencer
     doc_date_threshold = datetime.utcnow().date() + timedelta(days=30)
     docs_expiring_stmt = select(Document).where(
         Document.organization_id == organization_id,
         Document.expiry_date != None,
         Document.expiry_date <= doc_date_threshold
-    ).options(selectinload(Document.vehicle), selectinload(Document.driver))
+    ).options(selectinload(Document.machine), selectinload(Document.driver))
     
     for doc in (await db.execute(docs_expiring_stmt)).scalars().all():
-        target_name = doc.vehicle.model if doc.vehicle else doc.driver.full_name
+        target_name = doc.machine.model if doc.machine else (doc.driver.full_name if doc.driver else "Desconhecido")
+        machine_id = doc.machine.id if doc.machine else None
+        
         message = f"O documento '{doc.document_type}' de {target_name} vence em {doc.expiry_date.strftime('%d/%m/%Y')}."
-        await create_notification(db, message=message, notification_type=NotificationType.DOCUMENT_EXPIRING, organization_id=organization_id, send_to_managers=True, related_entity_type="document", related_entity_id=doc.id, related_vehicle_id=doc.vehicle_id)
+        
+        # Correção: related_machine_id (passando ID e não objeto)
+        await create_notification(
+            db, 
+            message=message, 
+            notification_type=NotificationType.DOCUMENT_EXPIRING, 
+            organization_id=organization_id, 
+            send_to_managers=True, 
+            related_entity_type="document", 
+            related_entity_id=doc.id, 
+            related_machine_id=machine_id
+        )
         
     print(f"Verificação de alertas concluída para a Organização ID: {organization_id}")

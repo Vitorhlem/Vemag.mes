@@ -1,14 +1,14 @@
 // Define o "contrato" para todas as estratégias de setor
 export interface ISectorStrategy {
-  vehicleNoun: string;
-  vehicleNounPlural: string;
+  machineNoun: string;
+  machineNounPlural: string;
   journeyNoun: string;
   journeyNounPlural: string;
   distanceUnit: string;
   plateOrIdentifierLabel: string;
   startJourneyButtonLabel: string;
-  vehiclePageTitle: string;
-  addVehicleButtonLabel: string;
+  machinePageTitle: string;
+  addMachineButtonLabel: string;
   editButtonLabel: string;
   newButtonLabel: string;
   journeyPageTitle: string;

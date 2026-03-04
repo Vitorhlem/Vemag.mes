@@ -35,15 +35,15 @@ const routes: RouteRecordRaw[] = [
 
       // Módulos de Gestão de Máquinas
       { 
-        path: 'vehicles', 
-        name: 'vehicles', 
+        path: 'machines', 
+        name: 'machines', 
         component: () => import('pages/MachinesPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
 
       { 
-        path: 'vehicles/:id', 
-        name: 'vehicle-details', 
+        path: 'machines/:id', 
+        name: 'machine-details', 
         component: () => import('pages/MachineDetailsPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
@@ -77,10 +77,8 @@ const routes: RouteRecordRaw[] = [
       },
 
       // Outras páginas (PCP e Admin)
-      { path: 'reports', name: 'reports', component: () => import('pages/ReportsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'performance', name: 'performance', component: () => import('pages/PerformancePage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
       { path: 'reports/daily', component: () => import('pages/DailyReportPage.vue'), meta: { roles: ['admin', 'pcp'] } },
-      { path: 'costs', name: 'costs', component: () => import('pages/CostsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'parts', name: 'parts', component: () => import('pages/PartsPage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
       { path: 'users/:id/stats', name: 'user-details', component: () => import('pages/UserDetailsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       // Feedback e Configurações (Acessível por todos)
@@ -90,16 +88,11 @@ const routes: RouteRecordRaw[] = [
       // Administrativo Puro
       { path: 'employees', name: 'employees', component: () => import('pages/EmployeesPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'users', name: 'users', component: () => import('pages/UsersPage.vue'), meta: { roles: ['admin'] } },
-      { path: 'admin', name: 'admin', component: () => import('pages/AdminPage.vue'), meta: { roles: ['admin'] } },
       { path: 'audit-logs', name: 'audit-logs', component: () => import('pages/AuditLogsPage.vue'), meta: { roles: ['admin'] } },
       
       // Legado / Frota
-      { path: 'fuel-logs', name: 'fuel-logs', component: () => import('pages/FuelLogsPage.vue'), meta: { roles: ['admin'] } },
-      { path: 'fines', name: 'fines', component: () => import('pages/FinesPage.vue'), meta: { roles: ['admin'] } },
       { path: 'documents', name: 'documents', component: () => import('pages/DocumentPage.vue'), meta: { roles: ['admin'] } },
       { path: 'implements', name: 'implements', component: () => import('pages/ToolsPage.vue'), meta: { roles: ['admin'] } },
-      { path: 'freight-orders', component: () => import('pages/FreightOrdersPage.vue'), meta: { roles: ['admin'] } },
-      { path: 'clients', component: () => import('pages/ClientsPage.vue'), meta: { roles: ['admin'] } },
     ],
   },
 

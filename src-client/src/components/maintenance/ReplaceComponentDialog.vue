@@ -94,14 +94,14 @@ import { ref, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { usePartStore } from 'stores/part-store';
 import { useMaintenanceStore } from 'stores/maintenance-store';
-import type { VehicleComponent } from 'src/models/vehicle-component-models';
+import type { MachineComponent } from 'src/models/machine-component-models';
 import type { MaintenanceRequest, ReplaceComponentPayload } from 'src/models/maintenance-models';
 import { InventoryItemStatus } from 'src/models/inventory-item-models';
 
 const props = defineProps<{
   modelValue: boolean;
   maintenanceRequest: MaintenanceRequest | null;
-  componentToReplace: VehicleComponent | null;
+  componentToReplace: MachineComponent | null;
 }>();
 
 const emit = defineEmits(['update:modelValue', 'replacement-done']);

@@ -1,4 +1,3 @@
-# src-py/app/deps.py
 from typing import Generator, Any
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
@@ -6,14 +5,11 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 from fastapi.concurrency import run_in_threadpool
-from datetime import date
 
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user_model import User, UserRole
 from app import crud
-
-from app.crud.crud_demo_usage import demo_usage as crud_demo_usage_instance
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/token",
@@ -53,8 +49,21 @@ async def get_current_active_user(
 async def get_current_active_manager(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    # Permite ADMIN, CLIENTE_ATIVO e CLIENTE_DEMO
-    if current_user.role not in [UserRole.CLIENTE_ATIVO, UserRole.CLIENTE_DEMO, UserRole.ADMIN, UserRole.MAINTENANCE, UserRole.PCP]:
+    """
+    Define quem tem permissão de GESTÃO (Backoffice).
+    - ADMIN, MANAGER, PCP, QUALIDADE, LOGÍSTICA e MANUTENÇÃO.
+    - OPERADOR e DRIVER ficam de fora.
+    """
+    authorized_roles = [
+        UserRole.ADMIN, 
+        UserRole.MANAGER, 
+        UserRole.PCP, 
+        UserRole.MAINTENANCE, 
+        UserRole.QUALITY, 
+        UserRole.LOGISTICS
+    ]
+    
+    if current_user.role not in authorized_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="O utilizador não tem permissões de gestor.",
@@ -64,83 +73,22 @@ async def get_current_active_manager(
 async def get_current_active_driver(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    if current_user.role != UserRole.DRIVER:
+    """
+    Restrito a quem está no chão de fábrica (Operador ou Driver).
+    """
+    if current_user.role not in [UserRole.DRIVER, UserRole.OPERATOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Esta ação é restrita a motoristas.",
+            detail="Esta ação é restrita a operadores/motoristas.",
         )
     return current_user
 
 async def get_current_super_admin(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    # Admin role também conta como super admin
     if current_user.role != UserRole.ADMIN and current_user.email not in settings.SUPERUSER_EMAILS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Ação restrita a administradores do sistema."
         )
     return current_user
-
-RESOURCE_TO_CRUD_MAP = {
-    "vehicles": crud.vehicle, "users": crud.user,
-    "parts": crud.part, "clients": crud.client,
-    "implements": crud.implement,          
-    "vehicle_components": crud.vehicle_component, 
-}
-
-def check_demo_limit(resource_type: str):
-    async def dependency(
-        db: AsyncSession = Depends(get_db),
-        # --- CORREÇÃO AQUI ---
-        # Antes era: Depends(get_current_active_manager)
-        # Isso bloqueava motoristas. Agora usamos 'get_current_active_user'.
-        current_user: User = Depends(get_current_active_user),
-    ):
-        # Se não for conta DEMO (ex: é Driver, Admin, ou Cliente Ativo), ignora a verificação
-        if current_user.role != UserRole.CLIENTE_DEMO:
-            return
-            
-        organization_id = current_user.organization_id
-        
-        if resource_type in settings.DEMO_MONTHLY_LIMITS:
-            limit = settings.DEMO_MONTHLY_LIMITS[resource_type]
-            usage = await crud_demo_usage_instance.get_or_create_usage(
-                db, organization_id=organization_id, resource_type=resource_type
-            )
-            if usage.usage_count >= limit:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Limite mensal de {limit} {resource_type.replace('_', ' ')} atingido para a conta demonstração. Considere migrar para um plano pago.",
-                )
-        
-        if resource_type in settings.DEMO_TOTAL_LIMITS:
-            limit = settings.DEMO_TOTAL_LIMITS[resource_type]
-            crud_operation = RESOURCE_TO_CRUD_MAP.get(resource_type)
-            if crud_operation:
-                current_count = await crud_operation.count_by_org(db, organization_id=organization_id)
-                if current_count >= limit:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Limite total de {limit} {resource_type.replace('_', ' ')} atingido para a conta demonstração. Exclua itens ou migre para um plano pago.",
-                    )
-    return dependency
-
-async def check_demo_limit_manual(db: AsyncSession, user: User, resource: str):
-    """
-    Verifica manualmente se o usuário excedeu o limite de recursos da conta Demo.
-    Lança exceção se o limite for atingido.
-    """
-    if user.role != UserRole.CLIENTE_DEMO:
-        return # Apenas contas Demo têm limites estritos
-
-    # Lógica de verificação...
-    # Exemplo simplificado:
-    current_usage = await crud.demo_usage.get_usage(db, organization_id=user.organization_id, resource_type=resource)
-    limit = 10 # Valor padrão ou buscado da organização
-    
-    if current_usage >= limit:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Limite de {resource} atingido para a conta de demonstração."
-        )

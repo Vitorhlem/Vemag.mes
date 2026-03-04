@@ -80,8 +80,8 @@ const form = ref<MaintenanceRequestUpdate>({
 });
 
 watch(() => props.modelValue, (isOpen) => {
-  if (isOpen && props.request?.vehicle) {
-    const v = props.request.vehicle;
+  if (isOpen && props.request?.machine) {
+    const v = props.request.machine;
     
     // Sugere +180 dias (semestral)
     const today = new Date();
@@ -98,8 +98,8 @@ watch(() => props.modelValue, (isOpen) => {
 });
 
 const currentUsage = computed(() => {
-    if (!props.request?.vehicle) return '';
-    const v = props.request.vehicle;
+    if (!props.request?.machine) return '';
+    const v = props.request.machine;
     return v.current_engine_hours ? `${v.current_engine_hours.toFixed(1)} h` : (v.current_km ? `${v.current_km} h` : '0 h');
 });
 

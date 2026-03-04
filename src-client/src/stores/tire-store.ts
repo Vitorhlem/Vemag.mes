@@ -2,20 +2,20 @@ import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
 import { isAxiosError } from 'axios';
-import type { TireLayout, TireInstallPayload, VehicleTireHistory } from 'src/models/tire-models';
+import type { TireLayout, TireInstallPayload, MachineTireHistory } from 'src/models/tire-models';
 
 export const useTireStore = defineStore('tire', {
   state: () => ({
     tireLayout: null as TireLayout | null,
-    removedTiresHistory: [] as VehicleTireHistory[],
+    removedTiresHistory: [] as MachineTireHistory[],
     isLoading: false,
   }),
 
   actions: {
-    async fetchTireLayout(vehicleId: number) {
+    async fetchTireLayout(machineId: number) {
       this.isLoading = true;
       try {
-        const response = await api.get<TireLayout>(`/tires/vehicles/${vehicleId}/tires`);
+        const response = await api.get<TireLayout>(`/tires/machines/${machineId}/tires`);
         this.tireLayout = response.data;
       } catch { // Variável de erro removida
         Notify.create({ type: 'negative', message: 'Falha ao carregar a configuração de pneus.' });
@@ -24,10 +24,10 @@ export const useTireStore = defineStore('tire', {
       }
     },
 
-    async fetchRemovedTiresHistory(vehicleId: number) {
+    async fetchRemovedTiresHistory(machineId: number) {
       this.isLoading = true;
       try {
-        const response = await api.get<VehicleTireHistory[]>(`/tires/vehicles/${vehicleId}/removed-tires`);
+        const response = await api.get<MachineTireHistory[]>(`/tires/machines/${machineId}/removed-tires`);
         this.removedTiresHistory = response.data;
       } catch { // Variável de erro removida
         Notify.create({ type: 'negative', message: 'Falha ao carregar o histórico de pneus removidos.' });
@@ -36,10 +36,10 @@ export const useTireStore = defineStore('tire', {
       }
     },
 
-    async installTire(vehicleId: number, payload: TireInstallPayload): Promise<boolean> {
+    async installTire(machineId: number, payload: TireInstallPayload): Promise<boolean> {
       this.isLoading = true;
       try {
-        await api.post(`/tires/vehicles/${vehicleId}/tires`, payload);
+        await api.post(`/tires/machines/${machineId}/tires`, payload);
         Notify.create({ type: 'positive', message: 'Pneu instalado com sucesso!' });
         return true;
       } catch (error) {

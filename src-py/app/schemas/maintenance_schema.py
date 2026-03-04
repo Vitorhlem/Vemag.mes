@@ -5,8 +5,8 @@ from datetime import datetime, date
 
 from app.models.maintenance_model import MaintenanceStatus, MaintenanceCategory
 from .user_schema import UserPublic
-from .vehicle_schema import VehiclePublic
-from .vehicle_component_schema import VehicleComponentPublic 
+from .machine_schema import MachinePublic
+from .machine_component_schema import MachineComponentPublic 
 from app.models.part_model import InventoryItemStatus 
 
 class MaintenanceCommentBase(BaseModel):
@@ -30,10 +30,10 @@ class MaintenancePartChangePublic(BaseModel):
     notes: Optional[str] = None
     
     # --- ALTERAÇÃO AQUI: Agora é Optional ---
-    component_removed: Optional[VehicleComponentPublic] = None
+    component_removed: Optional[MachineComponentPublic] = None
     # --- FIM DA ALTERAÇÃO ---
     
-    component_installed: VehicleComponentPublic 
+    component_installed: MachineComponentPublic 
     
     is_reverted: bool
     
@@ -66,7 +66,7 @@ class InstallComponentResponse(BaseModel):
 
 class MaintenanceRequestBase(BaseModel):
     problem_description: str
-    vehicle_id: int
+    machine_id: int
     category: MaintenanceCategory
     maintenance_type: str = "CORRETIVA"
     # --- NOVOS CAMPOS ADICIONADOS AQUI ---
@@ -103,7 +103,7 @@ class MaintenanceRequestPublic(MaintenanceRequestBase):
     updated_at: Optional[datetime] = None
     reporter: Optional[UserPublic] = None
     approver: Optional[UserPublic] = None
-    vehicle: VehiclePublic
+    machine: MachinePublic
     manager_notes: Optional[str] = None
     services: List[MaintenanceServiceItemPublic] = []
     problem_description: str

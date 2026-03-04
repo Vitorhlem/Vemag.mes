@@ -31,7 +31,7 @@
              label="Atualizar Dados" 
              class="btn-hover-effect glass-btn text-teal-9"
              @click="() => refreshData()" 
-             :loading="dashboardStore.isLoading || vehicleStore.isLoading"
+             :loading="dashboardStore.isLoading || machineStore.isLoading"
            />
            <q-btn-dropdown 
              color="primary" 
@@ -43,7 +43,7 @@
            >
             <q-list class="q-py-md" style="min-width: 240px">
               <div class="text-caption q-px-md q-mb-sm text-teal-9 text-uppercase text-weight-bold">Cadastro</div>
-              <q-item clickable v-close-popup @click="() => router.push('/vehicles')" class="item-hover">
+              <q-item clickable v-close-popup @click="() => router.push('/machines')" class="item-hover">
                 <q-item-section avatar><div class="icon-box bg-teal-1 text-teal-9"><q-icon name="precision_manufacturing" size="20px"/></div></q-item-section>
                 <q-item-section>
                    <q-item-label class="text-weight-bold text-teal-10">Nova Máquina</q-item-label>
@@ -72,7 +72,7 @@
     <div v-else class="fade-in-up">
       <div class="row q-col-gutter-md q-mb-lg">
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Ativos Totais" :value="realTimeStats.total" icon="domain" color="blue-grey-10" to="/vehicles" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Ativos Totais" :value="realTimeStats.total" icon="domain" color="blue-grey-10" to="/machines" class="full-height glass-card shadow-card hover-scale" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
           <StatCard label="Em Produção" :value="realTimeStats.running" icon="precision_manufacturing" color="positive" class="full-height glass-card shadow-card hover-scale" />
@@ -186,7 +186,7 @@ import { useRouter } from 'vue-router';
 import { setCssVar, useQuasar } from 'quasar'; // Adicionado useQuasar
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
-import { useVehicleStore } from 'stores/vehicle-store'; 
+import { useMachineStore } from 'stores/machine-store'; 
 import ApexChart from 'vue3-apexcharts';
 import StatCard from 'components/StatCard.vue';
 import MetricCard from 'components/MetricCard.vue'; 
@@ -197,7 +197,7 @@ import MetricCard from 'components/MetricCard.vue';
 
 const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
-const vehicleStore = useVehicleStore(); 
+const machineStore = useMachineStore(); 
 const router = useRouter();
 const $q = useQuasar(); // Para detectar modo escuro nos gráficos
 
@@ -207,7 +207,7 @@ const $q = useQuasar(); // Para detectar modo escuro nos gráficos
 const chartTextColor = computed(() => $q.dark.isActive ? '#cbd5e1' : '#64748b');
 
 const realTimeStats = computed(() => {
-  const allMachines = vehicleStore.vehicles;
+  const allMachines = machineStore.machines;
   // Normaliza o status para evitar erros de maiúsculo/minúsculo ou espaços
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getStatus = (m: any) => String(m.status || '').trim().toUpperCase();
@@ -282,7 +282,7 @@ const fleetStatusChart = computed(() => {
 async function refreshData() {
     await Promise.all([
         dashboardStore.fetchManagerDashboard('last_30_days'),
-        vehicleStore.fetchAllVehicles({ page: 1, rowsPerPage: 100 })
+        machineStore.fetchAllMachines({ page: 1, rowsPerPage: 100 })
     ]);
 }
 

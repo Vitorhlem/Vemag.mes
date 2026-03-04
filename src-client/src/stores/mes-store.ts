@@ -48,9 +48,9 @@ export interface DailyMetric {
   closed_at: string;
 }
 
-export interface VehicleMetric {
+export interface MachineMetric {
   id: number;
-  vehicle_name: string;
+  machine_name: string;
   running_hours: number;
   maintenance_hours: number;
   idle_hours: number;
@@ -90,7 +90,7 @@ export const useMesStore = defineStore('mes', () => {
   const isLoading = ref(false);
   const dailyHistory = ref<DailyMetric[]>([]);
   const dailyEmployeeHistory = ref<DailyMetric[]>([]);
-  const dailyVehicleHistory = ref<VehicleMetric[]>([]);
+  const dailyMachineHistory = ref<MachineMetric[]>([]);
 
   // --- ACTIONS ---
 
@@ -149,11 +149,11 @@ export const useMesStore = defineStore('mes', () => {
       isLoading.value = true;
       const [resEmp, resVeh] = await Promise.all([
         api.get<DailyMetric[]>('/production/reports/daily-closing/employees', { params: { target_date: date } }),
-        api.get<VehicleMetric[]>('/production/reports/daily-closing/vehicles', { params: { target_date: date } })
+        api.get<MachineMetric[]>('/production/reports/daily-closing/machines', { params: { target_date: date } })
       ]);
       
       dailyEmployeeHistory.value = resEmp.data;
-      dailyVehicleHistory.value = resVeh.data;
+      dailyMachineHistory.value = resVeh.data;
     } catch (error) {
       console.error('Erro ao buscar histórico consolidado', error);
     } finally {
@@ -326,6 +326,6 @@ export const useMesStore = defineStore('mes', () => {
     fetchDailyHistory,
     forceDailyClosing,
     dailyEmployeeHistory,
-    dailyVehicleHistory,
+    dailyMachineHistory,
   };
 });

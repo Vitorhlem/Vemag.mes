@@ -1,17 +1,16 @@
 import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
-// Importa todos os novos modelos que definimos
 import type {
   ManagerDashboardResponse,
   DriverDashboardResponse,
-  VehiclePosition,
+  MachinePosition,
 } from 'src/models/report-models';
 
 // Definição do novo estado da store, mais completo
 export interface DashboardState {
   managerDashboard: ManagerDashboardResponse | null;
   driverDashboard: DriverDashboardResponse | null;
-  vehiclePositions: VehiclePosition[];
+  machinePositions: MachinePosition[];
   isLoading: boolean;
 }
 
@@ -19,7 +18,7 @@ export const useDashboardStore = defineStore('dashboard', {
   state: (): DashboardState => ({
     managerDashboard: null,
     driverDashboard: null,
-    vehiclePositions: [],
+    machinePositions: [],
     isLoading: false,
   }),
 
@@ -63,11 +62,11 @@ export const useDashboardStore = defineStore('dashboard', {
      * Busca as posições dos veículos para o MAPA.
      * Esta ação é otimizada para ser chamada repetidamente (polling).
      */
-    async fetchVehiclePositions() {
+    async fetchMachinePositions() {
       // Não usamos 'isLoading' aqui para permitir uma atualização silenciosa em segundo plano.
       try {
-        const response = await api.get<VehiclePosition[]>('/dashboard/vehicles/positions');
-        this.vehiclePositions = response.data;
+        const response = await api.get<MachinePosition[]>('/dashboard/machines/positions');
+        this.machinePositions = response.data;
       } catch (error) {
         console.error('Falha ao buscar posições dos veículos:', error);
       }
@@ -79,7 +78,7 @@ export const useDashboardStore = defineStore('dashboard', {
     clearDashboardData() {
       this.managerDashboard = null;
       this.driverDashboard = null;
-      this.vehiclePositions = [];
+      this.machinePositions = [];
       this.isLoading = false;
     },
   },

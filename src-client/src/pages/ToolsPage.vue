@@ -245,11 +245,11 @@
 import { ref, onMounted, computed } from 'vue';
 import { useQuasar } from 'quasar';
 // Reutilizamos a store existente, mas a interface muda visualmente
-import { useImplementStore } from 'stores/implement-store';
+import { useImplementStore } from 'src/stores/tool-store';
 import { useAuthStore } from 'stores/auth-store';
-import type { Implement, ImplementCreate, ImplementUpdate } from 'src/models/implement-models';
+import type { Tools, ToolsCreate, ToolsUpdate } from 'src/models/tools-models';
 import HoverCard from 'components/HoverCard.vue';
-import { ImplementStatus } from 'src/models/implement-models';
+import { ToolsStatus } from 'src/models/tools-models';
 
 const $q = useQuasar();
 const implementStore = useImplementStore();
@@ -257,21 +257,21 @@ const authStore = useAuthStore();
 
 const isDialogOpen = ref(false);
 const isSubmitting = ref(false);
-const editingImplement = ref<Implement | null>(null);
+const editingImplement = ref<Tools | null>(null);
 const isEditing = computed(() => !!editingImplement.value);
 
 // Filtros
 const searchTerm = ref('');
-const filterStatus = ref<ImplementStatus | null>(null);
+const filterStatus = ref<ToolsStatus | null>(null);
 const filterType = ref<string | null>(null);
 
-const formData = ref<Partial<Implement>>({});
+const formData = ref<Partial<Tools>>({});
 
 // Opções de Status (Traduzido para Indústria)
 const statusOptions = [
-  { label: 'Disponível', value: ImplementStatus.AVAILABLE },
-  { label: 'Em Uso (Acoplado)', value: ImplementStatus.IN_USE },
-  { label: 'Em Manutenção', value: ImplementStatus.MAINTENANCE }
+  { label: 'Disponível', value: ToolsStatus.AVAILABLE },
+  { label: 'Em Uso (Acoplado)', value: ToolsStatus.IN_USE },
+  { label: 'Em Manutenção', value: ToolsStatus.MAINTENANCE }
 ];
 
 // Opções de Tipo Dinâmicas
@@ -302,20 +302,20 @@ const filteredImplements = computed(() => {
   });
 });
 
-function getStatusColor(status: ImplementStatus) {
+function getStatusColor(status: ToolsStatus) {
   switch (status) {
-    case ImplementStatus.AVAILABLE: return 'positive';
-    case ImplementStatus.IN_USE: return 'primary'; // Azul para 'Em Uso' industrial
-    case ImplementStatus.MAINTENANCE: return 'negative';
+    case ToolsStatus.AVAILABLE: return 'positive';
+    case ToolsStatus.IN_USE: return 'primary'; // Azul para 'Em Uso' industrial
+    case ToolsStatus.MAINTENANCE: return 'negative';
     default: return 'grey';
   }
 }
 
-function getStatusLabel(status: ImplementStatus) {
+function getStatusLabel(status: ToolsStatus) {
   switch (status) {
-    case ImplementStatus.AVAILABLE: return 'Disponível';
-    case ImplementStatus.IN_USE: return 'Em Produção';
-    case ImplementStatus.MAINTENANCE: return 'Manutenção';
+    case ToolsStatus.AVAILABLE: return 'Disponível';
+    case ToolsStatus.IN_USE: return 'Em Produção';
+    case ToolsStatus.MAINTENANCE: return 'Manutenção';
     default: return status;
   }
 }
@@ -335,7 +335,7 @@ function resetForm() {
   };
 }
 
-function openDialog(implement: Implement | null = null) {
+function openDialog(implement: Tools | null = null) {
   if (implement) {
     editingImplement.value = implement;
     formData.value = { ...implement };
@@ -357,9 +357,9 @@ async function handleSubmit() {
     if (!payload.identifier) payload.identifier = null;
 
     if (isEditing.value && editingImplement.value) {
-      await implementStore.updateImplement(editingImplement.value.id, payload as ImplementUpdate);
+      await implementStore.updateImplement(editingImplement.value.id, payload as ToolsUpdate);
     } else {
-      await implementStore.addImplement(payload as ImplementCreate);
+      await implementStore.addImplement(payload as ToolsCreate);
     }
     isDialogOpen.value = false;
     $q.notify({ type: 'positive', message: 'Salvo com sucesso!' });
@@ -371,7 +371,7 @@ async function handleSubmit() {
   }
 }
 
-function promptToDelete(implement: Implement) {
+function promptToDelete(implement: Tools) {
   $q.dialog({
     title: 'Confirmar Exclusão',
     message: `Deseja realmente remover a ferramenta "${implement.name}"?`,

@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from app.models.part_model import PartCategory, InventoryItemStatus
-# Não importe 'vehicle_schema' aqui no topo para evitar importação circular
 
 # --- 1. Schema para o Item Físico (Individual) ---
 class InventoryItemPublic(BaseModel):
@@ -11,7 +10,7 @@ class InventoryItemPublic(BaseModel):
     status: InventoryItemStatus
     part_id: int 
     organization_id: int
-    installed_on_vehicle_id: Optional[int] = None
+    installed_on_machine_ids: Optional[int] = None
     created_at: datetime
     installed_at: Optional[datetime] = None
     part: 'PartListPublic'
@@ -78,7 +77,7 @@ class InventoryItemDetails(InventoryItemPublic):
 
 # --- 6. NOVOS SCHEMAS PARA A PÁGINA MESTRE (InventoryItemsPage) ---
 
-class _VehicleInfo(BaseModel):
+class _MachineInfo(BaseModel):
     id: int
     brand: Optional[str] = None
     model: Optional[str] = None
@@ -89,7 +88,7 @@ class _VehicleInfo(BaseModel):
 
 class InventoryItemRow(InventoryItemPublic):
     part: PartListPublic 
-    installed_on_vehicle: Optional[_VehicleInfo] = None 
+    installed_on_machine: Optional[_MachineInfo] = None 
 
 class InventoryItemPage(BaseModel):
     total: int

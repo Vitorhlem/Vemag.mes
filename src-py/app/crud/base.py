@@ -71,7 +71,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def count(self, db: AsyncSession, **kwargs) -> int:
         """
         Conta o número de registros com base em filtros opcionais.
-        Ex: await crud.vehicle.count(db, organization_id=1)
+        Ex: await crud.machine.count(db, organization_id=1)
         """
         query = select(func.count()).select_from(self.model)
         if kwargs:

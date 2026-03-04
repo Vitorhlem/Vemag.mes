@@ -151,7 +151,7 @@
                         size="xl"
                         class="shadow-5 q-px-xl text-weight-bolder full-width"
                         style="border-radius: 12px; height: 70px; font-size: 1.2rem;"
-                        @click="$router.push(`/vehicles/${selectedMachine}`)"
+                        @click="$router.push(`/machines/${selectedMachine}`)"
                     />
                 </div>
                 <div class="row q-col-gutter-md q-mb-md">

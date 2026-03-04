@@ -6,7 +6,7 @@ from typing import List, Optional
 # Importar as novas ferramentas
 from app.core.security_utils import encrypt_data, decrypt_data
 from app.models.organization_model import Organization
-from app.schemas.organization_schema import OrganizationCreate, OrganizationUpdate, OrganizationFuelIntegrationUpdate
+from app.schemas.organization_schema import OrganizationCreate, OrganizationUpdate
 from app.models.user_model import User, UserRole
 
 
@@ -65,46 +65,6 @@ async def update(
     
     db.add(db_obj)
     await db.commit()
-    
-    # REMOVIDO: await db.refresh(db_obj) 
-    # O refresh limpa os relacionamentos carregados (como 'users').
-    # Ao retornar, o Pydantic tenta acessar 'users' e causa o erro MissingGreenlet.
-    
-    # SOLUÇÃO: Buscamos o objeto novamente usando 'get', que já tem o selectinload(Organization.users)
     return await get(db, id=db_obj.id)
 
 
-# --- NOVAS FUNÇÕES PARA GERENCIAR AS CREDENCIAIS DE INTEGRAÇÃO ---
-
-async def update_fuel_integration_settings(
-    db: AsyncSession, *, db_obj: Organization, obj_in: OrganizationFuelIntegrationUpdate
-) -> Organization:
-    """
-    Atualiza as configurações de integração de combustível,
-    criptografando as chaves antes de salvar.
-    """
-    if obj_in.fuel_provider_name is not None:
-        db_obj.fuel_provider_name = obj_in.fuel_provider_name
-    
-    if obj_in.fuel_provider_api_key is not None:
-        db_obj.encrypted_fuel_provider_api_key = encrypt_data(obj_in.fuel_provider_api_key)
-
-    if obj_in.fuel_provider_api_secret is not None:
-        db_obj.encrypted_fuel_provider_api_secret = encrypt_data(obj_in.fuel_provider_api_secret)
-
-    db.add(db_obj)
-    await db.commit()
-    await db.refresh(db_obj) # Aqui o refresh é seguro pois o retorno não exige 'users'
-    return db_obj
-
-
-def get_decrypted_fuel_credentials(organization: Organization) -> dict:
-    """
-    Descriptografa e retorna as credenciais de combustível para uma organização.
-    NÃO EXPONHA ESTA FUNÇÃO DIRETAMENTE NUMA API PÚBLICA.
-    """
-    return {
-        "provider_name": organization.fuel_provider_name,
-        "api_key": decrypt_data(organization.encrypted_fuel_provider_api_key),
-        "api_secret": decrypt_data(organization.encrypted_fuel_provider_api_secret)
-    }

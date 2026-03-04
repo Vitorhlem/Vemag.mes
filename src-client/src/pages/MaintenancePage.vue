@@ -11,77 +11,34 @@
           Controle de Ordens de Manutenção (OM), Preventivas e Paradas
         </div>
       </div>
+    </div>
+
+    <div class="row items-center justify-between q-mb-lg q-col-gutter-y-md animate-fade-down">
+      <div class="col-12 col-md-auto">
+        <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
+          <q-icon name="engineering" size="md" class="text-primary" />
+          Gestão de Manutenção (PCM)
+        </h1>
+        <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
+          Controle de Ordens de Manutenção (OM), Preventivas e Paradas
+        </div>
+      </div>
 
       <div class="col-12 col-md-auto">
-        <div class="d-inline-block relative-position">
-          <q-btn 
+        <q-btn 
+            label="Nova Solicitação" 
+            icon="add_circle" 
             color="primary" 
-            icon="add_task" 
-            label="Nova Ordem de Manutenção" 
             size="md"
-            unelevated 
+            unelevated
             class="shadow-green btn-rounded"
-            @click="openCreateRequestDialog"
-            :disable="isLimitReached"
-          />
-          <q-tooltip 
-            v-if="isLimitReached" 
-            class="bg-negative text-body2 shadow-4" 
-            anchor="bottom middle" 
-            self="top middle"
-            :offset="[10, 10]"
-          >
-            <div class="row items-center no-wrap">
-                <q-icon name="lock" size="sm" class="q-mr-sm" />
-                <div>
-                    <div class="text-weight-bold">Limite Atingido</div>
-                    <div class="text-caption">O plano Demo permite até {{ demoUsageLimitLabel }} OM/mês.</div>
-                    <div class="text-caption q-mt-xs text-yellow-2 cursor-pointer" @click="showComparisonDialog = true">Clique para aumentar</div>
-                </div>
-            </div>
-          </q-tooltip>
-        </div>
+            @click="isCreateDialogOpen = true" 
+        />
       </div>
     </div>
 
-    <div v-if="isDemo" class="q-mb-xl animate-fade">
-      <q-card flat class="demo-card-gradient shadow-green">
-        <q-card-section class="q-pa-md">
-          <div class="row items-center justify-between">
-            <div class="col-grow row items-center q-gutter-x-md">
-              <q-circular-progress
-                show-value
-                font-size="14px"
-                :value="usagePercentage"
-                size="60px"
-                :thickness="0.22"
-                :color="usageColor"
-                track-color="white-10"
-                class="text-white q-my-xs"
-              >
-                {{ usagePercentage }}%
-              </q-circular-progress>
-              
-              <div>
-                <div class="text-subtitle2 text-uppercase text-white opacity-80">Ordens de Manutenção (Mês)</div>
-                <div class="text-h4 text-white text-weight-bold">
-                  {{ demoUsageCount }} <span class="text-h6 text-white opacity-70">/ {{ demoUsageLimitLabel }}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-auto">
-               <q-btn flat dense color="white" icon="info" round>
-                 <q-tooltip>Você utilizou {{ usagePercentage }}% da sua franquia de OM mensais.</q-tooltip>
-               </q-btn>
-            </div>
-          </div>
-          <q-linear-progress :value="usagePercentage / 100" class="q-mt-md rounded-borders" color="white" track-color="white-10" />
-        </q-card-section>
-      </q-card>
-    </div>
-
-    <div class="row q-col-gutter-md q-mb-lg">
+      
+        <div class="row q-col-gutter-md q-mb-lg">
       <div class="col-12 col-md-4">
         <q-card flat class="full-height glass-card shadow-sm border-left-orange">
           <q-card-section class="row items-center">
@@ -201,10 +158,10 @@
                 <q-item-section>
                   <q-item-label class="text-weight-bold text-teal-10">
                       <q-icon name="precision_manufacturing" size="xs" class="q-mr-xs text-teal-7"/>
-                      {{ req.vehicle?.brand }} {{ req.vehicle?.model }}
+                      {{ req.machine?.brand }} {{ req.machine?.model }}
                   </q-item-label>
                   <q-item-label caption>
-                      <span class="text-teal-9 text-weight-medium">Tag: {{ req.vehicle?.license_plate || req.vehicle?.identifier || 'N/A' }}</span> 
+                      <span class="text-teal-9 text-weight-medium">Tag: {{ req.machine?.license_plate || req.machine?.identifier || 'N/A' }}</span> 
                       &bull; <span class="text-primary text-weight-bold">{{ req.category || 'Geral' }}</span>
                       &bull; <span class="text-grey-7">{{ req.problem_description }}</span>
                   </q-item-label>
@@ -235,95 +192,19 @@
       @request-created="refreshData" 
     />
 
-    <q-dialog v-model="showComparisonDialog">
-      <q-card class="glass-card overflow-hidden" style="width: 750px; max-width: 95vw;">
-        <q-card-section class="text-white q-py-lg text-center relative-position overflow-hidden" style="background: linear-gradient(135deg, #00665e, #70c0b0);">
-          <div class="absolute-full bg-white opacity-10" style="transform: skewY(-5deg) scale(1.5);"></div>
-          <q-icon name="domain" size="4em" class="q-mb-sm" />
-          <div class="text-h4 text-weight-bold relative-position">Gestão de Ativos Profissional</div>
-          <div class="text-subtitle1 text-teal-1 relative-position">Eleve o nível do seu PCM com o Plano PRO</div>
-        </q-card-section>
-
-        <q-card-section class="q-pa-none">
-          <q-markup-table flat class="bg-transparent glass-table">
-            <thead>
-              <tr class="bg-teal-gradient-faded text-teal-9">
-                <th class="text-left q-pa-md text-uppercase text-caption text-weight-bold">Funcionalidade</th>
-                <th class="text-center text-weight-bold q-pa-md bg-orange-1 text-orange-9 border-left">Plano Demo</th>
-                <th class="text-center text-weight-bold q-pa-md text-primary bg-teal-1">Plano PRO</th>
-              </tr>
-            </thead>
-            <tbody class="text-teal-10">
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="build" color="teal-4" size="xs" /> Ordens de Manutenção (Mês)</td>
-                <td class="text-center bg-orange-1 text-orange-10">{{ demoUsageLimitLabel }}</td>
-                <td class="text-center text-primary text-weight-bold bg-teal-1"><q-icon name="check_circle" /> Ilimitado</td>
-              </tr>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="update" color="teal-4" size="xs" /> Planejamento (PMP)</td>
-                <td class="text-center bg-orange-1 text-orange-10">Manual</td>
-                <td class="text-center text-primary text-weight-bold bg-teal-1"><q-icon name="check_circle" /> Automatizado</td>
-              </tr>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="inventory_2" color="teal-4" size="xs" /> Gestão de Almoxarifado</td>
-                <td class="text-center bg-orange-1 text-orange-10">Básico</td>
-                <td class="text-center text-primary text-weight-bold bg-teal-1">Integrado à OM</td>
-              </tr>
-            </tbody>
-          </q-markup-table>
-        </q-card-section>
-
-        <q-card-actions align="center" class="q-pa-lg bg-teal-gradient-faded-full">
-          <div class="column items-center full-width q-gutter-y-md">
-            <div class="text-h6 text-weight-bold text-teal-10">Quer reduzir o tempo de máquina parada?</div>
-            <q-btn color="positive" label="Falar com Engenheiro de Vendas" size="lg" unelevated icon="whatsapp" class="full-width shadow-green" />
-            <q-btn flat color="teal-8" label="Continuar no Demo" v-close-popup class="text-teal-9" />
-          </div>
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-  </q-page>
+      </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { setCssVar } from 'quasar';
 import { useMaintenanceStore } from 'stores/maintenance-store';
-import { useAuthStore } from 'stores/auth-store';
-import { useDemoStore } from 'stores/demo-store';
 import { MaintenanceStatus, type MaintenanceRequest } from 'src/models/maintenance-models';
 import CreateRequestDialog from 'components/maintenance/CreateRequestDialog.vue';
 import MaintenanceDetailsDialog from 'components/maintenance/MaintenanceDetailsDialog.vue';
 import MaintenanceRequestCard from 'components/maintenance/MaintenanceRequestCard.vue';
 
 const maintenanceStore = useMaintenanceStore();
-const authStore = useAuthStore();
-const demoStore = useDemoStore();
-
-const isDemo = computed(() => authStore.user?.role === 'cliente_demo');
-const showComparisonDialog = ref(false);
-
-const demoUsageCount = computed(() => demoStore.stats?.maintenance_count ?? 0);
-const demoUsageLimit = computed(() => 5);
-const demoUsageLimitLabel = computed(() => demoUsageLimit.value.toString());
-
-const isLimitReached = computed(() => {
-  if (!isDemo.value) return false;
-  return demoUsageCount.value >= demoUsageLimit.value;
-});
-
-const usagePercentage = computed(() => {
-  if (!isDemo.value || demoUsageLimit.value <= 0) return 0;
-  const pct = Math.round((demoUsageCount.value / demoUsageLimit.value) * 100);
-  return Math.min(pct, 100);
-});
-
-const usageColor = computed(() => {
-  if (usagePercentage.value >= 100) return 'red-4';
-  if (usagePercentage.value >= 80) return 'orange-4';
-  return 'white';
-});
 
 const searchTerm = ref('');
 const tab = ref('open');
@@ -338,13 +219,6 @@ const totalOpen = computed(() => openRequests.value.length);
 const totalInProgress = computed(() => maintenanceStore.maintenances.filter(r => r.status === MaintenanceStatus.EM_ANDAMENTO).length);
 const totalCompleted = computed(() => closedRequests.value.length);
 
-function openCreateRequestDialog() {
-  if (isLimitReached.value) {
-      showComparisonDialog.value = true;
-      return;
-  }
-  isCreateDialogOpen.value = true;
-}
 
 function openDetailsDialog(request: MaintenanceRequest) {
   selectedRequest.value = request;
@@ -354,9 +228,6 @@ function openDetailsDialog(request: MaintenanceRequest) {
 function refreshData() {
     isCreateDialogOpen.value = false;
     void maintenanceStore.fetchMaintenanceRequests();
-    if (authStore.isDemo) {
-        void demoStore.fetchDemoStats(true);
-    }
 }
 
 function getStatusColor(status: MaintenanceStatus): string {
@@ -388,9 +259,6 @@ watch(searchTerm, (newValue) => {
 onMounted(() => {
   setCssVar('primary', '#00665e');
   void maintenanceStore.fetchMaintenanceRequests();
-  if (authStore.isDemo) {
-      void demoStore.fetchDemoStats(true);
-  }
 });
 </script>
 
@@ -439,12 +307,6 @@ onMounted(() => {
   :deep(.q-item) { border-bottom: 1px solid rgba(18, 140, 126, 0.05); }
 }
 
-/* Demo Card com Gradiente Trucar */
-.demo-card-gradient {
-  background: linear-gradient(135deg, #00665e 0%, #0a4f47 100%);
-  border: none;
-  border-radius: 16px;
-}
 
 .border-left-orange { border-left: 6px solid #fb8c00; }
 .border-left-blue { border-left: 6px solid #1976d2; }

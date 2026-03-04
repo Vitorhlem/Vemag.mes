@@ -55,8 +55,8 @@
             <q-card-section>
               <div class="text-caption text-grey">Localização Atual</div>
               <div class="text-h6 text-weight-bold">
-                <router-link v-if="item.status === 'Em Uso' && item.installed_on_vehicle_id" 
-                    :to="{ name: 'vehicle-details', params: { id: item.installed_on_vehicle_id } }"
+                <router-link v-if="item.status === 'Em Uso' && item.installed_on_machine_id" 
+                    :to="{ name: 'machine-details', params: { id: item.installed_on_machine_id } }"
                     class="text-primary" style="text-decoration: none"
                 >
                   <q-icon name="precision_manufacturing" class="q-mr-xs" /> Ver Máquina
@@ -94,10 +94,10 @@
                 <p v-if="tx.notes" class="q-my-none bg-grey-1 q-pa-sm rounded-borders text-body2">
                     "{{ tx.notes }}"
                 </p>
-                <div v-if="tx.related_vehicle" class="q-mt-sm">
+                <div v-if="tx.related_machine" class="q-mt-sm">
                   <strong>Destino:</strong> 
-                  <router-link :to="{ name: 'vehicle-details', params: { id: tx.related_vehicle.id } }" class="text-weight-bold text-primary">
-                    {{ tx.related_vehicle.brand }} {{ tx.related_vehicle.model }} (Tag: {{ tx.related_vehicle.license_plate }})
+                  <router-link :to="{ name: 'machine-details', params: { id: tx.related_machine.id } }" class="text-weight-bold text-primary">
+                    {{ tx.related_machine.brand }} {{ tx.related_machine.model }} (Tag: {{ tx.related_machine.license_plate }})
                   </router-link>
                 </div>
               </div>

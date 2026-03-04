@@ -10,7 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel
 import logging
 import aiofiles
-from sqlalchemy.exc import IntegrityError # <-- Importante para tratar o erro
+from sqlalchemy.exc import IntegrityError 
 from app import crud, deps
 from app.models.user_model import User
 from app.models.part_model import PartCategory, InventoryItemStatus
@@ -48,8 +48,7 @@ async def save_upload_file(upload_file: UploadFile, directory: Path) -> str:
         await upload_file.close()
     return f"/{file_path}"
 
-@router.post("/", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(deps.check_demo_limit("parts"))])
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_part(
     name: str = Form(...),
     category: str = Form(...), 
@@ -63,10 +62,8 @@ async def create_part(
     value: Optional[float] = Form(None),
     serial_number: Optional[str] = Form(None), 
     lifespan_km: Optional[int] = Form(None),
-    # --- CORREÇÃO: Adicionados os parâmetros de arquivo ---
     file: Optional[UploadFile] = File(None), 
     invoice_file: Optional[UploadFile] = File(None),
-    # -----------------------------------------------------
     current_user: User = Depends(deps.get_current_active_manager)
 ):
     try:
@@ -83,7 +80,6 @@ async def create_part(
         serial_number=serial_number, lifespan_km=lifespan_km
     )
     
-    # --- CORREÇÃO: Lógica de salvamento dos arquivos ---
     photo_url = None
     if file:
         photo_url = await save_upload_file(file, UPLOAD_DIRECTORY)
@@ -91,7 +87,6 @@ async def create_part(
     invoice_url = None
     if invoice_file:
         invoice_url = await save_upload_file(invoice_file, UPLOAD_INVOICE_DIRECTORY)
-    # ---------------------------------------------------
 
     try:
         part_db = await crud_part.create(
@@ -122,11 +117,12 @@ async def create_part(
         await db.commit()
     except Exception as e:
         print(f"Erro auditoria: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro de integridade no banco: {e}")
+        # Não damos raise aqui para não cancelar a criação da peça se só o log falhar
     except Exception as e: 
         await db.rollback()
         logging.error(f"Erro ao criar peça: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erro ao criar peça: {e}")
+
 @router.put("/{part_id}") 
 async def update_part(
     part_id: int,
@@ -220,7 +216,6 @@ async def delete_part(
         await crud_part.remove(db=db, id=part_id, organization_id=current_user.organization_id)
         await db.commit()
     except IntegrityError:
-        # --- CORREÇÃO PRINCIPAL DO ERRO 500 ---
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, 
@@ -265,7 +260,7 @@ async def add_inventory_items(
 
 class SetItemStatusPayload(BaseModel):
     new_status: InventoryItemStatus
-    related_vehicle_id: Optional[int] = None
+    related_machine_id: Optional[int] = None
     notes: Optional[str] = None
 
 @router.put("/items/{item_id}/set-status", response_model=InventoryItemPublic)
@@ -295,7 +290,7 @@ async def set_inventory_item_status(
     try:
         updated_item = await crud_part.change_item_status(
             db=db, item=item, new_status=payload.new_status,
-            user_id=current_user.id, vehicle_id=payload.related_vehicle_id, notes=payload.notes
+            user_id=current_user.id, machine_id=payload.related_machine_id, notes=payload.notes
         )
         part = await crud_part.get_part_with_stock(db, part_id=item.part_id, organization_id=current_user.organization_id)
         if part and part.stock < part.minimum_stock:
@@ -342,8 +337,8 @@ async def read_all_inventory_items(
     limit: int = 20,
     status: Optional[InventoryItemStatus] = None,
     part_id: Optional[int] = None,
-    user_id: Optional[int] = None, # <-- ADICIONE ESTA LINHA
-    vehicle_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    machine_id: Optional[int] = None,
     search: Optional[str] = None
 ):
     
@@ -355,7 +350,7 @@ async def read_all_inventory_items(
         limit=limit,
         status=status,
         part_id=part_id,
-        vehicle_id=vehicle_id,
+        machine_id=machine_id,
         search=search
     )
     return result

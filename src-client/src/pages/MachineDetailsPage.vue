@@ -275,7 +275,7 @@ async function loadAllData() {
   try {
     const idStr = String(machineId); // Força a conversão uma única vez
 
-    const resMac = await api.get(`/vehicles/${idStr}`);
+    const resMac = await api.get(`/machines/${idStr}`);
     machineInfo.value = { name: `${resMac.data.brand} ${resMac.data.model}` };
 
     const resSummary = await api.get(`/production/stats/${idStr}/period-summary?days=${period.value}`);

@@ -16,7 +16,7 @@ class CRUDProduction:
         end_dt = datetime.fromisoformat(raw_end.replace('Z', '+00:00')).replace(tzinfo=None)
 
         db_obj = ProductionAppointment(
-            vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
+            machine_id=obj_in.get("machine_id") or obj_in.get("machine_id"),
             operator_id=str(obj_in.get("operator_id") or obj_in.get("operator_badge") or "0"),
             op_number=obj_in.get("op_number", "N/A"),
             position=obj_in.get("position", "000"),
@@ -76,7 +76,7 @@ class CRUDProduction:
 
             # 🚀 CORREÇÃO AQUI: Removemos os campos que não existem na tabela de log (op_number, position, end_time, etc)
             db_obj = ProductionLog(
-                vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
+                machine_id=obj_in.get("machine_id") or obj_in.get("machine_id"),
                 
                 # operator_id na tabela Log é Integer (Chave Estrangeira). 
                 # operator_badge é String (Histórico). 
@@ -97,7 +97,7 @@ class CRUDProduction:
         else:
             # GAVETA DE APONTAMENTOS (ProductionAppointment)
             db_obj = ProductionAppointment(
-                vehicle_id=obj_in.get("vehicle_id") or obj_in.get("machine_id"),
+                machine_id=obj_in.get("machine_id") or obj_in.get("machine_id"),
                 operator_id=str(obj_in.get("operator_id") or obj_in.get("operator_badge") or "0"),
                 op_number=str(obj_in.get("op_number") or ""),
                 position=str(obj_in.get("position") or ""),

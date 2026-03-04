@@ -36,7 +36,7 @@ export interface AppointmentPayload {
   end_time: string;
   stop_reason?: string;
   stop_description?: string; // Novo campo
-  vehicle_id: number;
+  machine_id: number;
 }
 
 // --- CLASSE DO SERVIÇO ---

@@ -4,15 +4,15 @@ import type { ISectorStrategy } from 'src/sector-strategies/strategy.interface';
 
 // --- ESTRATÉGIA INDUSTRIAL (NOVA) ---
 const IndustrialStrategy: ISectorStrategy = {
-  vehicleNoun: 'Máquina',
-  vehicleNounPlural: 'Máquinas',
+  machineNoun: 'Máquina',
+  machineNounPlural: 'Máquinas',
   journeyNoun: 'Ordem de Produção',
   journeyNounPlural: 'Ordens de Produção',
   distanceUnit: 'Horas',
   plateOrIdentifierLabel: 'Patrimônio / TAG',
   startJourneyButtonLabel: 'Iniciar Turno/Ordem',
-  vehiclePageTitle: 'Parque de Máquinas',
-  addVehicleButtonLabel: 'Adicionar Máquina',
+  machinePageTitle: 'Parque de Máquinas',
+  addMachineButtonLabel: 'Adicionar Máquina',
   editButtonLabel: 'Editar Máquina',
   newButtonLabel: 'Nova Máquina',
   journeyPageTitle: 'Ordens de Produção',
@@ -39,8 +39,8 @@ export const useTerminologyStore = defineStore('terminology', {
       return IndustrialStrategy;
     },
     
-    vehicleNoun(): string { return this.activeStrategy.vehicleNoun; },
-    vehicleNounPlural(): string { return this.activeStrategy.vehicleNounPlural; },
+    machineNoun(): string { return this.activeStrategy.machineNoun; },
+    machineNounPlural(): string { return this.activeStrategy.machineNounPlural; },
     journeyNoun(): string { return this.activeStrategy.journeyNoun; },
     journeyNounPlural(): string { return this.activeStrategy.journeyNounPlural; },
     distanceUnit(): string { return this.activeStrategy.distanceUnit; },
@@ -52,8 +52,8 @@ export const useTerminologyStore = defineStore('terminology', {
 
     plateOrIdentifierLabel(): string { return this.activeStrategy.plateOrIdentifierLabel; },
     startJourneyButtonLabel(): string { return this.activeStrategy.startJourneyButtonLabel; },
-    vehiclePageTitle(): string { return this.activeStrategy.vehiclePageTitle; },
-    addVehicleButtonLabel(): string { return this.activeStrategy.addVehicleButtonLabel; },
+    machinePageTitle(): string { return this.activeStrategy.machinePageTitle; },
+    addMachineButtonLabel(): string { return this.activeStrategy.addMachineButtonLabel; },
     editButtonLabel(): string { return this.activeStrategy.editButtonLabel; },
     newButtonLabel(): string { return this.activeStrategy.newButtonLabel; },
     journeyPageTitle(): string { return this.activeStrategy.journeyPageTitle; },

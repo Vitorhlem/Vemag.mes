@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import deps
 from sqlalchemy import select
 from app.crud import crud_andon
-from app.models.vehicle_model import Vehicle # Necessário para pegar nome da máquina
+from app.models.machine_model import Machine # Necessário para pegar nome da máquina
 from app.db.session import async_session # <--- IMPORTANTE: Importar a factory
 from app.schemas.andon_schema import AndonCallCreate, AndonCallResponse
 from app.models.user_model import User, UserRole

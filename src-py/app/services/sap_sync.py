@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 # Imports do Módulo CRUD e Models
-from app.crud import crud_vehicle
-from app.schemas.vehicle_schema import VehicleCreate, VehicleStatus
-from app.models.vehicle_model import Vehicle
+from app.crud import crud_machine
+from app.schemas.machine_schema import MachineCreate, MachineStatus
+from app.models.machine_model import Machine
 
 # Desabilita avisos de SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -44,8 +44,8 @@ class SAPIntegrationService:
             return False
 
     # Helper interno para verificar existência de veículo
-    async def _find_vehicle_by_identifier(self, identifier: str) -> Optional[Vehicle]:
-        query = select(Vehicle).where(Vehicle.identifier == identifier)
+    async def _find_machine_by_identifier(self, identifier: str) -> Optional[Machine]:
+        query = select(Machine).where(Machine.identifier == identifier)
         result = await self.db.execute(query)
         return result.scalars().first()
 
@@ -88,7 +88,7 @@ class SAPIntegrationService:
                     sap_desc = item.get('ItemName') or "Sem Descrição"
                     
                     # Verifica se veículo já existe no banco local
-                    existing = await self._find_vehicle_by_identifier(sap_code)
+                    existing = await self._find_machine_by_identifier(sap_code)
                     
                     if not existing:
                         print(f"      ➕ Cadastrando {sap_code}...")
@@ -107,19 +107,19 @@ class SAPIntegrationService:
                         safe_model = sap_desc[:50]
                         safe_brand = brand[:50]
 
-                        vehicle_in = VehicleCreate(
+                        machine_in = MachineCreate(
                             brand=safe_brand, 
                             model=safe_model, 
                             year=datetime.now().year, 
                             identifier=sap_code,
-                            status=VehicleStatus.AVAILABLE, 
+                            status=MachineStatus.AVAILABLE, 
                             current_km=0, 
                             license_plate=sap_code,
                             sap_resource_code=""
                         )
                         
                         try:
-                            await crud_vehicle.create_with_owner(self.db, obj_in=vehicle_in, organization_id=self.org_id)
+                            await crud_machine.create_with_owner(self.db, obj_in=machine_in, organization_id=self.org_id)
                             print(f"      ✅ Sucesso!")
                         except Exception as e:
                             print(f"      ❌ Erro ao salvar no banco: {e}")

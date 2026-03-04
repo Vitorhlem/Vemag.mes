@@ -1,75 +1,22 @@
 <template>
   <q-page padding>
     
-    <div v-if="isDemo" class="q-mb-lg animate-fade">
-      <div class="row">
-        <div class="col-12">
-          <q-card flat bordered class="">
-            <q-card-section>
-              <div class="row items-center justify-between no-wrap">
-                <div class="col">
-                  <div class="text-subtitle2 text-uppercase text-grey-8">Licenças de Uso (Demo)</div>
-                  <div class="text-h4 text-primary text-weight-bold q-mt-sm">
-                    {{ usageCount }} <span class="text-h6 text-grey-6">/ {{ usageLimitLabel }}</span>
-                  </div>
-                  <div class="text-caption text-grey-7 q-mt-sm">
-                    <q-icon name="info" />
-                    Você utilizou {{ usagePercentage }}% das licenças disponíveis.
-                  </div>
-                </div>
-                <div class="col-auto q-ml-md">
-                  <q-circular-progress
-                    show-value
-                    font-size="16px"
-                    :value="usagePercentage"
-                    size="70px"
-                    :thickness="0.22"
-                    :color="usageColor"
-                    track-color="grey-3"
-                  >
-                    {{ usagePercentage }}%
-                  </q-circular-progress>
-                </div>
-              </div>
-              <q-linear-progress :value="usagePercentage / 100" class="q-mt-md" :color="usageColor" rounded />
-            </q-card-section>
-          </q-card>
-        </div>
-      </div>
+    
+    <div class="flex items-center justify-between q-mb-md">
+      <h1 class="text-h5 text-weight-bold q-my-none">Gestão de Equipe & Acessos</h1>
     </div>
-
     <div class="flex items-center justify-between q-mb-md">
       <h1 class="text-h5 text-weight-bold q-my-none">Gestão de Equipe & Acessos</h1>
       
-      <div class="d-inline-block relative-position">
-        <q-btn 
-          @click="openCreateDialog" 
-          color="primary" 
-          icon="person_add" 
-          label="Adicionar Colaborador" 
-          unelevated 
-          :disable="isLimitReached"
-        />
-        
-        <q-tooltip 
-          v-if="isLimitReached" 
-          class="bg-negative text-body2 shadow-4" 
-          anchor="bottom middle" 
-          self="top middle"
-          :offset="[10, 10]"
-        >
-          <div class="row items-center no-wrap">
-              <q-icon name="lock" size="sm" class="q-mr-sm" />
-              <div>
-                  <div class="text-weight-bold">Limite Atingido</div>
-                  <div class="text-caption">Upgrade necessário para adicionar mais membros.</div>
-                  <div class="text-caption q-mt-xs text-yellow-2 cursor-pointer" @click="showComparisonDialog = true">Ver Planos</div>
-              </div>
-          </div>
-        </q-tooltip>
-      </div>
+      <q-btn 
+        color="primary" 
+        icon="person_add" 
+        label="Novo Colaborador" 
+        @click="openCreateDialog" 
+        unelevated
+      />
     </div>
-
+     
     <q-card flat bordered>
       <q-table
         @row-click="goToUserDetails"
@@ -106,46 +53,7 @@
       </q-table>
     </q-card>
 
-    <q-dialog v-model="showComparisonDialog">
-      <q-card style="width: 700px; max-width: 95vw;">
-        <q-card-section class="bg-primary text-white q-py-lg">
-          <div class="text-h5 text-weight-bold text-center">Escale sua Indústria</div>
-          <div class="text-subtitle1 text-center text-blue-2">Desbloqueie recursos avançados</div>
-        </q-card-section>
-
-        <q-card-section class="q-pa-none">
-          <q-markup-table flat separator="horizontal">
-            <thead>
-              <tr class="bg-grey-1 text-uppercase text-grey-7">
-                <th class="text-left q-pa-md">Funcionalidade</th>
-                <th class="text-center text-weight-bold q-pa-md bg-amber-1 text-amber-9">Demo</th>
-                <th class="text-center text-weight-bold q-pa-md text-primary">Enterprise</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="group" color="grey-6" size="xs" /> Total de Usuários</td>
-                <td class="text-center bg-amber-1 text-amber-10">Até {{ usageLimitLabel }}</td>
-                <td class="text-center text-primary text-weight-bold"><q-icon name="check_circle" /> Ilimitado</td>
-              </tr>
-              <tr>
-                <td class="text-weight-medium q-pa-md"><q-icon name="domain" color="grey-6" size="xs" /> Gestão Multi-Setor</td>
-                <td class="text-center bg-amber-1 text-amber-10">Básica</td>
-                <td class="text-center text-primary text-weight-bold"><q-icon name="check_circle" /> Completa</td>
-              </tr>
-            </tbody>
-          </q-markup-table>
-        </q-card-section>
-
-        <q-card-actions align="center" class="q-pa-lg bg-grey-1">
-          <div class="text-center full-width">
-            <q-btn color="primary" label="Falar com Consultor" size="lg" unelevated icon="whatsapp" class="full-width" />
-            <q-btn flat color="grey-7" label="Fechar" class="q-mt-sm" v-close-popup />
-          </div>
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
+    
     <q-dialog v-model="isFormDialogOpen">
       <q-card style="width: 500px; max-width: 90vw;" :dark="$q.dark.isActive">
         <q-card-section class="row items-center q-pb-none bg-grey-2 q-pa-md">
@@ -223,53 +131,21 @@
 import { ref, onMounted, computed } from 'vue';
 import { useQuasar, type QTableColumn } from 'quasar';
 import { useUserStore } from 'stores/user-store';
-import { useAuthStore } from 'stores/auth-store';
-import { useDemoStore } from 'stores/demo-store';
 import { useRouter } from 'vue-router';
 import { isAxiosError } from 'axios';
 import type { User } from 'src/models/auth-models';
 import type { UserCreate, UserUpdate } from 'src/models/user-models';
 
-const demoStore = useDemoStore();
 const $q = useQuasar();
 const userStore = useUserStore();
-const authStore = useAuthStore();
 const router = useRouter();
 
 const isFormDialogOpen = ref(false);
 const isSubmitting = ref(false);
 const editingUserId = ref<number | null>(null);
-const showComparisonDialog = ref(false);
 
 const isEditing = computed(() => editingUserId.value !== null);
-const isDemo = computed(() => authStore.user?.role === 'cliente_demo');
 
-// --- LÓGICA DE LIMITES ---
-const usageCount = computed(() => demoStore.stats?.driver_count ?? 0); 
-const usageLimit = computed(() => authStore.user?.organization?.driver_limit ?? 5);
-const usageLimitLabel = computed(() => {
-    const limit = authStore.user?.organization?.driver_limit;
-    return (limit === undefined || limit === null || limit < 0) ? 'Ilimitado' : limit.toString();
-});
-
-const isLimitReached = computed(() => {
-  if (!isDemo.value) return false;
-  const limit = authStore.user?.organization?.driver_limit;
-  if (limit === undefined || limit === null || limit < 0) return false;
-  return usageCount.value >= limit;
-});
-
-const usagePercentage = computed(() => {
-  if (!isDemo.value || usageLimit.value <= 0) return 0;
-  const pct = Math.round((usageCount.value / usageLimit.value) * 100);
-  return Math.min(pct, 100);
-});
-
-const usageColor = computed(() => {
-  if (usagePercentage.value >= 100) return 'negative';
-  if (usagePercentage.value >= 80) return 'warning';
-  return 'primary';
-});
 
 // --- OPÇÕES DE CARGO (ROLES) - MES ---
 const roleOptions = computed(() => {
@@ -282,10 +158,6 @@ const roleOptions = computed(() => {
     { label: 'PCP / Planejamento', value: 'pcp', icon: 'schedule', color: 'teal', description: 'Visualiza cronograma' },
     { label: 'Gerente / Supervisor', value: 'admin', icon: 'admin_panel_settings', color: 'red-10', description: 'Acesso total aos indicadores' }
   ];
-
-  if (authStore.user?.role === 'cliente_ativo' || authStore.isSuperuser) {
-    options.unshift({ label: 'Admin (Gestor)', value: 'cliente_ativo', icon: 'business', color: 'primary', description: 'Gestão da Conta' });
-  }
 
   return options;
 });
@@ -325,7 +197,7 @@ function goToUserDetails(evt: Event, row: User) {
 
 function resetForm() {
   editingUserId.value = null;
-  // Inicializa com job_title vazio
+
   formData.value = { 
     full_name: '', 
     email: '', 
@@ -333,18 +205,10 @@ function resetForm() {
     password: '', 
     is_active: true, 
     employee_id: '',
-    job_title: '' // <--- Reset do novo campo
+    job_title: '' 
   };
 }
 
-function openCreateDialog() {
-  if (isLimitReached.value) {
-    showComparisonDialog.value = true;
-    return;
-  }
-  resetForm();
-  isFormDialogOpen.value = true;
-}
 
 function openEditDialog(user: User) {
   resetForm();
@@ -357,16 +221,15 @@ function openEditDialog(user: User) {
   isFormDialogOpen.value = true;
 }
 
+function openCreateDialog() {
+  resetForm(); // Limpa o formulário e garante que não está editando
+  isFormDialogOpen.value = true;
+}
+
 async function onFormSubmit() {
   isSubmitting.value = true;
   try {
     const payload = { ...formData.value };
-
-    if (!isEditing.value && isLimitReached.value) {
-      showComparisonDialog.value = true;
-      isSubmitting.value = false;
-      return;
-    }
 
     if (isEditing.value && !payload.password) delete payload.password;
 
@@ -377,7 +240,6 @@ async function onFormSubmit() {
       await userStore.addNewUser(payload as UserCreate);
       $q.notify({ type: 'positive', message: 'Colaborador cadastrado!' });
       
-      if (authStore.isDemo) void demoStore.fetchDemoStats(true);
     }
     isFormDialogOpen.value = false;
   } catch (error) {
@@ -400,14 +262,12 @@ function promptToDelete(user: User) {
   }).onOk(() => {
     void (async () => {
         await userStore.deleteUser(user.id);
-        if (authStore.isDemo) await demoStore.fetchDemoStats(true);
-        $q.notify({ type: 'positive', message: 'Excluído com sucesso.' });
+                $q.notify({ type: 'positive', message: 'Excluído com sucesso.' });
     })();
   });
 }
 
 onMounted(async () => {
   await userStore.fetchAllUsers();
-  if (authStore.isDemo) void demoStore.fetchDemoStats();
 });
 </script>

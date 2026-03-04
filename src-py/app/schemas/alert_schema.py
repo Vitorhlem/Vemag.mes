@@ -7,7 +7,7 @@ class AlertCreate(BaseModel):
     message: str
     level: AlertLevel
     organization_id: int
-    vehicle_id: Optional[int] = None
+    machine_id: Optional[int] = None
     driver_id: Optional[int] = None
     
     # CORREÇÃO: O nome no banco é 'timestamp', então usamos 'timestamp' aqui também.

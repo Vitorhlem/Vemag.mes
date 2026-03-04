@@ -12,14 +12,9 @@ class NotificationType(str, enum.Enum):
     DOCUMENT_EXPIRING = "document_expiring"
     LOW_STOCK = "low_stock"
     TIRE_STATUS_BAD = "tire_status_bad"
-    ABNORMAL_FUEL_CONSUMPTION = "abnormal_fuel_consumption"
     COST_EXCEEDED = "cost_exceeded"
-    NEW_FINE_REGISTERED = "new_fine_registered"
-    FINE_PAYMENT_DUE = "fine_payment_due"
     
     # Notificações Operacionais
-    FREIGHT_ASSIGNED = "freight_assigned"
-    FREIGHT_UPDATED = "freight_updated"
     MAINTENANCE_REQUEST_NEW = "maintenance_request_new"
     MAINTENANCE_REQUEST_STATUS_UPDATE = "maintenance_request_status_update"
     MAINTENANCE_REQUEST_NEW_COMMENT = "maintenance_request_new_comment"
@@ -45,13 +40,13 @@ class Notification(Base):
     notification_type = Column(SAEnum(NotificationType), nullable=False)
     
     # Link genérico para qualquer outra tabela (multa, documento, manutenção, etc.)
-    related_entity_type = Column(String, nullable=True) # ex: "fine", "document", "maintenance_request"
+    related_entity_type = Column(String, nullable=True)  
     related_entity_id = Column(Integer, nullable=True)
 
     # Mantemos o link de veículo para conveniência e retrocompatibilidade
-    related_vehicle_id = Column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=True)
+    related_machine_id = Column(Integer, ForeignKey("machines.id", ondelete="CASCADE"), nullable=True)
     # --- FIM DAS MUDANÇAS ---
 
     user = relationship("User")
-    vehicle = relationship("Vehicle")
+    machine = relationship("Machine")
     organization = relationship("Organization")

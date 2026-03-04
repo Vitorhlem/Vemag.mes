@@ -14,7 +14,7 @@ class AuditLog(Base):
     
     # O que aconteceu?
     action = Column(String(50), nullable=False, index=True) # Ex: CREATE, UPDATE, DELETE, LOGIN
-    resource_type = Column(String(50), nullable=False, index=True) # Ex: user, vehicle, cost
+    resource_type = Column(String(50), nullable=False, index=True) # Ex: user, machine, cost
     resource_id = Column(String(50), nullable=True) # ID do objeto afetado (pode ser string ou int)
     
     # Detalhes (JSON para flexibilidade)

@@ -1,20 +1,19 @@
-export interface IVehicleCost {
+export interface IMachineCost {
   id: number;
   cost_type: string;
   amount: number;
   date: string;
   notes?: string;
-  vehicle_id: number;
+  machine_id: number;
 }
 
-export interface VehicleCost {
+export interface MachineCost {
   id: number;
-  vehicle_id: number;
+  machine_id: number;
   cost_type: string;
   amount: number;
   date: string;
   notes?: string;
 }
 
-// Interface para a criação de um novo custo (sem o 'id')
-export type ICostCreate = Omit<IVehicleCost, 'id'>;
+export type ICostCreate = Omit<IMachineCost, 'id'>;

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from .user_schema import UserPublic
-from .vehicle_schema import VehiclePublic
+from .machine_schema import MachinePublic
 from app.models.notification_model import NotificationType # Importar o Enum
 
 class NotificationBase(BaseModel):
@@ -22,7 +22,7 @@ class NotificationPublic(NotificationBase):
     
     # Relações existentes
     user: Optional[UserPublic] = None
-    vehicle: Optional[VehiclePublic] = None
+    machine: Optional[MachinePublic] = None
     
     class Config:
         from_attributes = True
@@ -36,4 +36,4 @@ class NotificationCreate(BaseModel):
     notification_type: NotificationType
     related_entity_type: Optional[str] = None
     related_entity_id: Optional[int] = None
-    related_vehicle_id: Optional[int] = None
+    related_machine_id: Optional[int] = None

@@ -1,15 +1,15 @@
 import type { ISectorStrategy } from './strategy.interface';
 
 export const AgroStrategy: ISectorStrategy = {
-  vehicleNoun: 'Maquinário',
-  vehicleNounPlural: 'Maquinário',
+  machineNoun: 'Maquinário',
+  machineNounPlural: 'Maquinário',
   journeyNoun: 'Operação',
   journeyNounPlural: 'Operações',
   distanceUnit: 'Horas',
   plateOrIdentifierLabel: 'Identificador',
   startJourneyButtonLabel: 'Iniciar Operação',
-  vehiclePageTitle: 'Gerenciamento de Maquinário',
-  addVehicleButtonLabel: 'Adicionar Maquinário',
+  machinePageTitle: 'Gerenciamento de Maquinário',
+  addMachineButtonLabel: 'Adicionar Maquinário',
   editButtonLabel: 'Editar Maquinário',
   newButtonLabel: 'Novo Maquinário',
   journeyPageTitle: 'Registro de Operações',

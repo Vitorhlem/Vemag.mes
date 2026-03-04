@@ -37,7 +37,7 @@ async def create_document(
     document_type: str = Form(...), # <--- ALTERADO: Aceita qualquer string agora
     expiry_date: date = Form(...),
     notes: str = Form(None),
-    vehicle_id: int = Form(None),
+    machine_id: int = Form(None),
     driver_id: int = Form(None),
     file: UploadFile = File(...),
     current_user: User = Depends(deps.get_current_active_user)
@@ -51,7 +51,7 @@ async def create_document(
 
     document_in = DocumentCreate(
         document_type=document_type, expiry_date=expiry_date, notes=notes,
-        vehicle_id=vehicle_id, driver_id=driver_id,
+        machine_id=machine_id, driver_id=driver_id,
     )
 
     file_url = await save_upload_file(file)
@@ -65,7 +65,7 @@ async def create_document(
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
             action="CREATE", resource_type="Documentos", resource_id=str(created_document.id),
             user_id=current_user.id, organization_id=current_user.organization_id,
-            details={"type": created_document.document_type, "vehicle_id": created_document.vehicle_id}
+            details={"type": created_document.document_type, "machine_id": created_document.machine_id}
         ))
         await db.commit()
     except Exception as e:

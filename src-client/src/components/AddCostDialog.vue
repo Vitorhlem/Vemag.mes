@@ -8,15 +8,15 @@
       <q-card-section class="q-gutter-y-md">
         
         <q-select
-          v-if="!vehicleId"
+          v-if="!machineId"
           outlined
-          v-model="localVehicleId"
-          :options="vehicleOptions"
+          v-model="localMachineId"
+          :options="machineOptions"
           label="Selecione a Máquina *"
           emit-value
           map-options
           :rules="[val => !!val || 'Selecione uma máquina']"
-          :loading="isLoadingVehicles"
+          :loading="isLoadingMachines"
         />
 
         <q-select
@@ -73,26 +73,26 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useQuasar } from 'quasar';
-import { useVehicleCostStore } from 'stores/vehicle-cost-store';
-import { useVehicleStore } from 'stores/vehicle-store';
-import type { VehicleCostCreate, CostType } from 'src/models/vehicle-cost-models';
+import { useMachineCostStore } from 'src/stores/machine-cost-store';
+import { useMachineStore } from 'stores/machine-store';
+import type { MachineCostCreate, CostType } from 'src/models/machine-cost-models';
 
 const props = defineProps<{
-  vehicleId?: number;
+  machineId?: number;
 }>();
 
 const emit = defineEmits(['close', 'cost-added']);
 const $q = useQuasar();
 
-const costStore = useVehicleCostStore();
-const vehicleStore = useVehicleStore();
+const costStore = useMachineCostStore();
+const machineStore = useMachineStore();
 
 const isSubmitting = ref(false);
-const isLoadingVehicles = ref(false);
-const localVehicleId = ref<number | null>(null);
+const isLoadingMachines = ref(false);
+const localMachineId = ref<number | null>(null);
 
-const vehicleOptions = computed(() => 
-  vehicleStore.vehicles.map(v => ({
+const machineOptions = computed(() => 
+  machineStore.machines.map(v => ({
     label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`,
     value: v.id
   }))
@@ -108,7 +108,7 @@ const costTypeOptions: CostType[] = [
     'Outros'
 ];
 
-const formData = ref<VehicleCostCreate>({
+const formData = ref<MachineCostCreate>({
   description: '',
   amount: 0,
   date: new Date().toISOString().split('T')[0] || '',
@@ -116,24 +116,24 @@ const formData = ref<VehicleCostCreate>({
 });
 
 onMounted(async () => {
-  if (!props.vehicleId) {
-    isLoadingVehicles.value = true;
-    await vehicleStore.fetchAllVehicles({ page: 1, rowsPerPage: 1000 });
-    isLoadingVehicles.value = false;
+  if (!props.machineId) {
+    isLoadingMachines.value = true;
+    await machineStore.fetchAllMachines({ page: 1, rowsPerPage: 1000 });
+    isLoadingMachines.value = false;
   }
 });
 
 async function handleSubmit() {
-  const targetVehicleId = props.vehicleId || localVehicleId.value;
+  const targetMachineId = props.machineId || localMachineId.value;
 
-  if (!targetVehicleId) {
+  if (!targetMachineId) {
     $q.notify({ type: 'warning', message: 'Selecione uma máquina.' });
     return;
   }
 
   isSubmitting.value = true;
   try {
-    await costStore.addCost(targetVehicleId, formData.value);
+    await costStore.addCost(targetMachineId, formData.value);
     $q.notify({ type: 'positive', message: 'Custo registrado com sucesso!' });
     emit('cost-added');
     emit('close');

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_, and_
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError  # <--- IMPORTANTE: Adicionado para tratar o erro
 from datetime import datetime, date, time, timedelta
 from typing import Any, List, Optional
 from pydantic import BaseModel
@@ -11,18 +12,18 @@ from app.tasks.production_tasks import process_sap_appointment, task_fetch_open_
 # Imports do Projeto
 from app.db.session import get_db, async_session
 from app import deps
-from app.models.production_model import ProductionAppointment, VehicleDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
+from app.models.production_model import ProductionAppointment, MachineDailyMetric, EmployeeDailyMetric, ProductionOrder, ProductionSession, ProductionLog, AndonAlert, ProductionTimeSlice
 from app.models.user_model import User, UserRole
 from app.services.fcm_service import enviar_push_lista
 from app.services.production_service import ProductionService
 from app.services.sap_sync import SAPIntegrationService
-from app.schemas import production_schema, vehicle_schema, user_schema
+from app.schemas import production_schema, machine_schema, user_schema
 from app.schemas.production_schema import SessionStart, SessionResponse, AppointmentCreate, EmployeeStatsRead, ProductionAppointmentCreate, ProductionOrderRead, MachineDailyStats
-# Import do Modelo Vehicle (com fallback de nome)
+# Import do Modelo machine (com fallback de nome)
 try:
-    from app.models.vehicle_model import Vehicle, VehicleStatus
+    from app.models.machine_model import Machine, MachineStatus
 except ImportError:
-    from app.models.vehicle import Vehicle, VehicleStatus
+    from app.models.machine import Machine, MachineStatus
 
 router = APIRouter()
 
@@ -250,7 +251,7 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
 
     # 1. VERIFICA SESSÃO ATIVA
     q_session = select(ProductionSession).where(
-        ProductionSession.vehicle_id == machine_id,
+        ProductionSession.machine_id == machine_id,
         ProductionSession.start_time < start_of_day,
         or_(ProductionSession.end_time == None, ProductionSession.end_time >= start_of_day)
     )
@@ -259,7 +260,7 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
 
     # 2. STATUS INICIAL
     stmt_last_st = select(ProductionLog).filter(
-        ProductionLog.vehicle_id == machine_id,
+        ProductionLog.machine_id == machine_id,
         ProductionLog.timestamp < start_of_day,
         ProductionLog.new_status.isnot(None)
     ).order_by(ProductionLog.timestamp.desc()).limit(1)
@@ -270,7 +271,7 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
 
     # 3. LOGS DO DIA
     stmt_logs = select(ProductionLog).filter(
-        ProductionLog.vehicle_id == machine_id,
+        ProductionLog.machine_id == machine_id,
         ProductionLog.timestamp >= start_of_day,
         ProductionLog.timestamp <= end_of_day
     ).order_by(ProductionLog.timestamp.asc())
@@ -373,13 +374,13 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
         formatted_micro_stop=fmt(stats["micro_stop"])
     )
 
-@router.get("/stats/{machine_id}/history", response_model=List[production_schema.VehicleDailyMetricRead])
+@router.get("/stats/{machine_id}/history", response_model=List[production_schema.MachineDailyMetricRead])
 async def get_machine_history_metrics(machine_id: int, days: int = 90, db: AsyncSession = Depends(get_db)):
     start_date = date.today() - timedelta(days=days)
-    query = select(VehicleDailyMetric).where(
-        VehicleDailyMetric.vehicle_id == machine_id,
-        VehicleDailyMetric.date >= start_date
-    ).order_by(VehicleDailyMetric.date.asc())
+    query = select(MachineDailyMetric).where(
+        MachineDailyMetric.machine_id == machine_id,
+        MachineDailyMetric.date >= start_date
+    ).order_by(MachineDailyMetric.date.asc())
     
     result = await db.execute(query)
     return result.scalars().all()
@@ -392,7 +393,6 @@ class MachinePeriodStats(BaseModel):
     avg_availability: float
     stop_reasons: List[dict]
 
-# --- BLOCO 3: ROTA DE AGREGAÇÃO PARA OS CARDS PROFISSIONAIS ---
 # --- BLOCO 3: ROTA DE AGREGAÇÃO PARA OS CARDS PROFISSIONAIS ---
 @router.get("/stats/{machine_id}/period-summary", response_model=production_schema.MachinePeriodSummary)
 async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncSession = Depends(get_db)):
@@ -410,10 +410,10 @@ async def get_machine_period_summary(machine_id: int, days: int = 30, db: AsyncS
     # NOVA LÓGICA: APENAS DADOS CONSOLIDADOS PELO CELERY
     # (Removido o cálculo em tempo real de "Hoje")
     # ---------------------------------------------------------
-    query_history = select(VehicleDailyMetric).where(
-        VehicleDailyMetric.vehicle_id == machine_id,
-        VehicleDailyMetric.date >= start_date,
-        VehicleDailyMetric.date <= today # Permite incluir hoje, caso tenha rolado um fechamento forçado
+    query_history = select(MachineDailyMetric).where(
+        MachineDailyMetric.machine_id == machine_id,
+        MachineDailyMetric.date >= start_date,
+        MachineDailyMetric.date <= today # Permite incluir hoje, caso tenha rolado um fechamento forçado
     )
     metrics_history = (await db.execute(query_history)).scalars().all()
     
@@ -503,8 +503,8 @@ async def set_machine_status(data: MachineStatusUpdate, db: AsyncSession = Depen
 
     print(f"🔄 [BACKEND] Mudança Manual de Status: {data.status} -> Máquina {data.machine_id}")
 
-    vehicle = await db.get(Vehicle, data.machine_id)
-    if not vehicle: raise HTTPException(404, "Máquina não encontrada")
+    machine = await db.get(Machine, data.machine_id)
+    if not machine: raise HTTPException(404, "Máquina não encontrada")
     
     status_upper = str(data.status).strip().upper()
     
@@ -547,27 +547,27 @@ async def set_machine_status(data: MachineStatusUpdate, db: AsyncSession = Depen
 
     print(f"✅ [BACKEND] Status Persistido: '{new_status_db}'")
 
-    vehicle.status = new_status_db
-    db.add(vehicle)
+    machine.status = new_status_db
+    db.add(machine)
     
     try:
-        await ProductionService.close_current_slice(db, vehicle.id)
-        await ProductionService.open_new_slice(db, vehicle.id, category=category_mes, reason=f"Status: {new_status_db}")
+        await ProductionService.close_current_slice(db, machine.id)
+        await ProductionService.open_new_slice(db, machine.id, category=category_mes, reason=f"Status: {new_status_db}")
     except Exception as e:
         print(f"⚠️ [BACKEND] Erro ao atualizar fatia MES: {e}")
     
     await db.commit()
-    await db.refresh(vehicle)
+    await db.refresh(machine)
     
     # 🚀 A MÁGICA: Grita para todos os WebSockets conectados que a máquina mudou!
     await manager.broadcast({
         "type": "MACHINE_STATE_CHANGED",
-        "machine_id": vehicle.id,
+        "machine_id": machine.id,
         "new_status": category_mes,
-        "machine_status_db": vehicle.status
+        "machine_status_db": machine.status
     })
     
-    return {"message": "Status atualizado", "new_status": vehicle.status}
+    return {"message": "Status atualizado", "new_status": machine.status}
 
 class MachineLayoutUpdate(BaseModel):
     machine_id: int
@@ -577,23 +577,24 @@ class MachineLayoutUpdate(BaseModel):
 @router.post("/machine/layout")
 async def update_machine_layout(data: MachineLayoutUpdate, db: AsyncSession = Depends(get_db)):
     """Atualiza a posição X e Y da máquina na tela de Supervisório."""
-    vehicle = await db.get(Vehicle, data.machine_id)
-    if not vehicle: 
+    machine = await db.get(Machine, data.machine_id)
+    if not machine: 
         raise HTTPException(404, "Máquina não encontrada")
     
-    vehicle.layout_x = data.layout_x
-    vehicle.layout_y = data.layout_y
+    machine.layout_x = data.layout_x
+    machine.layout_y = data.layout_y
     
-    db.add(vehicle)
+    db.add(machine)
     await db.commit()
     return {"status": "success", "message": "Layout salvo com sucesso."}
 
 # ============================================================================
 # 4. LISTAR MÁQUINAS
 # ============================================================================
-@router.get("/machines", response_model=List[vehicle_schema.VehiclePublic])
+# ✅ CORREÇÃO AQUI: Mudado de machine_schema.machine para machine_schema.MachinePublic
+@router.get("/machines", response_model=List[machine_schema.MachinePublic])
 async def read_machines(db: AsyncSession = Depends(deps.get_db), skip: int = 0, limit: int = 100):
-    query = select(Vehicle).offset(skip).limit(limit)
+    query = select(Machine).offset(skip).limit(limit)
     machines = (await db.execute(query)).scalars().all()
     return machines
 
@@ -602,18 +603,18 @@ async def read_machines(db: AsyncSession = Depends(deps.get_db), skip: int = 0, 
 # ============================================================================
 @router.post("/andon")
 async def open_andon_alert(alert: production_schema.AndonCreate, db: AsyncSession = Depends(deps.get_db)):
-    machine = await db.get(Vehicle, alert.machine_id)
+    machine = await db.get(Machine, alert.machine_id)
     if not machine: raise HTTPException(404, "Machine not found")
 
     query_op = select(User).where(or_(User.employee_id == alert.operator_badge, User.email == alert.operator_badge))
     operator = (await db.execute(query_op)).scalars().first()
     if not operator: raise HTTPException(404, "Operator not found")
 
-    new_alert = AndonAlert(vehicle_id=machine.id, operator_id=operator.id, sector=alert.sector, notes=alert.notes, status="OPEN")
+    new_alert = AndonAlert(machine_id=machine.id, operator_id=operator.id, sector=alert.sector, notes=alert.notes, status="OPEN")
     db.add(new_alert)
     
     db.add(ProductionLog(
-        vehicle_id=machine.id, 
+        machine_id=machine.id, 
         operator_id=operator.id,        # ID Numérico
         operator_badge=operator.employee_id, # Crachá String
         operator_name=operator.full_name,    # Nome String
@@ -665,7 +666,7 @@ async def get_machine_cards_summary(machine_id: int, days: int = 90, db: AsyncSe
             func.sum(ProductionAppointment.scrap_qty).label('total_scrap')
         )
         .where(
-            ProductionAppointment.vehicle_id == machine_id,
+            ProductionAppointment.machine_id == machine_id,
             ProductionAppointment.start_time >= start_date,
             ProductionAppointment.appointment_type == "PRODUCTION"
         )
@@ -677,7 +678,7 @@ async def get_machine_cards_summary(machine_id: int, days: int = 90, db: AsyncSe
 
 @router.get("/history/{machine_id}", response_model=List[production_schema.ProductionLogRead])
 async def get_machine_history(machine_id: int, skip: int = 0, limit: int = 20, event_type: Optional[str] = None, db: AsyncSession = Depends(deps.get_db)):
-    query = select(ProductionLog).where(ProductionLog.vehicle_id == machine_id)
+    query = select(ProductionLog).where(ProductionLog.machine_id == machine_id)
     if event_type: query = query.where(ProductionLog.event_type == event_type)
     query = query.order_by(desc(ProductionLog.timestamp)).offset(skip).limit(limit)
     
@@ -703,56 +704,106 @@ async def get_machine_history(machine_id: int, skip: int = 0, limit: int = 20, e
 
 @router.post("/session/start", response_model=SessionResponse)
 async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.get_db)):
-    op_code_str = str(payload.op_number)
+    # 1. Limpeza de Espaços
+    op_code_str = str(payload.op_number).strip()
+    
     print(f"🚀 [MES] Iniciando OP {op_code_str} - Etapa {payload.step_seq}")
     
-    machine = await db.get(Vehicle, payload.machine_id)
+    # 2. Validar Máquina e Operador
+    machine = await db.get(Machine, payload.machine_id)
     if not machine: raise HTTPException(404, "Máquina não encontrada")
 
     user_q = await db.execute(select(User).where(or_(User.employee_id == payload.operator_badge, User.email == payload.operator_badge)))
     operator = user_q.scalars().first()
     if not operator: raise HTTPException(404, "Operador não encontrado")
 
+    # 3. Busca ou Cria a Ordem (Com proteção contra Race Condition)
     order_q = await db.execute(select(ProductionOrder).where(ProductionOrder.code == op_code_str))
     order = order_q.scalars().first()
     
     if not order:
-        sap_service = SAPIntegrationService(db, organization_id=1)
-        sap_op_data = await sap_service.get_production_order_by_code(op_code_str)
-        part_name = "Item SAP"
-        if sap_op_data:
-            part_name = getattr(sap_op_data, 'part_name', sap_op_data.get('part_name', 'Item SAP'))
+        try:
+            # Tenta buscar dados do SAP (apenas para preencher nome)
+            sap_service = SAPIntegrationService(db, organization_id=1)
+            sap_op_data = await sap_service.get_production_order_by_code(op_code_str)
+            part_name = "Item SAP"
+            if sap_op_data:
+                part_name = getattr(sap_op_data, 'part_name', sap_op_data.get('part_name', 'Item SAP'))
 
-        order = ProductionOrder(code=op_code_str, part_name=part_name, status="SETUP", produced_quantity=0, scrap_quantity=0)
-        db.add(order)
-        await db.flush()
+            # Tenta CRIAR
+            new_order = ProductionOrder(
+                code=op_code_str, 
+                part_name=part_name, 
+                status="SETUP", 
+                produced_quantity=0, 
+                scrap_quantity=0
+            )
+            db.add(new_order)
+            await db.flush() 
+            order = new_order
+            
+        except IntegrityError:
+            # SE DEU ERRO (Concorrência), faz rollback
+            await db.rollback()
+            print(f"⚠️ [MES] Duplicidade evitada na OP {op_code_str}. Recuperando existente...")
+            
+            # --- CORREÇÃO DO ERRO MissingGreenlet ---
+            # O rollback expirou os objetos 'machine' e 'operator'. Precisamos recarregá-los ou dar refresh.
+            # Como a sessão foi resetada, o mais seguro é buscá-los novamente ou usar refresh.
+            machine = await db.get(Machine, payload.machine_id)
+            operator = await db.get(User, operator.id)
+            # ----------------------------------------
 
-    active_session_q = await db.execute(select(ProductionSession).where(ProductionSession.vehicle_id == machine.id, ProductionSession.end_time == None))
+            order_retry = await db.execute(select(ProductionOrder).where(ProductionOrder.code == op_code_str))
+            order = order_retry.scalars().first()
+            
+            if not order:
+                raise HTTPException(500, "Erro crítico de concorrência: Ordem existe mas não foi encontrada.")
+
+    # 4. Verifica Sessão Anterior
+    # Usamos payload.machine_id (int) aqui por segurança, mas 'machine.id' agora funciona pois recarregamos
+    active_session_q = await db.execute(select(ProductionSession).where(
+        ProductionSession.machine_id == payload.machine_id, 
+        ProductionSession.end_time == None
+    ))
     old_session = active_session_q.scalars().first()
+
+    # --- PROTEÇÃO CONTRA DUPLO CLIQUE ---
+    if old_session and old_session.production_order_id == order.id and old_session.user_id == operator.id:
+        print(f"ℹ️ [MES] Sessão já ativa para esta OP. Ignorando duplo clique.")
+        return {
+            "status": "success", 
+            "message": f"Sessão já iniciada: {payload.step_seq}", 
+            "session_id": str(old_session.id)
+        }
+
+    # Se existe sessão antiga diferente, fecha ela
     if old_session:
         old_session.end_time = datetime.now()
         db.add(old_session)
 
-    new_session = ProductionSession(vehicle_id=machine.id, user_id=operator.id, production_order_id=order.id, start_time=datetime.now())
+    # 5. Cria Nova Sessão
+    new_session = ProductionSession(
+        machine_id=machine.id, 
+        user_id=operator.id, 
+        production_order_id=order.id, 
+        start_time=datetime.now()
+    )
     db.add(new_session)
     await db.flush() 
     
-    await ProductionService.open_new_slice(db, vehicle_id=machine.id, category="PLANNED_STOP", reason=f"Setup: {payload.step_seq}", session_id=new_session.id, order_id=order.id)
+    # 6. Registra Fatia de Tempo e Log
+    await ProductionService.open_new_slice(db, machine_id=machine.id, category="PLANNED_STOP", reason=f"Setup: {payload.step_seq}", session_id=new_session.id, order_id=order.id)
     
     machine.status = "Setup" 
     order.status = "SETUP"
+    db.add(machine)
     
-    # ✅ CORREÇÃO AQUI
     log = ProductionLog(
-        vehicle_id=machine.id, 
-        
-        # Usa o ID numérico do operador (que já foi buscado lá em cima)
+        machine_id=machine.id, 
         operator_id=operator.id, 
-        
-        # Salva o crachá e o nome para histórico
         operator_badge=str(payload.operator_badge),
         operator_name=operator.full_name,
-        
         event_type="STATUS_CHANGE", 
         new_status="Setup",
         reason="Setup Inicial",
@@ -760,14 +811,13 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
     )
     db.add(log)
 
-    
     await db.commit()
     
     return {"status": "success", "message": f"Sessão iniciada: {payload.step_seq}", "session_id": str(new_session.id)}
 
 @router.post("/session/stop")
 async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSession = Depends(deps.get_db)):
-    q = select(ProductionSession).where(ProductionSession.vehicle_id == data.machine_id, ProductionSession.end_time == None)
+    q = select(ProductionSession).where(ProductionSession.machine_id == data.machine_id, ProductionSession.end_time == None)
     session = (await db.execute(q)).scalars().first()
     if not session: return {"status": "error", "message": "No active session"}
 
@@ -785,7 +835,7 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
     session.productive_seconds = int(total_prod)
     session.unproductive_seconds = int(total_unprod)
     
-    machine = await db.get(Vehicle, session.vehicle_id)
+    machine = await db.get(Machine, session.machine_id)
     if machine.status != "Em manutenção": # Evita liberar se estiver quebrado
         machine.status = "Disponível"
         db.add(machine)
@@ -801,7 +851,7 @@ async def get_active_session(machine_id: int, db: AsyncSession = Depends(deps.ge
     query = select(ProductionSession).options(
         selectinload(ProductionSession.user)
     ).where(
-        ProductionSession.vehicle_id == machine_id,
+        ProductionSession.machine_id == machine_id,
         ProductionSession.end_time.is_(None)
     )
     
@@ -850,7 +900,7 @@ async def get_user_sessions(user_id: int, start_date: date, end_date: date, db: 
     sessions = (await db.execute(query)).scalars().all()
     session_details = []
     for sess in sessions:
-        machine = await db.get(Vehicle, sess.vehicle_id)
+        machine = await db.get(Machine, sess.machine_id)
         order_code = "---"
         if sess.production_order_id:
             order = await db.get(ProductionOrder, sess.production_order_id)
@@ -871,7 +921,7 @@ async def get_user_sessions(user_id: int, start_date: date, end_date: date, db: 
 async def notificar_quebra_maquina(op_number: str, machine_id: int, motivo: str, org_id: int):
     async with async_session() as db:
         try:
-            machine = await db.get(Vehicle, machine_id)
+            machine = await db.get(Machine, machine_id)
             machine_name = f"{machine.brand} {machine.model}" if machine else f"Máquina {machine_id}"
             roles_alvo = [UserRole.MAINTENANCE, UserRole.PCP, UserRole.MANAGER, UserRole.ADMIN]
             query = select(User.device_token).where(User.organization_id == org_id, User.role.in_(roles_alvo), User.device_token.isnot(None))
@@ -926,15 +976,15 @@ async def get_user_production_history(user_id: int, db: AsyncSession = Depends(d
     user = await db.get(User, user_id)
     if not user or not user.employee_id: return []
     badge = str(user.employee_id)
-    stmt = select(ProductionAppointment, Vehicle).outerjoin(Vehicle, ProductionAppointment.vehicle_id == Vehicle.id).where(and_(ProductionAppointment.operator_id == badge, ProductionAppointment.appointment_type == "PRODUCTION")).order_by(desc(ProductionAppointment.start_time)).limit(2000)
+    stmt = select(ProductionAppointment, Machine).outerjoin(Machine, ProductionAppointment.machine_id == Machine.id).where(and_(ProductionAppointment.operator_id == badge, ProductionAppointment.appointment_type == "PRODUCTION")).order_by(desc(ProductionAppointment.start_time)).limit(2000)
     result = await db.execute(stmt)
     history = []
-    for appointment, vehicle in result.all():
+    for appointment, machine in result.all():
         duration_min = int((appointment.end_time - appointment.start_time).total_seconds() / 60) if appointment.start_time and appointment.end_time else 0
         efficiency = int((appointment.produced_qty / appointment.target_qty) * 100) if appointment.target_qty and appointment.target_qty > 0 else 100
         if efficiency > 150: efficiency = 150
         history.append({
-            "id": appointment.id, "machine_name": f"{vehicle.brand} {vehicle.model}" if vehicle else f"Máquina #{appointment.vehicle_id}",
+            "id": appointment.id, "machine_name": f"{machine.brand} {machine.model}" if machine else f"Máquina #{appointment.machine_id}",
             "op_number": appointment.op_number or "N/A", "step": appointment.position or "",
             "start_time": appointment.start_time.isoformat() if appointment.start_time else None,
             "end_time": appointment.end_time.isoformat() if appointment.end_time else None,
@@ -976,7 +1026,7 @@ async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
     
     for order in orders:
         # Verifica se essa O.P. está rodando em alguma máquina agora
-        active_session_query = select(ProductionSession).options(selectinload(ProductionSession.vehicle)).where(
+        active_session_query = select(ProductionSession).options(selectinload(ProductionSession.machine)).where(
             ProductionSession.production_order_id == order.id,
             ProductionSession.end_time.is_(None)
         )
@@ -987,10 +1037,10 @@ async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
         route_url = f"/production/orders/{order.id}" # Rota fallback (se for clicar numa O.S antiga)
 
         # Se a O.S estiver ativa em alguma máquina, a mágica acontece aqui:
-        if active_session and active_session.vehicle:
-            sublabel = f"🔴 RODANDO AGORA na {active_session.vehicle.brand} {active_session.vehicle.model}"
+        if active_session and active_session.machine:
+            sublabel = f"🔴 RODANDO AGORA na {active_session.machine.brand} {active_session.machine.model}"
             # MUDA A ROTA PARA A TELA DE EMPLOYEES DA MÁQUINA ATUAL!
-            route_url = f"/employees?machine={active_session.vehicle.id}"
+            route_url = f"/employees?machine={active_session.machine.id}"
 
         results.append({
             "id": order.id,
@@ -1002,11 +1052,11 @@ async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
             "route": route_url
         })
 
-    # 2. Buscar Máquinas (Vehicles)
-    query_machines = select(Vehicle).where(
+    # 2. Buscar Máquinas (machines)
+    query_machines = select(Machine).where(
         or_(
-            Vehicle.brand.ilike(search_term),
-            Vehicle.model.ilike(search_term)
+            Machine.brand.ilike(search_term),
+            Machine.model.ilike(search_term)
             # Retiramos a busca por "plate" aqui!
         )
     ).limit(5)

@@ -78,8 +78,8 @@
             <q-select
               v-if="ownerType === 'Veículo'"
               outlined
-              v-model="newDocument.vehicle_id"
-              :options="vehicleOptions"
+              v-model="newDocument.machine_id"
+              :options="machineOptions"
               label="Selecione o Veículo"
               emit-value
               map-options
@@ -149,7 +149,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useQuasar, type QTableProps } from 'quasar';
 import { useDocumentStore, type DocumentCreatePayload } from 'stores/document-store';
-import { useVehicleStore } from 'stores/vehicle-store';
+import { useMachineStore } from 'stores/machine-store';
 import { useUserStore } from 'stores/user-store';
 import { useAuthStore } from 'stores/auth-store'; // <--- NOVO IMPORT
 import type { DocumentPublic } from 'src/models/document-models';
@@ -162,14 +162,13 @@ const baseUrl = api.defaults.baseURL || '';
 const backendBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 
 const documentStore = useDocumentStore();
-const vehicleStore = useVehicleStore();
+const machineStore = useMachineStore();
 const userStore = useUserStore();
 const authStore = useAuthStore(); // <--- STORE DE AUTH
 
 // --- Verificação de Permissão ---
 const isManager = computed(() => {
   const role = authStore.user?.role;
-  return role === 'admin' || role === 'cliente_ativo' || role === 'cliente_demo';
 });
 
 // --- Lógica da Tabela ---
@@ -199,7 +198,7 @@ interface NewDocumentForm {
   document_type: string;
   expiry_date: string;
   notes: string;
-  vehicle_id: number | undefined;
+  machine_id: number | undefined;
   driver_id: number | undefined;
   file: File | null;
 }
@@ -211,7 +210,7 @@ const initialNewDocumentState: NewDocumentForm = {
   document_type: '',
   expiry_date: '',
   notes: '',
-  vehicle_id: undefined,
+  machine_id: undefined,
   driver_id: undefined,
   file: null,
 };
@@ -220,7 +219,7 @@ const newDocument = ref<NewDocumentForm>({ ...initialNewDocumentState });
 
 // Opções para os QSelects
 const documentTypeOptions = ['CNH', 'CRLV', 'ANTT', 'ASO', 'Seguro', 'Outro'];
-const vehicleOptions = computed(() => vehicleStore.vehicles.map(v => ({
+const machineOptions = computed(() => machineStore.machines.map(v => ({
   label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`,
   value: v.id
 })));
@@ -234,7 +233,7 @@ const driverOptions = computed(() => drivers.value.map((d: User) => ({
 
 // Limpa os IDs associados quando o tipo de dono muda
 watch(ownerType, () => {
-  newDocument.value.vehicle_id = undefined;
+  newDocument.value.machine_id = undefined;
   newDocument.value.driver_id = undefined;
 });
 
@@ -253,7 +252,7 @@ async function onSubmit() {
     expiry_date: newDocument.value.expiry_date,
     notes: newDocument.value.notes,
     file: newDocument.value.file,
-    ...(newDocument.value.vehicle_id !== undefined && { vehicle_id: newDocument.value.vehicle_id }),
+    ...(newDocument.value.machine_id !== undefined && { machine_id: newDocument.value.machine_id }),
     ...(newDocument.value.driver_id !== undefined && { driver_id: newDocument.value.driver_id }),
   };
 
@@ -284,7 +283,7 @@ onMounted(() => {
   
   // --- CORREÇÃO: Só busca dados de formulário se for gestor ---
   if (isManager.value) {
-    void vehicleStore.fetchAllVehicles();
+    void machineStore.fetchAllMachines();
     void userStore.fetchAllUsers(); // Isso prevenia o erro 403
   }
 });

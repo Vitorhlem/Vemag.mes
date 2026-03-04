@@ -1,50 +1,31 @@
 import enum
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
-
-from sqlalchemy import (Column, Integer, String, Boolean, ForeignKey, Enum as SAEnum, DateTime, UniqueConstraint)
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-
 from app.db.base_class import Base
 from app.core.config import settings
 
-# Importações para verificação de tipo para evitar ciclo de importação
 if TYPE_CHECKING:
     from .inventory_transaction_model import InventoryTransaction
-    from .fine_model import Fine
-    from .freight_order_model import FreightOrder
-    from .journey_model import Journey
     from .maintenance_model import MaintenanceRequest
     from .alert_model import Alert
-    from .achievement_model import UserAchievement
     from .document_model import Document
-    from .fuel_log_model import FuelLog
     from .organization_model import Organization
-    # Se houver tabela de AndonCall e quiser relacionar o 'accepted_by', adicione aqui
-    from .andon_model import AndonCall
 
 def generate_employee_id():
     unique_part = uuid.uuid4().hex[:8]
     return f"TRC-{unique_part}"
 
-# --- ATUALIZAÇÃO CRÍTICA: ENUM COM TODOS OS CARGOS ---
 class UserRole(str, enum.Enum):
-    # Gestão de Conta
     ADMIN = "admin"
-    CLIENTE_ATIVO = "cliente_ativo"
-    CLIENTE_DEMO = "cliente_demo"
-    
-    # Frota / Logística Externa
-    DRIVER = "driver"
-    
-    # Indústria / MES / Andon (Novos)
-    OPERATOR = "operator"
-    MAINTENANCE = "maintenance"
-    QUALITY = "quality"
-    LOGISTICS = "logistics" # Logística interna
-    PCP = "pcp"
     MANAGER = "manager"
+    PCP = "pcp"
+    QUALITY = "quality"
+    LOGISTICS = "logistics"
+    MAINTENANCE = "maintenance"
+    OPERATOR = "operator"
+    DRIVER = "driver" 
 
 class User(Base):
     __tablename__ = "users"
@@ -55,28 +36,16 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     job_title = Column(String, nullable=True)
-    # Identificação única na empresa
     employee_id: Mapped[str] = mapped_column(String(50), index=True, nullable=False, default=generate_employee_id)
     device_token = Column(String, nullable=True)
-    # Role aceita todos os tipos agora
-    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), nullable=False)
-    
+    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), nullable=False, default=UserRole.OPERATOR)
     is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
     avatar_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    
-    notify_in_app: Mapped[bool] = mapped_column(Boolean(), default=True, nullable=False)
-    notify_by_email: Mapped[bool] = mapped_column(Boolean(), default=True, nullable=False)
-    notification_email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    
-    reset_password_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
-    reset_password_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False)
     
     # --- RELACIONAMENTOS ---
     organization: Mapped["Organization"] = relationship("Organization", back_populates="users")
 
-    # Estoque
     inventory_transactions_performed: Mapped[List["InventoryTransaction"]] = relationship(
         "InventoryTransaction",
         foreign_keys="[InventoryTransaction.user_id]",
@@ -89,24 +58,17 @@ class User(Base):
         back_populates="related_user"
     )
 
-    # Módulo Frota (Mantidos)
-    freight_orders: Mapped[List["FreightOrder"]] = relationship("FreightOrder", back_populates="driver")
-    journeys: Mapped[List["Journey"]] = relationship("Journey", back_populates="driver", cascade="all, delete-orphan")
-    fuel_logs: Mapped[List["FuelLog"]] = relationship("FuelLog", back_populates="user", cascade="all, delete-orphan")
-    fines: Mapped[List["Fine"]] = relationship("Fine", back_populates="driver", cascade="all, delete-orphan")
     documents: Mapped[List["Document"]] = relationship("Document", back_populates="driver", cascade="all, delete-orphan")
     alerts: Mapped[List["Alert"]] = relationship("Alert", back_populates="driver")
     
-    # Módulo Manutenção / Indústria
+    # --- A CORREÇÃO DO ERRO ESTÁ AQUI ---
+    # O nome da variável DEVE ser 'reported_requests' porque o maintenance_model aponta para ele
     reported_requests: Mapped[List["MaintenanceRequest"]] = relationship(
         "MaintenanceRequest", 
         foreign_keys="[MaintenanceRequest.reported_by_id]", 
         back_populates="reporter"
     )
-    
-    # Gamification
-    achievements: Mapped[List["UserAchievement"]] = relationship("UserAchievement", back_populates="user", cascade="all, delete-orphan")
-    
+
     @property
     def is_superuser(self) -> bool:
         return self.email in settings.SUPERUSER_EMAILS

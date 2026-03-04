@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
-import { VehicleStatus, type Vehicle, type VehicleCreate, type VehicleUpdate } from 'src/models/vehicle-models';
-import { useDemoStore } from './demo-store';
+import { MachineStatus, type Machine, type MachineCreate, type MachineUpdate } from 'src/models/machine-models';
 import { useAuthStore } from './auth-store';
 import { useTireStore } from './tire-store';
 
@@ -12,29 +11,29 @@ interface FetchParams {
   search?: string;
 }
 
-interface PaginatedVehiclesResponse {
-  vehicles: Vehicle[];
+interface PaginatedMachinesResponse {
+  machines: Machine[];
   total_items: number;
 }
 
 const initialState = () => ({
-  vehicles: [] as Vehicle[],
-  selectedVehicle: null as Vehicle | null,
+  machines: [] as Machine[],
+  selectedMachine: null as Machine | null,
   isLoading: false,
   totalItems: 0,
 });
 
 
 
-export const useVehicleStore = defineStore('vehicle', {
+export const useMachineStore = defineStore('machine', {
   state: initialState,
   getters: {
-    availableVehicles: (state) =>
-      state.vehicles.filter(v => v.status === VehicleStatus.AVAILABLE),
+    availableMachines: (state) =>
+      state.machines.filter(v => v.status === MachineStatus.AVAILABLE),
   },
 
   actions: {
-    async fetchAllVehicles(params: FetchParams = {}) {
+    async fetchAllMachines(params: FetchParams = {}) {
       this.isLoading = true;
       try {
         const queryParams = {
@@ -42,8 +41,8 @@ export const useVehicleStore = defineStore('vehicle', {
           rowsPerPage: params.rowsPerPage || 8,
           search: params.search || '',
         };
-        const response = await api.get<PaginatedVehiclesResponse>('/vehicles/', { params: queryParams });
-        this.vehicles = response.data.vehicles;
+        const response = await api.get<PaginatedMachinesResponse>('/machines/', { params: queryParams });
+        this.machines = response.data.machines;
         this.totalItems = response.data.total_items;
       } catch (error) {
         console.error('Falha ao buscar veículos:', error);
@@ -52,36 +51,36 @@ export const useVehicleStore = defineStore('vehicle', {
         this.isLoading = false;
       }
     },
-    async fetchVehicleById(vehicleId: number) {
+    async fetchMachineById(machineId: number) {
       this.isLoading = true;
       try {
-        const response = await api.get<Vehicle>(`/vehicles/${vehicleId}`);
-        this.selectedVehicle = response.data;
+        const response = await api.get<Machine>(`/machines/${machineId}`);
+        this.selectedMachine = response.data;
       } catch (error) {
         Notify.create({ type: 'negative', message: 'Falha ao carregar dados do veículo.' });
-        console.error(`Falha ao buscar veículo ${vehicleId}:`, error);
+        console.error(`Falha ao buscar veículo ${machineId}:`, error);
       } finally {
         this.isLoading = false;
       }
     },
 
-    updateVehicleInList(updatedVehicle: Vehicle) {
-      const index = this.vehicles.findIndex(v => v.id === updatedVehicle.id);
+    updateMachineInList(updatedMachine: Machine) {
+      const index = this.machines.findIndex(v => v.id === updatedMachine.id);
       if (index !== -1) {
         // Substitui o objeto antigo pelo novo na lista
-        this.vehicles[index] = updatedVehicle;
+        this.machines[index] = updatedMachine;
       }
       // Opcional: Se o veículo atualizado for o selecionado, atualize-o também
-      if (this.selectedVehicle && this.selectedVehicle.id === updatedVehicle.id) {
-        this.selectedVehicle = updatedVehicle;
+      if (this.selectedMachine && this.selectedMachine.id === updatedMachine.id) {
+        this.selectedMachine = updatedMachine;
       }
     },
 
-    async addNewVehicle(vehicleData: VehicleCreate, initialFetchParams: FetchParams) {
+    async addNewMachine(machineData: MachineCreate, initialFetchParams: FetchParams) {
       try {
-        await api.post('/vehicles/', vehicleData);
+        await api.post('/machines/', machineData);
         Notify.create({ type: 'positive', message: 'Item adicionado com sucesso!' });
-        await this.fetchAllVehicles({ ...initialFetchParams, page: 1 });
+        await this.fetchAllMachines({ ...initialFetchParams, page: 1 });
 
         const authStore = useAuthStore();
         if (authStore.isDemo) {
@@ -96,11 +95,11 @@ export const useVehicleStore = defineStore('vehicle', {
       }
     },
 
-    async updateVehicle(id: number, vehicleData: VehicleUpdate, currentFetchParams: FetchParams) {
+    async updateMachine(id: number, machineData: MachineUpdate, currentFetchParams: FetchParams) {
       try {
-        await api.put(`/vehicles/${id}`, vehicleData);
+        await api.put(`/machines/${id}`, machineData);
         Notify.create({ type: 'positive', message: 'Item atualizado com sucesso!' });
-        await this.fetchAllVehicles(currentFetchParams);
+        await this.fetchAllMachines(currentFetchParams);
       } catch (error) {
         Notify.create({ type: 'negative', message: 'Erro ao atualizar item.' });
         console.error('Erro ao atualizar:', error);
@@ -108,11 +107,11 @@ export const useVehicleStore = defineStore('vehicle', {
       }
     },
 
-    async updateAxleConfiguration(vehicleId: number, axleConfig: string) {
+    async updateAxleConfiguration(machineId: number, axleConfig: string) {
       try {
-        const response = await api.patch<Vehicle>(`/vehicles/${vehicleId}/axle-config`, { axle_configuration: axleConfig });
-        if (this.selectedVehicle && this.selectedVehicle.id === vehicleId) {
-          this.selectedVehicle = response.data;
+        const response = await api.patch<Machine>(`/machines/${machineId}/axle-config`, { axle_configuration: axleConfig });
+        if (this.selectedMachine && this.selectedMachine.id === machineId) {
+          this.selectedMachine = response.data;
         }
         const tireStore = useTireStore();
         if (tireStore.tireLayout) {
@@ -128,11 +127,11 @@ export const useVehicleStore = defineStore('vehicle', {
       }
     },
 
-    async deleteVehicle(id: number, currentFetchParams: FetchParams) {
+    async deleteMachine(id: number, currentFetchParams: FetchParams) {
       try {
-        await api.delete(`/vehicles/${id}`);
+        await api.delete(`/machines/${id}`);
         Notify.create({ type: 'positive', message: 'Item excluído com sucesso.' });
-        await this.fetchAllVehicles(currentFetchParams);
+        await this.fetchAllMachines(currentFetchParams);
 
         const authStore = useAuthStore();
         if (authStore.isDemo) {

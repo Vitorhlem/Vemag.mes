@@ -15,7 +15,7 @@ class LocationHistory(Base):
     
     timestamp = Column(DateTime, default=datetime.utcnow)
 
-    vehicle_id = Column(Integer, ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
-    vehicle = relationship("Vehicle", back_populates="location_history")
+    machine_id = Column(Integer, ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
+    machine = relationship("Machine", back_populates="location_history")
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     organization = relationship("Organization")

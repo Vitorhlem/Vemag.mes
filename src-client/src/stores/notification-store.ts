@@ -67,25 +67,20 @@ export const useNotificationStore = defineStore('notification', {
     // --- LÓGICA DE ROTEAMENTO CORRIGIDA E ROBUSTA ---
     getNotificationRoute(notification: Notification): RouteLocationRaw | null {
       // 1. Normalização: Converte para minúsculo para evitar erro de Case Sensitivity
-      // Isso resolve se o backend mandar "NEW_FINE_REGISTERED" ou "new_fine_registered"
       const type = (notification.notification_type || '').toLowerCase();
       
       // LOG DE DEBUG: Abra o console do navegador (F12) para ver isso
       console.log('Tentando navegar. Tipo recebido:', type, 'Dados completos:', notification);
 
       switch (type) {
-        // --- MULTAS ---
-        case 'new_fine_registered':
-        case 'fine_payment_due':
-          return { name: 'fines' };
-
+        
         // --- MANUTENÇÃO ---
         case 'maintenance_due_date':
         case 'maintenance_due_km':
-          if (notification.related_vehicle_id) {
+          if (notification.related_machine_id) {
             return { 
-              name: 'vehicle-details', 
-              params: { id: notification.related_vehicle_id.toString() }
+              name: 'machine-details', 
+              params: { id: notification.related_machine_id.toString() }
             };
           }
           return { name: 'maintenance' };
@@ -97,18 +92,15 @@ export const useNotificationStore = defineStore('notification', {
 
         // --- DOCUMENTOS ---
         case 'document_expiring':
-          if (notification.related_vehicle_id) {
+          if (notification.related_machine_id) {
             return { 
-              name: 'vehicle-details', 
-              params: { id: notification.related_vehicle_id.toString() }
+              name: 'machine-details', 
+              params: { id: notification.related_machine_id.toString() }
             };
           }
           return { name: 'documents' };
 
         // --- COMBUSTÍVEL E CUSTOS ---
-        case 'abnormal_fuel_consumption':
-          return { name: 'fuel-logs' };
-
         case 'cost_exceeded':
           return { name: 'costs' };
 
@@ -117,13 +109,13 @@ export const useNotificationStore = defineStore('notification', {
           return { name: 'parts' };
 
         case 'tire_status_bad':
-          if (notification.related_vehicle_id) {
+          if (notification.related_machine_id) {
             return { 
-              name: 'vehicle-details', 
-              params: { id: notification.related_vehicle_id.toString() }
+              name: 'machine-details', 
+              params: { id: notification.related_machine_id.toString() }
             };
           }
-          return { name: 'vehicles' };
+          return { name: 'machines' };
 
         // --- OPERACIONAL / JORNADAS ---
         case 'journey_started':

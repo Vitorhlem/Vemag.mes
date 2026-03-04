@@ -61,12 +61,12 @@
           <q-select 
             v-if="formData.transaction_type === 'Saída para Uso'" 
             outlined 
-            v-model="formData.related_vehicle_id" 
-            :options="vehicleOptions" 
+            v-model="formData.related_machine_id" 
+            :options="machineOptions" 
             label="Destino: Máquina / Equipamento *" 
             emit-value map-options clearable 
-            use-input @filter="filterVehicles" 
-            :loading="vehicleStore.isLoading"
+            use-input @filter="filterMachines" 
+            :loading="machineStore.isLoading"
             :rules="[val => !!val || 'Selecione a máquina de destino']"
           />
 
@@ -86,8 +86,8 @@
 import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePartStore } from 'stores/part-store';
-import { useVehicleStore } from 'stores/vehicle-store';
-import { useVehicleComponentStore } from 'stores/vehicle-component-store';
+import { useMachineStore } from 'stores/machine-store';
+import { useMachineComponentStore } from 'src/stores/machine-component-store';
 import type { Part } from 'src/models/part-models';
 import type { TransactionType, TransactionCreate } from 'src/models/inventory-transaction-models';
 import { InventoryItemStatus } from 'src/models/inventory-item-models';
@@ -98,13 +98,13 @@ const emit = defineEmits(['update:modelValue']);
 
 const router = useRouter();
 const partStore = usePartStore();
-const vehicleStore = useVehicleStore();
-const componentStore = useVehicleComponentStore();
+const machineStore = useMachineStore();
+const componentStore = useMachineComponentStore();
 
 const baseTransactionOptions: TransactionType[] = ["Entrada", "Saída para Uso", "Fim de Vida"];
 
 const formData = ref<Partial<TransactionCreate & { item_id: number | null }>>({});
-const vehicleOptions = ref<{label: string, value: number}[]>([]);
+const machineOptions = ref<{label: string, value: number}[]>([]);
 const filteredItemOptions = ref<{label: string, value: number}[]>([]);
 
 const filteredTransactionOptions = computed(() => {
@@ -131,7 +131,7 @@ function filterItems(val: string, update: (callbackFn: () => void) => void) {
 watch(() => props.modelValue, async (isOpening) => {
   if (isOpening && props.part) {
     formData.value = { quantity: 1, item_id: null, transaction_type: 'Entrada' };
-    void vehicleStore.fetchAllVehicles({rowsPerPage: 9999});
+    void machineStore.fetchAllMachines({rowsPerPage: 9999});
     await partStore.fetchAvailableItems(props.part.id);
     filterItems('', (fn) => fn()); 
   }
@@ -144,16 +144,16 @@ watch(() => formData.value.transaction_type, async (newType) => {
   }
 });
 
-function filterVehicles (val: string, update: (callbackFn: () => void) => void) {
+function filterMachines (val: string, update: (callbackFn: () => void) => void) {
   update(() => {
     const needle = val.toLowerCase();
     // Filtro local nas máquinas já carregadas
-    const source = vehicleStore.vehicles; 
+    const source = machineStore.machines; 
     
     if (val === '') {
-      vehicleOptions.value = source.map(v => ({ label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`, value: v.id }));
+      machineOptions.value = source.map(v => ({ label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`, value: v.id }));
     } else {
-      vehicleOptions.value = source
+      machineOptions.value = source
         .filter(v => JSON.stringify(v).toLowerCase().includes(needle))
         .map(v => ({ label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`, value: v.id }));
     }
@@ -189,9 +189,9 @@ async function handleSubmit() {
       }
       
       const newStatus: InventoryItemStatus = type === 'Saída para Uso' ? InventoryItemStatus.EM_USO : InventoryItemStatus.FIM_DE_VIDA;
-      const vehicleId = formData.value.related_vehicle_id;
+      const machineId = formData.value.related_machine_id;
       
-      success = await partStore.setItemStatus(props.part.id, itemId, newStatus, vehicleId, notes);
+      success = await partStore.setItemStatus(props.part.id, itemId, newStatus, machineId, notes);
     
     } else {
       Notify.create({ type: 'warning', message: 'Operação inválida.' });

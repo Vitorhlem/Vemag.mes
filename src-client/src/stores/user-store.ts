@@ -5,7 +5,6 @@ import { isAxiosError } from 'axios';
 import type { User } from 'src/models/auth-models';
 import type { UserCreate, UserUpdate, UserStats } from 'src/models/user-models';
 import { useAuthStore } from './auth-store'; 
-import { useDemoStore } from './demo-store';
 
 const initialState = () => ({
   users: [] as User[],
@@ -42,10 +41,6 @@ export const useUserStore = defineStore('user', {
         this.users.unshift(response.data);
         Notify.create({ type: 'positive', message: 'Usuário adicionado com sucesso!' });
 
-        const authStore = useAuthStore();
-        if (authStore.isDemo) {
-          await useDemoStore().fetchDemoStats(true);
-        }
 
       } catch (error: unknown) {
         let message = 'Erro ao criar usuário.';
@@ -84,10 +79,6 @@ export const useUserStore = defineStore('user', {
         this.users = this.users.filter(u => u.id !== userId);
         Notify.create({ type: 'positive', message: 'Usuário excluído com sucesso!' });
 
-        const authStore = useAuthStore();
-        if (authStore.isDemo) {
-          await useDemoStore().fetchDemoStats(true);
-        }
 
       } catch (error: unknown) {
         let message = 'Erro ao excluir usuário.';

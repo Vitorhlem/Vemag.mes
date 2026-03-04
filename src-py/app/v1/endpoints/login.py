@@ -86,10 +86,6 @@ async def register_new_user(
         new_user.role = UserRole.ADMIN
         
         if new_user.organization:
-            new_user.organization.vehicle_limit = -1
-            new_user.organization.driver_limit = -1
-            new_user.organization.freight_order_limit = -1
-            new_user.organization.maintenance_limit = -1
             db.add(new_user.organization)
         
         db.add(new_user)
@@ -125,59 +121,3 @@ async def login_for_access_token(
         "token_type": "bearer",
         "user": user 
     }
-
-@router.post("/password-recovery", response_model=Msg, status_code=status.HTTP_202_ACCEPTED)
-async def request_password_recovery(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    recovery_in: PasswordRecoveryRequest,
-):
-    """
-    Recuperação de senha com envio Assíncrono (Celery).
-    """
-    user = await crud.user.get_user_by_email(db, email=recovery_in.email)
-    
-    if user:
-        user_with_token = await crud.user.set_password_reset_token(db=db, user=user)
-        
-        # 1. Gera o HTML do e-mail
-        email_html = email_utils.get_password_reset_template(
-            user_name=user.full_name,
-            token=user_with_token.reset_password_token
-        )
-        subject = f"{settings.PROJECT_NAME} - Redefinição de Senha"
-
-        # 2. Envia para a fila do Celery
-        send_email_async.delay(
-            to_emails=[user.email],
-            subject=subject,
-            message_html=email_html
-        )
-
-    return {"msg": "Se um usuário com este e-mail existir, um link para redefinição de senha será enviado."}
-
-@router.post("/reset-password", response_model=Msg, status_code=status.HTTP_200_OK)
-async def reset_password(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    reset_in: PasswordResetRequest,
-):
-    email = security.verify_password_reset_token(token=reset_in.token)
-    if not email:
-        raise HTTPException(status_code=400, detail="Token inválido ou expirado.")
-        
-    user = await crud.user.get_user_by_email(db, email=email)
-    if not user or not user.is_active or user.reset_password_token != reset_in.token:
-        raise HTTPException(status_code=400, detail="Token inválido ou expirado.")
-
-    if user.reset_password_token_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Token inválido ou expirado.")
-
-    await crud.user.update_password(db=db, db_user=user, new_password=reset_in.new_password)
-    
-    user.reset_password_token = None
-    user.reset_password_token_expires_at = None
-    db.add(user)
-    await db.commit()
-    
-    return {"msg": "Sua senha foi redefinida com sucesso."}

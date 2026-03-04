@@ -2,15 +2,15 @@ import type { ISectorStrategy } from './strategy.interface';
 
 // O nome da constante deve ser exatamente este
 export const ServicesStrategy: ISectorStrategy = {
-  vehicleNoun: 'Veículo',
-  vehicleNounPlural: 'Veículos',
+  machineNoun: 'Veículo',
+  machineNounPlural: 'Veículos',
   journeyNoun: 'Viagem',
   journeyNounPlural: 'Viagens',
   distanceUnit: 'KM',
   plateOrIdentifierLabel: 'Placa',
   startJourneyButtonLabel: 'Iniciar Viagem',
-  vehiclePageTitle: 'Gerenciamento de Veículos',
-  addVehicleButtonLabel: 'Adicionar Veículo',
+  machinePageTitle: 'Gerenciamento de Veículos',
+  addMachineButtonLabel: 'Adicionar Veículo',
   editButtonLabel: 'Editar Veículo',
   newButtonLabel: 'Novo Veículo',
   journeyPageTitle: 'Registro de Viagens',

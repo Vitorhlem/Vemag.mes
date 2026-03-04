@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from app import crud, deps
 from app.core import auth 
-from app.models.user_model import User, UserRole
-from app.schemas.user_schema import UserPublic
+from app.models.user_model import User
+from app.schemas.user_schema import UserPublic, UserUpdate
 from app.schemas.organization_schema import OrganizationPublic, OrganizationUpdate
 from app.schemas.token_schema import Token 
 
@@ -19,10 +19,10 @@ async def read_organizations_as_admin(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = None, # Parâmetro de filtro: 'demo' ou 'active'
+    status: Optional[str] = None, 
     current_user: User = Depends(deps.get_current_super_admin)
 ):
-    """(Super Admin) Lista todas as organizações, com opção de filtro por status."""
+    """(Super Admin) Lista todas as organizações."""
     organizations = await crud.organization.get_multi(
         db, skip=skip, limit=limit, status=status
     )
@@ -37,7 +37,7 @@ async def update_organization_as_admin(
     org_in: OrganizationUpdate,
     current_user: User = Depends(deps.get_current_super_admin)
 ):
-    """(Super Admin) Atualiza os dados de uma organização (ex: nome, setor)."""
+    """(Super Admin) Atualiza os dados de uma organização."""
     org_to_update = await crud.organization.get(db=db, id=org_id)
     if not org_to_update:
         raise HTTPException(
@@ -49,18 +49,7 @@ async def update_organization_as_admin(
     return updated_org
 
 
-# --- ROTAS DE GESTÃO DE UTILIZADORES (ATIVAÇÃO) ---
-
-@router.get("/users/demo", response_model=List[UserPublic])
-async def read_demo_users_as_admin(
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_super_admin)
-):
-    """(Super Admin) Retorna a lista de todos os utilizadores com o papel CLIENTE_DEMO."""
-    demo_users = await crud.user.get_users_by_role(
-        db, role=UserRole.CLIENTE_DEMO
-    )
-    return demo_users
+# --- ROTAS DE GESTÃO DE UTILIZADORES ---
 
 @router.get("/users/all", response_model=List[UserPublic])
 async def read_all_users_as_admin(
@@ -79,26 +68,23 @@ async def activate_user_account_as_admin(
     user_id: int,
     current_user: User = Depends(deps.get_current_super_admin)
 ):
-    """(Super Admin) Ativa um utilizador, promovendo o seu papel para CLIENTE_ATIVO."""
+    """(Super Admin) Ativa um utilizador (define is_active=True)."""
     user_to_activate = await crud.user.get(db=db, id=user_id)
 
     if not user_to_activate:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Utilizador a ser ativado não foi encontrado."
+            detail="Utilizador não encontrado."
         )
     
-    if user_to_activate.role != UserRole.CLIENTE_DEMO:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Este utilizador não é um cliente demo."
-        )
-
-    activated_user = await crud.user.activate_user(db=db, user_to_activate=user_to_activate)
+    # Atualiza para ativo usando o schema de update
+    user_update = UserUpdate(is_active=True)
+    activated_user = await crud.user.update(db=db, db_user=user_to_activate, user_in=user_update)
+    
     return activated_user
 
 
-# --- ROTA DE LOGIN SOMBRA ADICIONADA ---
+# --- ROTA DE LOGIN SOMBRA ---
 @router.post("/users/{user_id}/impersonate", response_model=Token)
 async def impersonate_user(
     *,
@@ -117,14 +103,12 @@ async def impersonate_user(
             detail="Utilizador alvo não encontrado."
         )
 
-    # Regra de segurança: impede que um super admin personifique outro.
     if user_to_impersonate.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Não é permitido personificar outro super administrador."
         )
 
-    # Geramos o token para o utilizador-alvo
     access_token = auth.create_access_token(
         data={"sub": str(user_to_impersonate.id)}
     )
