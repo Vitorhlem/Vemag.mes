@@ -236,12 +236,13 @@ async function loadKioskConfig() {
     }
 }
 
-  async function setMachineStatus(status: string) {
+ async function setMachineStatus(status: string, reason?: string) {
   if (!machineId.value) return;
 
   const statusPayload = { 
     machine_id: machineId.value, 
     status: status,
+    reason: reason || null, // 👈 ENVIANDO O MOTIVO AQUI!
     timestamp: new Date().toISOString() 
   };
 

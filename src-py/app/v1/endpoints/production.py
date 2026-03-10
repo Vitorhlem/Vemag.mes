@@ -33,6 +33,8 @@ router = APIRouter()
 class MachineStatusUpdate(BaseModel):
     machine_id: int
     status: str
+    reason: Optional[str] = None
+    operator_badge: Optional[str] = None
 
 class MachineStatsRealTime(BaseModel):
     date: str
@@ -136,8 +138,7 @@ async def get_employee_stats(
         "LOGOFF", "TROCA DE TURNO", "LOGOFF / TROCA DE TURNO", "MANUTENÇÃO GERAL",
         "OCIOSO", "OCIOSIDADE", "SETUP", "PREPARAÇÃO", "SAÍDA", "SAIDA",
         "STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "SISTEMA", "111", "21",
-        # 👇 FILTROS NOVOS PARA IGNORAR AÇÕES DE SISTEMA/MÁQUINA
-        "ETAPA FINALIZADA", "FIM DE ETAPA", "PRODUÇÃO"
+        "ETAPA FINALIZADA", "FIM DE ETAPA", "PRODUÇÃO", "FIM DE MANUTENÇÃO"
     ]
 
     for user in users:
@@ -569,78 +570,65 @@ async def sync_offline_batch(payloads: List[dict], current_user: User = Depends(
 
 @router.post("/machine/status")
 async def set_machine_status(data: MachineStatusUpdate, db: AsyncSession = Depends(get_db)):
-    """
-    Define o status da máquina manualmente, respeitando a nova arquitetura explícita.
-    """
-    from app.core.websocket_manager import manager # 👈 Import do Megafone!
-
-    print(f"🔄 [BACKEND] Mudança Manual de Status: {data.status} -> Máquina {data.machine_id}")
+    from app.core.websocket_manager import manager 
+    from app.schemas.production_schema import ProductionEventCreate
+    
+    print(f"🔄 [BACKEND] Mudança Manual: {data.status} | Motivo: {data.reason} -> Máquina {data.machine_id}")
 
     machine = await db.get(Machine, data.machine_id)
     if not machine: raise HTTPException(404, "Máquina não encontrada")
     
     status_upper = str(data.status).strip().upper()
     
-    # --- MAPEAMENTO EXPLÍCITO ---
-    new_status_db = "Disponível" 
-    category_mes = "IDLE"
+    # 🚀 O NOVO "TRADUTOR" DE MOTIVOS VISUAIS
+    final_reason = data.reason
+    if not final_reason:
+        if status_upper in ["STOPPED", "PAUSED", "PARADA", "0"]:
+            final_reason = "SEM MOTIVO"
+        elif status_upper in ["MAINTENANCE", "EM MANUTENÇÃO", "QUEBRADA"]:
+            final_reason = "Máquina em manutenção"
+        elif status_upper in ["AVAILABLE", "IDLE", "DISPONÍVEL", "DISPONIVEL"]:
+            final_reason = "Máquina disponível"
+        elif status_upper in ["SETUP", "PREPARAÇÃO", "PLANNED_STOP"]:
+            final_reason = "Preparação / Setup"
+        elif status_upper in ["1", "RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "IN_USE"]:
+            final_reason = "Em uso"
+        elif status_upper in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA", "AUTÔNOMO"]:
+            final_reason = "Produção Autônoma"
+        else:
+            final_reason = "Alteração de Status"
 
-    # 1. SETUP
-    if status_upper in ["SETUP", "PREPARAÇÃO"]:
-        new_status_db = "Setup" # ✅ Novo status explícito
-        category_mes = "PLANNED_STOP"
+    # 🚀 A CORREÇÃO ESTÁ AQUI:
+    # Se o frontend não mandar um crachá, assumimos que foi o "SISTEMA" (Admin no tablet)
+    # Assim a Trava do Arduino não bloqueia a liberação da máquina!
+    badge_to_use = data.operator_badge if data.operator_badge else "SISTEMA"
 
-    # 2. MANUTENÇÃO
-    elif status_upper in ["MAINTENANCE", "BROKEN", "MANUTENÇÃO", "QUEBRADA", "EM MANUTENÇÃO"]:
-        new_status_db = "Em manutenção"
-        category_mes = "MAINTENANCE"
+    event_payload = ProductionEventCreate(
+        machine_id=machine.id,
+        operator_badge=badge_to_use, # 👈 MUDOU AQUI!
+        event_type="STATUS_CHANGE",
+        new_status=status_upper,
+        timestamp=datetime.now(),
+        reason=final_reason 
+    )
 
-    # 3. PRODUÇÃO AUTÔNOMA
-    elif status_upper in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA", "AUTÔNOMO"]:
-        new_status_db = "Produção Autônoma" # ✅ Novo status explícito
-        category_mes = "PRODUCING"
-
-    # 4. PRODUÇÃO HUMANA
-    elif status_upper in ["RUNNING", "IN_USE", "EM OPERAÇÃO", "EM USO"]:
-        new_status_db = "Em uso"
-        category_mes = "PRODUCING"
-
-    # 5. OCIOSIDADE / PARADA
-    elif status_upper in ["OCIOSO", "OCIOSIDADE"]:
-        new_status_db = "Ociosidade" # ✅ Novo status explícito (Cinza)
-        category_mes = "IDLE"
-        
-    elif status_upper in ["STOPPED", "PAUSED", "PARADA"]:
-        new_status_db = "Parada"
-        category_mes = "UNPLANNED_STOP"
-        
-    else:
-        new_status_db = "Disponível"
-        category_mes = "IDLE"
-
-    print(f"✅ [BACKEND] Status Persistido: '{new_status_db}'")
-
-    machine.status = new_status_db
-    db.add(machine)
-    
     try:
-        await ProductionService.close_current_slice(db, machine.id)
-        await ProductionService.open_new_slice(db, machine.id, category=category_mes, reason=f"Status: {new_status_db}")
+        result = await ProductionService.handle_event(db, event_payload)
+        await db.refresh(machine)
+        cat_mes = result.get("category", "IDLE")
+        
+        await manager.broadcast({
+            "type": "MACHINE_STATE_CHANGED",
+            "machine_id": machine.id,
+            "new_status": cat_mes,
+            "machine_status_db": machine.status
+        }, org_id=machine.organization_id)
+        
+        return {"message": "Status atualizado", "new_status": machine.status}
+        
     except Exception as e:
-        print(f"⚠️ [BACKEND] Erro ao atualizar fatia MES: {e}")
-    
-    await db.commit()
-    await db.refresh(machine)
-    
-    # 🚀 A MÁGICA: Grita para todos os WebSockets daquela empresa que a máquina mudou!
-    await manager.broadcast({
-        "type": "MACHINE_STATE_CHANGED",
-        "machine_id": machine.id,
-        "new_status": category_mes,
-        "machine_status_db": machine.status
-    }, org_id=machine.organization_id) # 👈 CORREÇÃO: Adicionado o org_id aqui!
-    
-    return {"message": "Status atualizado", "new_status": machine.status}
+        print(f"❌ Erro ao aplicar status manual: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 class MachineLayoutUpdate(BaseModel):
     machine_id: int
@@ -788,82 +776,65 @@ async def get_machine_history(machine_id: int, skip: int = 0, limit: int = 20, e
 
 @router.post("/session/start", response_model=SessionResponse)
 async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.get_db)):
-    # 1. Limpeza de Espaços
     op_code_str = str(payload.op_number).strip()
+    print(f"🚀 [MES] Recebendo pedido de OP {op_code_str} - Etapa {payload.step_seq}")
     
-    print(f"🚀 [MES] Iniciando OP {op_code_str} - Etapa {payload.step_seq}")
+    # 🔒 1. TRAVA DE CONCORRÊNCIA (PESSIMISTIC LOCK)
+    # with_for_update() obriga requisições simultâneas a formarem uma fila.
+    # A Requisição 2 vai pausar nesta linha até a Requisição 1 dar o commit final.
+    q_machine = select(Machine).where(Machine.id == payload.machine_id).with_for_update()
+    machine = (await db.execute(q_machine)).scalars().first()
     
-    # 2. Validar Máquina e Operador
-    machine = await db.get(Machine, payload.machine_id)
     if not machine: raise HTTPException(404, "Máquina não encontrada")
 
     user_q = await db.execute(select(User).where(or_(User.employee_id == payload.operator_badge, User.email == payload.operator_badge)))
     operator = user_q.scalars().first()
     if not operator: raise HTTPException(404, "Operador não encontrado")
 
-    # SALVAMOS OS IDs PARA NÃO DEPENDER DOS OBJETOS APÓS POSSÍVEL ROLLBACK
     machine_id_safe = machine.id
     operator_id_safe = operator.id
     operator_name_safe = operator.full_name
 
-    # 3. Busca ou Cria a Ordem (Com proteção contra Race Condition)
+    # 2. Busca ou Cria a Ordem
     order_q = await db.execute(select(ProductionOrder).where(ProductionOrder.code == op_code_str))
     order = order_q.scalars().first()
     
     if not order:
         try:
-            # Tenta buscar dados do SAP (apenas para preencher nome)
             sap_service = SAPIntegrationService(db, organization_id=1)
             sap_op_data = await sap_service.get_production_order_by_code(op_code_str)
-            part_name = "Item SAP"
-            if sap_op_data:
-                part_name = getattr(sap_op_data, 'part_name', sap_op_data.get('part_name', 'Item SAP'))
+            part_name = getattr(sap_op_data, 'part_name', 'Item SAP') if sap_op_data else "Item SAP"
 
-            # Tenta CRIAR
-            new_order = ProductionOrder(
-                code=op_code_str, 
-                part_name=part_name, 
-            )
+            new_order = ProductionOrder(code=op_code_str, part_name=part_name)
             db.add(new_order)
             await db.flush() 
             order = new_order
-            
         except IntegrityError:
-            # SE DEU ERRO (Concorrência), faz rollback
             await db.rollback()
-            print(f"⚠️ [MES] Duplicidade evitada na OP {op_code_str}. Recuperando existente...")
-            
-            # Aqui os objetos 'machine' e 'operator' expiraram, mas não faz mal
-            # pois guardamos os IDs logo no início!
             order_retry = await db.execute(select(ProductionOrder).where(ProductionOrder.code == op_code_str))
             order = order_retry.scalars().first()
-            
-            if not order:
-                raise HTTPException(500, "Erro crítico de concorrência: Ordem existe mas não foi encontrada.")
+            if not order: raise HTTPException(500, "Erro crítico de concorrência: Ordem não encontrada.")
 
-    # 4. Verifica Sessão Anterior
-    # USAMOS A VARIÁVEL SEGURA 'machine_id_safe' em vez de 'machine.id'
+    # 3. Verifica Sessão Anterior (AGORA A TRAVA FUNCIONA)
+    # Como a Requisição 2 esperou a 1 terminar, ela VAI achar a sessão aqui e ser bloqueada!
     active_session_q = await db.execute(select(ProductionSession).where(
         ProductionSession.machine_id == machine_id_safe, 
         ProductionSession.end_time == None
     ))
     old_session = active_session_q.scalars().first()
 
-    # --- PROTEÇÃO CONTRA DUPLO CLIQUE ---
+    # --- PROTEÇÃO CONTRA DUPLO CLIQUE REAL ---
     if old_session and old_session.production_order_id == order.id and old_session.user_id == operator_id_safe:
-        print(f"ℹ️ [MES] Sessão já ativa para esta OP. Ignorando duplo clique.")
-        return {
-            "status": "success", 
-            "message": f"Sessão já iniciada: {payload.step_seq}", 
-            "session_id": str(old_session.id)
-        }
+        print(f"ℹ️ [MES] Bloqueado. Sessão já ativa (Duplo clique evitado).")
+        # Liberamos o cadeado do banco sem fazer nada
+        await db.commit() 
+        return {"status": "success", "message": f"Sessão já iniciada", "session_id": str(old_session.id)}
 
-    # Se existe sessão antiga diferente, fecha ela
     if old_session:
         old_session.end_time = datetime.now()
         db.add(old_session)
 
-    # 5. Cria Nova Sessão
+    # 4. Cria Nova Sessão
     new_session = ProductionSession(
         machine_id=machine_id_safe, 
         user_id=operator_id_safe, 
@@ -873,8 +844,7 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
     db.add(new_session)
     await db.flush() 
     
-    # 🚀 A TRAVA DE SEGURANÇA QUE FALTAVA: 
-    # Fecha a fatia "Ociosa" (ou qualquer outra) que estava correndo antes do operador selecionar a OP!
+    # 5. Fecha a fatia anterior (Provavelmente o IDLE gerado no login)
     await ProductionService.close_current_slice(db, machine_id_safe)
 
     # 6. Registra Fatia de Tempo e Log
@@ -887,12 +857,7 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
         order_id=order.id
     )
     
-    # Aqui não podemos usar 'machine.status =' se houve rollback, então fazemos um update direto
-    await db.execute(
-        update(Machine).where(Machine.id == machine_id_safe).values(status="Setup")
-    )
-    
-    # order.status = "SETUP" <--- APAGAR ESTA LINHA TAMBÉM!
+    await db.execute(update(Machine).where(Machine.id == machine_id_safe).values(status="Setup"))
     
     log = ProductionLog(
         machine_id=machine_id_safe, 
@@ -902,14 +867,24 @@ async def start_session(payload: SessionStart, db: AsyncSession = Depends(deps.g
         event_type="STATUS_CHANGE", 
         new_status="Setup",
         reason="Setup Inicial",
-        details=f"{order.code} - Posição: {payload.step_seq}", # 👇 ADICIONADO AQUI
+        details=f"{order.code} - Posição: {payload.step_seq}", 
         timestamp=datetime.now()
     )
     db.add(log)
 
+    # 7. COMMIT FINAL: Salva tudo e SOLTA O CADEADO para a próxima requisição!
     await db.commit()
     
-    return {"status": "success", "message": f"Sessão iniciada: {payload.step_seq}", "session_id": str(new_session.id)}
+    # 8. Avisa o Frontend via WebSocket
+    from app.core.websocket_manager import manager
+    await manager.broadcast({
+        "type": "MACHINE_STATE_CHANGED",
+        "machine_id": machine_id_safe,
+        "new_status": "PLANNED_STOP",
+        "machine_status_db": "Setup"
+    }, org_id=1)
+
+    return {"status": "success", "message": f"Sessão iniciada", "session_id": str(new_session.id)}
 @router.post("/session/stop")
 async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSession = Depends(deps.get_db)):
     # 1. Busca a sessão ativa
@@ -922,7 +897,7 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
     if not session: 
         return {"status": "error", "message": "No active session"}
 
-    # 2. Fecha a fatia de tempo atual no MES
+    # 2. Fecha a fatia de tempo atual no MES (Aquela atrelada ao operador)
     end_time = datetime.now()
     await ProductionService.close_current_slice(db, data.machine_id, end_time)
 
@@ -955,10 +930,42 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
     session.productive_seconds = int(productive_sec)
     session.unproductive_seconds = int(unproductive_sec)
     
-    # 7. Libera a máquina (exceto se a manutenção trancou a máquina)
+    # ---------------------------------------------------------------------
+    # 🚀 7. O FIM DO BURACO NEGRO (Garante a continuidade da linha do tempo)
+    # ---------------------------------------------------------------------
     machine = await db.get(Machine, session.machine_id)
-    if machine and machine.status != "Em manutenção": 
-        machine.status = "Disponível"
+    
+    if machine:
+        if machine.status == MachineStatus.MAINTENANCE.value or machine.status == "Em manutenção":
+            await ProductionService.open_new_slice(
+                db, 
+                machine_id=machine.id, 
+                category="MAINTENANCE", 
+                reason="Máquina em manutenção", # 👈 MUDE ISSO AQUI PARA FICAR BONITO!
+                session_id=None, 
+                order_id=None
+            )
+        else:
+            # Encerramento normal, máquina fica Disponível.
+            machine.status = MachineStatus.AVAILABLE.value
+            await ProductionService.open_new_slice(
+                db, 
+                machine_id=machine.id, 
+                category="IDLE", 
+                reason="Máquina Disponível (Fim de Sessão)", 
+                session_id=None, 
+                order_id=None
+            )
+            
+            # Avisa o painel que a máquina liberou e ficou cinza
+            from app.core.websocket_manager import manager
+            await manager.broadcast({
+                "type": "MACHINE_STATE_CHANGED",
+                "machine_id": machine.id,
+                "new_status": "IDLE",
+                "machine_status_db": machine.status
+            }, org_id=getattr(machine, 'organization_id', 1))
+
         db.add(machine)
 
     db.add(session)

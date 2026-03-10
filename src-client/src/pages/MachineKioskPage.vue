@@ -691,12 +691,11 @@ function unlockMachine() {
                 $q.loading.show({ message: 'Liberando sistema...' });
                 
                 try {
-                    await productionStore.sendEvent('STATUS_CHANGE', { 
-                        new_status: 'AVAILABLE', 
-                        reason: 'Fim de Manutenção (Desbloqueio Manual)' 
-                    }, 'SUPERVISOR'); 
-
-                    await productionStore.setMachineStatus('AVAILABLE');
+                    // 🚀 CORREÇÃO: Dispara APENAS a rota de status enviando a justificativa.
+                    // O Backend agora é inteligente o suficiente para montar o log e alterar a máquina de uma vez só.
+                    // E usamos uma frase que NÃO contém a palavra "Manutenção" para não acionar
+                    // a regra de "auto-correção" do motor lá no python!
+                    await productionStore.setMachineStatus('AVAILABLE', 'Máquina Liberada (Desbloqueio Manual)');
                     
                     forcedMaintenance.value = false;
                     await router.replace({ query: {} });
@@ -715,7 +714,6 @@ function unlockMachine() {
         })(); 
     }); 
 }
-
 </script>
 <style scoped>
 /* CORES VEMAG */

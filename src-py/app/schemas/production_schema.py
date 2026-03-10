@@ -114,10 +114,10 @@ class EmployeeStatsRead(BaseModel):
     id: int
     employee_name: str
     total_hours: float
+    
     productive_hours: float
     unproductive_hours: float
     efficiency: float
-    # Usar List[Any] ou List[Dict] evita erro 422 se o formato interno variar
     top_reasons: List[Any] = [] 
 
     class Config:
