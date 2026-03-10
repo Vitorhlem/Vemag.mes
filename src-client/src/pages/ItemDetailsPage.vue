@@ -97,7 +97,7 @@
                 <div v-if="tx.related_machine" class="q-mt-sm">
                   <strong>Destino:</strong> 
                   <router-link :to="{ name: 'machine-details', params: { id: tx.related_machine.id } }" class="text-weight-bold text-primary">
-                    {{ tx.related_machine.brand }} {{ tx.related_machine.model }} (Tag: {{ tx.related_machine.license_plate }})
+                    {{ tx.related_machine.brand }} {{ tx.related_machine.model }} (Tag: {{ tx.related_machine.identifier }})
                   </router-link>
                 </div>
               </div>

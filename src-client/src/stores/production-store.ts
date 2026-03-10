@@ -3,9 +3,9 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { Notify, Loading } from 'quasar';
 import { api } from 'boot/axios';
-import {AndonService} from 'src/services/andon-service'; // Importe o novo serviço
+import {AndonService} from 'src/services/andon-service'; 
 import type { AndonCallCreate } from 'src/services/andon-service';
-import { findBestStepIndex } from 'src/data/sap-operations'; // <--- IMPORT NOVO
+import { findBestStepIndex } from 'src/data/sap-operations'; 
 import { db } from 'src/db/offline-db';
 
 // --- INTERFACES ---
@@ -13,10 +13,10 @@ export interface Machine {
   id: number;
   brand: string;
   model: string;
-  license_plate?: string;
+  identifier?: string;
   status?: string; 
   category?: string;
-  current_driver_id?: number;
+  current_operator_id?: number;
   sap_resource_code?: string;
   layout_x?: number;
   photo_url?: string; 
@@ -52,8 +52,6 @@ export interface ProductionOrder {
   part_image_url: string;
   technical_drawing_url?: string;
   target_quantity: number;
-  produced_quantity: number;
-  scrap_quantity: number;
   status: string;
   steps?: OperationStep[];
   operations: Record<string, unknown>[]; 
@@ -127,24 +125,23 @@ export const useProductionStore = defineStore('production', () => {
 
   async function identifyOperator(badge: string) {
     try {
-      // Chama a rota nova que criamos no backend
       const response = await api.get(`/users/by-badge/${badge}`);
       const user = response.data;
       
-      // Salva na memória TEMPORÁRIA (não muda o login do admin)
+
       activeOperator.value = {
         name: user.full_name,
         badge: user.employee_id
       };
       
-      return user; // Retorna para a tela exibir msg de boas vindas
+      return user;
     } catch (error) {
       console.error('Erro ao identificar operador:', error);
       throw error;
     }
   }
 
-  // Ação para limpar (logout do operador)
+
   function clearOperator() {
     activeOperator.value = { name: '', badge: '' };
   }
@@ -154,16 +151,11 @@ export const useProductionStore = defineStore('production', () => {
     machineId.value = data.id;
     machineName.value = `${data.brand} ${data.model}`;
     machineSector.value = data.category || 'Geral';
-    
-    // AQUI ESTÁ A CORREÇÃO:
-    // Pega o 'sap_resource_code' do banco de dados (ex: '4.12.01')
-    // Se não tiver, usa um fallback seguro ou mantém vazio para forçar erro/aviso
     machineResource.value = data.sap_resource_code || '4.02.01'; 
     
     console.log(`[STORE] Máquina Configurada: ${machineName.value} | Recurso SAP: ${machineResource.value}`);
   }
   async function fetchActiveSession() {
-    // [CORREÇÃO] Use 'this.machineId' em vez de 'machineId.value'
     if (!this.machineId) return;
 
     try {
@@ -171,13 +163,11 @@ export const useProductionStore = defineStore('production', () => {
         
         if (data && data.order) {
             console.log("🟢 [STORE] Sessão ativa recuperada do banco:", data.order.code);
-            // [CORREÇÃO] Use 'this.' para atribuir ao estado
             this.activeOrder = data.order;
             this.currentStepIndex = data.current_step_index;
-            this.isShiftActive = true; // Garante que o turno fique ativo
+            this.isShiftActive = true; 
         }
     } catch (error: any) {
-        // [CORREÇÃO] Tratamento do 404 (Não é erro, é apenas "Sem sessão")
         if (error.response && error.response.status === 404) {
             console.log('ℹ️ Nenhuma sessão ativa encontrada (Máquina disponível).');
             this.activeOrder = null;
@@ -189,7 +179,6 @@ export const useProductionStore = defineStore('production', () => {
     }
 }
 
-// 2. Atualize o loadKioskConfig para chamar essa recuperação
 async function loadKioskConfig() {
     const savedId = sessionStorage.getItem('TRU_MACHINE_ID');
     if (savedId) {
@@ -197,9 +186,7 @@ async function loadKioskConfig() {
         try {
             const { data } = await api.get<Machine>(`/machines/${savedId}`);
             _setMachineData(data);
-            
-            // NOVIDADE: Busca no banco se existe uma ordem rodando ANTES do login
-            await fetchActiveSession(); 
+                        await fetchActiveSession(); 
             
             checkActiveSession();
         } catch { console.warn('Máquina offline.'); }
@@ -241,9 +228,7 @@ async function loadKioskConfig() {
       const { data } = await api.get<Machine>(`/machines/${id}`);
       _setMachineData(data);
       
-      // MUDANÇA AQUI: sessionStorage isola por aba
       sessionStorage.setItem('TRU_MACHINE_ID', String(data.id)); 
-      // localStorage.setItem('TRU_MACHINE_ID', String(data.id)); // REMOVA ISSO SE EXISTIR
       
       Notify.create({ type: 'positive', message: 'Terminal Configurado (Sessão)!' });
     } catch { 
@@ -291,16 +276,9 @@ async function loginOperator(scannedCode: string) {
     try {
       const { data: operator } = await api.get(`/production/operator/${scannedCode}`);
 
-      // 1. Atualiza a memória local IMEDIATAMENTE
       currentOperator.value = operator;
       currentOperatorBadge.value = operator.employee_id;
       localStorage.setItem('TRU_CURRENT_OPERATOR', JSON.stringify(operator));
-
-      // 2. SEMPRE envia o evento de LOGIN (Independente se a máquina roda ou não)
-      // É este evento que "abre" a porta para o KPI humano.
-
-
-      // 3. Se a máquina já estava rodando, enviamos o STATUS_CHANGE logo em seguida
       const machineIsWorking = activeOrder.value && 
                                (['RUNNING', 'IN_USE'].includes(activeOrder.value.status));
 
@@ -327,7 +305,6 @@ async function loginOperator(scannedCode: string) {
     }
 }
   async function sendEvent(type: string, payload: Record<string, unknown> = {}, badgeOverride?: string) {
-  // 1. Definição do Identificador do Operador
   const badge = badgeOverride || currentOperatorBadge.value;
 
   if (!machineId.value || !badge) {
@@ -335,21 +312,19 @@ async function loginOperator(scannedCode: string) {
     return;
   }
   
-  // 2. Montagem do Payload com Timestamp Original
   const eventPayload = { 
     machine_id: machineId.value, 
     operator_badge: badge, 
     order_code: activeOrder.value?.code || null, 
     event_type: type, 
-    timestamp: new Date().toISOString(), // Garantimos que o tempo da ação seja preservado
+    timestamp: new Date().toISOString(),
     ...payload 
   };
 
   try { 
-    // Tenta enviar em tempo real
+
     await api.post('/production/event', eventPayload); 
   } catch (error: any) { 
-    // 3. INTERCEPTAÇÃO OFFLINE: Se não houver rede, guarda na fila local
     if (!error.response || error.code === 'ECONNABORTED') {
       await db.sync_queue.add({
         type: 'EVENT',
@@ -367,7 +342,7 @@ async function loginOperator(scannedCode: string) {
   async function logoutOperator(overrideStatus?: string, keepActiveOrder = false, customReason?: string) {
     if (!machineId.value) return;
     
-    // Se não tiver crachá, apenas limpa o estado local e sai
+
     if (!currentOperatorBadge.value) {
         currentOperator.value = null;
         if (!keepActiveOrder) {
@@ -395,12 +370,9 @@ async function loginOperator(scannedCode: string) {
         targetStatus = 'IN_USE_AUTONOMOUS';
     }
 
-    // --- 🎯 LÓGICA DE MOTIVO DINÂMICA (ATUALIZADA) ---
-    // Se receber um motivo customizado, usa ele. Senão, faz a lógica padrão.
     const reasonText = customReason || (keepActiveOrder ? 'Troca de Turno' : 'Saída');
 
     try {
-        // 1. Registra o LOGOUT com o motivo correto
         await api.post('/production/event', {
             machine_id: machineId.value,
             operator_badge: currentOperatorBadge.value,
@@ -409,7 +381,6 @@ async function loginOperator(scannedCode: string) {
             reason: reasonText 
         });
 
-        // 2. SÓ ATUALIZA STATUS SE NÃO FOR TROCA DE TURNO
         if (!overrideStatus) {
             await setMachineStatus(targetStatus);
         }
@@ -422,7 +393,6 @@ async function loginOperator(scannedCode: string) {
         console.error('Erro ao deslogar:', error); 
     }
 
-    // 3. Limpeza de Dados
     currentOperator.value = null;
     currentOperatorBadge.value = null;
     localStorage.removeItem('TRU_CURRENT_OPERATOR');
@@ -438,17 +408,14 @@ async function loginOperator(scannedCode: string) {
   }
 
   async function executeShiftChange(keepRunning: boolean) {
-    // Se não tiver operador logado, aborta
     if (!currentOperatorBadge.value) return;
 
     try {
         if (keepRunning) {
-            // CENÁRIO 1: Troca Quente (Máquina continua rodando)
-            // Define status como Produção Autônoma (Azul)
+
             await setMachineStatus('IN_USE_AUTONOMOUS');
             
-            // Faz logout mantendo a O.P. ativa (flag true)
-            // O motivo será "Troca de Turno"
+
             await logoutOperator('IN_USE_AUTONOMOUS', true); 
             
             Notify.create({ 
@@ -458,11 +425,9 @@ async function loginOperator(scannedCode: string) {
             });
 
         } else {
-            // CENÁRIO 2: Troca Fria (Máquina vai parar)
-            // Define status como Ocioso/Parada
+
             await setMachineStatus('OCIOSO');
-            
-            // Faz logout mantendo a O.P. ativa para o próximo turno
+
             await logoutOperator('OCIOSO', true); 
             
             Notify.create({ 
@@ -472,9 +437,6 @@ async function loginOperator(scannedCode: string) {
             });
         }
 
-        // Redireciona para a tela de login (Kiosk)
-        // Nota: Como estamos dentro da store, talvez você precise usar o router fora ou retornar true
-        // Se o router não estiver disponível aqui, o componente que chamou (Page) faz o redirect.
         return true;
 
     } catch (error) {
@@ -485,25 +447,17 @@ async function loginOperator(scannedCode: string) {
 }
 
   async function fetchMachine(id?: number) {
-    // Usa o ID passado ou o ID atual da store
     const targetId = id || machineId.value;
     
-    // Se não tiver ID nenhum, aborta para não dar erro na API
     if (!targetId) return;
 
     try {
         const { data } = await api.get(`/machines/${targetId}`);
         
-        // Atualiza a fonte da verdade
         currentMachine.value = data;
-        
-        // Atualiza referências auxiliares se existirem
+
         if (data.sap_resource_code) machineResource.value = data.sap_resource_code;
         if (data.model) machineName.value = data.model;
-
-        // SE você tiver uma variável de estado 'machineStatus' ou similar, atualize aqui.
-        // Caso contrário, apenas atualizar o currentMachine é suficiente.
-
     } catch (error) {
         console.error('Erro ao buscar dados da máquina:', error);
     }
@@ -632,7 +586,6 @@ async function loginOperator(scannedCode: string) {
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'RUNNING' };
     
       
-      // 1. Registra o Log
       await sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' }); 
       
   }
@@ -640,12 +593,8 @@ async function loginOperator(scannedCode: string) {
   async function pauseProduction(reason: string) { 
       if (activeOrder.value) activeOrder.value = { ...activeOrder.value, status: 'PAUSED' };
       
-      // 1. Registra Log
       await sendEvent('STATUS_CHANGE', { new_status: 'STOPPED', reason }); 
       
-      // 2. CORREÇÃO AQUI:
-      // ANTES: await setMachineStatus('AVAILABLE'); 
-      // AGORA: Envia 'STOPPED' para o backend saber que está ocupada/pausada
       await setMachineStatus('STOPPED'); 
   }
 
@@ -655,7 +604,6 @@ async function toggleSetup() {
     if (!machineId.value || !currentOperatorBadge.value) return;
 
     if (isInSetup.value) {
-        // Apenas limpa o estado se for chamado manualmente
         isInSetup.value = false;
         if (activeOrder.value) activeOrder.value.status = 'PENDING';
     } else {
@@ -664,13 +612,7 @@ async function toggleSetup() {
         await sendEvent('STATUS_CHANGE', { new_status: 'SETUP', reason: 'Início de Setup' });
     }
 }
-  function addProduction(qty: number, isScrap = false) {
-    if (!activeOrder.value) return;
-    const newGood = (activeOrder.value.produced_quantity || 0) + (isScrap ? 0 : qty);
-    const newScrap = (activeOrder.value.scrap_quantity || 0) + (isScrap ? qty : 0);
-    activeOrder.value = { ...activeOrder.value, produced_quantity: newGood, scrap_quantity: newScrap };
-    void sendEvent('COUNT', { quantity_good: isScrap ? 0 : qty, quantity_scrap: isScrap ? qty : 0 });
-  }
+
 
   function startStep(index: number) {
     if (activeOrder.value?.steps && activeOrder.value.steps[index]) {
@@ -696,18 +638,16 @@ async function toggleSetup() {
 
     const newStep: OperationStep = {
       seq: Number(sapOp.code),
-      resource: sapOp.code, // Código da operação para o roteamento
+      resource: sapOp.code, 
       name: sapOp.description,
       description: `ETAPA IMPROVISADA/IMPREVISTA: Execução realizada no recurso ${machineName.value} conforme necessidade de fábrica.`,
       timeEst: 0,
       status: 'PENDING'
     };
 
-    // Injeta a etapa no roteiro atual
     if (!activeOrder.value.steps) activeOrder.value.steps = [];
     activeOrder.value.steps.push(newStep);
     
-    // Define como a etapa atual (última adicionada)
     currentStepIndex.value = activeOrder.value.steps.length - 1;
   }
 
@@ -745,8 +685,7 @@ async function toggleSetup() {
           Loading.show();
           const payload = { machine_id: machineId.value, problem_description: `Kiosk: ${notes}`, category: 'Mecânica', maintenance_type: 'CORRETIVA' };
           await api.post('/maintenance/requests', payload);
-          
-          // Força status de manutenção
+
           await setMachineStatus('MAINTENANCE');
           
           Notify.create({ type: 'positive', icon: 'build_circle', message: 'O.M. Criada!' });
@@ -763,7 +702,6 @@ async function toggleSetup() {
     }
 
     try {
-        // Feedback visual imediato
         Loading.show({ 
             message: `Chamando equipe de ${sector}...`,
             backgroundColor: 'red-10',
@@ -803,7 +741,6 @@ async function toggleSetup() {
               layout_y: y
           });
           
-          // Atualiza a lista local para não precisar dar F5
           const index = machinesList.value.findIndex(m => m.id === machineId);
           if (index !== -1) {
               machinesList.value[index].layout_x = x;
@@ -824,7 +761,7 @@ async function toggleSetup() {
     fetchAvailableMachines, configureKiosk, fetchMachineHistory,
     loginOperator, logoutOperator, requestOrderFromSAP, processReceivedOrder, finishSession,
     createMaintenanceOrder, sendEvent, triggerAndon,
-    startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, addProduction, activeOperator, identifyOperator, clearOperator,
+    startStep, pauseStep, finishStep, startProduction, pauseProduction, isInSetup, toggleSetup, activeOperator, identifyOperator, clearOperator,
     machineResource, setImprovisedStep, fetchMachine, executeShiftChange, saveMachineLayout
   };
 });

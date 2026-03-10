@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from 'boot/axios';
 
-// --- INTERFACES (MANTIDAS) ---
 export interface OEEMetrics {
   oee_percentage: number;
   availability: number;
@@ -23,8 +22,8 @@ export interface ProductionLog {
   reason: string;
   details: string;
   operator_name: string;
-  operator_id?: number;    // ID do usuário no banco (para o link)
-  operator_badge?: string; // Crachá (para exibição visual)
+  operator_id?: number; 
+  operator_badge?: string; 
 }
 
 export interface TimelineBlock {
@@ -112,16 +111,15 @@ export const useMesStore = defineStore('mes', () => {
   async function fetchDailyTimeline(machineId: number, dateStr: string) {
     try {
       isLoading.value = true;
-      // Garante que rawLogs seja limpo antes de popular
       rawLogs.value = [];
       timeline.value = [];
 
       const { data } = await api.get<ProductionLog[]>(`/production/history/${machineId}`, {
-        params: { limit: 1000 } // Traz logs suficientes para montar o dia
+        params: { limit: 1000 }
       });
       
-      rawLogs.value = data; // Popula a tabela de histórico
-      processTimeline(data, dateStr); // Monta o Gantt
+      rawLogs.value = data;
+      processTimeline(data, dateStr); 
     } catch (error) {
       console.error('Erro Timeline', error);
     } finally {
@@ -190,48 +188,40 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
-  // --- HELPERS (LÓGICA CORRIGIDA PARA BATER COM O COCKPIT) ---
   function processTimeline(logs: ProductionLog[], targetDate: string) {
     if (!logs || logs.length === 0) {
         timeline.value = [];
         return;
     }
 
-    // 1. Ordena logs cronologicamente
     const sorted = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const blocks: TimelineBlock[] = [];
     
-    // 2. Define limites exatos do dia (00:00:00 a 23:59:59)
     const dayStart = new Date(targetDate + 'T00:00:00');
     const dayEnd = new Date(targetDate + 'T23:59:59');
     
     for (let i = 0; i < sorted.length; i++) {
       const current = sorted[i];
-      // O próximo evento define o fim do evento atual.
-      // Se não houver próximo (é o último do array), assumimos que vai até "agora" ou fim do dia.
+
       const nextTimestamp = sorted[i+1]?.timestamp || new Date().toISOString(); 
       
       const startTime = new Date(current.timestamp);
       let endTime = new Date(nextTimestamp);
 
-      // 3. CORTES DE TEMPO (BORDAS DO DIA)
-      // Se o evento começou ANTES de hoje, mas terminou HOJE (ou depois), corta o início para 00:00
       if (startTime < dayStart) {
-          if (endTime < dayStart) continue; // Evento totalmente no passado, ignora
+          if (endTime < dayStart) continue;
           startTime.setHours(0,0,0,0); 
       }
 
-      // Se o evento começou HOJE, mas termina AMANHÃ, corta o fim para 23:59
+
       if (endTime > dayEnd) {
           endTime = dayEnd; 
       }
 
-      // Validação básica: se o corte resultou em tempo negativo ou zerado, ignora
       if (endTime <= startTime) continue;
 
       const durationMin = (endTime.getTime() - startTime.getTime()) / 1000 / 60;
       
-      // 4. NORMALIZAÇÃO DE STATUS E CORREÇÃO DE LÓGICA
       const rawStatus = String(current.new_status || '').toUpperCase().trim();
       const rawReason = String(current.reason || '').toUpperCase().trim();
       const rawEventType = String(current.event_type || '').toUpperCase().trim();
@@ -239,13 +229,7 @@ export const useMesStore = defineStore('mes', () => {
       let finalStatusForGantt = 'OCIOSO';
       let customColor = ''; 
 
-      // Verificação auxiliar para saber se está rodando
       const isRunning = ['RUNNING', 'EM USO', 'EM OPERAÇÃO', 'IN_USE'].includes(rawStatus);
-
-      // --- CORREÇÃO: PRODUÇÃO AUTÔNOMA (TROCA DE TURNO) ---
-      
-      // CASO 1: O início do buraco (Operador Saiu mantendo a máquina rodando)
-      // Verifica se é LOGOUT/SAÍDA ou se o motivo fala de Logoff/Troca
       const isAutonomousStart = isRunning && (
           rawEventType.includes('SAÍDA') || 
           rawEventType.includes('LOGOUT') ||

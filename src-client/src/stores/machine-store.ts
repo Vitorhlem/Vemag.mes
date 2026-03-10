@@ -2,8 +2,7 @@ import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
 import { MachineStatus, type Machine, type MachineCreate, type MachineUpdate } from 'src/models/machine-models';
-import { useAuthStore } from './auth-store';
-import { useTireStore } from './tire-store';
+
 
 interface FetchParams {
   page?: number;
@@ -82,11 +81,6 @@ export const useMachineStore = defineStore('machine', {
         Notify.create({ type: 'positive', message: 'Item adicionado com sucesso!' });
         await this.fetchAllMachines({ ...initialFetchParams, page: 1 });
 
-        const authStore = useAuthStore();
-        if (authStore.isDemo) {
-          const demoStore = useDemoStore();
-          await demoStore.fetchDemoStats(true);
-        }
 
       } catch (error) {
         Notify.create({ type: 'negative', message: 'Erro ao adicionar item.' });
@@ -107,37 +101,11 @@ export const useMachineStore = defineStore('machine', {
       }
     },
 
-    async updateAxleConfiguration(machineId: number, axleConfig: string) {
-      try {
-        const response = await api.patch<Machine>(`/machines/${machineId}/axle-config`, { axle_configuration: axleConfig });
-        if (this.selectedMachine && this.selectedMachine.id === machineId) {
-          this.selectedMachine = response.data;
-        }
-        const tireStore = useTireStore();
-        if (tireStore.tireLayout) {
-          tireStore.tireLayout.axle_configuration = response.data.axle_configuration || null;
-        }
-
-        Notify.create({ type: 'positive', message: 'Configuração de eixos atualizada!' });
-        return true;
-      } catch (error) {
-        Notify.create({ type: 'negative', message: 'Erro ao atualizar configuração.' });
-        console.error('Erro ao atualizar configuração de eixos:', error);
-        return false;
-      }
-    },
-
     async deleteMachine(id: number, currentFetchParams: FetchParams) {
       try {
         await api.delete(`/machines/${id}`);
         Notify.create({ type: 'positive', message: 'Item excluído com sucesso.' });
         await this.fetchAllMachines(currentFetchParams);
-
-        const authStore = useAuthStore();
-        if (authStore.isDemo) {
-          const demoStore = useDemoStore();
-          await demoStore.fetchDemoStats(true);
-        }
 
       } catch (error) {
         Notify.create({ type: 'negative', message: 'Erro ao excluir o item.' });

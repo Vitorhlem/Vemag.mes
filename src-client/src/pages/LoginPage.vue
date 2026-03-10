@@ -36,7 +36,7 @@
 
         <q-card-section class="text-center q-pt-lg">
           <div class="logo-container q-mb-md">
-            <img src="/Logo-Oficial.png" class="login-logo" style="height: 70px;" />
+            <img src="/WhiteLogo.png" class="login-logo" style="height: 70px;" />
           </div>
           <div class="text-h5 text-weight-bolder text-white tracking-widest font-mono">
             VEMAG<span class="text-vemag-primary">.MES</span>
@@ -173,8 +173,8 @@ async function handleLogin() {
       await authStore.login({ email: email.value, password: password.value });
 
       if (authStore.user?.role === 'admin') {
-          void router.push('/admin');
-      } else if (authStore.user?.role === 'driver') {
+          void router.push('/dashboard');
+      } else if (authStore.user?.role === 'operator') {
           void router.push('/factory/kiosk-select');
       } else {
           void router.push('/dashboard');

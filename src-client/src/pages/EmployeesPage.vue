@@ -49,7 +49,7 @@
            </q-list>
         </q-btn-dropdown>
 
-        <q-btn push color="primary" icon="refresh" @click="refreshData" :loading="isLoading" class="shadow-green">
+        <q-btn push color="primary" icon="refresh" @click="() => refreshData(false)" :loading="isLoading" class="shadow-green">
             <q-tooltip>Atualizar Dados</q-tooltip>
         </q-btn>
       </div>
@@ -106,7 +106,7 @@
                             <div>
                                 <div class="text-caption text-uppercase text-weight-bold opacity-80" style="letter-spacing: 1px; font-size: 0.65rem;">Status em Tempo Real</div>
                                 <div class="text-h6 text-weight-bolder" style="line-height: 1;">
-                                    {{ translateStatus(selectedMachineData.status) }}
+                                    {{ translateStatus(selectedMachineData.status || '') }}
                                 </div>
                             </div>
                         </div>
@@ -151,7 +151,7 @@
                         size="xl"
                         class="shadow-5 q-px-xl text-weight-bolder full-width"
                         style="border-radius: 12px; height: 70px; font-size: 1.2rem;"
-                        @click="$router.push(`/machines/${selectedMachine}`)"
+                        @click="router.push(`/machines/${selectedMachine}`)"
                     />
                 </div>
                 <div class="row q-col-gutter-md q-mb-md">
@@ -211,6 +211,15 @@
                             </q-card-section>
                         </q-card>
                     </div>
+                    <div class="col-12 col-md">
+    <q-card class="full-height glass-card border-left-grey shadow-sm">
+        <q-card-section>
+            <div class="text-caption text-uppercase text-weight-bold text-grey-8 opacity-80">Ocioso / Disponível</div>
+            <div class="text-h4 text-weight-bolder q-mt-sm text-grey-9">{{ machineStats?.formatted_idle || '00:00:00' }}</div>
+            <div class="text-caption text-grey-6">Sem OP ou operador vinculado.</div>
+        </q-card-section>
+    </q-card>
+</div>
                 </div>
 
                 <q-card class="q-pa-md q-mb-lg glass-card shadow-sm">
@@ -386,7 +395,7 @@
                     
                     <div v-if="props.row.operator_id" 
                          class="text-primary text-weight-bold cursor-pointer hover-teal row items-center no-wrap"
-                         @click.stop="$router.push(`/users/${props.row.operator_id}/stats`)"
+                         @click.stop="router.push(`/users/${props.row.operator_id}/stats`)"
                     >
                         <q-avatar size="24px" class="q-mr-sm bg-teal-1 text-teal-9" style="font-size: 10px">
                             {{ props.value ? props.value.charAt(0).toUpperCase() : 'U' }}
@@ -758,31 +767,29 @@ function getBlockWidth(block: any) {
     const blockStart = new Date(block.start);
     let blockEnd = block.end ? new Date(block.end) : new Date();
     
-    // REGRA 1: Não desenha a barra no futuro. Corta no momento exato de AGORA.
     const now = new Date();
-    if (blockEnd > now) {
-        blockEnd = now;
-    }
+    if (blockEnd > now) blockEnd = now;
 
-    // REGRA 2: Isola a barra apenas para o dia selecionado no filtro (filterDate)
-    const [year, month, day] = filterDate.value.split('-').map(Number);
-    const viewStart = new Date(year, month - 1, day, 0, 0, 0); // 00:00:00 do dia visualizado
-    const viewEnd = new Date(year, month - 1, day, 23, 59, 59); // 23:59:59 do dia visualizado
+    // 🚀 CORREÇÃO DO ANO, MES E DIA
+    const parts = String(filterDate.value || '').split('-');
+    if (parts.length !== 3) return 0;
+    
+    const year = Number(parts[0]);
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
 
-    // Se a barra estiver totalmente fora desse dia, não tem largura
+    const viewStart = new Date(year, month - 1, day, 0, 0, 0); 
+    const viewEnd = new Date(year, month - 1, day, 23, 59, 59); 
+
     if (blockEnd < viewStart || blockStart > viewEnd) return 0;
 
-    // Corta o início e o fim da barra para caberem exatamente dentro da visualização de 24h
     const actualStart = blockStart < viewStart ? viewStart : blockStart;
     const actualEnd = blockEnd > viewEnd ? viewEnd : blockEnd;
 
     let realMinutes = (actualEnd.getTime() - actualStart.getTime()) / 60000;
     if (realMinutes < 0) realMinutes = 0;
 
-    // Converte os minutos filtrados em porcentagem (O dia tem 1440 minutos)
     const percentage = (realMinutes / 1440) * 100;
-    
-    // Previne qualquer bug que tente fazer a barra passar de 100% de largura
     return Math.min(percentage, 100);
 }
 
@@ -790,7 +797,7 @@ function formatTime(isoStr: string) {
     return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-async function refreshData(isSilent = false) {
+async function refreshData(isSilent: boolean = false) {
     if (!isSilent) isLoading.value = true;
     
     try {
@@ -800,12 +807,17 @@ async function refreshData(isSilent = false) {
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
             machineStats.value = await ProductionService.getMachineStats(selectedMachine.value, filterDate.value);
 
-            // 🚀 CORREÇÃO DO STATUS: Força a barra fixa a ler o último evento que acabou de acontecer!
+            // 🚀 CORREÇÃO DA AVALIAÇÃO DE NULO NOS LOGS E LISTA DE MAQUINAS
             if (mesStore.rawLogs && mesStore.rawLogs.length > 0) {
                 const latestLog = mesStore.rawLogs[0];
-                const machineIndex = productionStore.machinesList.findIndex(m => m.id === selectedMachine.value);
-                if (machineIndex !== -1 && latestLog.new_status) {
-                    productionStore.machinesList[machineIndex].status = latestLog.new_status;
+                if (latestLog && latestLog.new_status && productionStore.machinesList) {
+                    const machineIndex = productionStore.machinesList.findIndex(m => m.id === selectedMachine.value);
+                    if (machineIndex !== -1) {
+                        const targetMachine = productionStore.machinesList[machineIndex];
+                        if (targetMachine) {
+                            targetMachine.status = latestLog.new_status;
+                        }
+                    }
                 }
             }
 
@@ -813,28 +825,19 @@ async function refreshData(isSilent = false) {
                 const { data } = await api.get(`/production/session/active/${selectedMachine.value}`);
                 if (data && data.order) {
                     const order = data.order;
-                    
-                    // Tratamento seguro para is_service (evita erro se for undefined)
                     const isService = order.is_service === true || String(order.code || '').startsWith('OS-');
-                    
-                    // Define o Rótulo superior
                     activeOpTitle.value = isService ? 'Ordem de Serviço' : 'Ordem de Produção';
                     
-                    // Lógica para pegar o número correto (com o /0)
                     let displayCode = isService ? order.code : (order.custom_ref || order.code);
                     
-                    // Se for OP, e o custom_ref for só "4147", mas o code for "4147/0", usamos o code!
                     if (!isService && !String(displayCode).includes('/')) {
                         displayCode = `${displayCode}/0`;
                     }
-                    // Se a sua coluna de desdobramento tiver outro nome no banco (ex: split, seq), concatenamos aqui por garantia:
                     if (!String(displayCode).includes('/') && order.split !== undefined && order.split !== null) {
                         displayCode = `${displayCode}/${order.split}`;
                     }
 
-                    // 🚀 AQUI ESTAVA O ERRO! Agora sim usamos a variável que você calculou:
                     activeOpCode.value = displayCode || 'Nenhuma';
-                    
                     activeOperatorName.value = data.operator?.full_name || data.operator_badge || 'Operador Logado';
                 } else {
                     throw new Error("Sem sessão");
@@ -900,12 +903,11 @@ let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 
 function connectWebSocket() {
-    // 1. Descobre a URL do seu backend automaticamente
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const envVars = (import.meta as any).env;
+    const apiBase = envVars.VITE_API_URL || 'http://localhost:8000/api/v1';
     const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
     
-    // 2. CORREÇÃO: Cria um ID estritamente numérico e alto para passar na segurança do FastAPI
-    // Exemplo: 99000 + número aleatório (ex: 99452)
     const gestorId = 99000 + Math.floor(Math.random() * 999);
     const wsUrl = `${wsBase}/ws/${gestorId}`; 
     
@@ -919,25 +921,23 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            console.log('⚡ Evento WS Recebido no Painel:', data);
             
-            // 1. Se vier um status novo (não importa o tipo do evento), atualiza a lista de máquinas silenciosamente
             if (data.machine_id && (data.new_status || data.machine_status_db)) {
-                const machineIndex = productionStore.machinesList.findIndex(m => m.id === Number(data.machine_id));
-                if (machineIndex !== -1) {
-                    productionStore.machinesList[machineIndex].status = data.machine_status_db || data.new_status;
+                if (productionStore.machinesList) {
+                    const machineIndex = productionStore.machinesList.findIndex(m => m.id === Number(data.machine_id));
+                    if (machineIndex !== -1) {
+                        const targetMachine = productionStore.machinesList[machineIndex];
+                        if (targetMachine) {
+                            targetMachine.status = data.machine_status_db || data.new_status;
+                        }
+                    }
                 }
             }
 
-            // 2. A MÁGICA: Se qualquer evento aconteceu na máquina que estamos olhando, atualiza a tela toda!
             if (data.machine_id && Number(data.machine_id) === selectedMachine.value) {
-                
-                // O setTimeout de 500ms (meio segundo) dá tempo para o banco de dados 
-                // do Python dar o "Commit" final e salvar a sessão antes do Vue tentar ler.
                 setTimeout(() => {
                     void refreshData(true);
                 }, 500);
-                
             }
         } catch (error) {
             console.error('Erro ao ler o WebSocket:', error);
@@ -945,7 +945,6 @@ function connectWebSocket() {
     };
     ws.onclose = () => {
         console.warn('🟡 [MES] Conexão em tempo real perdida. Tentando reconectar...');
-        // 4. Se a internet cair, ele tenta voltar sozinho a cada 5 segundos
         reconnectTimer = setTimeout(connectWebSocket, 5000);
     };
 }
@@ -1042,7 +1041,7 @@ onUnmounted(() => {
 .border-left-red { border-left: 5px solid #f44336; }
 .border-left-purple { border-left: 5px solid #9C27B0; }
 .border-left-black { border-left: 5px solid #000000; }
-
+.border-left-grey { border-left: 5px solid #9e9e9e; }
 .legend-dot { width: 12px; height: 12px; border-radius: 2px; }
 
 .hover-highlight:hover {

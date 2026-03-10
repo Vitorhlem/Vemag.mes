@@ -24,7 +24,7 @@ class AndonCall(Base):
     
     # Quem chamou e Onde
     machine_id = Column(Integer, ForeignKey("machines.id"), nullable=False)
-    operator_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Quem disparou
+    operator_id = Column(Integer, ForeignKey("users.id"), nullable=True) 
     
     # Detalhes do Chamado
     sector = Column(SAEnum(AndonSector), nullable=False)

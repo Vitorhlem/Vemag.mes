@@ -93,7 +93,7 @@ const localMachineId = ref<number | null>(null);
 
 const machineOptions = computed(() => 
   machineStore.machines.map(v => ({
-    label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`,
+    label: `${v.brand} ${v.model} (${v.identifier || v.identifier})`,
     value: v.id
   }))
 );

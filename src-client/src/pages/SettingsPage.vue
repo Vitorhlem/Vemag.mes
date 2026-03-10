@@ -166,32 +166,6 @@
                 </div>
               </div>
             </q-tab-panel>
-
-            <q-tab-panel name="notifications" class="q-pa-lg">
-              <div class="text-h6 q-mb-xs">Alertas de Produção</div>
-              <p class="text-grey-6 q-mb-lg">Defina como quer receber alertas de paradas e manutenção.</p>
-
-              <q-list bordered separator class="rounded-borders">
-                <q-item tag="label" v-ripple>
-                  <q-item-section avatar><q-icon name="notifications_active" color="orange" /></q-item-section>
-                  <q-item-section>
-                    <q-item-label>Alertas Andon (In-App)</q-item-label>
-                    <q-item-label caption>Receber popups de alertas críticos no painel.</q-item-label>
-                  </q-item-section>
-                  <q-item-section side><q-toggle v-model="notificationPrefs.notify_in_app" color="primary" /></q-item-section>
-                </q-item>
-
-                <q-item tag="label" v-ripple>
-                  <q-item-section avatar><q-icon name="mail" color="blue" /></q-item-section>
-                  <q-item-section>
-                    <q-item-label>Resumo de Turno por E-mail</q-item-label>
-                    <q-item-label caption>Receber relatórios automáticos ao fim do turno.</q-item-label>
-                  </q-item-section>
-                  <q-item-section side><q-toggle v-model="notificationPrefs.notify_by_email" color="primary" /></q-item-section>
-                </q-item>
-              </q-list>
-            </q-tab-panel>
-
             
             <q-tab-panel name="integrations" class="q-pa-lg" v-if="authStore.isManager">
               <div class="text-h6 q-mb-xs">Integrações ERP & IoT</div>
@@ -228,27 +202,27 @@
               </q-card>
 
               <q-card flat bordered class="bg-grey-1 q-mb-md">
-  <q-card-section>
-    <div class="row items-center">
-      <q-avatar rounded color="blue-10" text-color="white" font-size="20px">RM</q-avatar>
-      <div class="q-ml-md col">
-        <div class="text-subtitle1 text-weight-bold">RM TOTVS (Labore)</div>
-        <div class="text-caption text-grey-8">
-          Importação de Colaboradores via Banco de Dados (PFUNC).
-        </div>
-      </div>
-      <div>
-        <q-btn 
-          label="Sincronizar RM" 
-          color="blue-10" 
-          icon="sync" 
-          :loading="isSyncingRM"
-          @click="triggerRmSync"
-        />
-      </div>
-    </div>
-  </q-card-section>
-</q-card>
+                <q-card-section>
+                  <div class="row items-center">
+                    <q-avatar rounded color="blue-10" text-color="white" font-size="20px">RM</q-avatar>
+                    <div class="q-ml-md col">
+                      <div class="text-subtitle1 text-weight-bold">RM TOTVS (Labore)</div>
+                      <div class="text-caption text-grey-8">
+                        Importação de Colaboradores via Banco de Dados (PFUNC).
+                      </div>
+                    </div>
+                    <div>
+                      <q-btn 
+                        label="Sincronizar RM" 
+                        color="blue-10" 
+                        icon="sync" 
+                        :loading="isSyncingRM"
+                        @click="triggerRmSync"
+                      />
+                    </div>
+                  </div>
+                </q-card-section>
+              </q-card>
 
               <q-card flat bordered class="q-mb-md opacity-8">
                 <q-card-section>
@@ -273,13 +247,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, reactive } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import { useQuasar } from 'quasar';
 import { useAuthStore } from 'stores/auth-store';
 import { useSettingsStore } from 'stores/settings-store';
 import { useUserStore } from 'stores/user-store';
 import { api } from 'boot/axios';
-import defaultAvatar from 'assets/default-avatar.png';
+import defaultAvatar from 'assets/AvatarDefault.png';
 
 const $q = useQuasar();
 const authStore = useAuthStore();
@@ -417,62 +391,6 @@ function updateDarkMode(val: boolean | 'auto') {
   settingsStore.setDarkMode(val);
 }
 
-// --- NOTIFICAÇÕES ---
-const notificationPrefs = ref({
-  notify_in_app: authStore.user?.notify_in_app ?? true,
-  notify_by_email: authStore.user?.notify_by_email ?? true,
-  notification_email: authStore.user?.notification_email || '',
-});
-
-let debounceTimer: number | undefined;
-watch(notificationPrefs, (newVal) => {
-  clearTimeout(debounceTimer);
-  debounceTimer = window.setTimeout(() => {
-    void authStore.updateMyPreferences(newVal);
-  }, 1000);
-}, { deep: true });
-
-// --- ORGANIZAÇÃO ---
-const orgForm = reactive({
-  name: '', 
-  cnpj: '',
-  address: '',
-  contact_phone: '',
-  website: ''
-});
-const isSavingOrg = ref(false);
-
-async function fetchOrganizationData() {
-  if (!authStore.isManager) return;
-  try {
-    const { data } = await api.get('/settings/organization');
-    orgForm.name = data.name || '';
-    orgForm.cnpj = data.cnpj || '';
-    orgForm.address = data.address || '';
-    orgForm.contact_phone = data.contact_phone || '';
-    orgForm.website = data.website || '';
-  } catch (error) {
-    console.error('Erro ao buscar organização', error);
-  }
-}
-
-async function handleUpdateOrg() {
-  isSavingOrg.value = true;
-  try {
-    await api.put('/settings/organization', orgForm);
-    if (authStore.user && authStore.user.organization) {
-      authStore.user.organization.name = orgForm.name;
-    }
-    $q.notify({ type: 'positive', message: 'Dados da planta atualizados!' });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
-    $q.notify({ type: 'negative', message: 'Erro ao salvar dados.' });
-  } finally {
-    isSavingOrg.value = false;
-  }
-}
-
-
 // --- INTEGRAÇÃO SAP (NOVO CÓDIGO) ---
 const isSyncingSap = ref(false);
 const lastSyncStatus = ref('');
@@ -482,7 +400,6 @@ async function triggerSapSync() {
   lastSyncStatus.value = 'Iniciando conexão...';
   
   try {
-    // Chama o endpoint que criamos no backend
     await api.post('/integrations/sync/sap');
     
     $q.notify({
@@ -509,23 +426,14 @@ async function triggerSapSync() {
 const visibleTabs = computed(() => {
   const tabs = [
     { name: 'account', label: 'Minha Conta', caption: 'Perfil e Segurança', icon: 'person' },
-    { name: 'interface', label: 'Interface', caption: 'Tema e Visualização', icon: 'tune' },
-    { name: 'notifications', label: 'Alertas', caption: 'Andon e Relatórios', icon: 'notifications' },
+    { name: 'interface', label: 'Interface', caption: 'Tema e Visualização', icon: 'tune' }
   ];
   if (authStore.isManager) {
     tabs.push(
-      { name: 'organization', label: 'Planta Fabril', caption: 'Dados da Unidade', icon: 'factory' },
-      // Adicionada aba de integrações para Gerentes
       { name: 'integrations', label: 'Integrações', caption: 'SAP / ERP / IoT', icon: 'hub' }, 
     );
   }
   return tabs;
-});
-
-onMounted(() => {
-  if (authStore.isManager) {
-    void fetchOrganizationData();
-  }
 });
 </script>
 

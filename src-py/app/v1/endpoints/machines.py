@@ -19,9 +19,7 @@ from app.schemas.inventory_transaction_schema import TransactionPublic
 
 router = APIRouter()
 
-# --- NOVO SCHEMA PARA ATUALIZAÇÃO DO EIXO ---
-class AxleConfigUpdate(BaseModel):
-    axle_configuration: str
+
 
 @router.get("/", response_model=MachineListResponse)
 async def read_machines(
@@ -104,7 +102,7 @@ async def create_machine(
         )
 
         try:
-            details_data = {"plate": machine.license_plate, "model": machine.model}
+            details_data = {"plate": machine.identifier, "model": machine.model}
             
             await crud_audit_log.create(db=db, log_in=AuditLogCreate(
                 action="CREATE", resource_type="Máquinario", resource_id=str(machine.id),
@@ -158,28 +156,6 @@ async def update_machine(
     return updated_machine
 
 
-@router.patch("/{machine_id}/axle-config", response_model=MachinePublic)
-async def update_machine_axle_config(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    machine_id: int,
-    config_in: AxleConfigUpdate,
-    current_user: User = Depends(deps.get_current_active_manager)
-):
-    """
-    Atualiza a configuração de eixos de um veículo.
-    """
-    db_machine = await crud.machine.get(
-        db, machine_id=machine_id, organization_id=current_user.organization_id
-    )
-    if not db_machine:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Veículo não encontrado.")
-
-    db_machine.axle_configuration = config_in.axle_configuration
-    db.add(db_machine)
-    await db.commit()
-    await db.refresh(db_machine)
-    return db_machine
 
 
 @router.delete("/{machine_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -204,7 +180,7 @@ async def delete_machine(
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
             action="DELETE", resource_type="Máquinario", resource_id=str(machine_id),
             user_id=current_user.id, organization_id=current_user.organization_id,
-            details={"deleted_plate": db_machine.license_plate}
+            details={"deleted_plate": db_machine.identifier}
         ))
         await db.commit()
     except Exception as e:

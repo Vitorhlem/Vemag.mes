@@ -12,5 +12,4 @@ from . import crud_maintenance_comment as maintenance_comment
 from . import crud_document as document
 from . import crud_tool as tool
 from . import crud_notification as notification
-from .crud_alert import alert
 from .crud_production import production 

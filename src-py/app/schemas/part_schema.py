@@ -81,7 +81,7 @@ class _MachineInfo(BaseModel):
     id: int
     brand: Optional[str] = None
     model: Optional[str] = None
-    license_plate: Optional[str] = None
+    identifier: Optional[str] = None
     identifier: Optional[str] = None
     class Config:
         from_attributes = True

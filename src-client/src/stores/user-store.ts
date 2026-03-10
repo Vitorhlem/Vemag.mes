@@ -4,7 +4,6 @@ import { Notify } from 'quasar';
 import { isAxiosError } from 'axios';
 import type { User } from 'src/models/auth-models';
 import type { UserCreate, UserUpdate, UserStats } from 'src/models/user-models';
-import { useAuthStore } from './auth-store'; 
 
 const initialState = () => ({
   users: [] as User[],
@@ -20,7 +19,6 @@ export const useUserStore = defineStore('user', {
     async fetchAllUsers() {
       this.isLoading = true;
       try {
-        // --- CORREÇÃO: Removida a barra final ---
         const response = await api.get<User[]>('/users');
         // ----------------------------------------
         this.users = response.data;
@@ -35,7 +33,6 @@ export const useUserStore = defineStore('user', {
     async addNewUser(userData: UserCreate) {
       this.isLoading = true;
       try {
-        // --- CORREÇÃO: Removida a barra final ---
         const response = await api.post<User>('/users', userData);
         // ----------------------------------------
         this.users.unshift(response.data);
@@ -54,7 +51,6 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // ... (restante do arquivo: updateUser, deleteUser, etc. permanecem iguais)
     async updateUser(userId: number, userData: UserUpdate) {
       this.isLoading = true;
       try {

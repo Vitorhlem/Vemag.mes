@@ -2,17 +2,12 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, date
 
-# ===================================================================
-# NOVOS SCHEMAS (Substituindo os imports de report_models)
-# ===================================================================
-
 class DashboardKPIs(BaseModel):
     """KPIs principais do topo do dashboard."""
     total_machines: int
     available_machines: int
     in_use_machines: int
     maintenance_machines: int
-    # Mantidos para compatibilidade, mas podem ser 0
     total_distance: float = 0.0
     total_fuel: float = 0.0
 
@@ -40,18 +35,6 @@ class KpiEfficiency(BaseModel):
     quality: float
     oee: float
 
-class AlertSummary(BaseModel):
-    id: int
-    type: str # Info, Warning, Error
-    message: str
-    timestamp: datetime
-    machine_name: str
-
-class GoalStatus(BaseModel):
-    title: str
-    current_value: float
-    target_value: float
-    unit: str
 
 # --- Resposta Principal para o Dashboard do Gestor ---
 
@@ -62,9 +45,7 @@ class ManagerDashboardResponse(BaseModel):
     
     costs_by_category: List[CostByCategory] = []
     
-    recent_alerts: List[AlertSummary] = []
     upcoming_maintenances: List[UpcomingMaintenance] = []
-    active_goal: Optional[GoalStatus] = None
 
 # ===================================================================
 # SCHEMAS DO MOTORISTA / OPERADOR
@@ -82,7 +63,6 @@ class DriverMetrics(BaseModel):
     distance: float
     hours: float
     fuel_efficiency: float
-    alerts: int
 
 class DriverRankEntry(BaseModel):
     rank: int

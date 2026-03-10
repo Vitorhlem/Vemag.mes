@@ -10,7 +10,6 @@ from sqlalchemy.orm import selectinload
 # Imports dos Modelos MES
 from app.models.user_model import User, UserRole
 from app.models.machine_model import Machine, MachineStatus
-from app.models.alert_model import Alert
 from app.models.maintenance_model import MaintenanceRequest, MaintenanceStatus
 from app.models.machine_cost_model import MachineCost # A classe chama-se MachineCost no ficheiro
 
@@ -117,28 +116,6 @@ async def read_manager_dashboard(
     ]
 
     # ---------------------------------------------------------
-    # 4. ALERTAS RECENTES (Top 5)
-    # ---------------------------------------------------------
-    alerts_query = (
-        select(Alert)
-        .options(selectinload(Alert.machine)) # Carrega nome da máquina
-        .where(Alert.organization_id == org_id)
-        .order_by(Alert.timestamp.desc())
-        .limit(5)
-    )
-    recent_alerts_objs = (await db.execute(alerts_query)).scalars().all()
-    
-    recent_alerts = []
-    for alert in recent_alerts_objs:
-        recent_alerts.append({
-            "id": alert.id,
-            "type": alert.level or "INFO",
-            "message": alert.message,
-            "timestamp": alert.timestamp,
-            "machine_name": f"{alert.machine.brand} {alert.machine.model}" if alert.machine else "Geral"
-        })
-
-    # ---------------------------------------------------------
     # 5. PRÓXIMAS MANUTENÇÕES
     # ---------------------------------------------------------
     maint_query = (
@@ -180,6 +157,5 @@ async def read_manager_dashboard(
         kpis=kpis,
         efficiency_kpis=efficiency_kpis,
         costs_by_category=costs_by_category,
-        recent_alerts=recent_alerts,
         upcoming_maintenances=upcoming_maintenances,
     )

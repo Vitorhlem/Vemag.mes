@@ -86,7 +86,6 @@ class MaintenanceRequestUpdate(BaseModel):
     status: Optional[MaintenanceStatus] = None
     next_maintenance_date: Optional[date] = None
     next_maintenance_km: Optional[float] = None
-    # --- REPETIR CAMPOS AQUI PARA PERMITIR ATUALIZAÇÃO ---
     problem_description: Optional[str] = None
     maintenance_type: Optional[str] = None
     cost_center: Optional[str] = None

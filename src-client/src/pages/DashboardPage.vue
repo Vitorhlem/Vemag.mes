@@ -72,22 +72,22 @@
     <div v-else class="fade-in-up">
       <div class="row q-col-gutter-md q-mb-lg">
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Ativos Totais" :value="realTimeStats.total" icon="domain" color="blue-grey-10" to="/machines" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Ativos Totais" :value="realTimeStats.total" icon="domain" color="blue-grey-10" to="/machines" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Em Produção" :value="realTimeStats.running" icon="precision_manufacturing" color="positive" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Em Produção" :value="realTimeStats.running" icon="precision_manufacturing" color="positive" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Em Setup" :value="realTimeStats.setup" icon="settings_suggest" color="purple-9" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Em Setup" :value="realTimeStats.setup" icon="settings_suggest" color="purple-9" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Pausadas" :value="realTimeStats.stopped" icon="pause_circle" color="orange-9" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Pausadas" :value="realTimeStats.stopped" icon="pause_circle" color="orange-9" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Manutenção" :value="realTimeStats.maintenance" icon="engineering" color="red-10" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Manutenção" :value="realTimeStats.maintenance" icon="engineering" color="red-10" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
         <div class="col-12 col-sm-6 col-md-4 col-lg-2">
-          <StatCard label="Disponíveis" :value="realTimeStats.idle" icon="check_circle" color="teal-7" class="full-height glass-card shadow-card hover-scale" />
+          <StatCard label="Disponíveis" :value="realTimeStats.idle" icon="check_circle" color="teal-7" class="full-height glass-card shadow-card hover-scale" :loading="dashboardStore.isLoading" />
         </div>
       </div>
 
@@ -249,7 +249,6 @@ const realTimeStats = computed(() => {
 
 const fleetStatusChart = computed(() => {
     const s = realTimeStats.value;
-    // A ORDEM AQUI DEVE SER A MESMA DAS LABELS ABAIXO
     const series = [s.running, s.setup, s.stopped, s.maintenance, s.idle];
     
     return {
@@ -257,22 +256,26 @@ const fleetStatusChart = computed(() => {
         options: {
             labels: ['Produzindo', 'Em Setup', 'Pausada', 'Manutenção', 'Disponível'],
             colors: ['#128c7e', '#9c27b0', '#ff9800', '#ef4444', '#78909c'], 
-            chart: { type: 'donut', fontFamily: 'Inter, sans-serif', background: 'transparent' },
-            theme: { mode: $q.dark.isActive ? 'dark' : 'light' },
-            legend: { position: 'bottom', labels: { colors: chartTextColor.value } },
+            chart: { type: 'donut' as const, fontFamily: 'Inter, sans-serif', background: 'transparent' },
+            theme: { mode: $q.dark.isActive ? 'dark' as const : 'light' as const },
+            legend: { position: 'bottom' as const, labels: { colors: chartTextColor.value } },
             dataLabels: { enabled: false },
             plotOptions: { 
-                donut: { 
-                    size: '75%', 
-                    labels: { 
-                        show: true, 
-                        total: { 
+                // 🚀 CORREÇÃO PRINCIPAL: Adicionado o agrupador 'pie' aqui!
+                pie: {
+                    donut: { 
+                        size: '75%', 
+                        labels: { 
                             show: true, 
-                            label: 'Ativos', 
-                            color: $q.dark.isActive ? '#ffffff' : '#128c7e',
-                            formatter: () => s.total 
+                            total: { 
+                                show: true, 
+                                label: 'Ativos', 
+                                color: $q.dark.isActive ? '#ffffff' : '#128c7e',
+                                // Convertido para String para o TS ficar 100% feliz
+                                formatter: () => String(s.total) 
+                            } 
                         } 
-                    } 
+                    }
                 } 
             },
             stroke: { show: true, width: 2, colors: [$q.dark.isActive ? '#1e1e1e' : '#fff'] }

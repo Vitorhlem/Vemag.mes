@@ -52,7 +52,7 @@ async def get_current_active_manager(
     """
     Define quem tem permissão de GESTÃO (Backoffice).
     - ADMIN, MANAGER, PCP, QUALIDADE, LOGÍSTICA e MANUTENÇÃO.
-    - OPERADOR e DRIVER ficam de fora.
+    - OPERADOR e operator ficam de fora.
     """
     authorized_roles = [
         UserRole.ADMIN, 
@@ -70,13 +70,13 @@ async def get_current_active_manager(
         )
     return current_user
 
-async def get_current_active_driver(
+async def get_current_active_operator(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
     """
-    Restrito a quem está no chão de fábrica (Operador ou Driver).
+    Restrito a quem está no chão de fábrica (Operador ou operator).
     """
-    if current_user.role not in [UserRole.DRIVER, UserRole.OPERATOR]:
+    if current_user.role not in [UserRole.operator, UserRole.OPERATOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Esta ação é restrita a operadores/motoristas.",

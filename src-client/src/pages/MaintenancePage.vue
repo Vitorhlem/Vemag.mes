@@ -161,7 +161,7 @@
                       {{ req.machine?.brand }} {{ req.machine?.model }}
                   </q-item-label>
                   <q-item-label caption>
-                      <span class="text-teal-9 text-weight-medium">Tag: {{ req.machine?.license_plate || req.machine?.identifier || 'N/A' }}</span> 
+                      <span class="text-teal-9 text-weight-medium">Tag: {{ req.machine?.identifier || 'N/A' }}</span>
                       &bull; <span class="text-primary text-weight-bold">{{ req.category || 'Geral' }}</span>
                       &bull; <span class="text-grey-7">{{ req.problem_description }}</span>
                   </q-item-label>

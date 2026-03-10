@@ -14,7 +14,7 @@
              {{ request.machine?.brand }} {{ request.machine?.model }}
           </div>
           <div class="text-caption text-grey-7">
-             Tag: <strong>{{ request.machine?.license_plate || request.machine?.identifier || 'N/A' }}</strong>
+             Tag: <strong>{{ request.machine?.identifier || request.machine?.identifier || 'N/A' }}</strong>
           </div>
         </div>
         

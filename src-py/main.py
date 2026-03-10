@@ -29,13 +29,14 @@ from fastapi.exceptions import RequestValidationError, HTTPException as Starlett
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select # 👈 Importado para buscar a org da máquina
 
 # Importações da sua aplicação
 from app.api import api_router
 from app.core.config import settings
 from app.core.logging_config import setup_logging
-from app.db.session import engine
-from app.core.websocket_manager import manager # Importação do WebSocket Manager
+from app.db.session import engine, async_session # 👈 Importado async_session
+from app.core.websocket_manager import manager 
 
 # ======================= BLOCO DE IMPORTAÇÃO DOS MODELOS =======================
 from app.db.base_class import Base
@@ -46,10 +47,8 @@ from app.models.tool_model import Tool
 from app.models.part_model import Part, InventoryItem 
 from app.models.maintenance_model import MaintenanceRequest, MaintenanceComment
 from app.models.notification_model import Notification
-from app.models.location_history_model import LocationHistory
 from app.models.inventory_transaction_model import InventoryTransaction
 from app.models.document_model import Document
-from app.models.alert_model import Alert
 from app.models.machine_component_model import MachineComponent
 from app.models.feedback_model import Feedback
 from app.routers import drawings
@@ -77,12 +76,12 @@ manual_origins = [
     "http://localhost:3000",
     "http://192.168.0.22:9500",
     "http://192.168.0.22:9000",
-    "http://192.168.0.22:8080", # Quasar dev default
+    "http://192.168.0.22:8080", 
     "http://192.168.0.22",
     "https://trumachine.netlify.app",
     "http://192.168.0.22:8000/docs",
     "capacitor://localhost",
-    "http://localhost:8000" # Importante para o Android
+    "http://localhost:8000"
 ]
 origins_list.extend(manual_origins)
 origins_list = list(set(origins_list))
@@ -93,18 +92,38 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"] # 🚀 ADICIONE ESTA LINHA: Essencial para o Axios no Mobile ler a resposta
+    expose_headers=["*"] 
 )
 
-# ======================= ROTA WEBSOCKET (PLC/ANDON) =======================
-@app.websocket("/ws/{machine_id}")
-async def websocket_endpoint(websocket: WebSocket, machine_id: int):
+# ======================= ROTA WEBSOCKET (CORRIGIDA) =======================
+@app.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: int):
     """
-    Endpoint específico da Máquina (Rodando no main.py).
-    Aceita conexão sem token.
+    Endpoint Global de WebSocket (Rodando no main.py).
+    Resolve automaticamente o ID da Organização para agrupar as conexões.
     """
-    # Certifique-se de que 'manager' está definido neste arquivo ou importado
-    await manager.connect(websocket) 
+    # Lógica para definir a qual Organização este socket pertence
+    org_id = 1 # Fallback padrão (Organização Principal)
+
+    if client_id > 90000:
+        # Se for o ID alto (99xxx) do Painel do Gestor, conecta na Org 1
+        # Isso permite que o dashboard receba os alertas gerais.
+        org_id = 1
+    else:
+        # Se for um ID baixo, provavelmente é uma Máquina se conectando.
+        # Vamos ao banco descobrir qual é a organização dela.
+        async with async_session() as db:
+            try:
+                # Busca apenas o organization_id da máquina para ser rápido
+                result = await db.execute(select(Machine.organization_id).where(Machine.id == client_id))
+                found_org = result.scalars().first()
+                if found_org:
+                    org_id = found_org
+            except Exception as e:
+                print(f"⚠️ Erro ao resolver Org para cliente {client_id}: {e}")
+
+    # 🚀 CORREÇÃO: Agora passamos o org_id corretamente!
+    await manager.connect(websocket, org_id=org_id)
     
     try:
         while True:
@@ -112,10 +131,11 @@ async def websocket_endpoint(websocket: WebSocket, machine_id: int):
             await websocket.receive_text()
             
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        # 🚀 CORREÇÃO: Passamos o org_id também na desconexão
+        manager.disconnect(websocket, org_id=org_id)
+        
     except Exception as e:
-        print(f"Erro no WebSocket {machine_id}: {e}")
-        # manager.disconnect(websocket) # Cuidado para não desconectar duas vezes se o erro for na desconexão
+        print(f"Erro no WebSocket {client_id}: {e}")
 # =========================================================================
 
 @app.on_event("startup")

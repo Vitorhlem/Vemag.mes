@@ -31,7 +31,6 @@ class Part(Base):
     part_number = Column(String(100), nullable=True, index=True)
     brand = Column(String(100), nullable=True)
     
-    location = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
     photo_url = Column(String(512), nullable=True)
     lifespan_km = Column(Integer, nullable=True) 

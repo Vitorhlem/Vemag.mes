@@ -48,7 +48,7 @@ export interface User {
   id: number;
   full_name: string;
   email: string;
-  role: 'driver' | 'admin';
+  role: 'operator' | 'admin';
   is_active: boolean;
   avatar_url?: string | null;
   organization_id: number;

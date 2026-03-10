@@ -16,7 +16,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # CONFIGURAÇÕES DO SAP
 SAP_BASE_URL = "https://sap-vemag-sl.skyinone.net:50000/b1s/v1"
-SAP_COMPANY_DB = "SBOPRODVEM_0601"
+SAP_COMPANY_DB = "SBOPRODVEM_0603"
 SAP_USER = "manager"
 SAP_PASSWORD = "Lago287*"
 
@@ -107,14 +107,13 @@ class SAPIntegrationService:
                         safe_model = sap_desc[:50]
                         safe_brand = brand[:50]
 
+                        # CORREÇÃO AQUI: Removido o 'license_plate' e o identifier duplicado
                         machine_in = MachineCreate(
                             brand=safe_brand, 
                             model=safe_model, 
                             year=datetime.now().year, 
-                            identifier=sap_code,
+                            identifier=sap_code, # Usa o código do SAP como Identificador
                             status=MachineStatus.AVAILABLE, 
-                            current_km=0, 
-                            license_plate=sap_code,
                             sap_resource_code=""
                         )
                         
@@ -476,8 +475,8 @@ class SAPIntegrationService:
             "U_DescricaoOperacao": appointment_data.get('operation_desc', ''),
             "U_DescricaoServico": appointment_data.get('part_description', ''), 
             "U_DescricaoOperador": appointment_data.get('operator_name', ''),
-            "U_Recurso": str(appointment_data['resource_code']),        
-            "U_DescricaoRecurso": str(appointment_data['resource_name']),
+            "U_Recurso": str(appointment_data.get('resource_code', '')),        
+            "U_DescricaoRecurso": str(appointment_data.get('resource_name', '')),
             "U_Operador": sap_operator_id,
             "U_DataInicioAp": sap_data_ini,
             "U_DataFimAp": sap_data_fim,
@@ -486,10 +485,10 @@ class SAPIntegrationService:
             "U_HoraFimAp": sap_hora_fim,
             "U_MotivoParada": appointment_data.get('stop_reason', ""),
             "U_DescricaoParada": appointment_data.get('stop_description', ""),
-            "U_setup": is_setup_val,
+            "U_Setup": is_setup_val,
             "U_AptoParada": is_apto_parada,
-            "U_OrigemApontamento": u_origem,  # <--- AGORA SEMPRE "S"
-            "U_TipoDocumento": u_tipo_doc,    # <--- 1 (OP) ou 2 (OS/Stop)
+            "U_OrigemApontamento": u_origem, 
+            "U_TipoDocumento": u_tipo_doc,   
             "U_Servico": u_servico
         }
 

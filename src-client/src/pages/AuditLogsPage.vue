@@ -44,14 +44,11 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-// Importa o tipo para usar na função formatDetails
 import { useAuditLogStore, type AuditLog } from 'stores/audit-log-store';
-// Importa o tipo de coluna do Quasar
 import { date, type QTableColumn } from 'quasar';
 
 const store = useAuditLogStore();
 
-// CORREÇÃO: Tipagem explícita das colunas para evitar erro de alinhamento
 const columns: QTableColumn[] = [
   { 
     name: 'created_at', 
@@ -84,14 +81,12 @@ function translateAction(action: string) {
   return map[action] || action;
 }
 
-// CORREÇÃO: Tipagem do parâmetro row
 function formatDetails(row: AuditLog) {
   if (row.resource_id) return `ID: ${row.resource_id}`;
   return '-';
 }
 
 function loadData() {
-  // CORREÇÃO: void para tratar a promise flutuante
   void store.fetchLogs();
 }
 

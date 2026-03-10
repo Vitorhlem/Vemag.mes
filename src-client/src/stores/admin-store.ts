@@ -66,11 +66,9 @@ export const useAdminStore = defineStore('admin', {
         const { access_token } = response.data;
 
         const authStore = useAuthStore();
-        // Nota: Certifique-se que o método startImpersonation existe no auth-store
         if (authStore.startImpersonation) {
             authStore.startImpersonation(access_token, targetUser);
         } else {
-            // Fallback se o método não existir
             authStore.token = access_token;
             authStore.user = targetUser;
             api.defaults.headers.common.Authorization = `Bearer ${access_token}`;

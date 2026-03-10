@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
 import type { Tools, ToolsCreate, ToolsUpdate } from 'src/models/tools-models';
-// FIX: Import the ImplementStatus enum to use its values
 import { ToolsStatus } from 'src/models/tools-models';
 
 const initialState = () => ({
@@ -15,7 +14,6 @@ export const useImplementStore = defineStore('implement', {
 
   getters: {
     availableImplements: (state) =>
-      // FIX: Compare against the enum value instead of a magic string
       state.implementList.filter((i) => i.status === ToolsStatus.AVAILABLE),
   },
 

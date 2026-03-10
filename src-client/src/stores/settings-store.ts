@@ -9,7 +9,6 @@ import type {
 } from 'src/models/organization-models';
 
 export const useSettingsStore = defineStore('settings', () => {
-  // --- Dark Mode State ---
   const darkMode = ref<boolean | 'auto'>(
     JSON.parse(localStorage.getItem('darkMode') || '"auto"')
   );
@@ -24,15 +23,11 @@ export const useSettingsStore = defineStore('settings', () => {
     Dark.set(darkMode.value);
   }
 
-  
-
-  // --- ORGANIZATION STATE (NOVO) ---
-  const organizationSettings = ref<OrganizationPublic | null>(null);
+    const organizationSettings = ref<OrganizationPublic | null>(null);
   const isLoadingOrgSettings = ref(false);
   // --------------------------------
 
 
-  // --- AÇÕES PARA ORGANIZAÇÃO (NOVO) ---
   async function fetchOrganizationSettings() {
     isLoadingOrgSettings.value = true;
     try {

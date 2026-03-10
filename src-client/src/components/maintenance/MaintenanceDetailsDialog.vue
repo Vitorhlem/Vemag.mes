@@ -73,7 +73,7 @@
                     <q-item-label caption>Equipamento</q-item-label>
                     <q-item-label class="text-weight-bold">
                       {{ request.machine?.brand }} {{ request.machine?.model }} 
-                      (Tag: {{ request.machine?.license_plate || request.machine?.identifier }})
+                      (Tag: {{ request.machine?.identifier || request.machine?.identifier }})
                     </q-item-label>
                   </q-item-section>
                 </q-item>

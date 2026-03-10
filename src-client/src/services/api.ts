@@ -1,7 +1,5 @@
-// src/services/api.ts
 import axios from 'axios';
 
-// Esta função determina a URL base da API com base no ambiente
 const getBaseURL = () => {
     return import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';
 };
@@ -12,5 +10,4 @@ const api = axios.create({
 });
 
 export default api;
-// EXPORTAÇÃO NOMEADA ADICIONADA: O arquivo de boot precisa disso.
 export { api };

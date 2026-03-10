@@ -4,26 +4,17 @@ import enum
 
 from app.db.base_class import Base
 
-# --- NOVO ENUM ADICIONADO ---
 class NotificationType(str, enum.Enum):
-    # Alertas Críticos
     MAINTENANCE_DUE_DATE = "maintenance_due_date"
     MAINTENANCE_DUE_KM = "maintenance_due_km"
     DOCUMENT_EXPIRING = "document_expiring"
     LOW_STOCK = "low_stock"
-    TIRE_STATUS_BAD = "tire_status_bad"
     COST_EXCEEDED = "cost_exceeded"
     
-    # Notificações Operacionais
     MAINTENANCE_REQUEST_NEW = "maintenance_request_new"
     MAINTENANCE_REQUEST_STATUS_UPDATE = "maintenance_request_status_update"
     MAINTENANCE_REQUEST_NEW_COMMENT = "maintenance_request_new_comment"
-    JOURNEY_STARTED = "journey_started"
-    JOURNEY_ENDED = "journey_ended"
-    
-    # Gamificação
-    ACHIEVEMENT_UNLOCKED = "achievement_unlocked"
-    LEADERBOARD_TOP3 = "leaderboard_top3"
+
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -36,16 +27,12 @@ class Notification(Base):
     is_read = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
-    # --- CAMPOS ATUALIZADOS/ADICIONADOS ---
     notification_type = Column(SAEnum(NotificationType), nullable=False)
-    
-    # Link genérico para qualquer outra tabela (multa, documento, manutenção, etc.)
+
     related_entity_type = Column(String, nullable=True)  
     related_entity_id = Column(Integer, nullable=True)
 
-    # Mantemos o link de veículo para conveniência e retrocompatibilidade
     related_machine_id = Column(Integer, ForeignKey("machines.id", ondelete="CASCADE"), nullable=True)
-    # --- FIM DAS MUDANÇAS ---
 
     user = relationship("User")
     machine = relationship("Machine")

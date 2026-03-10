@@ -1,7 +1,7 @@
 <template>
   <q-page class="q-pa-lg bg-blue-grey-1">
     <div class="row items-center q-mb-xl">
-      <q-btn icon="arrow_back" flat round color="primary" @click="$router.back()" class="q-mr-md" />
+      <q-btn icon="arrow_back" flat round color="primary" @click="router.back()" class="q-mr-md" />
       <div>
         <div class="text-h4 text-weight-bolder text-grey-9">{{ machineInfo.name }}</div>
         <div class="text-subtitle1 text-grey-7">Análise de Disponibilidade & Eficiência Operacional</div>
@@ -21,18 +21,31 @@
         </q-select>
       </div>
     </div>
+    <q-btn 
+  outline 
+  color="warning" 
+  icon="auto_graph" 
+  label="Consolidar Dia (Fazer Fechamento)" 
+  :loading="isConsolidating"
+  @click="forceConsolidation"
+  class="glass-btn shadow-sm q-ml-sm"
+>
+  <q-tooltip class="bg-warning text-black text-body2">
+    Força o cálculo de eficiência e paradas de hoje para o histórico
+  </q-tooltip>
+</q-btn>
 
     <div class="row q-col-gutter-lg q-mb-lg">
-      <div class="col-12 col-md" v-for="card in stateCards" :key="card.label">
-        <q-card class="state-card shadow-1" :class="`border-left-${card.color}`">
+      <div class="col-12 col-sm-6 col-lg-2" v-for="card in stateCards" :key="card.label">
+        <q-card class="state-card shadow-1 full-height" :class="`border-left-${card.color}`">
           <q-card-section class="row items-center no-wrap">
             <div class="col">
-              <div class="text-overline text-grey-7">{{ card.label }}</div>
+              <div class="text-overline text-grey-7" style="line-height: 1.1; margin-bottom: 5px;">{{ card.label }}</div>
               <div class="text-h4 text-weight-bolder" :class="`text-${card.color === 'black' ? 'black' : card.color + '-9'}`">
                 {{ (Number(card.value) || 0).toFixed(1) }}<span class="text-h6 text-weight-light">h</span>
               </div>
             </div>
-            <q-icon :name="card.icon" :color="card.color" size="2.5rem" class="opacity-20" />
+            <q-icon :name="card.icon" :color="card.color" size="2.5rem" class="opacity-20 q-ml-sm" />
           </q-card-section>
         </q-card>
       </div>
@@ -147,15 +160,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import { api } from 'boot/axios';
 import { useQuasar } from 'quasar';
-
 const $q = useQuasar();
 const route = useRoute();
 const machineId = route.params.id;
-
+const router = useRouter(); 
 const loading = ref(false);
 const period = ref(30);
 const machineInfo = ref({ name: 'Carregando...' });
@@ -164,13 +176,15 @@ const dailyMetrics = ref<any[]>([]);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const detailedLogs = ref<any[]>([]);
 const logSearch = ref('');
-let socket: WebSocket | null = null; // Variável para o WebSocket
+let socket: WebSocket | null = null; 
 
+// 🚀 ADICIONADO: 'total_idle' para suportar o novo card de Ociosidade
 const summaryData = ref({
   total_running: 0,
   total_setup: 0,
   total_micro_stops: 0,
   total_pause: 0,
+  total_idle: 0, 
   total_maintenance: 0,
   avg_availability: 0,
   stop_reasons: [],
@@ -201,11 +215,13 @@ const reliabilityStatus = computed(() => {
   return { label: 'Instável / Crítico', color: 'negative' };
 });
 
+// 🚀 ADICIONADO: Novo card de Ocioso (Disponível) usando total_idle
 const stateCards = computed(() => [
   { label: 'Em Operação', value: summaryData.value.total_running, color: 'green', icon: 'precision_manufacturing' },
   { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_suggest' },
+  { label: 'Ocioso / Disp.', value: summaryData.value.total_idle, color: 'grey', icon: 'hourglass_empty' }, 
+  { label: 'Pausa / Parada', value: summaryData.value.total_pause, color: 'orange', icon: 'pause_circle_filled' },
   { label: 'Micro-paradas', value: summaryData.value.total_micro_stops, color: 'black', icon: 'bolt' },
-  { label: 'Pausa / Ocioso', value: summaryData.value.total_pause, color: 'orange', icon: 'timer' },
   { label: 'Manutenção', value: summaryData.value.total_maintenance, color: 'red', icon: 'engineering' }
 ]);
 
@@ -216,6 +232,50 @@ function getStatusColor(status: string) {
   if (s.includes('MANUTENÇÃO')) return 'red-8';
   if (s.includes('PARADA') || s.includes('PAUSA')) return 'orange-8';
   return 'grey-7';
+}
+
+const isConsolidating = ref(false);
+
+function forceConsolidation() {
+  $q.dialog({
+    title: 'Forçar Fechamento Diário',
+    message: 'Deseja processar e consolidar as métricas desta máquina referentes a hoje? Isso atualizará o histórico e os gráficos.',
+    cancel: 'Cancelar',
+    ok: {
+      label: 'Sim, Consolidar Agora',
+      color: 'warning',
+      unelevated: true
+    },
+    persistent: true
+  }).onOk(() => { 
+    void (async () => {
+      isConsolidating.value = true;
+      try {
+        const currentMachineId = String(route.params.id); 
+        
+        await api.post(`/production/consolidate/${currentMachineId}`);
+        
+        $q.notify({ 
+          type: 'positive', 
+          message: 'Métricas consolidadas com sucesso!',
+          icon: 'check_circle'
+        });
+
+        if (typeof loadAllData === 'function') {
+           void loadAllData(); 
+        }
+        
+      } catch (error) {
+        console.error("Erro ao consolidar:", error);
+        $q.notify({ 
+          type: 'negative', 
+          message: 'Erro ao executar o fechamento da máquina.' 
+        });
+      } finally {
+        isConsolidating.value = false;
+      }
+    })();
+  });
 }
 
 function translateEventType(val: string) {
@@ -233,31 +293,23 @@ function translateEventType(val: string) {
   return map[val] || val;
 }
 
-// =========================================================
-// 🔄 ESCUTA DO CELERY (Atualização em Tempo Real)
-// =========================================================
 function listenForSystemUpdates() {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Conecta num canal genérico "admin" para escutar o Celery
-  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/admin`;
+  const adminId = 99000 + Math.floor(Math.random() * 999);
+  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${adminId}`;
 
   socket = new WebSocket(wsUrl);
 
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      
-      // Se o Celery avisar que fechou o dia...
       if (data.type === 'DAILY_CLOSING_COMPLETED') {
           console.log("🔄 Fechamento noturno detectado. Atualizando gráficos...");
-          
           $q.notify({ 
              type: 'positive', 
              message: 'Sincronização do sistema concluída! Atualizando dados...',
              icon: 'sync'
           });
-          
-          // Chama a função para buscar os dados frescos
           void loadAllData();
       }
     } catch (e) {
@@ -273,7 +325,7 @@ function listenForSystemUpdates() {
 async function loadAllData() {
   loading.value = true;
   try {
-    const idStr = String(machineId); // Força a conversão uma única vez
+    const idStr = String(machineId); 
 
     const resMac = await api.get(`/machines/${idStr}`);
     machineInfo.value = { name: `${resMac.data.brand} ${resMac.data.model}` };
@@ -350,11 +402,11 @@ window.addEventListener('resize', () => {
 
 onMounted(() => {
   void loadAllData();
-  listenForSystemUpdates(); // Liga a escuta do Celery ao abrir a página
+  listenForSystemUpdates(); 
 });
 
 onUnmounted(() => {
-  if (socket) socket.close(); // Limpa o rádio ao sair da tela
+  if (socket) socket.close(); 
 });
 </script>
 
@@ -367,12 +419,14 @@ onUnmounted(() => {
 }
 .state-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
 
-/* ✅ A cor da borda das micro-paradas é definida aqui */
+/* ✅ A cor da borda do novo card (Ocioso) é definida aqui */
 .border-left-green { border-left: 8px solid #43a047; }
 .border-left-purple { border-left: 8px solid #8e24aa; }
+.border-left-grey { border-left: 8px solid #9e9e9e; } 
 .border-left-orange { border-left: 8px solid #fb8c00; }
 .border-left-red { border-left: 8px solid #e53935; }
-.border-left-black { border-left: 8px solid #263238; } /* Cinza bem escuro / Preto */
+.border-left-black { border-left: 8px solid #263238; } 
+
 .chart-container { background: white; padding: 20px; }
 .border-radius-15 { border-radius: 15px; }
 .opacity-20 { opacity: 0.2; }

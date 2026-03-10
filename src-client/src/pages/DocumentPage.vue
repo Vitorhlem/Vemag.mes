@@ -88,7 +88,7 @@
             <q-select
               v-if="ownerType === 'Motorista'"
               outlined
-              v-model="newDocument.driver_id"
+              v-model="newDocument.operator_id"
               :options="driverOptions"
               label="Selecione o Motorista"
               emit-value
@@ -169,8 +169,8 @@ const authStore = useAuthStore(); // <--- STORE DE AUTH
 // --- Verificação de Permissão ---
 const isManager = computed(() => {
   const role = authStore.user?.role;
+  return role === 'admin' || role === 'manager' || authStore.user?.is_superuser === true;
 });
-
 // --- Lógica da Tabela ---
 const columns: QTableProps['columns'] = [
   { name: 'document_type', required: true, label: 'Tipo', align: 'left', field: 'document_type', sortable: true },
@@ -199,7 +199,7 @@ interface NewDocumentForm {
   expiry_date: string;
   notes: string;
   machine_id: number | undefined;
-  driver_id: number | undefined;
+  operator_id: number | undefined;
   file: File | null;
 }
 
@@ -211,7 +211,7 @@ const initialNewDocumentState: NewDocumentForm = {
   expiry_date: '',
   notes: '',
   machine_id: undefined,
-  driver_id: undefined,
+  operator_id: undefined,
   file: null,
 };
 
@@ -220,11 +220,11 @@ const newDocument = ref<NewDocumentForm>({ ...initialNewDocumentState });
 // Opções para os QSelects
 const documentTypeOptions = ['CNH', 'CRLV', 'ANTT', 'ASO', 'Seguro', 'Outro'];
 const machineOptions = computed(() => machineStore.machines.map(v => ({
-  label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`,
+  label: `${v.brand} ${v.model} (${v.identifier || v.identifier})`,
   value: v.id
 })));
 
-const drivers = computed(() => userStore.users.filter(u => u.role === 'driver'));
+const drivers = computed(() => userStore.users.filter(u => u.role === 'operator'));
 const driverOptions = computed(() => drivers.value.map((d: User) => ({
   label: d.full_name,
   value: d.id
@@ -234,7 +234,7 @@ const driverOptions = computed(() => drivers.value.map((d: User) => ({
 // Limpa os IDs associados quando o tipo de dono muda
 watch(ownerType, () => {
   newDocument.value.machine_id = undefined;
-  newDocument.value.driver_id = undefined;
+  newDocument.value.operator_id = undefined;
 });
 
 
@@ -253,7 +253,7 @@ async function onSubmit() {
     notes: newDocument.value.notes,
     file: newDocument.value.file,
     ...(newDocument.value.machine_id !== undefined && { machine_id: newDocument.value.machine_id }),
-    ...(newDocument.value.driver_id !== undefined && { driver_id: newDocument.value.driver_id }),
+    ...(newDocument.value.operator_id !== undefined && { operator_id: newDocument.value.operator_id }),
   };
 
   await documentStore.createDocument(payload);

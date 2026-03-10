@@ -19,5 +19,4 @@ class Organization(Base):
     users = relationship("User", back_populates="organization")
     machines = relationship("Machine", back_populates="organization")
     tools = relationship("Tool", back_populates="organization")
-    alerts = relationship("Alert", back_populates="organization")
     documents = relationship("Document", back_populates="organization")

@@ -4,7 +4,7 @@
     <div class="row items-center justify-between q-mb-lg animate-fade print-hide">
       <div class="row items-center">
         <div class="logo-container q-mr-lg shadow-2">
-          <img src="/vemagdark.png" class="logo-img">
+          <img src="/DarkLogo.png" class="logo-img">
         </div>
         <div>
           <div class="text-h4 text-weight-bolder text-dark">Gestão de Manutenção</div>
@@ -106,7 +106,7 @@
             
             <div class="row items-center q-mb-md">
               <div class="col-4">
-                <img src="/vemagdark.png" style="height: 60px">
+                <img src="/DarkLogo.png" style="height: 60px">
               </div>
               <div class="col-4 text-center">
                 <div class="text-h6 text-weight-bolder" style="line-height: 1.2">ORDEM DE MANUTENÇÃO</div>
@@ -235,6 +235,7 @@
 import html2pdf from 'html2pdf.js';
 import { ref, computed, onMounted, watch } from 'vue';
 import { useQuasar, date } from 'quasar';
+import type { QTableColumn } from 'quasar';
 import { api } from 'boot/axios';
 import { useMaintenanceStore } from 'stores/maintenance-store';
 import { useProductionStore } from 'stores/production-store';
@@ -245,25 +246,35 @@ const maintenanceStore = useMaintenanceStore();
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
 
-const columns = [
+const columns: QTableColumn[] = [
   { name: 'id', label: 'ID', field: 'id', sortable: true, align: 'left' },
-  { name: 'machine', label: 'Equipamento', field: row => row.machine?.identifier, sortable: true, align: 'left' },
-  { name: 'date', label: 'Data', field: row => date.formatDate(row.created_at, 'DD/MM/YYYY'), sortable: true, align: 'left' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { name: 'machine', label: 'Equipamento', field: (row: any) => row.machine?.identifier, sortable: true, align: 'left' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { name: 'date', label: 'Data', field: (row: any) => date.formatDate(row.created_at, 'DD/MM/YYYY'), sortable: true, align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
-  { name: 'actions', label: 'Ações', align: 'right' }
+  { name: 'actions', label: 'Ações', field: 'actions', align: 'right' } // field actions adicionado p/ segurança
 ];
-
 const saveAsPDF = () => {
   const element = document.querySelector('.printable-area');
+  
+  // 🚀 CORREÇÃO 1: Garante que o elemento existe antes de tentar gerar o PDF
+  if (!element) return; 
+
   const opt = {
     margin: 0,
     filename: `OM_Industrial_${form.value.id || 'Nova'}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: { scale: 3, useCORS: true, letterRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF: { 
+      unit: 'mm' as const, 
+      format: 'a4' as const, 
+      orientation: 'portrait' as const 
+    }
   };
+  
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  html2pdf().set(opt).from(element).save();
+  html2pdf().set(opt).from(element as HTMLElement).save();
 };
 
 const activeTab = ref('concluida');
@@ -278,7 +289,8 @@ const tableConfigs = [
   { key: 'third', label: 'SERVIÇOS DE TERCEIROS', rows: 'third_party_rows', short: 'TERCEIRO' }
 ];
 
-const initialForm = () => ({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const initialForm = (): Record<string, any> => ({
   id: null, 
   machine_id: null, 
   cost_center: '', 
@@ -290,12 +302,9 @@ const initialForm = () => ({
   elaborated_by: authStore.user?.full_name || '', 
   supervisor: '', 
   status: 'RASCUNHO',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  labor_rows: [] as any[], 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  material_rows: [] as any[], 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  third_party_rows: [] as any[],
+  labor_rows: [], 
+  material_rows: [], 
+  third_party_rows: [],
   labor_total: 0, 
   material_total: 0, 
   services_total: 0, 
@@ -308,13 +317,14 @@ const isReadOnly = computed(() => String(form.value.status) === String(Maintenan
 const filteredOrders = computed(() => maintenanceStore.maintenances.filter(m => String(m.status) === activeTab.value.toUpperCase()));
 
 const countConcluidas = computed(() => maintenanceStore.maintenances.filter(m => m.status === MaintenanceStatus.CONCLUIDA).length);
-const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => m.status === MaintenanceStatus.RASCUNHO).length);
-
+const countRascunhos = computed(() => maintenanceStore.maintenances.filter(m => String(m.status) === 'RASCUNHO').length);
 const totalMonthCost = computed(() => {
   return maintenanceStore.maintenances
     .filter(m => m.status === MaintenanceStatus.CONCLUIDA)
     .reduce((acc, m) => {
-      let cost = m.total_cost;
+      // 👈 CORREÇÃO 4: Convertido para 'any' porque total_cost não existe no Schema nativo
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let cost = (m as any).total_cost;
       if (!cost && m.manager_notes) {
         try {
           const meta = JSON.parse(m.manager_notes);
@@ -331,15 +341,18 @@ const grandTotal = computed(() => (Number(form.value.labor_total)||0) + (Number(
 
 // --- CÁLCULO AUTOMÁTICO DE TOTAIS ---
 watch(() => form.value.labor_rows, (rows) => {
-  form.value.labor_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form.value.labor_total = rows.reduce((acc: number, row: any) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
 }, { deep: true });
 
 watch(() => form.value.material_rows, (rows) => {
-  form.value.material_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form.value.material_total = rows.reduce((acc: number, row: any) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
 }, { deep: true });
 
 watch(() => form.value.third_party_rows, (rows) => {
-  form.value.services_total = rows.reduce((acc, row) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form.value.services_total = rows.reduce((acc: number, row: any) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
 }, { deep: true });
 
 function addRow(type: string) {

@@ -110,7 +110,7 @@ class ProductionService:
                 metric.idle_hours = round(res["metrics"]["idle_min"] / 60, 2)
                 metric.micro_stop_hours = round(res["metrics"]["micro_stop_min"] / 60, 2)
                 metric.total_hours = round(res["metrics"]["total_min"] / 60, 2)
-                
+                metric.pause_hours = round(res["metrics"]["pause_min"] / 60, 2)
                 metric.availability = res["availability"]
                 metric.mtbf = res["mtbf"]
                 metric.mttr = res["mttr"]
@@ -311,7 +311,10 @@ class ProductionService:
                     user_name = user.full_name
                     badge = user.employee_id # Substitui o texto "Hardware" pelo crachá real
             else:
-                user_name = "Hardware PLC" # Só mostra se realmente não houver ninguém logado
+                # 🚀 TRAVA DE SEGURANÇA: Nenhuma O.P. foi iniciada no tablet!
+                # O backend ignora silenciosamente o sinal para não criar logs fantasmas.
+                print(f"🛑 [HARDWARE] Sinal '{sinal_recebido}' descartado. Nenhuma OP ativa na Máquina {machine.id}.")
+                return {"status": "ignored", "reason": "Sinal de hardware descartado pois não há Sessão ativa."}
         
         elif badge:
             # Lógica normal para eventos manuais (Tablet)
@@ -334,7 +337,8 @@ class ProductionService:
         category = "UNPLANNED_STOP" 
 
         # Cenario A: Produção
-        if sinal_recebido in ["1", "RUNNING", "EM OPERAÇÃO", "PRODUCING"]:
+        # 🚀 CORREÇÃO: "EM USO" e "IN_USE" adicionados para a fatia de tempo ser criada corretamente!
+        if sinal_recebido in ["1", "RUNNING", "EM OPERAÇÃO", "PRODUCING", "EM USO", "IN_USE"]:
             if last_log_status == MachineStatus.IN_USE_AUTONOMOUS and sinal_recebido == "1":
                 new_status_enum = MachineStatus.IN_USE_AUTONOMOUS
                 category = "PRODUCING"
@@ -348,16 +352,16 @@ class ProductionService:
             category = "UNPLANNED_STOP"
 
         # Cenario C: Overrides (Setup, Manutenção, Autônomo)
-        elif sinal_recebido == "SETUP":
+        elif sinal_recebido in ["SETUP", "PREPARAÇÃO"]:
             new_status_enum = MachineStatus.SETUP
             category = "PLANNED_STOP"
-        elif sinal_recebido in ["MAINTENANCE", "EM MANUTENÇÃO"]:
+        elif sinal_recebido in ["MAINTENANCE", "EM MANUTENÇÃO", "QUEBRADA"]:
             new_status_enum = MachineStatus.MAINTENANCE
             category = "MAINTENANCE"
-        elif sinal_recebido in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA"]:
+        elif sinal_recebido in ["IN_USE_AUTONOMOUS", "PRODUÇÃO AUTÔNOMA", "AUTÔNOMO"]:
             new_status_enum = MachineStatus.IN_USE_AUTONOMOUS
             category = "PRODUCING"
-        elif sinal_recebido in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONIVEL", "LIBERADA"]:
+        elif sinal_recebido in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONIVEL", "DISPONÍVEL", "LIBERADA"]:
             new_status_enum = MachineStatus.AVAILABLE 
             category = "IDLE"
             if not event.reason or event.reason == "null":
@@ -493,12 +497,15 @@ class ProductionService:
         )
         slices = (await db.execute(query)).scalars().all()
         
-        # ✅ CORREÇÃO: "SETUP" e "PREPARAÇÃO" adicionados à lista negra
+        # Lista negra para não sujar o gráfico de Pareto
         BLACKLIST_TERMS = [
             "STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "IDLE", 
-            "AVAILABLE", "DISPONÍVEL", "SISTEMA", "111", "21", "SETUP", "PREPARAÇÃO", "SAIDA", "SAÍDA"
+            "AVAILABLE", "DISPONÍVEL", "SISTEMA", "111", "21", "SETUP", "PREPARAÇÃO", "SAIDA", "SAÍDA",
+            "EM USO", "IN_USE"
         ]
-        run_sec, maint_sec, planned_sec, idle_sec, micro_sec = 0.0, 0.0, 0.0, 0.0, 0.0
+        
+        # 🚀 1. VARIÁVEIS SEPARADAS PARA PAUSA E OCIOSO
+        run_sec, maint_sec, planned_sec, idle_sec, pause_sec, micro_sec = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         num_failures = 0
         reasons_duration_map = {}
 
@@ -512,12 +519,12 @@ class ProductionService:
             cat = (s.category or "").upper()
             reason_upper = (s.reason or "").upper()
 
-            # 1. KPIs (Acúmulo de tempos)
+            # 1. Manutenção
             if cat == "MAINTENANCE": 
                 maint_sec += duration
                 if duration > 300: num_failures += 1
 
-            # 2. Setup (Explícito pelo Status/Categoria PLANNED_STOP que definimos no handle_event)
+            # 2. Setup (Planejado)
             elif cat == "PLANNED_STOP": 
                 planned_sec += duration
 
@@ -525,39 +532,37 @@ class ProductionService:
             elif cat == "PRODUCING":
                 run_sec += duration
 
-            # 4. Paradas Não Planejadas
+            # 4. Paradas Não Planejadas (UNPLANNED_STOP)
             elif cat == "UNPLANNED_STOP":
-                 # Regra de 5 minutos
+                 # Regra de micro-parada (menos de 5 minutos)
                  if duration < 300: 
                      micro_sec += duration
                  else:
-                     # Se for "SEM MOTIVO", conta como IDLE (Cinza), senão PAUSE (Laranja)
+                     # 🚀 2. SEPARAÇÃO LÓGICA DE TEMPOS
                      if "SEM MOTIVO" in reason_upper:
+                         # Parada sem motivo justificado = Tempo ocioso aguardando ação
                          idle_sec += duration 
                      else:
-                         # Aqui entraria parada por falta de peça, etc.
-                         # Você pode decidir se isso impacta Disponibilidade (Pause) ou não.
-                         # Geralmente paradas operacionais vão para Pause.
-                         # Se quiser separar OCIOSO explícito, adicione elif cat == "IDLE"
-                         idle_sec += duration # Assumindo parada operacional longa como perda
+                         # Parada justificada pelo operador (Aguardando material, banheiro, etc)
+                         pause_sec += duration 
 
-            # 5. Ocioso / Disponível / Shift Change Frio
+            # 5. Ocioso / Disponível Explícito
             elif cat == "IDLE":
                 idle_sec += duration
             
-            # Caso micro-stop já tenha sido processado no close_slice
+            # Caso micro-stop já tenha sido setado no banco (close_slice)
             elif cat == "MICRO_STOP":
                 micro_sec += duration
 
-            # 2. PARETO (Gráfico de Ofensores)
-            # Só adiciona se não for mensagem de sistema
+            # 6. PARETO (Gráfico de Ofensores)
             if reason_raw and not any(term in reason_upper for term in BLACKLIST_TERMS):
-                # Limpa prefixos para o gráfico ficar limpo
+                # Limpa prefixos
                 clean_label = reason_raw.replace("Parada: ", "").replace("Micro-parada: ", "").replace("Status: ", "").strip()
                 reasons_duration_map[clean_label] = reasons_duration_map.get(clean_label, 0.0) + duration
 
-        total_sec = run_sec + maint_sec + planned_sec + idle_sec + micro_sec
-        div_avail = total_sec - planned_sec
+        # 🚀 3. CÁLCULO DO OEE MANTENDO A MATEMÁTICA CORRETA
+        total_sec = run_sec + maint_sec + planned_sec + idle_sec + pause_sec + micro_sec
+        div_avail = total_sec - planned_sec # Disponibilidade desconsidera Setup (Planejado)
         availability = (run_sec / div_avail * 100) if div_avail > 0 else 0.0
 
         return {
@@ -571,6 +576,7 @@ class ProductionService:
                 "maintenance_min": maint_sec / 60,
                 "planned_stop_min": planned_sec / 60,
                 "idle_min": idle_sec / 60,
+                "pause_min": pause_sec / 60, 
                 "micro_stop_min": micro_sec / 60,
                 "total_min": total_sec / 60
             }

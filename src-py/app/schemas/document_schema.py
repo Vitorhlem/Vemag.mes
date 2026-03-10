@@ -15,11 +15,11 @@ class DocumentBase(BaseModel):
 # Schema para criar um novo documento
 class DocumentCreate(DocumentBase):
     machine_id: Optional[int] = None
-    driver_id: Optional[int] = None
+    operator_id: Optional[int] = None
 
     # Validador para garantir que o documento seja associado
     # a um veículo OU a um motorista, mas não a ambos (ou a nenhum).
-    @validator('driver_id', always=True)
+    @validator('operator_id', always=True)
     def validate_owner(cls, v, values):
         if values.get('machine_id') is None and v is None:
             raise ValueError('Um documento deve ser associado a um veículo ou a um motorista.')
@@ -40,7 +40,7 @@ class DocumentPublic(DocumentBase):
     id: int
     file_url: str
     machine_id: Optional[int] = None
-    driver_id: Optional[int] = None
+    operator_id: Optional[int] = None
 
     # Campo extra que será preenchido pela nossa lógica de negócio (CRUD)
     # para facilitar a exibição no frontend.

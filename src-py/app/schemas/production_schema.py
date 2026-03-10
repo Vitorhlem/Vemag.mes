@@ -54,8 +54,6 @@ class ProductionOrder(BaseModel):
     code: str
     part_name: str
     target_quantity: int
-    produced_quantity: int
-    scrap_quantity: int
     status: str
     part_image_url: Optional[str] = None
     
@@ -213,6 +211,7 @@ class MachineDailyStats(BaseModel):
     # Campos formatados para exibição (ex: "02:15:00")
     formatted_running_operator: Optional[str] = "00:00:00"
     formatted_running_autonomous: Optional[str] = "00:00:00"
+    formatted_idle: Optional[str] = "00:00:00"
     formatted_paused_operator: Optional[str] = "00:00:00"
     formatted_maintenance: Optional[str] = "00:00:00"
 
@@ -271,7 +270,7 @@ class MachineDailyMetricRead(BaseModel):
     idle_hours: float
     maintenance_hours: float
     planned_stop_hours: float
-    # ✅ ADICIONE ESTE CAMPO:
+    pause_hours: float = 0.0
     micro_stop_hours: float = 0.0 
     availability: float
     utilization: float
@@ -287,9 +286,9 @@ class MachineDailyMetricRead(BaseModel):
 class MachinePeriodSummary(BaseModel):
     total_running: float
     total_setup: float
-    total_pause: float
+    total_pause: float = 0.0
     total_maintenance: float
-    # ✅ ADICIONE ESTE CAMPO:
+    total_idle: float = 0.0
     total_micro_stops: float = 0.0 
     avg_availability: float
     stop_reasons: List[Any]

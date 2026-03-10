@@ -34,7 +34,6 @@ from .production_model import (
 # 6. Operacional e Custos
 from .machine_cost_model import MachineCost, CostType
 from .notification_model import Notification
-from .location_history_model import LocationHistory
 
 # 7. Estoque e Peças
 from .part_model import Part, PartCategory
@@ -42,7 +41,6 @@ from .inventory_transaction_model import InventoryTransaction
 
 # 9. Andon e Alertas
 from .andon_model import AndonCall
-from .alert_model import Alert
 
 # 10 Auditoria
 from .audit_log_model import AuditLog

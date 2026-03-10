@@ -38,7 +38,7 @@ async def create_document(
     expiry_date: date = Form(...),
     notes: str = Form(None),
     machine_id: int = Form(None),
-    driver_id: int = Form(None),
+    operator_id: int = Form(None),
     file: UploadFile = File(...),
     current_user: User = Depends(deps.get_current_active_user)
 ):
@@ -51,7 +51,7 @@ async def create_document(
 
     document_in = DocumentCreate(
         document_type=document_type, expiry_date=expiry_date, notes=notes,
-        machine_id=machine_id, driver_id=driver_id,
+        machine_id=machine_id, operator_id=operator_id,
     )
 
     file_url = await save_upload_file(file)
@@ -83,10 +83,10 @@ async def read_documents(
     current_user: User = Depends(deps.get_current_active_user),
 ):
     # --- LÓGICA DE PERMISSÃO DE VISUALIZAÇÃO ---
-    driver_id_filter = None
-    if current_user.role == UserRole.DRIVER:
+    operator_id_filter = None
+    if current_user.role == UserRole.OPERATOR:
         # Motorista vê apenas os seus próprios documentos
-        driver_id_filter = current_user.id
+        operator_id_filter = current_user.id
     
     documents = await crud.document.get_multi_by_org(
         db=db,
@@ -94,7 +94,7 @@ async def read_documents(
         skip=skip,
         limit=limit,
         expiring_in_days=expiring_in_days,
-        driver_id=driver_id_filter
+        operator_id=operator_id_filter
     )
     return documents
 

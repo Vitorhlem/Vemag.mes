@@ -23,7 +23,7 @@
 
         <q-card-section class="text-center q-pt-lg">
           <div class="logo-container q-mb-md">
-            <img src="/Logo-Oficial.png" class="login-logo" />
+            <img src="/WhiteLogo.png" class="login-logo" />
           </div>
           <div class="text-h5 text-weight-bolder text-white tracking-widest">
             VEMAG<span class="text-orange-5">.MES</span>

@@ -24,33 +24,16 @@
           <q-separator class="q-mb-md" />
           <div class="text-subtitle2 q-mb-sm text-primary">Próxima Preventiva (PMP):</div>
 
-          <div class="row q-col-gutter-md">
-            <div class="col-6">
-              <q-input 
-                v-model="form.next_maintenance_date" 
-                label="Data Limite *" 
-                type="date" 
-                outlined 
-                dense 
-                stack-label 
-              />
-            </div>
-            <div class="col-6">
-              <q-input 
-                v-model.number="form.next_maintenance_km" 
-                label="Horímetro Limite (h) *" 
-                type="number" 
-                outlined 
-                dense 
-              />
-            </div>
-          </div>
-          
-          <div class="text-caption text-grey-7 q-mt-xs" v-if="currentUsage">
-             Horímetro Atual: {{ currentUsage }}
-          </div>
+          <q-input 
+            v-model="form.next_maintenance_date" 
+            label="Data Limite *" 
+            type="date" 
+            outlined 
+            dense 
+            stack-label 
+          />
 
-          <q-card-actions align="right" class="q-mt-md">
+          <q-card-actions align="right" class="q-mt-lg">
             <q-btn flat label="Cancelar" v-close-popup color="grey-8" />
             <q-btn unelevated label="Concluir OS" type="submit" color="positive" />
           </q-card-actions>
@@ -61,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import type { MaintenanceRequest, MaintenanceRequestUpdate } from 'src/models/maintenance-models';
 import { MaintenanceStatus } from 'src/models/maintenance-models';
 
@@ -75,32 +58,19 @@ const emit = defineEmits(['update:modelValue', 'confirm']);
 const form = ref<MaintenanceRequestUpdate>({
   status: MaintenanceStatus.CONCLUIDA,
   manager_notes: '',
-  next_maintenance_date: '',
-  next_maintenance_km: null
+  next_maintenance_date: ''
 });
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen && props.request?.machine) {
-    const v = props.request.machine;
-    
-    // Sugere +180 dias (semestral)
+    // Sugere +180 dias (semestral) para a próxima preventiva
     const today = new Date();
     today.setDate(today.getDate() + 180); 
     const dateStr = today.toISOString().split('T')[0];
+    
     form.value.next_maintenance_date = dateStr || null;
-    
-    // Sugere +2000 horas
-    const current = v.current_engine_hours || v.current_km || 0;
-    form.value.next_maintenance_km = Math.round(current + 2000); 
-    
     form.value.manager_notes = props.request.manager_notes || '';
   }
-});
-
-const currentUsage = computed(() => {
-    if (!props.request?.machine) return '';
-    const v = props.request.machine;
-    return v.current_engine_hours ? `${v.current_engine_hours.toFixed(1)} h` : (v.current_km ? `${v.current_km} h` : '0 h');
 });
 
 function onSubmit() {

@@ -44,16 +44,3 @@ async def mark_as_read(
         raise HTTPException(status_code=404, detail="Notificação não encontrada.")
     return notification
 
-@router.post("/trigger-alerts", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_alerts_check_for_organization(
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_manager),
-):
-    """
-    Dispara a verificação de alertas do sistema APENAS para a organização do gestor logado.
-    (Idealmente, isto seria uma tarefa agendada, não um endpoint de API).
-    """
-    await crud.notification.run_system_checks_for_organization(
-        db, organization_id=current_user.organization_id
-    )
-    return {"message": "Verificação de alertas para a sua organização foi iniciada."}

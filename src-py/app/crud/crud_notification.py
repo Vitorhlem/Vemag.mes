@@ -114,29 +114,16 @@ async def run_system_checks_for_organization(db: AsyncSession, *, organization_i
         # Correção: related_machine_id
         await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_DATE, organization_id=organization_id, send_to_managers=True, related_machine_id=machine.id)
 
-    # 2. Manutenção por KM (uso da máquina)
-    machines_due_km_stmt = select(Machine).where(
-        Machine.organization_id == organization_id,
-        Machine.next_maintenance_km != None,
-        Machine.current_km != None,
-        (Machine.next_maintenance_km - Machine.current_km) <= 500
-    )
-    for machine in (await db.execute(machines_due_km_stmt)).scalars().all():
-        diff = machine.next_maintenance_km - machine.current_km
-        message = f"{machine.brand} {machine.model} está a {diff}km da próxima manutenção."
-        # Correção: related_machine_id
-        await create_notification(db, message=message, notification_type=NotificationType.MAINTENANCE_DUE_KM, organization_id=organization_id, send_to_managers=True, related_machine_id=machine.id)
-
     # 3. Documentos a Vencer
     doc_date_threshold = datetime.utcnow().date() + timedelta(days=30)
     docs_expiring_stmt = select(Document).where(
         Document.organization_id == organization_id,
         Document.expiry_date != None,
         Document.expiry_date <= doc_date_threshold
-    ).options(selectinload(Document.machine), selectinload(Document.driver))
+    ).options(selectinload(Document.machine), selectinload(Document.operator))
     
     for doc in (await db.execute(docs_expiring_stmt)).scalars().all():
-        target_name = doc.machine.model if doc.machine else (doc.driver.full_name if doc.driver else "Desconhecido")
+        target_name = doc.machine.model if doc.machine else (doc.operator.full_name if doc.operator else "Desconhecido")
         machine_id = doc.machine.id if doc.machine else None
         
         message = f"O documento '{doc.document_type}' de {target_name} vence em {doc.expiry_date.strftime('%d/%m/%Y')}."

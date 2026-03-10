@@ -19,13 +19,18 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin', 'pcp', 'maintenance', 'cliente_ativo', 'cliente_demo'] }
       },
       { 
+        path: 'auditlogs', 
+        name: 'auditlogs', 
+        component: () => import('pages/AuditLogsPage.vue'),
+        meta: { roles: ['admin', 'pcp', 'maintenance', 'cliente_ativo', 'cliente_demo'] }
+      },
+      { 
         path: 'supervisory', 
         name: 'supervisory', 
         component: () => import('pages/SupervisoryPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
 
-      // ANDON VERSÃO COM MENU (Para Admin, PCP e Manutenção)
       { 
         path: 'andon-board', 
         name: 'andon-board', 
@@ -33,7 +38,6 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
 
-      // Módulos de Gestão de Máquinas
       { 
         path: 'machines', 
         name: 'machines', 
@@ -48,7 +52,6 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
 
-      // Manutenção
       { 
         path: 'manutencao', 
         name: 'manutencao', 
@@ -62,7 +65,6 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin', 'maintenance', 'pcp'] }
       },
 
-      // Inventário e Rastreabilidade
       {
         path: 'inventory-items',
         name: 'inventory-items',
@@ -76,29 +78,20 @@ const routes: RouteRecordRaw[] = [
         meta: { roles: ['admin', 'pcp', 'maintenance'] }
       },
 
-      // Outras páginas (PCP e Admin)
-      { path: 'performance', name: 'performance', component: () => import('pages/PerformancePage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
-      { path: 'reports/daily', component: () => import('pages/DailyReportPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'parts', name: 'parts', component: () => import('pages/PartsPage.vue'), meta: { roles: ['admin', 'pcp', 'maintenance'] } },
       { path: 'users/:id/stats', name: 'user-details', component: () => import('pages/UserDetailsPage.vue'), meta: { roles: ['admin', 'pcp'] } },
-      // Feedback e Configurações (Acessível por todos)
       { path: 'feedback', name: 'feedback', component: () => import('pages/FeedbackPage.vue') },
       { path: 'settings', name: 'settings', component: () => import('pages/SettingsPage.vue') },
       
-      // Administrativo Puro
       { path: 'employees', name: 'employees', component: () => import('pages/EmployeesPage.vue'), meta: { roles: ['admin', 'pcp'] } },
       { path: 'users', name: 'users', component: () => import('pages/UsersPage.vue'), meta: { roles: ['admin'] } },
       { path: 'audit-logs', name: 'audit-logs', component: () => import('pages/AuditLogsPage.vue'), meta: { roles: ['admin'] } },
       
-      // Legado / Frota
       { path: 'documents', name: 'documents', component: () => import('pages/DocumentPage.vue'), meta: { roles: ['admin'] } },
       { path: 'implements', name: 'implements', component: () => import('pages/ToolsPage.vue'), meta: { roles: ['admin'] } },
     ],
   },
 
-  // =========================================================================
-  // 2. ÁREA DO FUNCIONÁRIO / TABLET (BlankLayout)
-  // =========================================================================
   {
     path: '/factory',
     component: () => import('layouts/BlankLayout.vue'),
@@ -106,7 +99,6 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: 'kiosk', name: 'machine-kiosk', component: () => import('pages/MachineKioskPage.vue') },
       
-      // ANDON VERSÃO TELA CHEIA (Para Quality e outros setores)
       { 
         path: 'andon-tv', 
         name: 'andon-full', 
@@ -118,17 +110,13 @@ const routes: RouteRecordRaw[] = [
     ]
   },
 
-  // =========================================================================
-  // 3. AUTENTICAÇÃO E IMPRESSÃO
-  // =========================================================================
+
   {
     path: '/auth',
     component: () => import('layouts/BlankLayout.vue'),
     children: [
       { path: 'login', name: 'login', component: () => import('pages/LoginPage.vue') },
       { path: 'register', name: 'register', component: () => import('pages/RegisterPage.vue') },
-      { path: 'forgot-password', name: 'forgot-password', component: () => import('pages/ForgotPasswordPage.vue') },
-      { path: 'reset-password', name: 'reset-password', component: () => import('pages/ResetPasswordPage.vue') }
     ],
   },
 

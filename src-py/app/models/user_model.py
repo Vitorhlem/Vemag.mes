@@ -9,7 +9,6 @@ from app.core.config import settings
 if TYPE_CHECKING:
     from .inventory_transaction_model import InventoryTransaction
     from .maintenance_model import MaintenanceRequest
-    from .alert_model import Alert
     from .document_model import Document
     from .organization_model import Organization
 
@@ -25,7 +24,6 @@ class UserRole(str, enum.Enum):
     LOGISTICS = "logistics"
     MAINTENANCE = "maintenance"
     OPERATOR = "operator"
-    DRIVER = "driver" 
 
 class User(Base):
     __tablename__ = "users"
@@ -58,8 +56,7 @@ class User(Base):
         back_populates="related_user"
     )
 
-    documents: Mapped[List["Document"]] = relationship("Document", back_populates="driver", cascade="all, delete-orphan")
-    alerts: Mapped[List["Alert"]] = relationship("Alert", back_populates="driver")
+    documents: Mapped[List["Document"]] = relationship("Document", back_populates="operator", cascade="all, delete-orphan")
     
     # --- A CORREÇÃO DO ERRO ESTÁ AQUI ---
     # O nome da variável DEVE ser 'reported_requests' porque o maintenance_model aponta para ele

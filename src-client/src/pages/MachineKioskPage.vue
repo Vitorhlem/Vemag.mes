@@ -6,7 +6,7 @@
         <div class="absolute-full bg-industrial-gradient"></div>
         
         <div class="absolute-top text-center q-pt-md z-top">
-           <img src="/Logo-Oficial.png" style="height: 45px; filter: brightness(0) invert(1) opacity(0.8);" />
+           <img src="/WhiteLogo.png" style="height: 45px; filter: brightness(0) invert(1) opacity(0.8);" />
         </div>
 
         <q-card 
@@ -343,7 +343,7 @@ const facingMode = ref<"user" | "environment">("environment");
 // --- Computed ---
 const machineOptions = computed(() => {
   return productionStore.machinesList.map(m => ({
-    label: `${m.brand} ${m.model} (${m.license_plate || 'ID:' + m.id})`,
+    label: `${m.brand} ${m.model} (${m.identifier || 'ID:' + m.id})`,
     value: m.id
   }));
 });
@@ -518,12 +518,20 @@ function openManualLogin() {
 }
 
 async function submitManualLogin() {
+  console.log("👉 [submitManualLogin] Iniciado. Código digitado:", manualBadgeInput.value);
+  
   if (!manualBadgeInput.value || manualBadgeInput.value.length < 3) {
+    console.warn("⚠️ [submitManualLogin] Código inválido (muito curto).");
     $q.notify({ type: 'warning', message: 'Digite um código válido.' });
     return;
   }
+  
+  const badgeCode = manualBadgeInput.value;
+  manualBadgeInput.value = '';
   isManualLoginOpen.value = false;
-  await handleLogin(manualBadgeInput.value);
+  
+  console.log("✅ [submitManualLogin] Validação OK. Chamando handleLogin com:", badgeCode);
+  await handleLogin(badgeCode);
 }
 
 // --- LEITOR USB (TECLADO) ---
@@ -565,12 +573,18 @@ async function handleLogin(code: string) {
     isLoading.value = true;
     try {
         await productionStore.loginOperator(code);
-        if (productionStore.isShiftActive) {
-             void router.push({ 
-                name: 'operator-cockpit', 
-                params: { machineId: productionStore.machineId } 
-             });
+        
+        isManualLoginOpen.value = false;
+        showScanner.value = false;
+
+        if (!productionStore.machineId) {
+            $q.notify({ type: 'negative', message: 'Erro: Terminal não vinculado.' });
+            return;
         }
+
+        // 🚀 O Router oficial agora vai funcionar perfeitamente!
+        await router.push(`/factory/cockpit/${productionStore.machineId}`);
+
     } catch (e) {
         console.error(e);
         $q.notify({ type: 'negative', message: 'Crachá inválido ou erro de conexão.' });
@@ -578,7 +592,6 @@ async function handleLogin(code: string) {
         isLoading.value = false;
     }
 }
-
 // --- CONFIGURAÇÃO ---
 async function openConfigDialog() {
   adminPassword.value = '';

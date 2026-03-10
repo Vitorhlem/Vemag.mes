@@ -12,8 +12,8 @@
     
       <q-scroll-area class="fit" :thumb-style="{ width: '4px', borderRadius: '2px', opacity: '0.5' }">        
         <div class="q-pa-md row items-center justify-center relative-position" style="height: 110px;">
-          <img src="~assets/trucar-logo-dark.png" class="logo-light animate-fade" style="height: 65px; max-width: 90%; transition: all 0.3s;" alt="Trucar Logo">
-          <img src="~assets/trucar-logo-white.png" class="logo-dark animate-fade" style="height: 65px; max-width: 90%; display: none; transition: all 0.3s;" alt="Trucar Logo">
+          <img src="~assets/DarkLogo.png" class="logo-light animate-fade" style="height: 65px; max-width: 90%; transition: all 0.3s;" alt="Trucar Logo">
+          <img src="~assets/WhiteLogo.png" class="logo-dark animate-fade" style="height: 65px; max-width: 90%; display: none; transition: all 0.3s;" alt="Trucar Logo">
         </div>
         
         <q-separator class="q-mx-lg q-mb-md opacity-10" />
@@ -208,7 +208,8 @@
             <template v-slot:label>
               <div class="row items-center no-wrap">
                 <q-avatar size="40px" class="shadow-1 border-2 border-white">
-                  <img :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
+                  <img v-if="getAvatarUrl(authStore.user?.avatar_url) !== 'USE_DEFAULT_AVATAR'" :src="getAvatarUrl(authStore.user?.avatar_url)" style="object-fit: cover;">
+<img v-else src="~assets/AvatarDefault.png" style="object-fit: cover;">
                 </q-avatar>
                 
                 <div class="text-left gt-sm q-ml-md">
@@ -276,9 +277,7 @@ import { useAuthStore } from 'stores/auth-store';
 import { useNotificationStore } from 'stores/notification-store';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import defaultAvatar from 'assets/default-avatar.png';
 
-// --- NOVOS IMPORTS PARA NOTIFICAÇÃO ---
 import { api } from 'boot/axios';
 const leftDrawerOpen = ref(true);
 const customColor = ref('#128c7e');
@@ -336,7 +335,8 @@ function handleLogout() {
 }
 
 function getAvatarUrl(url: string | null | undefined): string {
-  if (!url) return defaultAvatar;
+  if (!url) return 'USE_DEFAULT_AVATAR'; 
+  
   if (url.startsWith('http')) return url;
   const backendUrl = 'http://127.0.0.1:8000'; 
   if (url.startsWith('/static') || url.startsWith('/')) return `${backendUrl}${url}`;
@@ -349,7 +349,7 @@ function firstName(name: string | undefined) {
 
 const roleLabel = computed(() => {
     if (authStore.isManager) return 'Gestor Industrial';
-    if (authStore.isDriver) return 'Técnico Operacional';
+    if (authStore.isoperator) return 'Técnico Operacional';
     if (authStore.isSuperuser) return 'Engenheiro Chefe';
     return 'Colaborador';
 });
@@ -384,7 +384,7 @@ interface MenuCategory { label: string; icon?: string; children: MenuItem[]; sep
 
 const menuStructure = computed(() => {
     if (authStore.isManager) return getManagerMenu();
-    if (authStore.isDriver) return getOperatorMenu();
+    if (authStore.isoperator) return getOperatorMenu();
     if (authStore.user?.role === 'maintenance') return getMaintenanceMenu(); 
     if (authStore.user?.role === 'pcp') return getPCPMenu();
     return getGenericSectorMenu();
@@ -441,7 +441,7 @@ function getOperatorMenu(): MenuCategory[] {
             label: 'Operacional',
             children: [
                 { title: 'Chão de Fábrica', icon: 'precision_manufacturing', to: '/dashboard' },
-                { title: 'Apontamento', icon: 'timer', to: '/driver-cockpit' }
+                { title: 'Apontamento', icon: 'timer', to: '/operator-cockpit' }
             ]
         },
         {
@@ -508,16 +508,18 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 function connectNotificationSocket() {
-    const orgId = authStore.user?.organization_id;
+    // 👈 CORREÇÃO 2: Busca correta do organization.id
+    const orgId = authStore.user?.organization?.id; 
     
-    // 1. Previne a conexão "undefined"
     if (!orgId) {
         console.warn('⏳ Aguardando dados do usuário para conectar o WebSocket...');
         return;
     }
 
-    // 2. Pega a URL dinâmica da API (vinda do .env) e transforma HTTP em WS
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    // 👈 CORREÇÃO 3: Uso do as any para ignorar o erro do import.meta
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const envVars = (import.meta as any).env; 
+    const apiBase = envVars.VITE_API_URL || 'http://localhost:8000/api/v1';
     const wsBase = apiBase.replace(/^http/, 'ws'); 
     
     const wsUrl = `${wsBase}/andon/ws/${orgId}`;
@@ -537,30 +539,29 @@ function connectNotificationSocket() {
         }
     };
 }
-
 onMounted(async () => {
     setCssVar('primary', '#128c7e');
     
-    // Configurações do usuário logado (Gestor)
     if (authStore.isManager) {
         void notificationStore.fetchUnreadCount();
         connectNotificationSocket();
     }
 
-    // --- CORREÇÃO: VERIFICAR E ENVIAR TOKEN PENDENTE ---
-    // Só executa se o usuário estiver autenticado (login feito com sucesso)
-    if (authStore.token) {
+    // 👈 CORREÇÃO 4: accessToken no lugar de token
+    if (authStore.accessToken) { 
         
-        // Verifica se o arquivo de boot deixou algum token guardado na variável global
-        if (window.FCM_TOKEN_PENDING) {
+        // 👈 CORREÇÃO 5: window as any para declarar a variável global dinamicamente
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any).FCM_TOKEN_PENDING) {
             console.log('📦 Encontrado token pendente do boot. Enviando para API...');
             
             try {
-                await api.post('/users/me/device-token', { token: window.FCM_TOKEN_PENDING });
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await api.post('/users/me/device-token', { token: (window as any).FCM_TOKEN_PENDING });
                 console.log('✅ Token pendente enviado com sucesso!');
                 
-                // Limpa a variável para não enviar novamente sem necessidade
-                window.FCM_TOKEN_PENDING = undefined; 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).FCM_TOKEN_PENDING = undefined; 
             } catch (e) {
                 console.error('❌ Erro ao enviar token pendente:', e);
             }

@@ -160,28 +160,13 @@ async def count_by_org(db: AsyncSession, *, organization_id: int, role: UserRole
 
 # --- FUNÇÕES ANALÍTICAS ---
 
-async def get_leaderboard_data(db: AsyncSession, *, organization_id: int) -> dict:
-    stmt = select(User).where(
-        User.organization_id == organization_id, 
-        User.role.in_([UserRole.OPERATOR, UserRole.DRIVER])
-    ).limit(50)
-    result = await db.execute(stmt)
-    users = result.scalars().all()
-    
-    return {
-        "leaderboard": users, 
-        "primary_metric_unit": "N/A"
-    }
-
-async def get_driver_metrics(db: AsyncSession, *, user: User) -> dict:
+async def get_operator_metrics(db: AsyncSession, *, user: User) -> dict:
     return {
         "distance": 0,
         "hours": 0,
-        "fuel_efficiency": 0,
-        "alerts": 0
     }
 
-async def get_driver_ranking_context(db: AsyncSession, *, user: User) -> List[Any]:
+async def get_operator_ranking_context(db: AsyncSession, *, user: User) -> List[Any]:
     return []
 
 async def get_user_stats(db: AsyncSession, *, user_id: int, organization_id: int) -> dict | None:

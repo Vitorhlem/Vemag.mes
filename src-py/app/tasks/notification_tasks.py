@@ -28,5 +28,5 @@ def dispatch_notification(message, notification_type, organization_id, **kwargs)
             await manager.broadcast({
                 "type": "NEW_NOTIFICATION",
                 "organization_id": organization_id
-            })
+            }, org_id=organization_id)
     run_async(_logic())

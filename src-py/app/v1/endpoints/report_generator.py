@@ -29,7 +29,7 @@ async def generate_report(
             # A CORREÇÃO DE SEGURANÇA: Passamos a organization_id do gestor logado
             data = await crud.report.get_driver_activity_data(
                 db,
-                driver_id=report_request.target_id,
+                operator_id=report_request.target_id,
                 organization_id=current_user.organization_id, # <-- A LINHA CRUCIAL
                 date_from=report_request.date_from,
                 date_to=report_request.date_to

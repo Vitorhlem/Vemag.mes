@@ -300,7 +300,6 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useQuasar, type QTableProps } from 'quasar';
 import { usePartStore, type PartCreatePayload } from 'stores/part-store';
-import { useAuthStore } from 'stores/auth-store';
 import type { Part, PartCategory } from 'src/models/part-models';
 import ManageStockDialog from 'components/ManageStockDialog.vue';
 import PartHistoryDialog from 'components/PartHistoryDialog.vue';

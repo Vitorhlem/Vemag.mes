@@ -5,7 +5,7 @@
       <div class="col-12 col-md-auto">
         <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
           <q-icon name="precision_manufacturing" size="md" class="text-primary" />
-          {{ terminologyStore.machinePageTitle }}
+          Parque de Máquinas
         </h1>
         <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
           Gestão de Ativos, CNCs e Equipamentos Industriais
@@ -17,7 +17,7 @@
           outlined 
           dense 
           v-model="searchTerm" 
-          placeholder="Buscar..." 
+          placeholder="Buscar máquina ou tag..." 
           class="search-input glass-input" 
           style="min-width: 250px"
         >
@@ -35,7 +35,7 @@
           class="glass-toggle"
         />
         
-        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" :label="terminologyStore.addMachineButtonLabel" unelevated class="q-ml-sm shadow-green" />
+        <q-btn v-if="authStore.isManager" @click="openCreateDialog" color="primary" icon="add" label="Adicionar Máquina" unelevated class="q-ml-sm shadow-green" />
       </div>
     </div>
 
@@ -46,7 +46,6 @@
     </div>
 
     <div v-else>
-      
       <div v-if="viewMode === 'folders'" class="q-gutter-y-md animate-fade">
         <q-expansion-item 
           v-for="(machines, brandName) in groupedMachines" 
@@ -78,27 +77,18 @@
                     </div>
                     <q-item-label caption class="row items-center q-gutter-x-xs q-mt-xs text-grey-7">
                       <q-icon name="qr_code" size="xs" /><span>{{ machine.identifier || 'S/N' }}</span>
-                      <span class="text-grey-5">|</span>
-                      <q-icon name="speed" size="xs" /><span>{{ (machine.current_engine_hours || 0).toFixed(1) }} h</span>
                       <span v-if="machine.sap_resource_code" class="text-primary text-weight-bold q-ml-sm">
                          [SAP: {{ machine.sap_resource_code }}]
                       </span>
                     </q-item-label>
                     
-                    <div class="q-mt-xs" style="max-width: 180px">
-                        <div class="row justify-between text-caption" style="font-size: 10px; line-height: 10px">
-                          <span class="text-grey-7">Manutenção</span>
-                          <span :class="'text-weight-bold text-' + getMaintenanceColor(machine)">
-                             {{ getHoursRemaining(machine) }}h rest.
+                    <div class="q-mt-xs" style="max-width: 200px">
+                        <div class="row justify-between text-caption" style="font-size: 11px;">
+                          <span class="text-grey-7">Manutenção Preventiva</span>
+                          <span :class="'text-weight-bold text-' + getMaintenanceColor(machine.next_maintenance_date)">
+                             {{ formatDateDisplay(machine.next_maintenance_date) }}
                           </span>
                         </div>
-                        <q-linear-progress 
-                            :value="getMaintenanceProgress(machine)" 
-                            rounded size="4px" 
-                            :color="getMaintenanceColor(machine)" 
-                            track-color="grey-3" 
-                            class="q-mt-xs glass-progress" 
-                        />
                     </div>
                   </q-item-section>
                   <q-item-section side>
@@ -140,36 +130,13 @@
               </div>
             </q-card-section>
 
-            <q-card-section class="q-py-sm">
-                <div class="row items-center justify-between text-caption text-grey-7 q-mb-xs">
-                    <span>Prox. Revisão</span>
-                    <span :class="'text-weight-bold text-' + getMaintenanceColor(machine)">
-                        {{ getHoursRemaining(machine) }}h restantes
-                    </span>
-                </div>
-                <q-linear-progress 
-                    :value="1 - getMaintenanceProgress(machine)" 
-                    rounded 
-                    size="8px" 
-                    :color="getMaintenanceColor(machine)" 
-                    track-color="red-1"
-                    class="q-mb-sm glass-progress"
-                />
-            </q-card-section>
-
-            <q-card-section class="q-pt-none">
-                <div class="row q-col-gutter-sm">
-                  <div class="col-6">
-                    <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
-                      <div class="text-caption text-grey-6 text-uppercase">Horímetro</div>
-                      <div class="text-weight-bold text-primary">{{ (machine.current_engine_hours || 0).toFixed(0) }} h</div>
-                    </div>
+            <q-card-section class="q-pt-sm">
+                <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box row items-center justify-between">
+                  <div class="text-caption text-grey-6 text-uppercase flex items-center">
+                    <q-icon name="event" size="xs" class="q-mr-xs"/> Prox. Preventiva
                   </div>
-                  <div class="col-6">
-                    <div class="bg-grey-2 q-pa-sm rounded-borders glass-metric-box">
-                      <div class="text-caption text-grey-6 text-uppercase">Meta (h)</div>
-                      <div class="text-weight-bold text-grey-8">{{ machine.next_maintenance_km ? machine.next_maintenance_km.toFixed(0) : '--' }}</div>
-                    </div>
+                  <div :class="'text-weight-bold text-' + getMaintenanceColor(machine.next_maintenance_date)">
+                    {{ formatDateDisplay(machine.next_maintenance_date) }}
                   </div>
                 </div>
             </q-card-section>
@@ -185,134 +152,106 @@
     </div>
     
     <q-dialog v-model="isFormDialogOpen" persistent>
-        <q-card style="width: 600px; max-width: 95vw;" class="glass-card-dialog">
-          <q-card-section class="row items-center bg-primary text-white">
-            <div class="text-h6">{{ isEditing ? 'Editar Equipamento' : 'Novo Equipamento' }}</div>
-            <q-space />
-            <q-btn icon="close" flat round dense v-close-popup class="text-white" />
-          </q-card-section>
+    <q-card style="width: 600px; max-width: 95vw;" class="glass-card-dialog">
+      <q-card-section class="row items-center bg-primary text-white">
+        <div class="text-h6">{{ isEditing ? 'Editar Equipamento' : 'Novo Equipamento' }}</div>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup class="text-white" />
+      </q-card-section>
 
-          <q-form @submit.prevent="onFormSubmit">
-            <q-card-section class="q-gutter-y-md q-pt-lg">
-              
-              <div class="row justify-center q-mb-md">
-                  <div class="column items-center q-gutter-y-sm full-width">
-                     <q-avatar size="100px" rounded class="shadow-1 bg-grey-3">
-                        <img v-if="formData.photo_url" :src="getImageUrl(formData.photo_url)!" style="object-fit: cover">
-                        <q-icon v-else name="add_a_photo" color="grey-6" size="40px" />
-                        <div v-if="isUploading" class="absolute-full flex flex-center bg-white" style="opacity: 0.8"><q-spinner color="primary" size="2em" /></div>
-                     </q-avatar>
-                     <div class="row items-center q-gutter-x-sm">
-                       <q-file v-model="photoFile" label="Alterar Foto" outlined dense accept=".jpg, .png" class="glass-input" style="min-width: 200px" @update:model-value="handlePhotoUpload" :loading="isUploading">
-                         <template v-slot:prepend><q-icon name="cloud_upload" /></template>
-                       </q-file>
-                     </div>
-                  </div>
+      <q-form @submit.prevent="onFormSubmit">
+        <q-card-section class="q-gutter-y-sm q-pt-lg"> <div class="row justify-center q-mb-md">
+              <div class="column items-center q-gutter-y-sm full-width">
+                 <q-avatar size="100px" rounded class="shadow-1 bg-grey-3">
+                    <img v-if="formData.photo_url" :src="getImageUrl(formData.photo_url)!" style="object-fit: cover">
+                    <q-icon v-else name="add_a_photo" color="grey-6" size="40px" />
+                    <div v-if="isUploading" class="absolute-full flex flex-center bg-white" style="opacity: 0.8"><q-spinner color="primary" size="2em" /></div>
+                 </q-avatar>
+                 <div class="row items-center q-gutter-x-sm">
+                   <q-file 
+                    v-model="photoFile" 
+                    label="Alterar Foto" 
+                    outlined 
+                    dense 
+                    hide-bottom-space
+                    accept=".jpg, .png" 
+                    class="glass-input" 
+                    style="min-width: 200px" 
+                    @update:model-value="handlePhotoUpload" 
+                    :loading="isUploading"
+                   >
+                     <template v-slot:prepend><q-icon name="cloud_upload" /></template>
+                   </q-file>
+                 </div>
               </div>
+          </div>
 
-              <div class="row q-col-gutter-md">
-                  <div class="col-6"><q-input outlined v-model="formData.brand" label="Fabricante *" :rules="[val => !!val || 'Obrigatório']" dense class="glass-input" /></div>
-                  <div class="col-6"><q-input outlined v-model="formData.model" label="Modelo *" :rules="[val => !!val || 'Obrigatório']" dense class="glass-input" /></div>
+          <div class="row q-col-gutter-md">
+              <div class="col-6">
+                <q-input outlined v-model="formData.brand" label="Fabricante *" :rules="[val => !!val || 'Obrigatório']" dense hide-bottom-space class="glass-input" />
               </div>
+              <div class="col-6">
+                <q-input outlined v-model="formData.model" label="Modelo *" :rules="[val => !!val || 'Obrigatório']" dense hide-bottom-space class="glass-input" />
+              </div>
+          </div>
 
-              <div class="row q-col-gutter-md">
-                <div class="col-12 col-md-6">
+          <div class="row q-col-gutter-md q-mt-xs">
+            <div class="col-12 col-md-6">
+              <q-input 
+                outlined 
+                v-model="formData.identifier" 
+                label="TAG / Patrimônio *" 
+                :rules="[val => !!val || 'Obrigatório']" 
+                dense 
+                hide-bottom-space
+                class="glass-input"
+              />
+            </div>
+            
+            <div class="col-12 col-md-6">
+              <q-input 
+                outlined 
+                v-model="formData.sap_resource_code" 
+                label="Recurso SAP (Ex: 4.02.01)" 
+                dense 
+                hide-bottom-space
+                class="glass-input-highlight"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="integration_instructions" color="orange-8" size="xs" />
+                </template>
+              </q-input>
+            </div>
+          </div>
+          
+          <div class="row q-col-gutter-md q-mt-xs">
+              <div class="col-6">
+                <q-input outlined v-model.number="formData.year" label="Ano de Fabricação" type="number" dense hide-bottom-space class="glass-input" />
+              </div>
+              <div class="col-6">
                   <q-input 
                     outlined 
-                    v-model="formData.identifier" 
-                    label="Código do Ativo (AT...)" 
-                    :rules="[val => !!val || 'Obrigatório']" 
+                    v-model="formData.next_maintenance_date" 
+                    label="Prox. Manutenção" 
+                    mask="##/##/####"
                     dense 
+                    hide-bottom-space
                     class="glass-input"
-                  />
-                </div>
-                
-                <div class="col-12 col-md-6">
-                  <q-input 
-                    outlined 
-                    v-model="formData.sap_resource_code" 
-                    label="Recurso SAP (Ex: 4.02.01)" 
-                    hint="Usado para apontamento de produção"
-                    dense 
-                    class="glass-input-highlight"
                   >
-                    <template v-slot:prepend>
-                      <q-icon name="precision_manufacturing" color="orange-8" />
-                    </template>
+                     <template v-slot:prepend><q-icon name="event" color="primary" size="xs" /></template>
                   </q-input>
-                </div>
               </div>
+          </div>
 
-              <q-input outlined v-model="formData.license_plate" label="TAG / Patrimônio" dense class="glass-input" />
-              
-              <div class="row q-col-gutter-md">
-                  <div class="col-6"><q-input outlined v-model.number="formData.year" label="Ano" type="number" dense class="glass-input" /></div>
-                  
-                  <div class="col-6">
-                      <q-input 
-                        outlined 
-                        v-model.number="formData.current_engine_hours" 
-                        label="Horímetro Atual (h)" 
-                        type="number" 
-                        dense 
-                        class="glass-input"
-                        hint="Leitura atual da máquina"
-                        @update:model-value="recalcTarget" 
-                      />
-                  </div>
-              </div>
-
-              <div class="text-subtitle2 text-primary q-mt-md flex items-center">
-                  <q-icon name="build_circle" class="q-mr-xs"/> Plano de Manutenção
-              </div>
-              <div class="bg-glass-inner q-pa-md rounded-borders relative-position">
-                
-                <div class="row q-col-gutter-md items-start">
-                    <div class="col-6">
-                        <q-input 
-                            outlined 
-                            v-model.number="maintenanceInterval" 
-                            label="A cada X horas (Ciclo)" 
-                            type="number" 
-                            dense 
-                            class="glass-input"
-                            hint="Ex: 500 para revisar a cada 500h"
-                            @update:model-value="recalcTarget"
-                        >
-                            <template v-slot:append><span class="text-caption">h</span></template>
-                        </q-input>
-                    </div>
-
-                    <div class="col-6">
-                        <q-input 
-                            outlined 
-                            v-model.number="formData.next_maintenance_km" 
-                            label="Próxima Meta (h)" 
-                            type="number" 
-                            dense 
-                            class="glass-input"
-                            input-class="text-weight-bold"
-                            hint="Calculado: Atual + Ciclo"
-                        >
-                             <template v-slot:prepend><q-icon name="flag" color="orange"/></template>
-                        </q-input>
-                    </div>
-                </div>
-
-                <div class="text-caption text-grey-7 q-mt-sm">
-                    <q-icon name="info" /> 
-                    Ao definir o ciclo como <strong>{{ maintenanceInterval || 0 }}h</strong> e o horímetro atual sendo <strong>{{ formData.current_engine_hours || 0 }}h</strong>, a próxima revisão será agendada para <strong>{{ (formData.current_engine_hours || 0) + (maintenanceInterval || 0) }}h</strong>.
-                </div>
-              </div>
-
-            </q-card-section>
-            <q-card-actions align="right" class="q-pa-md bg-transparent">
-              <q-btn flat label="Cancelar" v-close-popup color="grey-8" />
-              <q-btn type="submit" unelevated color="primary" label="Salvar Dados" :loading="isSubmitting" />
-            </q-card-actions>
-          </q-form>
-        </q-card>
-    </q-dialog>
+        </q-card-section>
+        
+        <q-card-actions align="right" class="q-pa-md bg-transparent">
+          <q-btn flat label="Cancelar" v-close-popup color="grey-8" />
+          <q-btn type="submit" unelevated color="primary" label="Salvar Dados" :loading="isSubmitting" />
+        </q-card-actions>
+      </q-form>
+    </q-card>
+</q-dialog>
 
     <q-dialog v-model="isQrDialogOpen">
         <q-card style="width: 350px" class="glass-card-dialog">
@@ -341,14 +280,14 @@ import { useQuasar, setCssVar } from 'quasar';
 import { api } from 'boot/axios';
 import { useMachineStore } from 'stores/machine-store';
 import { useAuthStore } from 'stores/auth-store';
-import { useTerminologyStore } from 'stores/terminology-store';
+// REMOVIDO: import { useTerminologyStore } from 'stores/terminology-store';
 import { MachineStatus, type Machine, type MachineCreate, type MachineUpdate } from 'src/models/machine-models';
-import { format, parse, isValid } from 'date-fns';
+import { format, parse, isValid, isBefore, startOfDay } from 'date-fns';
 
 const $q = useQuasar();
 const machineStore = useMachineStore();
 const authStore = useAuthStore();
-const terminologyStore = useTerminologyStore();
+// REMOVIDO: const terminologyStore = useTerminologyStore();
 const router = useRouter();
 
 // --- ESTADO ---
@@ -370,12 +309,8 @@ interface MachineFormData {
     model: string;
     year: number;
     status: MachineStatus;
-    license_plate: string | null;
     identifier: string | null;
     sap_resource_code: string | null;
-    current_engine_hours: number;
-    current_km: number;
-    next_maintenance_km: number | null;
     next_maintenance_date: string | null;
     photo_url: string | null;
 }
@@ -385,17 +320,12 @@ const formData = ref<MachineFormData>({
     model: '',
     year: new Date().getFullYear(),
     status: MachineStatus.AVAILABLE,
-    license_plate: '',
     identifier: '',
     sap_resource_code: '', 
-    current_engine_hours: 0,
-    current_km: 0,
-    next_maintenance_km: null,
     next_maintenance_date: null,
     photo_url: null
 });
 
-const maintenanceInterval = ref<number>(0);
 
 // --- FILTROS ---
 const filteredList = computed(() => {
@@ -427,50 +357,67 @@ const groupedMachines = computed(() => {
 
 const hasMachines = computed(() => filteredList.value.length > 0);
 
-// --- CÁLCULOS VISUAIS ---
-
-function getHoursRemaining(machine: Machine) {
-    if (!machine.next_maintenance_km || !machine.current_engine_hours) return 0;
-    const remaining = machine.next_maintenance_km - machine.current_engine_hours;
-    return remaining > 0 ? remaining.toFixed(0) : 0;
+// --- CÁLCULOS VISUAIS DE DATA ---
+function formatDateDisplay(dateStr: string | null | undefined) {
+    if (!dateStr) return 'Não agendada';
+    try {
+        const d = new Date(dateStr);
+        // Corrige fuso horário para exibição local correta
+        const dtDateOnly = new Date(d.valueOf() + d.getTimezoneOffset() * 60 * 1000);
+        return format(dtDateOnly, 'dd/MM/yyyy');
+    } catch {
+        return 'Data Inválida';
+    }
 }
 
-function getMaintenanceProgress(machine: Machine) {
-    if (!machine.next_maintenance_km || !machine.current_engine_hours) return 0;
-    const remaining = machine.next_maintenance_km - machine.current_engine_hours;
-    if (remaining <= 0) return 1;
-    
-    const visualCycle = 500; 
-    const progress = (visualCycle - remaining) / visualCycle;
-    
-    if (progress < 0) return 0;
-    if (progress > 1) return 1;
-    return progress;
-}
+function getMaintenanceColor(dateStr: string | null | undefined) {
+    if (!dateStr) return 'grey-6';
+    try {
+        const targetDate = new Date(dateStr);
+        const fixedTargetDate = new Date(targetDate.valueOf() + targetDate.getTimezoneOffset() * 60 * 1000);
+        const today = startOfDay(new Date());
+        
+        if (isBefore(fixedTargetDate, today)) {
+            return 'negative'; // Atrasada
+        }
+        
+        // Se falta menos de 7 dias (604800000 ms)
+        const diffTime = fixedTargetDate.getTime() - today.getTime();
+        if (diffTime <= 604800000) {
+            return 'warning';
+        }
 
-function getMaintenanceColor(machine: Machine) {
-    const p = getMaintenanceProgress(machine);
-    if (p >= 1) return 'negative';
-    if (p > 0.8) return 'warning';
-    return 'positive';
+        return 'positive'; // OK
+    } catch {
+        return 'grey';
+    }
 }
 
 const statusTranslationShort: Record<MachineStatus, string> = {
     [MachineStatus.AVAILABLE]: 'Disp.',
     [MachineStatus.IN_USE]: 'Oper.',
-    [MachineStatus.MAINTENANCE]: 'Manut.'
+    [MachineStatus.MAINTENANCE]: 'Manut.',
+    [MachineStatus.IN_USE_AUTONOMOUS]: 'Auton.',
+    [MachineStatus.SETUP]: 'Setup',
+    [MachineStatus.STOPPED]: 'Parada'
 };
 
 const statusTranslation: Record<MachineStatus, string> = {
     [MachineStatus.AVAILABLE]: 'DISPONÍVEL',
     [MachineStatus.IN_USE]: 'EM OPERAÇÃO',
-    [MachineStatus.MAINTENANCE]: 'MANUTENÇÃO'
+    [MachineStatus.MAINTENANCE]: 'MANUTENÇÃO',
+    [MachineStatus.IN_USE_AUTONOMOUS]: 'AUTÔNOMA',
+    [MachineStatus.SETUP]: 'EM SETUP',
+    [MachineStatus.STOPPED]: 'PARADA'
 };
 
 const statusColors: Record<MachineStatus, string> = {
     [MachineStatus.AVAILABLE]: 'positive',
     [MachineStatus.IN_USE]: 'blue-8',
-    [MachineStatus.MAINTENANCE]: 'negative'
+    [MachineStatus.MAINTENANCE]: 'negative',
+    [MachineStatus.IN_USE_AUTONOMOUS]: 'teal-8',
+    [MachineStatus.SETUP]: 'orange-8',
+    [MachineStatus.STOPPED]: 'red-10'
 };
 
 function translateStatus(status: MachineStatus): string {
@@ -487,28 +434,14 @@ function getStatusColor(status: MachineStatus): string {
 
 // --- LÓGICA DO FORMULÁRIO ---
 
-function recalcTarget() {
-    const current = Number(formData.value.current_engine_hours || 0);
-    const interval = Number(maintenanceInterval.value || 0);
-    
-    if (interval > 0) {
-        formData.value.next_maintenance_km = current + interval;
-    }
-}
-
 function openCreateDialog() {
     editingMachineId.value = null;
     photoFile.value = null;
-    maintenanceInterval.value = 500;
     formData.value = {
         brand: '', model: '', year: new Date().getFullYear(),
         status: MachineStatus.AVAILABLE,
-        current_engine_hours: 0, 
-        current_km: 0, 
-        license_plate: '',
         identifier: '',
         sap_resource_code: '',
-        next_maintenance_km: 500,
         next_maintenance_date: null,
         photo_url: null
     };
@@ -518,26 +451,26 @@ function openCreateDialog() {
 function openEditDialog(machine: Machine) {
     editingMachineId.value = machine.id;
     photoFile.value = null;
-    
-    const remaining = (machine.next_maintenance_km || 0) - (machine.current_engine_hours || 0);
-    maintenanceInterval.value = remaining > 0 ? remaining : 0; 
 
-    const nextDate = machine.next_maintenance_date 
-        ? format(new Date(machine.next_maintenance_date), 'dd/MM/yyyy') 
-        : null;
+    let nextDateFormatted = null;
+    if (machine.next_maintenance_date) {
+         try {
+             const d = new Date(machine.next_maintenance_date);
+             const dtDateOnly = new Date(d.valueOf() + d.getTimezoneOffset() * 60 * 1000);
+             nextDateFormatted = format(dtDateOnly, 'dd/MM/yyyy');
+         } catch {
+             nextDateFormatted = null;
+         }
+    }
         
     formData.value = { 
         brand: machine.brand,
         model: machine.model,
         year: machine.year,
         status: machine.status,
-        license_plate: machine.license_plate ?? '',
         identifier: machine.identifier ?? '',
         sap_resource_code: machine.sap_resource_code ?? '', 
-        current_engine_hours: machine.current_engine_hours ?? 0,
-        current_km: machine.current_km,
-        next_maintenance_km: machine.next_maintenance_km ?? null,
-        next_maintenance_date: nextDate,
+        next_maintenance_date: nextDateFormatted,
         photo_url: machine.photo_url ?? null
     };
     isFormDialogOpen.value = true;
@@ -562,29 +495,21 @@ async function onFormSubmit() {
     try {
         const rawData = formData.value;
         
-        const commonPayload = {
+        const payload = {
             brand: rawData.brand,
             model: rawData.model,
             year: Number(rawData.year),
             status: rawData.status,
-            license_plate: rawData.license_plate || undefined,
             identifier: rawData.identifier || undefined,
             sap_resource_code: rawData.sap_resource_code || undefined, 
-            current_engine_hours: Number(rawData.current_engine_hours || 0),
-            next_maintenance_km: rawData.next_maintenance_km ? Number(rawData.next_maintenance_km) : undefined,
             next_maintenance_date: convertDateForBackend(rawData.next_maintenance_date) || undefined,
             photo_url: rawData.photo_url || undefined
         };
 
         if (isEditing.value && editingMachineId.value) {
-            const updatePayload: MachineUpdate = { ...commonPayload };
-            await machineStore.updateMachine(editingMachineId.value, updatePayload, currentParams);
+            await machineStore.updateMachine(editingMachineId.value, payload as MachineUpdate, currentParams);
         } else {
-            const createPayload: MachineCreate = { 
-                ...commonPayload, 
-                current_km: 0 
-            };
-            await machineStore.addNewMachine(createPayload, currentParams);
+            await machineStore.addNewMachine(payload as MachineCreate, currentParams);
         }
 
         isFormDialogOpen.value = false;
@@ -634,7 +559,7 @@ function handleCardClick(machine: Machine) {
 }
 
 function promptToDelete(machine: Machine) { 
-    $q.dialog({ title: 'Excluir', message: 'Tem certeza?', cancel: true }).onOk(() => {
+    $q.dialog({ title: 'Excluir', message: 'Confirma exclusão deste ativo?', cancel: true }).onOk(() => {
         void (async () => {
              await machineStore.deleteMachine(machine.id, currentParams); 
              await machineStore.fetchAllMachines(currentParams); 
@@ -651,7 +576,7 @@ onMounted(() => {
 <style scoped lang="scss">
 /* --- IDENTIDADE TRUCAR --- */
 .bg-glass-layout {
-  background-color: #f0f4f4; // Default Light
+  background-color: #f0f4f4; 
   min-height: 100vh;
   transition: background-color 0.3s;
 }
@@ -678,7 +603,7 @@ onMounted(() => {
 }
 
 .glass-input-highlight {
-  background: rgba(255, 235, 59, 0.1) !important; /* Amarelo leve */
+  background: rgba(255, 235, 59, 0.1) !important;
   backdrop-filter: blur(8px);
   border-radius: 4px;
 }
@@ -779,12 +704,6 @@ onMounted(() => {
   .q-btn-toggle {
     background: rgba(18, 140, 126, 0.1) !important;
     color: #b2dfdb !important;
-  }
-  
-  .glass-progress {
-    :deep(.q-linear-progress__track) {
-      opacity: 0.3;
-    }
   }
 }
 </style>

@@ -14,8 +14,8 @@ RM_SERVER = "192.168.0.3"
 RM_DATABASE = "CORPORERM_teste"
 RM_USER = "rm"
 RM_PASSWORD = "rm"
-# Usando o driver nativo pois é o que funcionou para você
-RM_DRIVER = "{SQL Server}"
+# Usando o OPERATOR nativo pois é o que funcionou para você
+RM_OPERATOR = "{SQL Server}"
 
 # --- FILTRO FABRIL ---
 # Lista de Seções que serão importadas (ignora administrativo)
@@ -30,7 +30,7 @@ class RMIntegrationService:
         self.org_id = organization_id
 
     def get_connection(self):
-        conn_str = f'DRIVER={RM_DRIVER};SERVER={RM_SERVER};DATABASE={RM_DATABASE};UID={RM_USER};PWD={RM_PASSWORD};TrustServerCertificate=yes;'
+        conn_str = f'OPERATOR={RM_OPERATOR};SERVER={RM_SERVER};DATABASE={RM_DATABASE};UID={RM_USER};PWD={RM_PASSWORD};TrustServerCertificate=yes;'
         try:
             return pyodbc.connect(conn_str, timeout=10)
         except Exception as e:
@@ -126,7 +126,7 @@ class RMIntegrationService:
                         email=email_final,
                         full_name=nome,
                         password="mudar123",
-                        role=UserRole.DRIVER,
+                        role=UserRole.OPERATOR,
                         organization_id=self.org_id,
                         phone=None,
                         job_title=cargo_rm # <--- AQUI SALVAMOS O CARGO AUTOMATICAMENTE
@@ -136,7 +136,7 @@ class RMIntegrationService:
                         self.db, 
                         user_in=user_in, 
                         organization_id=self.org_id, 
-                        role=UserRole.DRIVER
+                        role=UserRole.OPERATOR
                     )
                     
                     new_user.employee_id = chapa

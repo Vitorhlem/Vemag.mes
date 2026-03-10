@@ -2,17 +2,14 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from 'boot/axios';
 import { Notify } from 'quasar';
-import { isAxiosError } from 'axios';
 import type { UserNotificationPrefsUpdate } from 'src/models/user-models';
 import type {
   LoginForm,
   TokenData,
   User,
   UserSector,
-  PasswordRecoveryRequest,
-  PasswordResetRequest
 } from 'src/models/auth-models';
-import { useTerminologyStore } from './terminology-store';
+// REMOVIDO: import { useTerminologyStore } from './terminology-store';
 
 function getFromLocalStorage<T>(key: string): T | null {
   const itemString = localStorage.getItem(key);
@@ -37,10 +34,9 @@ export const useAuthStore = defineStore('auth', () => {
   const canEditMaintenance = computed(() => 
   ['admin', 'maintenance', 'pcp', 'quality', 'cliente_ativo'].includes(user.value?.role ?? '')
 );
-  const isDriver = computed(() => user.value?.role === 'driver');
+  const isoperator = computed(() => user.value?.role === 'operator');
   const userSector = computed((): UserSector => user.value?.organization?.sector ?? null);
   const isSuperuser = computed(() => user.value?.is_superuser === true);
-  const isDemo = computed(() => user.value?.role === 'cliente_demo');
   const isImpersonating = computed(() => !!originalUser.value);
 
   async function login(loginForm: LoginForm): Promise<void> {
@@ -140,49 +136,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     window.location.href = '/admin';
   }
-  
-  async function requestPasswordReset(payload: PasswordRecoveryRequest): Promise<void> {
-    try {
-      await api.post('/login/password-recovery', payload);
-      Notify.create({
-        type: 'positive',
-        message: 'Se o e-mail existir, um link de redefinição será enviado.',
-      });
-    } catch (error) {
-      console.error('Erro requestPasswordReset:', error);
-      Notify.create({
-        type: 'positive',
-        message: 'Se o e-mail existir, um link de redefinição será enviado.',
-      });
-    }
-  }
 
-  async function resetPassword(payload: PasswordResetRequest): Promise<boolean> {
-    try {
-      await api.post('/login/reset-password', payload);
-      Notify.create({
-        type: 'positive',
-        message: 'Senha redefinida! Faça login.',
-        icon: 'lock_reset'
-      });
-      return true;
-    } catch (error: unknown) {
-      console.error('Erro resetPassword:', error);
-      
-      let detail = 'Ocorreu um erro. Token inválido ou expirado.';
-      
-      if (isAxiosError(error) && error.response?.data?.detail) {
-        detail = error.response.data.detail;
-      }
-
-      Notify.create({
-        type: 'negative',
-        message: detail,
-        icon: 'error'
-      });
-      return false;
-    }
-  }
 
   function updateUser(updates: Partial<User>) {
     if (user.value) {
@@ -195,9 +149,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = token;
     user.value = userData;
 
-    if (userData.organization) {
-      useTerminologyStore().setSector(userData.organization.sector);
-    }
+    // REMOVIDO: useTerminologyStore().setSector(userData.organization.sector);
 
     localStorage.setItem('accessToken', token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -221,7 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    useTerminologyStore().setSector(user.value?.organization?.sector ?? null);
+    // REMOVIDO: useTerminologyStore().setSector(user.value?.organization?.sector ?? null);
   }
 
   init();
@@ -235,10 +187,9 @@ export const useAuthStore = defineStore('auth', () => {
     // Getters
     isAuthenticated,
     isManager,
-    isDriver,
+    isoperator,
     userSector,
     isSuperuser,
-    isDemo,
     isImpersonating,
     canEditMaintenance,
     
@@ -251,8 +202,5 @@ export const useAuthStore = defineStore('auth', () => {
     updateUser,
     startImpersonation,
     stopImpersonation,
-    requestPasswordReset,
-    resetPassword,
-    
   };
 });

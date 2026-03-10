@@ -74,114 +74,6 @@ def task_daily_closing_yesterday():
     
     return f"Fechamento do dia {yesterday} concluído."
 
-# --- TAREFA PRINCIPAL DE SINCRONISMO (SAP + MES) ---
-
-@celery_app.task(name="process_sap_appointment", bind=True, max_retries=5)
-def process_sap_appointment(self, appointment_data: dict, organization_id: int):
-    """
-    Processa dados do cockpit.
-    1. Normaliza tempo e identidade.
-    2. Evita duplicados já integrados.
-    3. Salva no banco local (MES).
-    4. Integra Produção e Paradas ao SAP.
-    """
-    async def _logic():
-        from app import crud
-        async with SessionLocal() as db:
-            # 1. TRATAMENTO DE TEMPO (Garante compatibilidade com Postgres)
-            raw_time = appointment_data.get('start_time') or appointment_data.get('timestamp')
-            if not raw_time:
-                return "Erro: Payload sem carimbo de tempo."
-
-            # ✅ CORREÇÃO: Verifica se é string ou se já é um objeto datetime
-            if isinstance(raw_time, datetime):
-                dt_naive = raw_time.replace(tzinfo=None)
-            elif isinstance(raw_time, str):
-                dt_naive = datetime.fromisoformat(raw_time.replace('Z', '+00:00')).replace(tzinfo=None)
-            else:
-                return "Erro: Tipo de data não suportado."
-
-            # 2. RESOLUÇÃO DE IDENTIDADE
-            op_badge = str(appointment_data.get('operator_id') or appointment_data.get('operator_badge') or "0")
-            vh_id = appointment_data.get('machine_id') or appointment_data.get('machine_id')
-
-            # 3. CHECAGEM DE DUPLICIDADE INTELIGENTE
-            stmt = select(ProductionAppointment).where(
-                ProductionAppointment.operator_id == op_badge,
-                ProductionAppointment.start_time == dt_naive,
-                ProductionAppointment.machine_id == vh_id
-            )
-            exists = (await db.execute(stmt)).scalars().first()
-            
-            # Se já existe e JÁ FOI pro SAP, não fazemos nada.
-            if exists and exists.sap_status == "SENT":
-                return f"Item já sincronizado anteriormente (ID: {exists.id})"
-
-            # 4. PERSISTÊNCIA NO BANCO LOCAL (MES)
-            if not exists:
-                new_entry = await crud.production.create_entry(db, obj_in=appointment_data)
-                
-            else:
-                new_entry = exists # Tenta reprocessar o que já existe no banco mas falhou no SAP
-
-            # Se for apenas um log de evento interno, paramos aqui
-            if new_entry == "LOG_SAVED":
-                return "Evento interno salvo na tabela de logs."
-
-            # 5. LÓGICA DE FILTRAGEM SAP (O Ponto Crítico)
-            is_stoppage = bool(appointment_data.get('stop_reason'))
-            has_op = bool(appointment_data.get('op_number'))
-
-            if is_stoppage or has_op:
-            # Chama o SAPIntegrationService...
-                pass
-
-            is_internal_log = bool(appointment_data.get('event_type'))
-
-            # Agora enviamos se tiver O.P. OU se for uma Parada (mesmo sem O.P.)
-            if not is_internal_log and (has_op or is_stoppage):
-                print(f"🏭 [SAP] Integrando {'PARADA' if is_stoppage else 'PRODUÇÃO'}...")
-                
-                sap_service = SAPIntegrationService(db, organization_id)
-                
-                try:
-                    success = await sap_service.create_production_appointment(
-                        appointment_data=appointment_data,
-                        sap_resource_code=appointment_data.get('resource_code', '')
-                    )
-
-                    if success:
-                        new_entry.sap_status = "SENT"
-                        new_entry.sap_message = f"OK: {datetime.now().strftime('%H:%M:%S')}"
-                    else:
-                        new_entry.sap_status = "ERROR"
-                        new_entry.sap_message = "Rejeitado pelo SAP Service Layer"
-                
-                except Exception as sap_err:
-                    new_entry.sap_status = "RETRY"
-                    new_entry.sap_message = str(sap_err)[:200]
-                    await db.commit()
-                    # Tenta novamente em 5 minutos se for erro de rede
-                    raise self.retry(exc=sap_err, countdown=300)
-
-            else:
-                new_entry.sap_status = "NOT_REQUIRED"
-                new_entry.sap_message = "Log interno / Status de máquina"
-
-            await db.commit()
-            return f"Finalizado: {new_entry.id} (SAP: {new_entry.sap_status})"
-
-    return run_async(_logic())
-
-# Configuração do Beat (No arquivo de configuração do Celery)
-celery_app.conf.beat_schedule = {
-    'fechamento-diario-meia-noite': {
-        'task': 'task_daily_closing_yesterday',
-        # Executa todo dia às 00:05 (Dá 5 minutos de margem para os últimos apontamentos do dia entrarem)
-        'schedule': crontab(hour=0, minute=5), 
-    },
-}
-
 # ============================================================================
 # TAREFA 1: APONTAMENTO (ESCRITA NO SAP E BANCO LOCAL)
 # ============================================================================
@@ -190,61 +82,124 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
     async def _logic():
         async with SessionLocal() as db:
             sap_service = SAPIntegrationService(db, organization_id)
-            print(f"🏭 [CELERY] Iniciando integração SAP para OP {appointment_data.get('op_number')}...")
+            print(f"🏭 [CELERY] Processando apontamento SAP para OP {appointment_data.get('op_number', 'N/A')}...")
             
-            # 1. Tenta enviar para o SAP
-            success = False
-            sap_msg = ""
-            try:
-                success = await sap_service.create_production_appointment(
-                    appointment_data=appointment_data,
-                    sap_resource_code=appointment_data.get('resource_code', '')
-                )
-                sap_msg = "Sincronizado via Celery" if success else "Rejeitado pelo SAP"
-            except Exception as sap_err:
-                sap_msg = f"Erro de rede: {str(sap_err)}"
-                print(f"❌ [CELERY] Falha na integração SAP: {sap_err}")
-            
-            # 2. Salva o Apontamento no MES Local
-            appt_type = "STOP" if appointment_data.get('stop_reason') else "PRODUCTION"
-            
-            # ✅ CORREÇÃO: Função inteligente para lidar com Data ou String
+            # 1. TRATAMENTO DE TEMPO
             def parse_date(dt_val):
-                if not dt_val:
-                    return None
-                if isinstance(dt_val, datetime):
-                    return dt_val.replace(tzinfo=None)
-                if isinstance(dt_val, str):
-                    return datetime.fromisoformat(dt_val.replace('Z', '+00:00')).replace(tzinfo=None)
+                if not dt_val: return None
+                if isinstance(dt_val, datetime): return dt_val.replace(tzinfo=None)
+                if isinstance(dt_val, str): return datetime.fromisoformat(dt_val.replace('Z', '+00:00')).replace(tzinfo=None)
                 return None
 
-            start_t = parse_date(appointment_data.get('start_time'))
+            start_t = parse_date(appointment_data.get('start_time') or appointment_data.get('timestamp'))
             end_t = parse_date(appointment_data.get('end_time'))
+            
+            op_badge = str(appointment_data.get('operator_badge') or appointment_data.get('operator_id') or "0")
+            m_id = appointment_data.get('machine_id')
 
-            new_appointment = ProductionAppointment(
-                op_number=appointment_data.get('op_number'),
-                operator_id=str(appointment_data.get('operator_id', '0')),
-                machine_id=appointment_data.get('machine_id'),
-                start_time=start_t,
-                end_time=end_t,
-                position=appointment_data.get('position'),
-                operation_code=appointment_data.get('operation'),
-                appointment_type=appt_type,
-                stop_reason=appointment_data.get('stop_reason'),
-                sap_status="SENT" if success else "ERROR",
-                sap_message=sap_msg
+            # 2. CHECAGEM DE DUPLICIDADE (Usando o novo campo 'operator_badge')
+            stmt = select(ProductionAppointment).where(
+                ProductionAppointment.operator_badge == op_badge,
+                ProductionAppointment.start_time == start_t,
+                ProductionAppointment.machine_id == m_id
             )
-            db.add(new_appointment)
-            await db.commit()
-            print(f"✅ [CELERY] Apontamento local salvo. ID: {new_appointment.id}")
+            existing_appt = (await db.execute(stmt)).scalars().first()
+            
+            if existing_appt and existing_appt.sap_status == "SENT":
+                return f"Apontamento já sincronizado no SAP (ID: {existing_appt.id})"
 
-            # 3. Dispara Push Notification se for Manutenção (Cód 21)
+            # 3. LÓGICA DE DETECÇÃO DE EVENTOS
+            is_internal_log = bool(appointment_data.get('event_type'))
+            op_number_raw = str(appointment_data.get('op_number', ''))
+            is_os = op_number_raw.startswith("OS-")
+            is_stop_reason = bool(appointment_data.get('stop_reason'))
+            is_setup_desc = "setup" in str(appointment_data.get('stop_description', '')).lower()
+            is_stop = is_stop_reason or is_setup_desc
+            has_op = bool(op_number_raw)
+
+            # 4. ENVIO PARA O SAP (Só envia se tiver OP ou for parada)
+            success = False
+            sap_msg = "Log interno salvo apenas no MES"
+            
+            if not is_internal_log and (has_op or is_stop):
+                try:
+                    success = await sap_service.create_production_appointment(
+                        appointment_data=appointment_data,
+                        sap_resource_code=appointment_data.get('resource_code', '')
+                    )
+                    sap_msg = "Sincronizado via Celery" if success else "Rejeitado pelo SAP"
+                except Exception as sap_err:
+                    sap_msg = f"Erro de rede: {str(sap_err)}"
+                    print(f"❌ [CELERY] Falha na integração SAP: {sap_err}")
+
+            # 5. PREPARAR CAMPOS ESPELHADOS PARA O BANCO LOCAL
+            if is_os and '-' in op_number_raw:
+                try: final_doc_num = op_number_raw.split('-')[1]
+                except: final_doc_num = op_number_raw
+            else:
+                final_doc_num = op_number_raw
+
+            u_tipo_doc = "2" if (is_stop or is_os) else "1"
+            u_servico = str(appointment_data.get('item_code', '')) if is_os else None
+            is_setup_val = "S" if is_setup_desc else "N"
+            is_apto_parada = "S" if (is_stop_reason or is_setup_val == "S") else "N"
+            
+            if is_stop:
+                posicao_final = ""
+                operacao_final = ""
+            else:
+                posicao_final = str(appointment_data.get('position', ''))
+                operacao_final = str(appointment_data.get('operation', ''))
+                
+            raw_op_id = str(appointment_data.get('operator_id', '0'))
+            clean_op_id = raw_op_id.lstrip('0')[:-1] if len(raw_op_id) > 1 and raw_op_id.isdigit() else raw_op_id
+
+            # Se já existe (mas falhou antes), apenas atualiza o status. Se não, cria um novo.
+            if not existing_appt:
+                existing_appt = ProductionAppointment(
+                    machine_id=m_id,
+                    operator_badge=op_badge,
+                    appointment_type="STOP" if is_stop else "PRODUCTION",
+                    start_time=start_t,
+                    end_time=end_t or start_t, 
+                    
+                    # Campos SAP
+                    sap_doc_num=final_doc_num,
+                    sap_position=posicao_final,
+                    sap_operation_code=operacao_final,
+                    sap_operation_desc=appointment_data.get('operation_desc', ''),
+                    sap_service_desc=appointment_data.get('part_description', ''),
+                    sap_operator_name=appointment_data.get('operator_name', ''),
+                    operator_id=clean_op_id, 
+                    sap_resource_code=appointment_data.get('resource_code', ''),
+                    sap_resource_name=appointment_data.get('resource_name', ''),
+                    sap_data_source="I",
+                    sap_doc_type=u_tipo_doc,
+                    sap_origin="S",
+                    sap_service_code=u_servico,
+                    sap_stop_reason_code=appointment_data.get('stop_reason', ""),
+                    sap_stop_reason_desc=appointment_data.get('stop_description', ""),
+                    sap_is_setup=is_setup_val,
+                    sap_stoppage_apt=is_apto_parada,
+                    
+                    sap_status="SENT" if success else ("ERROR" if not is_internal_log else "NOT_REQUIRED"),
+                    sap_message=sap_msg
+                )
+                db.add(existing_appt)
+            else:
+                existing_appt.sap_status = "SENT" if success else "ERROR"
+                existing_appt.sap_message = sap_msg
+
+            await db.commit()
+            print(f"✅ [CELERY] Apontamento local espelhado salvo. ID: {existing_appt.id}")
+
+            # 6. DISPARA NOTIFICAÇÃO PUSH SE FOR MANUTENÇÃO (Cód 21 ou 34)
             reason = str(appointment_data.get('stop_reason'))
             if reason in ['21', '34']:
                 from app.services.fcm_service import enviar_push_lista
                 from app.models.user_model import User, UserRole
                 from app.models.machine_model import Machine
-                machine = await db.get(Machine, appointment_data.get('machine_id'))
+                machine = await db.get(Machine, m_id)
                 m_name = f"{machine.brand} {machine.model}" if machine else "Máquina"
                 
                 query = select(User.device_token).where(

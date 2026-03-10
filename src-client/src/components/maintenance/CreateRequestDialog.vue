@@ -109,7 +109,7 @@ onMounted(async () => {
   await machineStore.fetchAllMachines({ rowsPerPage: 100 });
   machineOptions.value = machineStore.machines.map(v => ({
     id: v.id,
-    identifier: `${v.brand} ${v.model} (Tag: ${v.license_plate || v.identifier || 'N/A'})`
+    identifier: `${v.brand} ${v.model} (Tag: ${v.identifier || v.identifier || 'N/A'})`
   }));
 });
 
@@ -139,8 +139,7 @@ async function onSubmit() {
     machine_id: form.value.machine_id,
     problem_description: form.value.problem_description,
     category: form.value.category,
-    // CORREÇÃO: Envia o tipo selecionado (Preventiva/Corretiva) para o Backend
-    maintenance_type: form.value.maintenance_type 
+    maintenance_type: form.value.maintenance_type as "CORRETIVA" | "PREVENTIVA"
   });
   loading.value = false;
 

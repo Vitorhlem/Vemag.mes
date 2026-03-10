@@ -150,8 +150,7 @@ const isEditing = computed(() => editingUserId.value !== null);
 // --- OPÇÕES DE CARGO (ROLES) - MES ---
 const roleOptions = computed(() => {
   const options = [
-    { label: 'Colaborador (Padrão)', value: 'driver', icon: 'badge', color: 'green-7', description: 'Acesso Básico' },
-    { label: 'Operador de Máquina', value: 'operator', icon: 'engineering', color: 'blue-grey', description: 'Acesso ao Kiosk de Produção' },
+    { label: 'Colaborador (Padrão)', value: 'operator', icon: 'badge', color: 'green-7', description: 'Acesso Básico' },
     { label: 'Manutenção', value: 'maintenance', icon: 'build', color: 'orange-9', description: 'Recebe chamados de quebra' },
     { label: 'Qualidade', value: 'quality', icon: 'verified', color: 'purple-9', description: 'Aprova peças e inspeções' },
     { label: 'Logística Interna', value: 'logistics', icon: 'forklift', color: 'brown', description: 'Abastecimento de linha' },
@@ -201,7 +200,7 @@ function resetForm() {
   formData.value = { 
     full_name: '', 
     email: '', 
-    role: 'driver', 
+    role: 'operator', 
     password: '', 
     is_active: true, 
     employee_id: '',

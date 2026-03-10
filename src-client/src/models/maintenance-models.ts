@@ -110,7 +110,6 @@ export interface MaintenanceRequestUpdate {
   status: MaintenanceStatus;
   manager_notes?: string | null;
   next_maintenance_date?: string | null; 
-  next_maintenance_km?: number | null;
 }
 
 export interface MaintenanceCommentCreate {

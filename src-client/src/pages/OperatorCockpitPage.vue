@@ -145,22 +145,18 @@
                       <div class="column items-end">
                           <div class="text-overline text-grey-7" style="line-height: 1;">META TOTAL</div>
                           <div class="text-subtitle1 text-weight-bold">
-                              {{ productionStore.activeOrder?.produced_quantity || 0 }} / 
-                              {{ productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 0 }} 
                               <span class="text-caption text-weight-bolder text-grey-8">{{ productionStore.activeOrder?.uom || 'pç' }}</span>
                           </div>
                       </div>
                       <q-circular-progress
                           show-value 
                           font-size="10px"
-                          :value="((productionStore.activeOrder?.produced_quantity || 0) / (productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 1)) * 100"
                           size="35px" 
                           :thickness="0.25" 
                           color="orange-8" 
                           track-color="grey-3" 
                           class="text-bold"
                       >
-                          {{ Math.round(((productionStore.activeOrder?.produced_quantity || 0) / (productionStore.activeOrder?.planned_qty || productionStore.activeOrder?.target_quantity || 1)) * 100) }}%
                       </q-circular-progress>
                     </div>
 
@@ -556,7 +552,7 @@ const productionStore = useProductionStore();
 const authStore = useAuthStore();
 const { activeOrder } = storeToRefs(productionStore); 
 const isShiftChangeDialogOpen = ref(false);
-const logoPath = ref('/Logo-Oficial.png');
+const logoPath = ref('/WhiteLogo.png');
 const opNumberToSend = computed(() => {
   if (!productionStore.activeOrder) return '';
   const order = productionStore.activeOrder;
@@ -1273,7 +1269,7 @@ const onKeydown = (e: KeyboardEvent) => {
 };
 
 async function handleGlobalKeydown(event: KeyboardEvent) {
-  // Ignora se o foco estiver em um campo de input (para não bugar digitação normal)
+  // Ignora se o foco estiver em um campo de input
   if ((event.target as HTMLElement).tagName === 'INPUT') return;
 
   if (event.key === 'Enter') {
@@ -1292,8 +1288,14 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
             message: `Olá, ${authStore.user.full_name}`,
             icon: 'person' 
           });
+
+          // 🚀 CORREÇÃO: Abre a lista de OPs automaticamente após o login do crachá
+          // Verifica se não há uma OP já rodando antes de abrir a lista
+          if (!productionStore.activeOrder) {
+             await openOpListDialog();
+          }
+
         } else {
-          // Fallback caso o user não venha completo
           productionStore.currentOperatorBadge = scannedBadge;
         }
       } catch (e) {

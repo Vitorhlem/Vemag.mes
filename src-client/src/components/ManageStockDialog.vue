@@ -151,11 +151,11 @@ function filterMachines (val: string, update: (callbackFn: () => void) => void) 
     const source = machineStore.machines; 
     
     if (val === '') {
-      machineOptions.value = source.map(v => ({ label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`, value: v.id }));
+      machineOptions.value = source.map(v => ({ label: `${v.brand} ${v.model} (${v.identifier || v.identifier})`, value: v.id }));
     } else {
       machineOptions.value = source
         .filter(v => JSON.stringify(v).toLowerCase().includes(needle))
-        .map(v => ({ label: `${v.brand} ${v.model} (${v.license_plate || v.identifier})`, value: v.id }));
+        .map(v => ({ label: `${v.brand} ${v.model} (${v.identifier || v.identifier})`, value: v.id }));
     }
   });
 }

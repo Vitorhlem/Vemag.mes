@@ -41,17 +41,17 @@ async def get_multi_by_org(
     skip: int = 0,
     limit: int = 100,
     expiring_in_days: Optional[int] = None,
-    driver_id: Optional[int] = None # <--- NOVO PARÂMETRO DE FILTRO
+    operator_id: Optional[int] = None # <--- NOVO PARÂMETRO DE FILTRO
 ) -> List[DocumentPublic]:
     """
     Busca uma lista de documentos para uma organização, com paginação e filtros.
     Se 'expiring_in_days' for fornecido, filtra por documentos que vencem nesse período.
-    Se 'driver_id' for fornecido, retorna apenas documentos desse motorista.
+    Se 'operator_id' for fornecido, retorna apenas documentos desse motorista.
     """
     stmt = (
         select(Document)
         .where(Document.organization_id == organization_id)
-        .options(selectinload(Document.machine), selectinload(Document.driver))
+        .options(selectinload(Document.machine), selectinload(Document.operator))
         .order_by(Document.expiry_date.asc())
     )
 
@@ -61,8 +61,8 @@ async def get_multi_by_org(
         stmt = stmt.where(Document.expiry_date.between(today, future_date))
 
     # --- FILTRO DE MOTORISTA ---
-    if driver_id is not None:
-        stmt = stmt.where(Document.driver_id == driver_id)
+    if operator_id is not None:
+        stmt = stmt.where(Document.operator_id == operator_id)
     # ---------------------------
 
     stmt = stmt.offset(skip).limit(limit)
@@ -75,9 +75,9 @@ async def get_multi_by_org(
     for doc in documents:
         doc_public = DocumentPublic.from_orm(doc)
         if doc.machine:
-            doc_public.owner_info = f"Veículo: {doc.machine.license_plate or doc.machine.identifier}"
-        elif doc.driver:
-            doc_public.owner_info = f"Motorista: {doc.driver.full_name}"
+            doc_public.owner_info = f"Veículo: {doc.machine.identifier or doc.machine.identifier}"
+        elif doc.operator:
+            doc_public.owner_info = f"Motorista: {doc.operator.full_name}"
         response_documents.append(doc_public)
         
     return response_documents

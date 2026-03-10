@@ -1,2 +1,3 @@
 celery -A app.core.celery_app worker -P solo -l INFO
 celery -A app.core.celery_app beat -l INFO
+

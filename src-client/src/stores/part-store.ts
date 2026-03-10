@@ -4,12 +4,11 @@ import { Notify } from 'quasar';
 import { isAxiosError } from 'axios';
 import type { Part, PartCreate } from 'src/models/part-models';
 import type { InventoryTransaction } from 'src/models/inventory-transaction-models';
-// --- 1. IMPORTAR O NOVO MODELO ---
 import type { 
   InventoryItem, 
   InventoryItemDetails, 
-  InventoryItemPage, // <-- Adicionado
-  InventoryItemRow  // <-- Adicionado
+  InventoryItemPage,
+  InventoryItemRow 
 } from 'src/models/inventory-item-models';
 import { InventoryItemStatus } from 'src/models/inventory-item-models';
 
@@ -25,10 +24,8 @@ export const usePartStore = defineStore('part', {
     selectedPartHistory: [] as InventoryTransaction[],
     availableItems: [] as InventoryItem[], 
     
-    // --- 2. NOVO STATE PARA A PÁGINA ---
     selectedItemDetails: null as InventoryItemDetails | null,
     isItemDetailsLoading: false,
-    // --- FIM DO NOVO STATE ---
     
     masterItemList: [] as InventoryItemRow[],
     isMasterListLoading: false,
@@ -72,7 +69,7 @@ export const usePartStore = defineStore('part', {
           part_id: options.partId || undefined,
           machine_id: options.machineId || undefined,
           search: options.search || undefined,
-          user_id: options.userId || undefined, // <-- ADICIONE ESTA LINHA PARA ENVIAR À API
+          user_id: options.userId || undefined, 
         };
     
         const response = await api.get<InventoryItemPage>('/parts/inventory/items/', { params });
@@ -98,7 +95,6 @@ export const usePartStore = defineStore('part', {
               }
           });
           
-          // --- CORREÇÃO: Anexar os arquivos ao FormData ---
           if (payload.photo_file) {
               formData.append('file', payload.photo_file);
           }
@@ -160,8 +156,6 @@ export const usePartStore = defineStore('part', {
         Notify.create({ type: 'positive', message: 'Peça removida com sucesso.' });
         await this.fetchParts();
       } catch (error) {
-        // --- CORREÇÃO AQUI ---
-        // Capturamos a mensagem específica do 409 enviada pelo backend
         const message = isAxiosError(error) && error.response?.data?.detail 
           ? error.response.data.detail 
           : 'Erro ao remover a peça.';
@@ -169,7 +163,7 @@ export const usePartStore = defineStore('part', {
         Notify.create({ 
           type: 'negative', 
           message: message as string,
-          timeout: 5000 // Tempo maior para ler a mensagem longa
+          timeout: 5000 
         });
       } finally {
         this.isLoading = false;
@@ -182,7 +176,6 @@ export const usePartStore = defineStore('part', {
         const payload = { quantity, notes };
         await api.post(`/parts/${partId}/add-items`, payload);
         
-        // Recarregar a lista do zero
         await this.fetchParts();
 
         Notify.create({ type: 'positive', message: `${quantity} itens adicionados com sucesso!` });
@@ -213,12 +206,10 @@ export const usePartStore = defineStore('part', {
       }
     },
 
-    // --- 3. NOVA ACTION PARA BUSCAR OS DETALHES ---
     async fetchItemDetails(itemId: number) {
       this.isItemDetailsLoading = true;
       this.selectedItemDetails = null;
       try {
-        // Usamos o novo endpoint e o novo modelo
         const response = await api.get<InventoryItemDetails>(`/parts/items/${itemId}`);
         this.selectedItemDetails = response.data;
       } catch (error) {
@@ -228,7 +219,6 @@ export const usePartStore = defineStore('part', {
         this.isItemDetailsLoading = false;
       }
     },
-    // --- FIM DA NOVA ACTION ---
 
     async fetchAvailableItems(partId: number) {
       this.isItemsLoading = true;
@@ -236,7 +226,6 @@ export const usePartStore = defineStore('part', {
       try {
         const response = await api.get<InventoryItem[]>(`/parts/${partId}/items`, {
           params: { 
-            // Substitua a string hardcoded pelo Enum
             status: InventoryItemStatus.DISPONIVEL 
           }
         });

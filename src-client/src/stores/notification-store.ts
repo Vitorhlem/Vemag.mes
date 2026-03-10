@@ -52,7 +52,6 @@ export const useNotificationStore = defineStore('notification', {
     async handleNotificationClick(notification: Notification): Promise<RouteLocationRaw | null> {
       let updatedNotification = notification;
 
-      // 1. Marca como lida no backend
       if (!notification.is_read) {
         const result = await this.markAsRead(notification.id);
         if (result) {
@@ -60,23 +59,17 @@ export const useNotificationStore = defineStore('notification', {
         }
       }
 
-      // 2. Decide a rota
       return this.getNotificationRoute(updatedNotification);
     },
 
-    // --- LÓGICA DE ROTEAMENTO CORRIGIDA E ROBUSTA ---
     getNotificationRoute(notification: Notification): RouteLocationRaw | null {
-      // 1. Normalização: Converte para minúsculo para evitar erro de Case Sensitivity
       const type = (notification.notification_type || '').toLowerCase();
       
-      // LOG DE DEBUG: Abra o console do navegador (F12) para ver isso
       console.log('Tentando navegar. Tipo recebido:', type, 'Dados completos:', notification);
 
       switch (type) {
         
-        // --- MANUTENÇÃO ---
         case 'maintenance_due_date':
-        case 'maintenance_due_km':
           if (notification.related_machine_id) {
             return { 
               name: 'machine-details', 
@@ -90,7 +83,6 @@ export const useNotificationStore = defineStore('notification', {
         case 'maintenance_request_new_comment':
           return { name: 'maintenance' };
 
-        // --- DOCUMENTOS ---
         case 'document_expiring':
           if (notification.related_machine_id) {
             return { 
@@ -100,36 +92,11 @@ export const useNotificationStore = defineStore('notification', {
           }
           return { name: 'documents' };
 
-        // --- COMBUSTÍVEL E CUSTOS ---
         case 'cost_exceeded':
           return { name: 'costs' };
 
-        // --- ESTOQUE / PEÇAS ---
         case 'low_stock':
           return { name: 'parts' };
-
-        case 'tire_status_bad':
-          if (notification.related_machine_id) {
-            return { 
-              name: 'machine-details', 
-              params: { id: notification.related_machine_id.toString() }
-            };
-          }
-          return { name: 'machines' };
-
-        // --- OPERACIONAL / JORNADAS ---
-        case 'journey_started':
-        case 'journey_ended':
-          return { name: 'journeys' };
-
-        case 'freight_assigned':
-        case 'freight_updated':
-          return { path: '/freight-orders' };
-
-        // --- GAMIFICAÇÃO ---
-        case 'achievement_unlocked':
-        case 'leaderboard_top3':
-          return { name: 'performance' };
 
         default:
           console.warn(`ALERTA: Tipo de notificação desconhecido: "${type}". Redirecionando para Dashboard.`);

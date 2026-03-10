@@ -149,7 +149,7 @@
               <q-avatar icon="precision_manufacturing" size="sm" color="secondary" text-color="white" class="q-mr-sm" font-size="16px" />
               <div class="ellipsis">
                   <div class="text-weight-medium ellipsis">{{ props.value.brand }} {{ props.value.model }}</div>
-                  <div class="text-caption text-grey ellipsis">Tag: {{ props.value.license_plate || props.value.identifier }}</div>
+                  <div class="text-caption text-grey ellipsis">Tag: {{ props.value.identifier || props.value.identifier }}</div>
               </div>
             </router-link>
             <span v-else class="text-grey-5 text-italic flex items-center no-wrap">
@@ -179,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useQuasar, exportFile } from 'quasar';
 import { usePartStore } from 'stores/part-store';
 import { useAuthStore } from 'stores/auth-store';
@@ -225,24 +225,24 @@ const columns: QTableProps['columns'] = [
 ];
 
 async function fetchTableData() {
-  // Pega o ID apenas se for Manutenção, senão manda null (vê tudo)
-  const technicalUserId = authStore.user?.role === 'Manutenção' 
+  const technicalUserId = authStore.user?.role === 'maintenance'
     ? authStore.user.id 
-    : null;
+    : undefined;
 
   await partStore.fetchMasterItems({
     page: pagination.value.page,
     rowsPerPage: pagination.value.rowsPerPage,
-    status: filters.value.status || null,
-    partId: filters.value.partId,
-    machineId: filters.value.machineId,
-    search: filters.value.search,
-    userId: technicalUserId, // <-- PASSA O ID PARA A STORE
+    
+    status: filters.value.status || null, 
+    partId: filters.value.partId ?? null,
+    machineId: filters.value.machineId ?? null,
+    search: filters.value.search ?? null,
+    
+    ...(technicalUserId !== undefined ? { userId: technicalUserId } : {})
   });
   
   pagination.value.rowsNumber = partStore.masterListTotal;
 }
-
 const onTableRequest: QTableProps['onRequest'] = (props) => {
   pagination.value.page = props.pagination.page;
   pagination.value.rowsPerPage = props.pagination.rowsPerPage;
@@ -265,7 +265,7 @@ function exportTable() {
         `"${row.part.name}"`,
         row.item_identifier,
         row.status,
-        row.installed_on_machine ? row.installed_on_machine.license_plate : 'Almoxarifado'
+        row.installed_on_machine ? row.installed_on_machine.identifier : 'Almoxarifado'
       ].join(';'))
     ].join('\r\n');
 

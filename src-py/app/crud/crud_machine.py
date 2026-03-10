@@ -33,7 +33,7 @@ async def get_multi_by_org(
             or_(
                 func.lower(Machine.brand).like(search_term),
                 func.lower(Machine.model).like(search_term),
-                func.lower(Machine.license_plate).like(search_term),
+                func.lower(Machine.identifier).like(search_term),
                 func.lower(Machine.identifier).like(search_term)
             )
         )
@@ -52,7 +52,7 @@ async def count_by_org(db: AsyncSession, *, organization_id: int, search: Option
             or_(
                 func.lower(Machine.brand).like(search_term),
                 func.lower(Machine.model).like(search_term),
-                func.lower(Machine.license_plate).like(search_term),
+                func.lower(Machine.identifier).like(search_term),
                 func.lower(Machine.identifier).like(search_term)
             )
         )

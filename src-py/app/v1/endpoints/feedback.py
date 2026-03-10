@@ -11,8 +11,6 @@ from app.crud import crud_feedback
 from app.schemas.feedback_schema import FeedbackCreate, FeedbackResponse
 from app.models.user_model import User
 from app.core.config import settings
-from app.core.email_utils import send_email
-from app.tasks.email_tasks import send_email_async
 
 router = APIRouter()
 

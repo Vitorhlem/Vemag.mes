@@ -32,9 +32,8 @@ export default route(function (/* { store, ssrContext } */) {
 
     const userRole = authStore.user?.role || '';
 
-    // 3. Lógica de Redirecionamento Inteligente da Raiz
     if (to.path === '/' || to.name === 'dashboard') {
-      if (userRole === 'driver') {
+      if (userRole === 'operator') {
         return next({ name: 'machine-kiosk' });
       }
       if (userRole === 'maintenance') {
@@ -50,7 +49,6 @@ export default route(function (/* { store, ssrContext } */) {
         return next();
       }
 
-      // FALLBACK PARA OUTROS CARGOS (Quality, etc) -> Andon TELA CHEIA
       if (to.name !== 'andon-full') {
         return next({ name: 'andon-full' });
       }
@@ -62,20 +60,17 @@ export default route(function (/* { store, ssrContext } */) {
         console.warn(`Acesso negado: Usuário ${userRole} tentou acessar ${to.path}`);
         
         // Redirecionamento de Segurança baseado no cargo
-        if (userRole === 'driver') return next({ name: 'machine-kiosk' });
+        if (userRole === 'operator') return next({ name: 'machine-kiosk' });
         if (userRole === 'maintenance') return next({ name: 'manutencao' });
         if (userRole === 'pcp') return next({ name: 'dashboard' });
         
-        // Se for qualidade ou outro setor tentando entrar no Admin/Dashboard
         if (to.name !== 'andon-full') {
           return next({ name: 'andon-full' });
         }
       }
     }
 
-    if (to.name === 'driver-cockpit') {
-       return next({ name: 'machine-kiosk' });
-    }
+    // 🚀 O BLOQUEIO FANTASMA FOI REMOVIDO DAQUI!
 
     next();
   });

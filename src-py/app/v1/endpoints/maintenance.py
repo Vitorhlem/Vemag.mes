@@ -11,7 +11,6 @@ from app.services.production_service import ProductionService
 from app.schemas.production_schema import ProductionEventCreate
 from app import crud, deps
 from app.core.config import settings 
-from app.core.email_utils import send_email 
 from app.models.user_model import User, UserRole
 from app.core.websocket_manager import manager
 # Schemas
@@ -39,30 +38,6 @@ except ImportError:
 
 router = APIRouter()
 
-# --- EMAIL HELPER ---
-def send_email_background_task(manager_emails: List[str], request_id: int, reporter_name: str, machine_info: str, description: str, category: str):
-    if not manager_emails: return
-    subject = f"Novo Chamado de Manutenção Aberto - TruCar #{request_id}"
-    frontend_link = "https://trucar.netlify.app/#/maintenance" 
-    message_html = f"""
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <body>
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
-            <h2 style="color: #2D3748;">TruCar - Novo Chamado #{request_id}</h2>
-            <p>Solicitante: {reporter_name}</p>
-            <p>Veículo: {machine_info}</p>
-            <p>Categoria: {category}</p>
-            <p><b>Problema:</b> {description}</p>
-            <a href="{frontend_link}" style="background: #3B82F6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ver Sistema</a>
-        </div>
-    </body>
-    </html>
-    """
-    try:
-        send_email(to_emails=manager_emails, subject=subject, message_html=message_html)
-    except Exception as e:
-        print(f"Erro ao enviar email: {e}")
 
 # ============================================================================
 # ROTAS
@@ -226,8 +201,8 @@ async def create_maintenance_request(
         if current_user.email and current_user.email not in managers: managers.append(current_user.email)
         
         if managers:
-            v_info = f"{request.machine.brand} {request.machine.model} ({request.machine.license_plate or 'S/ Placa'})"
-            background_tasks.add_task(send_email_background_task, managers, request.id, current_user.full_name, v_info, request.problem_description, request.category.value)
+            v_info = f"{request.machine.brand} {request.machine.model} (Tag: {request.machine.identifier or 'N/A'})"
+            background_tasks.add_task(managers, request.id, current_user.full_name, v_info, request.problem_description, request.category.value)
 
         # Audit
         await crud_audit_log.create(db=db, log_in=AuditLogCreate(
@@ -257,7 +232,7 @@ async def read_maintenance_requests(
         db=db, organization_id=current_user.organization_id, 
         search=search, skip=skip, limit=limit, machine_id=machineId
     )
-    if current_user.role == UserRole.DRIVER: # Ou OPERATOR
+    if current_user.role == UserRole.OPERATOR: # Ou OPERATOR
         return [req for req in requests if req.reported_by_id == current_user.id]
     return requests
 
@@ -327,7 +302,7 @@ async def update_request_status(
                     "type": "MACHINE_STATUS_CHANGED",
                     "machine_id": machine.id,
                     "status": "AVAILABLE"
-                })
+                }, org_id=machine.organization_id)  # 👈 CORREÇÃO: Adicionado org_id aqui!
             except Exception as e:
                 print(f"⚠️ Erro ao tentar avisar o Kiosk: {e}")
 
@@ -396,7 +371,7 @@ async def create_comment_for_request(
         await db.refresh(comment, ["user"])
         
         msg = f"Novo comentário de {current_user.full_name} no chamado #{request_id}."
-        if req and req.reported_by_id and current_user.role != UserRole.DRIVER:
+        if req and req.reported_by_id and current_user.role != UserRole.OPERATOR:
              background_tasks.add_task(crud.notification.create_notification, db=db, message=msg, notification_type=NotificationType.MAINTENANCE_REQUEST_NEW_COMMENT, organization_id=current_user.organization_id, user_id=req.reported_by_id, related_entity_type="maintenance_request", related_entity_id=request_id)
         
         return MaintenanceCommentPublic.model_validate(comment)

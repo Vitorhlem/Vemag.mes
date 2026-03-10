@@ -15,18 +15,10 @@ from app.models.user_model import UserRole
 # Import do Celery Task
 from sqlalchemy import select
 from app.models.user_model import User
-from app.tasks.email_tasks import send_email_async
 from app.schemas.token_schema import Token
 from datetime import timedelta
 
 router = APIRouter()
-
-class PasswordRecoveryRequest(BaseModel):
-    email: EmailStr
-
-class PasswordResetRequest(BaseModel):
-    token: str
-    new_password: str
 
 
 @router.post("/login/badge", response_model=Token)

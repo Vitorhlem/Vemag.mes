@@ -5,8 +5,7 @@ export interface LoginForm {
 }
 
 export type UserRole = 
-  | 'admin' 
-  | 'driver'     
+  | 'admin'   
   | 'operator'      
   | 'maintenance'   
   | 'quality'       

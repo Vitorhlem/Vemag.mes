@@ -211,7 +211,7 @@ const sortedCalls = computed(() => {
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  const orgId = authStore.user?.organization_id;
+  const orgId = authStore.user?.organization?.id;
   
   if (!orgId) return;
 
@@ -240,7 +240,6 @@ function connectWebSocket() {
             color: 'negative', 
             message: `NOVO CHAMADO: ${message.data?.machine_name || 'Equipamento'}`,
             position: 'top',
-            padding: '20px',
             classes: 'text-h6' // Deixa o aviso maior para a TV
           });
           playAndonAlert();

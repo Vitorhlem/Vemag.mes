@@ -3,7 +3,6 @@ from typing import Optional, List
 from datetime import date
 from app.models.machine_model import MachineStatus
 
-LicensePlateStr = constr(strip_whitespace=True, to_upper=True)
 
 # Schema base com os campos comuns
 class MachineBase(BaseModel):
@@ -15,13 +14,9 @@ class MachineBase(BaseModel):
     layout_y: Optional[float] = None
     status: Optional[MachineStatus] = MachineStatus.AVAILABLE
     sap_resource_code: Optional[str] = None
-    current_km: Optional[int] = 0
-    current_engine_hours: Optional[float] = 0
     next_maintenance_date: Optional[date] = None
-    next_maintenance_km: Optional[int] = None
     maintenance_notes: Optional[str] = None
     identifier: Optional[str] = None
-    license_plate: Optional[LicensePlateStr] = None
     telemetry_device_id: Optional[str] = None
 
 class MachineCreate(MachineBase):
@@ -35,14 +30,10 @@ class MachineUpdate(BaseModel):
     layout_y: Optional[float] = None
     photo_url: Optional[str] = None
     status: Optional[MachineStatus] = None
-    current_km: Optional[int] = None
-    current_engine_hours: Optional[float] = None
     next_maintenance_date: Optional[date] = None
-    next_maintenance_km: Optional[int] = None
     maintenance_notes: Optional[str] = None
     identifier: Optional[str] = None
     sap_resource_code: Optional[str] = None
-    license_plate: Optional[LicensePlateStr] = None
     telemetry_device_id: Optional[str] = None
 
 # Schema para a RESPOSTA PÚBLICA

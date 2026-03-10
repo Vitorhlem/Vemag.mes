@@ -36,7 +36,6 @@ export interface AndonCallCreate {
   description?: string;
 }
 
-// --- MUDANÇA AQUI: export const (Nomeado) ---
 export const AndonService = {
   async createCall(data: AndonCallCreate): Promise<AndonCall> {
     const response = await api.post<AndonCall>('/andon/', data);
