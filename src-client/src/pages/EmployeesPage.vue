@@ -670,34 +670,30 @@ function translateStatus(status: string, block?: any): string {
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase().trim();
     const cat = String(block.category || '').toUpperCase().trim();
+    const reason = String(block.reason || '').toUpperCase().trim();
     const duration = Number(block.duration_min || 0);
-    const reason = String(block.reason || '').toUpperCase().trim(); 
 
-    // 🚀 AQUI: Mesma regra, ensinando a cor cinza a abraçar o Fim de Manutenção
+    // 🚀 REGRA PRIORITÁRIA: Disponível / Ocioso vira CINZA
+    const isAvailable = cat === 'IDLE' || s.includes('DISPONÍVEL') || s.includes('IDLE') || reason.includes('DISPONÍVEL') || reason.includes('MÁQUINA LIBERADA');
+    if (isAvailable) return 'grey-7'; // Cor cinza para ociosidade
+
     const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
     const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
     const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
-    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA') || reason.includes('FIM DE MANUTENÇÃO');
-    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
+    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO') || s.includes('AUTÔNOMA');
 
-    if (isAvailable) return 'grey';
     if (isProducing) return 'green';
     if (isSetup) return 'purple';
     if (isMaintenance) return 'red';
     if (isAutonomous) return 'blue';
 
-    if (cat === 'MICRO_STOP' || duration < 5) {
-        return 'black';
-    }
+    // Micro-parada (Preto)
+    if (cat === 'MICRO_STOP' || duration < 5) return 'black';
 
-    if (
-        reason === 'SEM MOTIVO' || 
-        reason === 'STATUS: PARADA' || 
-        ((s.includes('PAUSED') || s.includes('PARADA') || s === '0') && !reason)
-    ) {
-        return 'brown';
-    }
+    // Sem Motivo (Marrom)
+    if (reason === 'SEM MOTIVO' || reason.includes('STATUS: PARADA')) return 'brown-8';
 
+    // Pausa Logada (Laranja)
     return 'orange';
 }
 

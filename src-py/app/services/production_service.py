@@ -310,7 +310,7 @@ class ProductionService:
             "STATUS:", "EM OPERAÇÃO", "RUNNING", "OPERAÇÃO", "IDLE", 
             "AVAILABLE", "DISPONÍVEL", "SISTEMA", "111", "21", "SETUP", "PREPARAÇÃO", "SAIDA", "SAÍDA",
             "EM USO", "IN_USE", "PARADA CURTA", 
-            "FIM DE MANUTENÇÃO", "LIBERADA", "DESBLOQUEIO", "MÁQUINA LIBERADA"
+            "FIM DE MANUTENÇÃO", "LIBERADA", "DESBLOQUEIO", "MÁQUINA LIBERADA", "MÁQUINA EM MANUTENÇÃO"
         ]
         
         run_sec, maint_sec, planned_sec, idle_sec, pause_sec, micro_sec = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -341,7 +341,7 @@ class ProductionService:
                 run_sec += duration
 
             # 4. Ociosidade (Card Cinza)
-            elif cat == "IDLE" or "AVAILABLE" in reason_upper or "DISPONÍVEL" in reason_upper:
+            elif cat == "IDLE" or "AVAILABLE" in reason_upper or "DISPONÍVEL" in reason_upper or "LIBERADA" in reason_upper:
                 idle_sec += duration
 
             # 5. Paradas (Card Laranja) e Micro-paradas (Card Preto)
