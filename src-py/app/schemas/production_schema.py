@@ -86,7 +86,8 @@ class SessionStartSchema(BaseModel):
 class SessionStopSchema(BaseModel):
     machine_id: int
     operator_badge: str
-
+    reason: Optional[str] = None 
+    
 class SessionDetail(BaseModel):
     id: int
     machine_name: str

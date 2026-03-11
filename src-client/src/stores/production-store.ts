@@ -666,12 +666,12 @@ async function toggleSetup() {
       }
     }
   }
-
+  
   async function finishSession() {
     if (!machineId.value || !currentOperatorBadge.value) return;
     try {
       Loading.show();
-      await api.post('/production/session/stop', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value });
+      await api.post('/production/session/stop', { machine_id: machineId.value, operator_badge: currentOperatorBadge.value, reason: "FINALIZAR ETAPA" });
       activeOrder.value = null; 
       if (currentMachine.value && !isMachineBroken.value) {
           currentMachine.value = { ...currentMachine.value, status: 'Disponível' };

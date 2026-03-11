@@ -162,7 +162,7 @@
                                 <div class="text-h4 text-weight-bolder q-mt-sm text-teal-10">{{ machineStats?.formatted_running_operator || '00:00:00' }}</div>
                                 <div class="text-caption text-grey-8">Tempo efetivo logado.</div>
                             </q-card-section>
-                        </q-card>f
+                        </q-card>
                     </div>
                     <div class="col-12 col-md">
                         <q-card class="full-height glass-card border-left-blue shadow-sm">
@@ -546,20 +546,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'; // 👈 Adicionado onUnmounted
+import { ref, onMounted, onUnmounted, computed } from 'vue'; 
 import { date, exportFile, useQuasar, setCssVar } from 'quasar';
 import type { QTableColumn } from 'quasar';
 import { useMesStore } from 'stores/mes-store';
 import type { EmployeeStat } from 'stores/mes-store';
 import { useProductionStore } from 'stores/production-store';
 import { ProductionService, type MachineStats } from 'src/services/production-service';
-import { useRouter, useRoute } from 'vue-router'; // 👈 Adicionado useRoute
-import { api } from 'boot/axios'; // 👈 Importamos a API para buscar a Sessão Ativa
+import { useRouter, useRoute } from 'vue-router'; 
+import { api } from 'boot/axios'; 
 const $q = useQuasar();
 const activeOpTitle = ref('Ordem de Produção');
 const activeOpCode = ref('Nenhuma');
 const router = useRouter();
-const route = useRoute(); // 👈 Adicionado aqui
+const route = useRoute();
 const mesStore = useMesStore();
 const productionStore = useProductionStore();
 const activeOperatorName = ref('--');
@@ -573,7 +573,7 @@ const selectedMachineData = computed(() => {
 
 const currentMachineStatusColor = computed(() => {
   const status = selectedMachineData.value?.status || '';
-  return getStatusColor(status); // Usa sua função existente
+  return getStatusColor(status); 
 });
 const isLoading = ref(false);
 const machineStats = ref<MachineStats | null>(null);
@@ -641,19 +641,18 @@ function translateStatus(status: string, block?: any): string {
     const isGanttBlock = block && 'duration_min' in block;
     const duration = isGanttBlock ? Number(block.duration_min) : null;
 
-    // 🚀 AQUI: Ensinamos o sistema que "Fim de Manutenção" = Disponível
+    const isAvailable = cat === 'IDLE' || s === 'AVAILABLE' || s.includes('DISPONÍVEL') || s.includes('IDLE') || s.includes('OCIOSO') || reason.includes('DISPONÍVEL') || reason.includes('LIBERADA') || reason.includes('FINALIZADA') || reason.includes('FIM DE');
+    
     const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
     const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
     const isMaintenance = s.includes('MAINTENANCE') || s.includes('MANUTENÇÃO') || cat === 'MAINTENANCE';
-    const isAvailable = s.includes('IDLE') || s.includes('DISPONÍVEL') || s.includes('OCIOSO') || cat === 'IDLE' || reason.includes('ETAPA FINALIZADA') || reason.includes('FIM DE ETAPA') || reason.includes('FIM DE MANUTENÇÃO');
-    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO');
+    const isAutonomous = s === 'AUTONOMOUS' || s.includes('AUTÔNOMO') || s.includes('AUTÔNOMA');
 
     if (isAvailable) return 'DISPONÍVEL';
     if (isProducing) return 'EM OPERAÇÃO';
     if (isSetup) return 'EM SETUP';
     if (isMaintenance) return 'MANUTENÇÃO';
     if (isAutonomous) return 'AUTÔNOMO';
-
     if (cat === 'MICRO_STOP' || (isGanttBlock && duration !== null && duration < 5)) {
         return 'MICRO-PARADA';
     }
@@ -670,12 +669,11 @@ function translateStatus(status: string, block?: any): string {
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase().trim();
     const cat = String(block.category || '').toUpperCase().trim();
-    const reason = String(block.reason || '').toUpperCase().trim();
     const duration = Number(block.duration_min || 0);
+    const reason = String(block.reason || '').toUpperCase().trim(); 
 
-    // 🚀 REGRA PRIORITÁRIA: Disponível / Ocioso vira CINZA
-    const isAvailable = cat === 'IDLE' || s.includes('DISPONÍVEL') || s.includes('IDLE') || reason.includes('DISPONÍVEL') || reason.includes('MÁQUINA LIBERADA');
-    if (isAvailable) return 'grey-7'; // Cor cinza para ociosidade
+    const isAvailable = cat === 'IDLE' || s === 'AVAILABLE' || s.includes('DISPONÍVEL') || s.includes('IDLE') || s.includes('OCIOSO') || reason.includes('DISPONÍVEL') || reason.includes('LIBERADA') || reason.includes('FINALIZADA') || reason.includes('FIM DE');
+    if (isAvailable) return 'grey-7';
 
     const isProducing = s.includes('RUNNING') || s.includes('PRODUCING') || s.includes('OPERAÇÃO') || s.includes('EM USO') || s === '1' || cat === 'PRODUCING';
     const isSetup = s.includes('SETUP') || s.includes('PREPARAÇÃO') || cat === 'PLANNED_STOP';
@@ -687,19 +685,15 @@ function getGanttColor(block: any) {
     if (isMaintenance) return 'red';
     if (isAutonomous) return 'blue';
 
-    // Micro-parada (Preto)
     if (cat === 'MICRO_STOP' || duration < 5) return 'black';
 
-    // Sem Motivo (Marrom)
     if (reason === 'SEM MOTIVO' || reason.includes('STATUS: PARADA')) return 'brown-8';
 
-    // Pausa Logada (Laranja)
     return 'orange';
 }
 
 
 function getStatusColor(status: string) {
-    // 🚀 MÁGICA: Agora a cor confia na nossa função de tradução inteligente!
     const s = translateStatus(status);
     
     if (s === 'MICRO-PARADA') return 'black';
@@ -741,14 +735,12 @@ function getRealDurationText(block: any) {
     const start = new Date(block.start);
     let end = block.end ? new Date(block.end) : new Date();
     
-    // Se não acabou, corta no Agora
     const now = new Date();
     if (end > now) end = now;
 
     let mins = Math.round((end.getTime() - start.getTime()) / 60000);
     if (mins < 0) mins = 0;
     
-    // Formata bonitinho (ex: 1h 25m em vez de 85 min)
     if (mins >= 60) {
         const h = Math.floor(mins / 60);
         const m = mins % 60;
@@ -766,7 +758,6 @@ function getBlockWidth(block: any) {
     const now = new Date();
     if (blockEnd > now) blockEnd = now;
 
-    // 🚀 CORREÇÃO DO ANO, MES E DIA
     const parts = String(filterDate.value || '').split('-');
     if (parts.length !== 3) return 0;
     
@@ -961,14 +952,13 @@ onMounted(async () => {
         void refreshData();
     }
 
-    // Liga a escuta em tempo real em vez de usar o relógio bobo!
     connectWebSocket();
 });
 
 onUnmounted(() => {
-    // Quando o gestor sair desta tela, desligamos o rádio para economizar memória
+
     if (ws) {
-        ws.onclose = null; // Impede que a função de reconectar seja chamada
+        ws.onclose = null; 
         ws.close();
     }
     if (reconnectTimer) {
@@ -978,7 +968,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* Estilização Trucar MES - Identidade Trucar com lógica original preservada */
 .bg-glass-layout {
   background-color: #f0f4f4;
   min-height: 100vh;
@@ -993,7 +982,6 @@ onUnmounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
-/* Glassmorphism Classes */
 .glass-card {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) saturate(180%);
@@ -1030,7 +1018,6 @@ onUnmounted(() => {
   :deep(thead tr) { background: rgba(18, 140, 126, 0.05); }
 }
 
-/* Bordas Coloridas Originais (Preservadas) */
 .border-left-green { border-left: 5px solid #4caf50; }
 .border-left-blue { border-left: 5px solid #2196f3; }
 .border-left-orange { border-left: 5px solid #ff9800; }
@@ -1074,14 +1061,11 @@ onUnmounted(() => {
 }
 .sticky-status-bar {
   position: sticky;
-  top: 10px; /* Gruda a 10 pixels de distância do topo da tela */
-  z-index: 99; /* Garante que fica por cima dos cards e do gráfico Gantt ao rolar */
+  top: 10px; 
+  z-index: 99; 
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255,255,255,0.2);
 }
-/* =========================================
-   DARK MODE OVERRIDES (DARK FOREST THEME)
-   ========================================= */
 .body--dark {
   .bg-glass-layout { 
     background-color: #05100e !important; 
@@ -1108,12 +1092,11 @@ onUnmounted(() => {
     border: 1px solid rgba(18, 140, 126, 0.3);
   }
 
-  .text-teal-9 { color: #80cbc4 !important; } /* Light teal */
-  .text-teal-10 { color: #ffffff !important; } /* White */
-  .text-grey-8, .text-grey-7, .text-grey-6 { color: #b0bec5 !important; } /* Light grey */
+  .text-teal-9 { color: #80cbc4 !important; }
+  .text-teal-10 { color: #ffffff !important; } 
+  .text-grey-8, .text-grey-7, .text-grey-6 { color: #b0bec5 !important; }
   .opacity-80 { opacity: 0.9; }
 
-  /* Gantt Chart Container */
   .gantt-container.bg-grey-3 {
     background-color: rgba(255, 255, 255, 0.1) !important;
   }
@@ -1122,7 +1105,6 @@ onUnmounted(() => {
     color: #90a4ae !important;
   }
 
-  /* Table Stripes/Head */
   .glass-table {
     :deep(thead tr) { background: rgba(18, 140, 126, 0.2); }
     :deep(tbody tr:hover) { background: rgba(18, 140, 126, 0.15) !important; }

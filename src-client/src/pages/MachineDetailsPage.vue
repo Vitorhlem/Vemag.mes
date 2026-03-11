@@ -395,18 +395,30 @@ function renderBarCharts() {
   });
 }
 
-window.addEventListener('resize', () => {
-  echarts.getInstanceByDom(document.getElementById('availabilityBarChart'))?.resize();
-  echarts.getInstanceByDom(document.getElementById('stopReasonBarChart'))?.resize();
-});
+
+const handleResize = () => {
+  const availDom = document.getElementById('availabilityBarChart');
+  const stopDom = document.getElementById('stopReasonBarChart');
+  
+  if (availDom) {
+    echarts.getInstanceByDom(availDom)?.resize();
+  }
+  if (stopDom) {
+    echarts.getInstanceByDom(stopDom)?.resize();
+  }
+};
 
 onMounted(() => {
   void loadAllData();
   listenForSystemUpdates(); 
+  // Liga o evento de redimensionamento de forma segura
+  window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
   if (socket) socket.close(); 
+  // Desliga o evento de redimensionamento ao sair da página (Evita o erro "null")
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 

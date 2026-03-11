@@ -519,6 +519,130 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+    <q-dialog v-model="isStepConfirmationDialogOpen" persistent>
+      <q-card style="min-width: 450px; border-radius: 16px;">
+        <q-card-section class="vemag-bg-primary text-white row items-center">
+          <div class="text-h6 row items-center">
+            <q-icon name="route" size="sm" class="q-mr-sm" /> Confirmação de Etapa
+          </div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-md">
+          <div class="text-subtitle1 text-weight-bold text-grey-8 q-mb-sm text-center">
+            A melhor operação identificada para esta máquina é:
+          </div>
+
+          <q-card flat bordered class="bg-teal-1 q-pa-sm q-mb-md" style="border-color: #008C7A;">
+            <div class="row items-center no-wrap">
+              <q-avatar color="teal-9" text-color="white" class="text-weight-bold q-mr-md shadow-2">
+                {{ suggestedStep?.seq === 999 ? '!' : suggestedStep?.seq || '--' }}
+              </q-avatar>
+              <div class="column col">
+                <div class="text-subtitle1 text-weight-bolder text-teal-10" style="line-height: 1.2;">
+                  {{ suggestedStep?.name || 'Operação' }}
+                </div>
+                <div class="text-caption text-teal-8 text-weight-bold q-mt-xs">
+                  Recurso: {{ suggestedStep?.resource || '---' }}
+                </div>
+              </div>
+            </div>
+          </q-card>
+
+          <div class="text-h6 text-center text-dark q-mt-md">
+            Deseja trabalhar em outra etapa?
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="center" class="q-pb-lg q-px-md column q-gutter-y-sm">
+          <q-btn
+            push
+            label="NÃO, INICIAR ESTA ETAPA"
+            color="teal-9"
+            class="full-width text-weight-bold shadow-3"
+            size="lg"
+            icon="play_arrow"
+            @click="confirmAndStartStep"
+          />
+          <q-btn
+            outline
+            label="SIM, ESCOLHER DA LISTA"
+            color="orange-9"
+            class="full-width text-weight-bold bg-orange-1"
+            size="md"
+            icon="list"
+            @click="openStepSelection"
+          />
+          <q-btn
+            flat
+            label="Cancelar e Voltar"
+            color="grey-7"
+            class="full-width q-mt-sm"
+            @click="cancelStepSelection"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="isStepSelectionDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card class="bg-grey-2 column">
+        <q-bar class="vemag-bg-primary text-white" style="height: 60px;">
+          <q-icon name="list_alt" size="24px" />
+          <div class="text-h6 q-ml-sm">Selecione a Etapa para Trabalhar</div>
+          <q-space />
+          <q-btn dense flat icon="close" size="20px" @click="cancelStepSelection" />
+        </q-bar>
+
+        <q-card-section class="col scroll q-pa-md">
+          <div class="text-subtitle1 text-grey-8 q-mb-md">
+            Selecione a operação que deseja iniciar na <b>{{ productionStore.activeOrder?.code }}</b>:
+          </div>
+
+          <div class="row q-col-gutter-md">
+            <div v-for="(step, index) in productionStore.activeOrder?.steps" :key="index" class="col-12 col-md-6 col-lg-4">
+              <q-card
+                class="cursor-pointer hover-scale transition-all"
+                :class="index === productionStore.currentStepIndex ? 'bg-teal-1 shadow-4' : 'bg-white shadow-2'"
+                style="border-radius: 12px; border: 2px solid transparent;"
+                :style="index === productionStore.currentStepIndex ? 'border-color: #008C7A;' : ''"
+                @click="selectManualStep(index)"
+              >
+                <q-card-section class="row items-center no-wrap">
+                  <q-avatar
+                    :color="index === productionStore.currentStepIndex ? 'teal-9' : 'blue-grey-8'"
+                    text-color="white"
+                    class="q-mr-md shadow-2 text-weight-bold"
+                  >
+                    {{ step.seq === 999 ? '!' : step.seq }}
+                  </q-avatar>
+                  <div class="column col">
+                    <div class="text-subtitle1 text-weight-bold ellipsis" :class="index === productionStore.currentStepIndex ? 'text-teal-10' : 'text-dark'">
+                      {{ step.name }}
+                    </div>
+                    <div class="row items-center justify-between q-mt-xs">
+                       <q-badge :color="index === productionStore.currentStepIndex ? 'teal-7' : 'grey-6'">
+                          {{ step.resource }}
+                       </q-badge>
+                       <div class="text-caption text-grey-7 text-weight-bold row items-center">
+                          <q-icon name="timer" class="q-mr-xs"/> {{ step.timeEst || 0 }}h
+                       </div>
+                    </div>
+                  </div>
+                  <q-icon
+                    v-if="index === productionStore.currentStepIndex"
+                    name="star"
+                    color="orange-6"
+                    size="sm"
+                    class="absolute-top-right q-pa-sm"
+                  >
+                    <q-tooltip>Recomendada para esta máquina</q-tooltip>
+                  </q-icon>
+                </q-card-section>
+              </q-card>
+            </div>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
   </q-layout>
 </template>
@@ -535,9 +659,17 @@ import { api } from 'boot/axios';
 import { db } from 'src/db/offline-db';
 
 import { getOperatorName } from 'src/data/operators'; 
-import { SAP_OPERATIONS_MAP, findBestStepIndex } from 'src/data/sap-operations';
+import { SAP_OPERATIONS_MAP } from 'src/data/sap-operations';
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
+const isStepConfirmationDialogOpen = ref(false);
+const isStepSelectionDialogOpen = ref(false);
+
+const suggestedStep = computed(() => {
+    if (!productionStore.activeOrder?.steps || productionStore.activeOrder.steps.length === 0) return null;
+    const index = productionStore.currentStepIndex !== -1 ? productionStore.currentStepIndex : 0;
+    return productionStore.activeOrder.steps[index];
+});
 const isSocketConnected = ref(false);
 const router = useRouter();
 const $q = useQuasar();
@@ -622,6 +754,47 @@ const currentViewedStep = computed(() => {
 });
 
 const isOnline = ref(window.navigator.onLine);
+
+function openStepSelection() {
+    isStepConfirmationDialogOpen.value = false;
+    isStepSelectionDialogOpen.value = true;
+}
+
+function cancelStepSelection() {
+    isStepConfirmationDialogOpen.value = false;
+    isStepSelectionDialogOpen.value = false;
+    productionStore.activeOrder = null; // Reseta a ordem para voltar a aguardar O.P.
+    $q.loading.hide();
+}
+
+function selectManualStep(index: number) {
+    productionStore.currentStepIndex = index;
+    viewedStepIndex.value = index;
+    confirmAndStartStep();
+}
+
+function confirmAndStartStep() {
+    isStepConfirmationDialogOpen.value = false;
+    isStepSelectionDialogOpen.value = false;
+
+    // 🚀 INICIA DE FATO O MODO SETUP/PRODUÇÃO APENAS APÓS A CONFIRMAÇÃO
+    if (productionStore.currentMachine) {
+        productionStore.currentMachine.status = 'SETUP';
+    }
+    productionStore.isInSetup = true;
+    isPaused.value = false;
+
+    if (productionStore.currentStepIndex !== -1) {
+         viewedStepIndex.value = productionStore.currentStepIndex;
+    }
+    resetTimer();
+
+    $q.notify({
+        type: 'positive',
+        message: `Etapa ${suggestedStep.value?.seq || ''} iniciada com sucesso.`,
+        icon: 'play_arrow'
+    });
+}
 
 function formatSapText(text: string | undefined | null) {
   if (!text) return 'Nenhuma instrução disponível para esta etapa.';
@@ -807,24 +980,23 @@ async function openOpListDialog() {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
-  // 🚀 TRAVA DE SEGURANÇA: Se não tem etapas (steps) ou se é um array vazio, bloqueia!
   if (!op.steps || op.steps.length === 0) {
       $q.notify({ 
           type: 'negative', 
           message: 'Esta O.P. não possui operações/roteiro cadastrado no SAP.',
           icon: 'block' 
       });
-      return; // Interrompe a função aqui
+      return;
   }
 
   showOpList.value = false;
   
-  // 🚀 ATUALIZAÇÃO OTIMISTA: Força a tela a ficar Roxa (SETUP) imediatamente no clique!
-  if (productionStore.currentMachine) {
-      productionStore.currentMachine.status = 'SETUP';
-  }
-  productionStore.isInSetup = true;
-  isPaused.value = false;
+  // 🚀 MOSTRA LOADING DE BUSCA DE ETAPA
+  $q.loading.show({
+      message: 'Carregando melhor operação...',
+      spinnerColor: 'teal-9',
+      customClass: 'text-weight-bold text-h6'
+  });
 
   await productionStore.requestOrderFromSAP(String(op.op_number));
 }
@@ -907,17 +1079,9 @@ async function applyNormalPause(fromPlc = false) {
   $q.loading.show({ message: 'Encerrando ciclo de produção...' });
 
   try {
-    const prodStart = statusStartTime.value ? new Date(statusStartTime.value) : new Date();
-    
-    // 🚀 MÁGICA DINÂMICA: Acha a etapa do roteiro pela máquina (ignorando se é OP ou OS)
     const machineRes = productionStore.machineResource;
-    const targetIndex = findBestStepIndex(machineRes, currentOrder.steps || []);
-    let actualStep = targetIndex !== -1 ? (currentOrder.steps ? currentOrder.steps[targetIndex] : null) : null;
-    
-    if (!actualStep) {
-         actualStep = currentViewedStep.value;
-    }
-
+    const actualStep = currentViewedStep.value;
+    const prodStart = statusStartTime.value ? new Date(statusStartTime.value) : new Date();
     const rawSeq = Number(actualStep?.seq || 10);
     const position = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
     
@@ -1006,13 +1170,7 @@ async function triggerCriticalBreakdown() {
         // 1. Encerra a Produção atual (se houver OP ativa)
         if (activeOrder.value?.code) {
             
-            // 🚀 MÁGICA DINÂMICA
-            const targetIndex = findBestStepIndex(machineRes, activeOrder.value.steps || []);
-            let actualStep = targetIndex !== -1 ? (activeOrder.value.steps ? activeOrder.value.steps[targetIndex] : null) : null;
-            
-            if (!actualStep) {
-                 actualStep = currentViewedStep.value;
-            }
+            const actualStep = currentViewedStep.value;
 
             const rawSeq = Number(actualStep?.seq || 10);
             const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
@@ -1239,6 +1397,11 @@ function handleLogout() {
 }
 
 async function simulateOpScan() {
+  $q.loading.show({
+      message: 'Carregando melhor operação...',
+      spinnerColor: 'teal-9',
+      customClass: 'text-weight-bold text-h6'
+  });
   await productionStore.requestOrderFromSAP('OP-TESTE-4500');
 }
 async function confirmAndonCall(sector: string) {
@@ -1480,21 +1643,18 @@ function connectWebSocket() {
       }
 
       if (data.type === 'SAP_ORDER_DATA' && Number(data.machine_id) === Number(productionStore.machineId)) {
+          $q.loading.hide(); // Esconde o "Carregando melhor operação..."
+
           if (data.data) {
              console.log("📥 OP Encontrada via Celery:", data.code);
              
-             if (productionStore.currentMachine) productionStore.currentMachine.status = 'SETUP';
-             productionStore.isInSetup = true;
-
+             // Processa e define currentStepIndex na store (em background)
              await productionStore.processReceivedOrder(data.data);
              
-             if (productionStore.currentStepIndex !== -1) {
-                 viewedStepIndex.value = productionStore.currentStepIndex;
-             }
-             resetTimer();
+             // 🚀 ABRE A JANELA DE PERGUNTA PARA O OPERADOR
+             isStepConfirmationDialogOpen.value = true;
              
           } else {
-             $q.loading.hide();
              $q.notify({ type: 'negative', message: 'O.P. não encontrada no SAP' });
           }
           return;

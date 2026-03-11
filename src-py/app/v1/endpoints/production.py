@@ -342,35 +342,29 @@ async def get_machine_stats(machine_id: int, target_date: date = None, db: Async
             stats["maintenance"] += duration
         
         # 2. SETUP (Card Roxo - Explícito)
-        elif st in ["SETUP", "PREPARAÇÃO"]:
+        elif st in ["SETUP", "PREPARAÇÃO", "PLANNED_STOP"]:
             stats["setup"] += duration
 
         # 3. PRODUÇÃO (Verde ou Azul)
         elif st in ["RUNNING", "EM OPERAÇÃO", "EM USO", "PRODUCING", "1", "IN_USE", "PRODUÇÃO AUTÔNOMA", "IN_USE_AUTONOMOUS"]:
-            # Se for explicitamente autônomo OU se não tiver operador
-            if "AUTÔNOMA" in st or "AUTONOMOUS" in st:
+            if "AUTÔNOMA" in st or "AUTONOMOUS" in st or not op:
                 stats["running_auto"] += duration
-            elif op: 
-                stats["running_op"] += duration 
             else: 
-                stats["running_auto"] += duration 
+                stats["running_op"] += duration 
         
-        # 4. PARADAS E OCIOSIDADE
-        elif st in ["PAUSED", "PARADA", "STOPPED", "AVAILABLE", "IDLE", "PAUSADA", "0", "OCIOSO", "OCIOSIDADE", "DISPONÍVEL"]:
+        # 4. OCIOSIDADE (Card Cinza) - Prioridade Máxima
+        # Se o status gritar Ocioso OU o motivo contiver a palavra mágica
+        elif st in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONÍVEL", "IDLE"] or "DISPONÍVEL" in reason or "LIBERADA" in reason:
+            stats["idle"] += duration
             
-            # Prioridade 1: Status exclusivo de máquina livre/ociosa -> CINZA
-            # (Removemos a condição reason == "SEM MOTIVO" daqui)
-            if st in ["OCIOSO", "OCIOSIDADE", "AVAILABLE", "DISPONÍVEL", "IDLE"]:
-                stats["idle"] += duration 
-            
-            # Prioridade 2: Micro-paradas (< 5 min) independentemente do motivo -> AMARELO
-            elif duration < 300:
+        # 5. PARADAS (Card Laranja e Preto)
+        elif st in ["PAUSED", "PARADA", "STOPPED", "PAUSADA", "0", "UNPLANNED_STOP", "MICRO_STOP"]:
+            if st == "MICRO_STOP" or duration < 300:
                 stats["micro_stop"] += duration
-            
-            # Prioridade 3: Parada com ou sem motivo (> 5 min) -> LARANJA
             else:
                 stats["pause"] += duration
         
+        # Fallback de segurança: Qualquer coisa não mapeada vira ocioso
         else:
             stats["idle"] += duration
 
@@ -897,8 +891,44 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
     if not session: 
         return {"status": "error", "message": "No active session"}
 
-    # 2. Fecha a fatia de tempo atual no MES (Aquela atrelada ao operador)
     end_time = datetime.now()
+    machine = await db.get(Machine, session.machine_id)
+    
+    # ---------------------------------------------------------------------
+    # 🚀 CORREÇÃO DA HISTÓRIA AUTOMÁTICA ("O TRUQUE DO FINALIZAR")
+    # ---------------------------------------------------------------------
+    # Se a máquina foi pausada (Sem Motivo) e logo em seguida a sessão foi encerrada,
+    # assumimos que o operador pausou apenas para apertar "Finalizar Etapa / Deslogar".
+    active_slice = await ProductionService.get_active_slice(db, machine.id)
+    is_finishing_from_pause = False
+
+    if machine.status == MachineStatus.STOPPED.value and active_slice and active_slice.category == "UNPLANNED_STOP":
+        reason_upper = str(active_slice.reason or "").upper()
+        
+        if reason_upper in ["SEM MOTIVO", "PARADA", "STATUS: PARADA", ""]:
+            is_finishing_from_pause = True
+            
+            # 1. Transforma o tempo da pausa genérica em tempo produtivo de finalização
+            active_slice.category = "PRODUCING"
+            active_slice.reason = "Operador finalizou a etapa"
+            db.add(active_slice)
+            
+            # 2. Corrige a tabela de Logs (Front) para sumir a "PAUSADA - SEM MOTIVO" e virar DISPONÍVEL
+            stmt_last_log = select(ProductionLog).where(
+                ProductionLog.machine_id == machine.id
+            ).order_by(desc(ProductionLog.timestamp)).limit(1)
+            
+            last_log = (await db.execute(stmt_last_log)).scalars().first()
+            
+            if last_log and last_log.new_status == MachineStatus.STOPPED.value:
+                last_log.new_status = MachineStatus.AVAILABLE.value
+                last_log.reason = "Etapa finalizada pelo operador"
+                db.add(last_log)
+                
+            # Atualiza a máquina antecipadamente para o Motor de Estados ignorar conflitos a seguir
+            machine.status = MachineStatus.AVAILABLE.value
+
+    # 2. Fecha a fatia de tempo atual no MES (Aquela atrelada ao operador)
     await ProductionService.close_current_slice(db, data.machine_id, end_time)
 
     # 3. Busca todas as fatias de tempo geradas ao longo desta sessão
@@ -913,51 +943,48 @@ async def stop_session(data: production_schema.SessionStopSchema, db: AsyncSessi
         cat = s.category
         reason = str(s.reason or "").upper()
         
-        # TEMPO PRODUTIVO: Em Operação, Setup ou Preparação
         if cat == 'PRODUCING' or "SETUP" in reason or "PREPARAÇÃO" in reason:
             productive_sec += s.duration_seconds
-            
-        # TEMPO IMPRODUTIVO: Manutenção, Paradas (UNPLANNED_STOP)
         elif cat in ['UNPLANNED_STOP', 'MAINTENANCE'] or "PARADA" in reason:
             unproductive_sec += s.duration_seconds
 
-    # 5. Tempo total desde o "start" da sessão até o "stop"
+    # 5. Salva os cálculos na sessão
     total_duration = int((end_time - session.start_time).total_seconds())
-
-    # 6. Salva os cálculos na sessão
     session.end_time = end_time
     session.duration_seconds = total_duration
     session.productive_seconds = int(productive_sec)
     session.unproductive_seconds = int(unproductive_sec)
     
     # ---------------------------------------------------------------------
-    # 🚀 7. O FIM DO BURACO NEGRO (Garante a continuidade da linha do tempo)
+    # 🚀 6. O FIM DO BURACO NEGRO (Garante a continuidade da linha do tempo)
     # ---------------------------------------------------------------------
-    machine = await db.get(Machine, session.machine_id)
-    
     if machine:
         if machine.status == MachineStatus.MAINTENANCE.value or machine.status == "Em manutenção":
             await ProductionService.open_new_slice(
                 db, 
                 machine_id=machine.id, 
                 category="MAINTENANCE", 
-                reason="Máquina em manutenção", # 👈 MUDE ISSO AQUI PARA FICAR BONITO!
+                reason="Máquina em manutenção",
                 session_id=None, 
                 order_id=None
             )
         else:
             # Encerramento normal, máquina fica Disponível.
             machine.status = MachineStatus.AVAILABLE.value
+            
+            # Texto inteligente baseado no que aconteceu
+            idle_reason = "Etapa finalizada pelo operador" if is_finishing_from_pause else "Máquina Disponível (Fim de Sessão)"
+            
             await ProductionService.open_new_slice(
                 db, 
                 machine_id=machine.id, 
                 category="IDLE", 
-                reason="Máquina Disponível (Fim de Sessão)", 
+                reason=idle_reason, 
                 session_id=None, 
                 order_id=None
             )
             
-            # Avisa o painel que a máquina liberou e ficou cinza
+            # Avisa o painel (Gantt) que a máquina liberou e ficou cinza
             from app.core.websocket_manager import manager
             await manager.broadcast({
                 "type": "MACHINE_STATE_CHANGED",
@@ -1251,3 +1278,4 @@ async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
         })
 
     return results
+

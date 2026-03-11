@@ -165,11 +165,16 @@ class ProductionService:
         # Refino pelo motivo enviado
         final_reason = event.reason or new_status_enum.value
         reason_upper = final_reason.upper()
+
+        # 🚀 1. INTERCEPTAÇÃO: Se escolheu "Finalizar etapa", força o status para Disponível!
+        if "FINALIZAR ETAPA" in reason_upper or "FIM DE ETAPA" in reason_upper:
+            new_status_enum = MachineStatus.AVAILABLE
+            category = "IDLE"
+            final_reason = "Operador finalizou a etapa"
+            reason_upper = final_reason.upper() # Atualiza a variável pro resto do código
         
-        # 🚀 CORREÇÃO DA MANUTENÇÃO: 
-        # Se a palavra 'FIM' estiver no motivo OU o sinal que chegou for explicitamente 'AVAILABLE'
-        # Nós NÃO deixamos o refinador alterar o status de volta pra Manutenção ou Setup!
-        is_end_of_process = "FIM" in reason_upper or "AVAILABLE" in sinal_recebido or "DISPONÍVEL" in sinal_recebido
+        # 🚀 CORREÇÃO DA MANUTENÇÃO E FIM DE PROCESSO: 
+        is_end_of_process = "FIM" in reason_upper or "AVAILABLE" in sinal_recebido or "DISPONÍVEL" in sinal_recebido or "FINALIZOU" in reason_upper
 
         if not is_end_of_process:
             if "SETUP" in reason_upper or "PREPARAÇÃO" in reason_upper:
@@ -227,9 +232,15 @@ class ProductionService:
 
         # --- 5. SOBRESCRITA INTELIGENTE (Mudança de Motivo de Parada) ---
         is_currently_stopped = machine.status == MachineStatus.STOPPED.value
+        
+        # Quer mudar a parada para Setup ou Manutenção
         wants_to_specify = new_status_enum in [MachineStatus.SETUP, MachineStatus.MAINTENANCE]
         
-        if is_currently_stopped and wants_to_specify:
+        # 🚀 2. AUTORIZAÇÃO: Quer cancelar a parada porque na verdade finalizou a etapa
+        wants_to_finish = new_status_enum == MachineStatus.AVAILABLE and "FINALIZOU" in reason_upper
+        
+        # Se for qualquer um dos casos, permite a mutação no banco
+        if is_currently_stopped and (wants_to_specify or wants_to_finish):
             active_slice = await ProductionService.get_active_slice(db, machine.id)
             # Permite mudar a história se fizer menos de 10 minutos
             if active_slice and (timestamp - active_slice.start_time).total_seconds() < 600:
