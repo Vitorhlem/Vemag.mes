@@ -508,28 +508,27 @@ async def force_machine_consolidation(machine_id: int, db: AsyncSession = Depend
         sess_id = active_sess.id if active_sess else None
         ord_id = active_sess.production_order_id if active_sess else None
 
-        # 2. FECHA a fatia de tempo atual (Para os minutos de produção irem pro banco AGORA)
+        # 🚀 O SEGREDO DO "TRANSBORDO": Pega a fatia que ESTÁ ABERTA agora, ANTES de fechar ela.
+        active_slice = await ProductionService.get_active_slice(db, machine_id)
+        
+        category_mes = active_slice.category if active_slice else "IDLE"
+        reason_mes = active_slice.reason if active_slice else f"Status: {machine.status}"
+
+        # 2. FECHA a fatia de tempo atual exatamente AGORA
         now = datetime.now()
         await ProductionService.close_current_slice(db, machine_id, now)
         
-        # 3. ABRE uma nova fatia dando continuidade ao que a máquina estava a fazer
-        category_mes = "IDLE"
-        st = str(machine.status or "").upper()
-        if "USO" in st or "OPERAÇÃO" in st or "AUTÔNOM" in st: category_mes = "PRODUCING"
-        elif "SETUP" in st or "PREPARAÇÃO" in st: category_mes = "PLANNED_STOP"
-        elif "MANUTENÇÃO" in st: category_mes = "MAINTENANCE"
-        elif "PARADA" in st: category_mes = "UNPLANNED_STOP"
-        
+        # 3. ABRE a nova fatia como um "clone" da anterior, continuando o trabalho perfeitamente
         await ProductionService.open_new_slice(
             db, 
             machine_id, 
             category=category_mes, 
-            reason=f"Status: {machine.status}",
-            session_id=sess_id, # 👈 Mantém o histórico ligado ao operador!
+            reason=reason_mes,
+            session_id=sess_id, 
             order_id=ord_id
         )
         
-        # 4. AGORA SIM CONSOLIDA! (A fatia anterior foi fechada, logo o tempo Produtivo entra no cálculo e a Pausa cai)
+        # 4. AGORA SIM CONSOLIDA! (A fatia anterior foi fechada, logo o tempo Produtivo entra no cálculo)
         processed_count = await ProductionService.consolidate_machine_metrics(db, date.today())
         
         return {"status": "success", "processed": processed_count}
