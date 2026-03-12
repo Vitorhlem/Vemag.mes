@@ -281,6 +281,7 @@ export const useMesStore = defineStore('mes', () => {
         reason: current.reason || null,
         operator_name: current.operator_name || null,
         color: customColor 
+      });
     }
     
     timeline.value = blocks;

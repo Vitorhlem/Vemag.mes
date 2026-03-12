@@ -16,7 +16,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # CONFIGURAÇÕES DO SAP
 SAP_BASE_URL = "https://sap-vemag-sl.skyinone.net:50000/b1s/v1"
-SAP_COMPANY_DB = "SBOPRODVEM_0603"
+SAP_COMPANY_DB = "TESTE_1103"
 SAP_USER = "manager"
 SAP_PASSWORD = "Lago287*"
 
@@ -257,6 +257,16 @@ class SAPIntegrationService:
                                 item_name = line.get('U_ItemName') # O valor para U_DescricaoServico
                                 roteiro_code = line.get('U_Roteiro') or item_code
                                 
+                                # 🚀 NOVA BUSCA: Puxa o FrgnName (Código do Desenho) para a O.S. também!
+                                drawing_code = ""
+                                try:
+                                    item_res = await self.client.get(f"{SAP_BASE_URL}/Items('{item_code}')?$select=ForeignName", cookies=self.cookies)
+                                    if item_res.status_code == 200:
+                                        drawing_code = item_res.json().get('ForeignName') or ""
+                                        print(f"📐 [SAP] Código do Desenho (FrgnName) da OS encontrado: {drawing_code}")
+                                except Exception as e:
+                                    print(f"⚠️ Erro ao buscar FrgnName do item {item_code}: {e}")
+
                                 # Busca o roteiro dessa linha (igual fazemos na lista)
                                 steps = []
                                 if roteiro_code:
@@ -277,7 +287,6 @@ class SAPIntegrationService:
                                                     "timeEst": float(s.get('U_TMMOPU') or 0)
                                                 })
 
-                                # ✅ CORREÇÃO AQUI: Convertendo para float e garantindo o UOM
                                 try:
                                     planned_qty_os = float(line.get('U_Qtde') or 0.0)
                                 except (ValueError, TypeError):
@@ -289,12 +298,12 @@ class SAPIntegrationService:
                                     "status": "Released", 
                                     "item_code": item_code,
                                     "part_name": item_name, 
-                                    "planned_qty": planned_qty_os, # <--- MUDANÇA AQUI
+                                    "planned_qty": planned_qty_os,
                                     "uom": "pç",   
-                                    "is_service": True,                # <--- MUDANÇA AQUI (Padrão para OS)
+                                    "is_service": True,                
                                     "custom_ref": f"Cliente: {client_name}",
                                     "type": "Service",
-                                    "drawing": "",
+                                    "drawing": drawing_code, # 🚀 MUDANÇA AQUI: Agora ele envia o código 184672!
                                     "steps": steps
                                 }
                 print(f"❌ [SAP] O.S. {op_code} não encontrada ou sem linha correspondente.")
@@ -326,6 +335,15 @@ class SAPIntegrationService:
             item_code = op_data.get('ItemNo')
             
             print(f"✅ [SAP] OP Encontrada. Item: {item_code}. Buscando Roteiro de Engenharia (LGCROT)...")
+
+            drawing_code = ""
+            try:
+                item_res = await self.client.get(f"{SAP_BASE_URL}/Items('{item_code}')?$select=ForeignName", cookies=self.cookies)
+                if item_res.status_code == 200:
+                    drawing_code = item_res.json().get('ForeignName') or ""
+                    print(f"📐 [SAP] Código do Desenho (FrgnName) encontrado: {drawing_code}")
+            except Exception as e:
+                print(f"⚠️ Erro ao buscar FrgnName do item {item_code}: {e}")
 
             # 2. BUSCA O ROTEIRO NA TABELA MESTRE (LGCROT)
             query_rot = f"$select=Code,Name,LGLCROTCollection&$filter=Code eq '{item_code}'"
@@ -381,7 +399,7 @@ class SAPIntegrationService:
                 "planned_qty": planned_qty_op, # <--- MUDANÇA AQUI
                 "uom": uom_op,                 # <--- MUDANÇA AQUI
                 "custom_ref": op_data.get('U_LGO_DocEntryOPsFather') or "",
-                "drawing": str(op_data.get('U_Desenho') or ""),
+                "drawing": drawing_code, # 🚀 AGORA ELE PASSA O BA6593 AQUI!]
                 "steps": steps
             }
 

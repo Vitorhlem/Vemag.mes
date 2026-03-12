@@ -190,3 +190,6 @@ def read_root():
     return {"status": f"Welcome to {settings.PROJECT_NAME} API!"}
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# 👇 ADICIONE ESTA LINHA AQUI 👇
+app.include_router(drawings.router, prefix=settings.API_V1_STR)

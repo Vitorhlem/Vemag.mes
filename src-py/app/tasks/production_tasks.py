@@ -266,3 +266,82 @@ def task_fetch_order_details(code: str, machine_id: int):
         print(f"❌ Erro ao avisar o FastAPI: {e}")
 
     return f"Busca de OP {code} concluída"
+
+@celery_app.task(name="task_process_drawing")
+def task_process_drawing(drawing_code: str, machine_id: int):
+    import os
+    import fitz
+    import requests
+
+    DRAWINGS_DIR = os.environ.get("DRAWINGS_PATH", r"C:\Users\vitor.lemes\VEMAG EQUIPAMENTOS INDUSTRIAIS\Clientes - Documentos")
+    
+    # Nova pasta inteligente de cache de imagens
+    CACHE_DIR = os.path.join(os.getcwd(), "static", "drawings_cache")
+    os.makedirs(CACHE_DIR, exist_ok=True)
+
+    safe_code = drawing_code.strip().lower().replace(".pdf", "")
+    png_filename = f"{safe_code}.png"
+    png_path = os.path.join(CACHE_DIR, png_filename)
+
+    # 1. SE A IMAGEM JÁ EXISTE NO CACHE, AVISA O TABLET E ENCERRA A TAREFA (0.1 segundos)
+    if os.path.exists(png_path):
+        payload = {
+            "type": "DRAWING_READY",
+            "machine_id": machine_id,
+            "drawing_url": f"http://192.168.0.22:8000/api/v1/drawings/render/{png_filename}"
+        }
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        return f"Imagem {safe_code} servida via cache."
+
+    # 2. SE NÃO EXISTE, O CELERY VAI VASCULHAR A REDE...
+    print(f"⏳ [CELERY] Vasculhando engenharia por: {safe_code}...")
+    found_pdfs = []
+    
+    for root, dirs, files in os.walk(DRAWINGS_DIR):
+        folder_name = os.path.basename(root).lower()
+        for file in files:
+            if file.lower().endswith(".pdf"):
+                file_name = file.lower()
+                if safe_code in file_name or safe_code in folder_name:
+                    found_pdfs.append(os.path.join(root, file))
+
+    if not found_pdfs:
+        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Desenho não encontrado nas pastas."}
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        return "Desenho não encontrado."
+
+    # 3. ALGORITMO DE PONTUAÇÃO E CONVERSÃO
+    def score_file(filepath):
+        score = 0
+        filename = os.path.basename(filepath).lower()
+        if filename == f"{safe_code}.pdf": score += 1000
+        if "comentado" in filename: score -= 500
+        if "orçamento" in filename or "orcamento" in filename: score -= 1000
+        return (score, os.path.getmtime(filepath))
+
+    best_file = max(found_pdfs, key=score_file)
+    print(f"🏆 [CELERY] PDF Escolhido: {best_file}. Convertendo...")
+
+    try:
+        # Tira a "foto" em alta resolução e SALVA NO DISCO
+        doc = fitz.open(best_file)
+        page = doc.load_page(0)
+        mat = fitz.Matrix(2.0, 2.0)
+        pix = page.get_pixmap(matrix=mat)
+        pix.save(png_path)
+        doc.close()
+
+        # 4. AVISA O TABLET QUE ESTÁ PRONTO
+        payload = {
+            "type": "DRAWING_READY",
+            "machine_id": machine_id,
+            "drawing_url": f"http://192.168.0.22:8000/api/v1/drawings/render/{png_filename}"
+        }
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        
+        print("✅ [CELERY] Imagem salva e tablet notificado!")
+        return "Sucesso"
+    except Exception as e:
+        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Erro ao converter arquivo da engenharia."}
+        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        return f"Erro: {e}"

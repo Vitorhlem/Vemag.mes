@@ -254,9 +254,11 @@ const columns: QTableColumn[] = [
   { name: 'date', label: 'Data', field: (row: any) => date.formatDate(row.created_at, 'DD/MM/YYYY'), sortable: true, align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
   { name: 'actions', label: 'Ações', field: 'actions', align: 'right' }
+];
 const saveAsPDF = () => {
   const element = document.querySelector('.printable-area');
   
+  // 🚀 CORREÇÃO 1: Garante que o elemento existe antes de tentar gerar o PDF
   if (!element) return; 
 
   const opt = {
@@ -320,6 +322,7 @@ const totalMonthCost = computed(() => {
   return maintenanceStore.maintenances
     .filter(m => m.status === MaintenanceStatus.CONCLUIDA)
     .reduce((acc, m) => {
+      // 👈 CORREÇÃO 4: Convertido para 'any' porque total_cost não existe no Schema nativo
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let cost = (m as any).total_cost;
       if (!cost && m.manager_notes) {
@@ -336,6 +339,7 @@ const totalMonthCost = computed(() => {
 const machineOptions = computed(() => productionStore.machinesList.map(m => ({ value: m.id, label: `${m.identifier} - ${m.brand}` })));
 const grandTotal = computed(() => (Number(form.value.labor_total)||0) + (Number(form.value.material_total)||0) + (Number(form.value.services_total)||0) + (Number(form.value.others_total)||0));
 
+// --- CÁLCULO AUTOMÁTICO DE TOTAIS ---
 watch(() => form.value.labor_rows, (rows) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form.value.labor_total = rows.reduce((acc: number, row: any) => acc + ((Number(row.qty) || 0) * (Number(row.unit_value) || 0)), 0);
@@ -402,7 +406,7 @@ async function submitOS(status: string) {
 
   const payload = {
     ...form.value,
-    category: form.value.maintenance_type,
+    category: form.value.maintenance_type, // FIX: Para aparecer no Card
     executed_services: form.value.executed_services,
     manager_notes: JSON.stringify({
       labor_total: form.value.labor_total,
@@ -428,8 +432,9 @@ async function submitOS(status: string) {
   $q.loading.hide();
 }
 
-function confirmDelete() { 
+function confirmDelete() { // Removido o 'async' daqui
   $q.dialog({ title: 'Excluir', message: 'Deseja apagar esta OM?', cancel: true }).onOk(() => {
+    // Adicionado void para indicar que sabemos que a função interna é uma promessa flutuante
     void (async () => {
       await api.delete(`/maintenance/industrial-os/${form.value.id}`);
       showForm.value = false; 

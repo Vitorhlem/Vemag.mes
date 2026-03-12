@@ -90,7 +90,7 @@
             <div class="column q-gutter-y-md">
                 <q-btn push rounded color="blue-grey-9" text-color="white" class="full-width shadow-3" size="18px" padding="md" icon="list_alt" label="SELECIONAR DA LISTA" @click="openOpListDialog" />
                 <div class="text-caption text-grey-5">- OU -</div>
-                <q-btn push rounded class="vemag-bg-primary text-white full-width shadow-4" size="18px" padding="md" icon="photo_camera" label="LER QR CODE" @click="simulateOpScan" />
+                <q-btn push rounded class="vemag-bg-primary text-white full-width shadow-4" size="18px" padding="md" icon="photo_camera" label="LER QR CODE" @click="isCameraScannerOpen = true" />
             </div>
           </q-card>
         </div>
@@ -228,17 +228,17 @@
                   </q-btn>
 
                   <q-btn 
-                    v-if="!(productionStore.activeOrder.is_service || String(productionStore.activeOrder.code).startsWith('OS-')) || productionStore.activeOrder.drawing"
-                    push dense
-                    color="blue-grey-9" 
-                    text-color="white"
-                    icon="image" 
-                    label="VER DESENHO" 
-                    class="q-px-md shadow-2 text-weight-bold"
-                    @click="openDrawing"
-                  >
-                      <q-tooltip>Visualizar Desenho Técnico</q-tooltip>
-                  </q-btn>
+  v-if="productionStore.activeOrder?.drawing || productionStore.activeOrder?.item_code"
+  push dense
+  color="blue-grey-9" 
+  text-color="white"
+  icon="image" 
+  label="VER DESENHO" 
+  class="q-px-md shadow-2 text-weight-bold"
+  @click="openDrawing"
+>
+  <q-tooltip>Visualizar Desenho Técnico</q-tooltip>
+</q-btn>
 
               </div>
             </q-card-actions>
@@ -368,17 +368,47 @@
       </q-card>
     </q-dialog>
 
-    <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="slide-up" transition-hide="slide-down">
-        <q-card class="bg-grey-10 text-white column">
-            <q-bar class="bg-grey-9 q-pa-sm z-top" style="height: 60px;">
-                <q-icon name="picture_as_pdf" size="24px" />
-                <div class="text-h6 q-ml-md">Desenho: {{ productionStore.activeOrder?.part_code || productionStore.activeOrder?.item_code }}</div>
-                <q-space /><q-btn dense flat icon="close" size="20px" v-close-popup />
-            </q-bar>
-            <q-card-section class="col q-pa-none bg-grey-3">
-                <iframe v-if="drawingUrl" :src="drawingUrl" class="fit" style="border: none;"></iframe>
-            </q-card-section>
-        </q-card>
+    <q-dialog v-model="isDrawingDialogOpen" maximized transition-show="fade" transition-hide="fade">
+      <q-card class="bg-grey-10 column fit relative-position overflow-hidden">
+        
+        <q-btn 
+          round 
+          color="red-10" 
+          icon="close" 
+          size="lg"
+          class="absolute-top-right q-ma-lg z-top shadow-10" 
+          v-close-popup 
+        />
+
+        <q-card-section class="col q-pa-none flex flex-center fit">
+          <q-img 
+            v-if="drawingUrl" 
+            :src="drawingUrl" 
+            class="fit" 
+            fit="contain"
+            spinner-color="teal-9"
+            spinner-size="60px"
+            @error="$q.notify({ type: 'negative', message: 'Falha ao carregar a imagem do servidor.', icon: 'broken_image' })"
+          >
+            <template v-slot:loading>
+              <div class="text-teal-9 text-weight-bold q-mt-xl text-center">
+                <q-icon name="manage_search" size="md" class="q-mb-sm block" />
+                Buscando e renderizando desenho...<br>
+                <span class="text-caption text-grey-6">(Pode levar alguns segundos na primeira vez)</span>
+              </div>
+            </template>
+            
+            <template v-slot:error>
+              <div class="absolute-full flex flex-center bg-grey-9 text-white column">
+                <q-icon name="broken_image" size="60px" color="grey-6" />
+                <div class="text-h6 q-mt-md">Desenho indisponível</div>
+                <div class="text-body2 text-grey-5">O arquivo não foi encontrado na engenharia.</div>
+              </div>
+            </template>
+          </q-img>
+        </q-card-section>
+        
+      </q-card>
     </q-dialog>
 
     <q-dialog v-model="isStopDialogOpen" persistent maximized transition-show="slide-up" transition-hide="slide-down">
@@ -643,12 +673,34 @@
         </q-card-section>
       </q-card>
     </q-dialog>
+    <q-dialog v-model="isCameraScannerOpen" maximized transition-show="fade" transition-hide="fade">
+      <q-card class="bg-black text-white column">
+        <q-bar class="bg-grey-10 q-pa-sm" style="height: 60px; z-index: 10;">
+          <q-icon name="qr_code_scanner" size="24px" />
+          <div class="text-h6 q-ml-md">Escaneie a Ordem ou Crachá</div>
+          <q-space />
+          <q-btn dense flat icon="close" size="20px" v-close-popup />
+        </q-bar>
+
+        <q-card-section class="col flex flex-center q-pa-none relative-position bg-black">
+          <qrcode-stream 
+            @detect="onDetectCode" 
+            :track="paintOutline"
+            @error="onCameraError"
+          ></qrcode-stream>
+          
+          <div class="absolute-bottom text-center q-pb-xl text-grey-4">
+            Aponte a câmera para o QR Code da O.P. ou do seu crachá
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify, useQuasar } from 'quasar';
 import { useProductionStore } from 'stores/production-store';
@@ -657,7 +709,7 @@ import { ProductionService } from 'src/services/production-service';
 import { useAuthStore } from 'stores/auth-store';
 import { api } from 'boot/axios'; 
 import { db } from 'src/db/offline-db';
-
+import { QrcodeStream } from 'vue-qrcode-reader';
 import { getOperatorName } from 'src/data/operators'; 
 import { SAP_OPERATIONS_MAP } from 'src/data/sap-operations';
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
@@ -717,6 +769,33 @@ const isStopDialogOpen = ref(false);
 const isAndonDialogOpen = ref(false);
 const isDrawingDialogOpen = ref(false);
 const drawingUrl = ref('');
+function openDrawing() {
+    const rawCode = productionStore.activeOrder?.drawing || productionStore.activeOrder?.item_code;
+    
+    if (!rawCode || String(rawCode).trim() === '') {
+        $q.notify({ type: 'warning', message: 'Nenhum código encontrado.', icon: 'warning' });
+        return;
+    }
+
+    const codigoBusca = String(rawCode).trim();
+
+    // 1. Abre a tela preta com a mensagem de "Buscando e renderizando..." e limpa a imagem velha
+    isDrawingDialogOpen.value = true;
+    drawingUrl.value = ''; 
+
+    if (codigoBusca.startsWith('http')) {
+        drawingUrl.value = codigoBusca;
+        return;
+    }
+
+    // 2. Avisa o FastAPI para ligar o Celery
+    api.post(`/drawings/request/${encodeURIComponent(codigoBusca)}/${productionStore.machineId}`)
+       .then(() => console.log("Ordem enviada ao Celery! Aguardando o WebSocket..."))
+       .catch(e => {
+           isDrawingDialogOpen.value = false;
+           $q.notify({ type: 'negative', message: 'Erro ao comunicar com o servidor.' });
+       });
+}
 const showOpList = ref(false);
 const loadingOps = ref(false);
 
@@ -753,6 +832,86 @@ const currentViewedStep = computed(() => {
 });
 
 const isOnline = ref(window.navigator.onLine);
+
+const isCameraScannerOpen = ref(false);
+
+// FUNÇÃO PARA DESENHAR UM QUADRADO VERDE EM VOLTA DO QR CODE NA TELA
+function paintOutline(detectedCodes: any, ctx: CanvasRenderingContext2D) {
+  for (const detectedCode of detectedCodes) {
+    const [firstPoint, ...otherPoints] = detectedCode.cornerPoints;
+
+    ctx.strokeStyle = '#008C7A'; // Cor do sistema
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(firstPoint.x, firstPoint.y);
+    for (const { x, y } of otherPoints) {
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(firstPoint.x, firstPoint.y);
+    ctx.closePath();
+    ctx.stroke();
+  }
+}
+
+// FUNÇÃO QUE RODA ASSIM QUE A CÂMERA LÊ O QR CODE
+async function onDetectCode(detectedCodes: any[]) {
+  if (detectedCodes.length > 0) {
+    const scannedText = detectedCodes[0].rawValue.trim();
+    
+    // 1. Fecha a câmera e faz um som de "Bip" sucesso
+    isCameraScannerOpen.value = false;
+    playBeep(); 
+
+    // 2. Inteligência: Decide se é OP ou Crachá (Mesma lógica do leitor USB)
+    const isOperatorLoggedIn = !!productionStore.currentOperatorBadge || !!authStore.user;
+
+    if (isOperatorLoggedIn && !productionStore.activeOrder) {
+      // ESTÁ LOGADO -> ENTÃO É UMA O.P.
+      $q.loading.show({
+          message: `Buscando Ordem ${scannedText} no SAP...`,
+          spinnerColor: 'teal-9',
+          customClass: 'text-weight-bold text-h6'
+      });
+
+      try {
+          await productionStore.requestOrderFromSAP(scannedText);
+      } catch (e) {
+          console.error(e);
+          $q.notify({ type: 'negative', message: 'Ordem não encontrada no SAP.' });
+      }
+    } else {
+      // NÃO ESTÁ LOGADO -> ENTÃO É UM CRACHÁ
+      $q.loading.show({ message: `Autenticando crachá...` });
+      try {
+        await authStore.loginByBadge(scannedText);
+        if (authStore.user?.employee_id) {
+          productionStore.currentOperatorBadge = authStore.user.employee_id;
+          $q.notify({ type: 'positive', message: `Olá, ${authStore.user.full_name}`, icon: 'person' });
+        } else {
+          productionStore.currentOperatorBadge = scannedText;
+        }
+      } catch (e) {
+        console.error("Erro ao ler crachá:", e);
+        $q.notify({ type: 'negative', message: 'Crachá não reconhecido.' });
+      } finally {
+        $q.loading.hide();
+      }
+    }
+  }
+}
+
+// TRATAMENTO DE ERROS DE PERMISSÃO DA CÂMERA
+function onCameraError(error: any) {
+  console.error(error);
+  let errorMessage = "Erro desconhecido ao abrir a câmera.";
+  
+  if (error.name === 'NotAllowedError') errorMessage = "Permissão da câmera negada.";
+  else if (error.name === 'NotFoundError') errorMessage = "Nenhuma câmera encontrada no tablet.";
+  else if (error.name === 'NotSupportedError') errorMessage = "É necessário HTTPS para usar a câmera.";
+
+  $q.notify({ type: 'negative', message: errorMessage, icon: 'warning' });
+  isCameraScannerOpen.value = false;
+}
 
 function openStepSelection() {
     isStepConfirmationDialogOpen.value = false;
@@ -1403,11 +1562,37 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter') {
     if (scanBuffer.length > 2) {
-      const scannedBadge = scanBuffer.trim();
+      const scannedText = scanBuffer.trim();
+      
+      // 🚀 LÓGICA INTELIGENTE: Verifica se o operador já está logado
+      const isOperatorLoggedIn = !!productionStore.currentOperatorBadge || !!authStore.user;
+
+      // 1. SE JÁ ESTÁ LOGADO e aguardando OP -> O QR Code lido é uma O.P. ou O.S.
+      if (isOperatorLoggedIn && !productionStore.activeOrder) {
+          $q.loading.show({
+              message: `Buscando Ordem ${scannedText} no SAP...`,
+              spinnerColor: 'teal-9',
+              customClass: 'text-weight-bold text-h6'
+          });
+
+          try {
+              // Dispara a mesma rota que o clique da lista dispara!
+              await productionStore.requestOrderFromSAP(scannedText);
+          } catch (e) {
+              console.error(e);
+              $q.notify({ type: 'negative', message: 'Ordem não encontrada no SAP.' });
+          } finally {
+              scanBuffer = '';
+              // Nota: O loading.hide() é chamado automaticamente pelo WebSocket quando a OP chega
+          }
+          return; // Sai da função para não tentar logar o crachá
+      }
+
+      // 2. CASO CONTRÁRIO -> O QR Code lido é um Crachá de Operador
       $q.loading.show({ message: `Autenticando crachá...` });
       
       try {
-        await authStore.loginByBadge(scannedBadge);
+        await authStore.loginByBadge(scannedText);
         
         if (authStore.user?.employee_id) {
           productionStore.currentOperatorBadge = authStore.user.employee_id;
@@ -1418,11 +1603,11 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
           });
 
           if (!productionStore.activeOrder) {
-             await openOpListDialog();
+             // Removido o openOpListDialog() para não forçar a lista na tela,
+             // deixando o operador livre para escanear a OP agora.
           }
-
         } else {
-          productionStore.currentOperatorBadge = scannedBadge;
+          productionStore.currentOperatorBadge = scannedText;
         }
       } catch (e) {
         console.error("Erro ao ler crachá:", e);
@@ -1591,16 +1776,51 @@ function connectWebSocket() {
 
           if (data.data) {
              console.log("📥 OP Encontrada via Celery:", data.code);
-
              await productionStore.processReceivedOrder(data.data);
-
              isStepConfirmationDialogOpen.value = true;
-             
           } else {
              $q.notify({ type: 'negative', message: 'O.P. não encontrada no SAP' });
           }
           return;
       }
+
+      // 🚀 INÍCIO DA NOVA LÓGICA DO DESENHO (CELERY)
+      if (data.type === 'DRAWING_READY' && Number(data.machine_id) === Number(productionStore.machineId)) {
+          console.log("🖼️ Desenho recebido do Celery!");
+          if (isDrawingDialogOpen.value) {
+              // O "?t=" quebra o cache do navegador
+              drawingUrl.value = `${data.drawing_url}?t=${new Date().getTime()}`;
+              
+              // Injeta o Zoom na imagem
+              nextTick(() => {
+                  setTimeout(() => {
+                      if (panzoomElement.value) {
+                          if (panzoomInstance) panzoomInstance.destroy();
+                          panzoomInstance = Panzoom(panzoomElement.value, {
+                              maxScale: 10,
+                              minScale: 1,
+                              contain: 'outside',
+                          });
+                          const parent = panzoomElement.value.parentElement;
+                          if (parent) {
+                              parent.addEventListener('wheel', panzoomInstance.zoomWithWheel);
+                          }
+                      }
+                  }, 100);
+              });
+          }
+          return;
+      }
+
+      if (data.type === 'DRAWING_ERROR' && Number(data.machine_id) === Number(productionStore.machineId)) {
+          console.error("❌ Erro no Celery ao buscar desenho:", data.message);
+          if (isDrawingDialogOpen.value) {
+              isDrawingDialogOpen.value = false; // Fecha a tela preta
+              $q.notify({ type: 'negative', message: data.message || 'Erro ao carregar o desenho', icon: 'broken_image' });
+          }
+          return;
+      }
+      // 🚀 FIM DA NOVA LÓGICA DO DESENHO
 
       if (isShiftChangeDialogOpen.value) return;
       
