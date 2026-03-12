@@ -126,7 +126,7 @@ const store = useProductionStore();
 const isPanning = ref(false);
 const panX = ref(0);
 const panY = ref(0);
-const scale = ref(0.85); // Começa em 85% para ter uma visão boa inicial
+const scale = ref(0.85); 
 let startMouseX = 0;
 let startMouseY = 0;
 const mapAreaRef = ref<HTMLElement | null>(null);
@@ -135,20 +135,17 @@ const isEditMode = ref(false);
 const viewportRef = ref<HTMLElement | null>(null);
 
 function centerMap() {
-  // Centro físico do Canvas Gigante (4000 / 2 = 2000)
+
   const centerCanvasX = 2000;
   const centerCanvasY = 2000;
-  
-  // Pega o tamanho real da janela visível
+
   const viewWidth = viewportRef.value ? viewportRef.value.clientWidth : window.innerWidth;
   const viewHeight = viewportRef.value ? viewportRef.value.clientHeight : window.innerHeight;
 
-  // Matemática Mágica: Move as coordenadas panX e panY para o centro da tela
   panX.value = (viewWidth / 2) - (centerCanvasX * scale.value);
   panY.value = (viewHeight / 2) - (centerCanvasY * scale.value);
 }
 
-// Variável global simples para o Drag'n'Drop
 let draggedMachine: Machine | null = null;
 
 function zoomIn() { scale.value = Math.min(scale.value + 0.1, 2.5); }
@@ -158,22 +155,17 @@ function resetView() {
   centerMap(); 
 }
 
-// Máquinas que JÁ TEM x e y definidos
 const placedMachines = computed(() => {
   return store.machinesList.filter(m => m.layout_x != null && m.layout_y != null);
 });
 
-// Máquinas que AINDA NÃO TEM x e y definidos
 const unplacedMachines = computed(() => {
   return store.machinesList.filter(m => m.layout_x == null || m.layout_y == null);
 });
 
-// =========================================================================
-// LÓGICA DE DRAG AND DROP (O Segredo Matemático)
-// =========================================================================
 
 function onWheel(event: WheelEvent) {
-  // Apenas rolando o botão do mouse já dá o Zoom agora!
+
   if (event.deltaY > 0) zoomOut();
   else zoomIn();
 }
@@ -202,14 +194,13 @@ function endPan() {
 function getImageUrl(url: string | null | undefined) { 
   if (!url) return ''; 
   
-  // 1. O SEGREDO: Troca todas as barras do Windows (\) por barras normais (/)
+
   const fixedUrl = url.replace(/\\/g, '/');
 
   if (fixedUrl.startsWith('http')) return fixedUrl; 
 
   const cleanUrl = fixedUrl.startsWith('/') ? fixedUrl : `/${fixedUrl}`;
 
-  // 2. BÔNUS: Isso garante que a foto vai carregar no Tablet e no Celular também!
   const host = window.location.hostname;
   return `http://${host}:8000${cleanUrl}`; 
 }
@@ -232,11 +223,11 @@ function onDragStart(event: DragEvent, machine: Machine) {
   }
   draggedMachine = machine;
 
-  // Calcula AONDE o usuário clicou DENTRO do card para evitar o "Pulo" ao soltar
+
   const target = (event.target as HTMLElement).closest('.machine-card');
   if (target && event.clientX) {
      const rect = target.getBoundingClientRect();
-     // Divide pela escala para saber a distância em pixels reais da planta
+
      dragOffsetX = (event.clientX - rect.left) / scale.value;
      dragOffsetY = (event.clientY - rect.top) / scale.value;
   } else {
@@ -257,19 +248,18 @@ async function onDrop(event: DragEvent) {
 
   const canvasRect = mapAreaRef.value.getBoundingClientRect();
   
-  // Pega a coordenada em tela e converte para pixel real da planta gigante
+
   let rawX = (event.clientX - canvasRect.left) / scale.value;
   let rawY = (event.clientY - canvasRect.top) / scale.value;
 
-  // Desconta exatamente o local onde o mouse estava segurando o card
   rawX -= dragOffsetX;
   rawY -= dragOffsetY;
 
-  // Converte para as famosas porcentagens
+
   let percentX = (rawX / 4000) * 100;
   let percentY = (rawY / 4000) * 100;
 
-  // Travas de segurança pra não cair fora do quadro
+
   percentX = Math.max(0, Math.min(percentX, 98));
   percentY = Math.max(0, Math.min(percentY, 98));
 
@@ -282,12 +272,10 @@ async function removeMachineFromMap(machine: Machine) {
   $q.notify({ type: 'warning', message: `${machine.model} voltou para a doca.`, timeout: 1000 });
 }
 
-// =========================================================================
-// INTERAÇÃO E VISUAL
-// =========================================================================
+
 
 function goToMachineDetails(machineId: number) {
-  if (isEditMode.value) return; // No modo edição, o clique é bloqueado para não irritar ao arrastar
+  if (isEditMode.value) return; 
   void router.push(`/employees?machine=${machineId}`);
 }
 
@@ -295,13 +283,12 @@ function formatStatus(raw: string | undefined): string {
   if (!raw) return 'DESCONHECIDO';
   const s = raw.toUpperCase();
   
-  // Mapeamento corrigido (Agora com "USO" em português)
+
   if (s.includes('AUTÔNOM') || s.includes('AUTONOMOUS')) return 'AUTÔNOMO';
   if (s.includes('USO') || s.includes('RUNNING') || s.includes('OPERAÇÃO') || s.includes('PRODUCING')) return 'OPERAÇÃO';
   if (s.includes('MANUTEN') || s.includes('MAINTENANCE') || s.includes('BROKEN')) return 'MANUTENÇÃO';
   if (s.includes('SETUP') || s.includes('PREPARA')) return 'SETUP';
   
-  // Paradas e Ociosidade
   if (s.includes('OCIOS') || s.includes('DISPON') || s.includes('AVAILABLE') || s.includes('IDLE')) return 'OCIOSO';
   if (s.includes('PARADA') || s.includes('PAUS') || s.includes('STOPPED')) return 'PARADA';
   
@@ -315,13 +302,12 @@ function getStatusColorClass(raw: string | undefined): string {
     case 'OPERAÇÃO': return 'status-green';
     case 'AUTÔNOMO': return 'status-blue';
     case 'SETUP': return 'status-purple';
-    
-    // 🚀 CORREÇÃO: Ocioso/Disponível agora usa a classe cinza!
+
     case 'OCIOSO': return 'status-grey'; 
     
-    case 'PARADA': return 'status-orange'; // Laranja fica apenas para Pausa/Parada com OP ativa
+    case 'PARADA': return 'status-orange'; 
     case 'MANUTENÇÃO': return 'status-red';
-    default: return 'status-grey'; // Se não reconhecer o status, fica cinza neutro
+    default: return 'status-grey'; 
   }
 }
 
@@ -347,7 +333,7 @@ function connectWebSocket() {
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
   const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
   
-  // Cria um ID diferente da EmployeesPage para não dar conflito se você abrir as duas abas
+
   const plantId = 98000 + Math.floor(Math.random() * 999);
   const wsUrl = `${wsBase}/ws/${plantId}`; 
   
@@ -365,12 +351,10 @@ function connectWebSocket() {
           if (data.type === 'MACHINE_STATE_CHANGED') {
               console.log(`⚡ [PLANTA] Máquina ${data.machine_id} mudou! Atualizando mapa...`);
               
-              // MÁGICA: Acha o card da máquina no mapa e pinta a borda instantaneamente!
               const machineIndex = store.machinesList.findIndex(m => m.id === Number(data.machine_id));
               if (machineIndex !== -1) {
                   store.machinesList[machineIndex].status = data.machine_status_db || data.new_status;
               } else {
-                  // Prevenção de erro: Se a máquina não estiver no mapa, busca tudo do servidor
                   void store.fetchAvailableMachines();
               }
           }
@@ -385,20 +369,18 @@ function connectWebSocket() {
   };
 }
 
-// =========================================================================
-// CICLO DE VIDA 
-// =========================================================================
+
 onMounted(async () => {
   $q.loading.show();
   await store.fetchAvailableMachines();
   $q.loading.hide();
 
-  // Liga a escuta em tempo real em vez do relógio bobo!
+
   connectWebSocket();
 });
 
 onUnmounted(() => {
-  // Desliga tudo quando sair da página do Mapa
+
   if (ws) {
       ws.onclose = null;
       ws.close();
@@ -410,9 +392,7 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-/* -------------------------------------------------------------------------
-   MALHA (PAPEL MILIMETRADO DE ENGENHARIA)
-   ------------------------------------------------------------------------- */
+
 .zoom-controls-panel {
   position: absolute;
   top: 20px;
@@ -424,10 +404,8 @@ onUnmounted(() => {
 }
 
 .viewport-container {
-  /* Fundo exato da malha para se fundir perfeitamente */
   background-color: #f8fafc;
   
-  /* Sem bordas, sem limites! */
   border: none !important;
   outline: none !important;
   margin: 0;
@@ -447,13 +425,10 @@ onUnmounted(() => {
     linear-gradient(90deg, rgba(18, 140, 126, 0.1) 1px, transparent 1px);
   background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
   
-  /* Mantém a transição só no Scale para ser macio o scroll */
   transition: transform 0.05s linear; 
 }
 
-/* -------------------------------------------------------------------------
-   ESTACIONAMENTO DE MÁQUINAS (DOCK)
-   ------------------------------------------------------------------------- */
+
 .unplaced-dock {
   position: absolute;
   bottom: 20px;
@@ -481,16 +456,14 @@ onUnmounted(() => {
   .machine-model { font-size: 11px; max-width: 70px; }
 }
 
-/* -------------------------------------------------------------------------
-   O CARD DA MÁQUINA (DIGITAL TWIN)
-   ------------------------------------------------------------------------- */
+
 .machine-card {
-  user-select: none; /* Evita que o texto seja selecionado ao arrastar */
+  user-select: none; 
 }
 
 .map-card {
   position: absolute;
-  width: 160px; /* Ligeiramente mais largo para acomodar bem as fotos */
+  width: 160px; 
   min-height: 200px; 
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(5px);
@@ -501,7 +474,7 @@ onUnmounted(() => {
   flex-direction: column;
   z-index: 2;
   cursor: pointer;
-  overflow: hidden; /* Mantém a foto contida dentro das bordas arredondadas */
+  overflow: hidden;
   
   &:hover {
     transform: translateY(-5px) scale(1.03);
@@ -509,7 +482,7 @@ onUnmounted(() => {
     z-index: 5; 
     
     .machine-bg-layer {
-      transform: scale(1.15); /* Efeito elegante de zoom na foto ao focar a máquina */
+      transform: scale(1.15); 
     }
   }
 }
@@ -519,7 +492,7 @@ onUnmounted(() => {
   &:active { cursor: grabbing !important; }
 }
 
-/* Header agora flutua por cima da foto */
+
 .card-header {
   z-index: 10;
   padding: 6px;
@@ -540,7 +513,7 @@ onUnmounted(() => {
   }
 }
 
-/* Corpo flexível */
+
 .card-body {
   flex-grow: 1;
   position: relative; 
@@ -548,19 +521,18 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-/* Camada da Foto: Alta opacidade */
 .machine-bg-layer {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.9; /* Muito mais viva */
+  opacity: 0.9; 
   z-index: 0;
-  transition: transform 0.5s ease; /* Transição suave do zoom */
+  transition: transform 0.5s ease;
 }
 
-/* A MÁGICA: Gradiente escuro subindo de baixo pra cima */
+
 .machine-gradient-overlay {
   position: absolute;
   bottom: 0; left: 0; width: 100%; height: 75%;
@@ -568,13 +540,13 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-/* Camada dos Textos: Empurrados para baixo sobre o gradiente */
+
 .card-content-layer {
   position: relative;
   z-index: 2; 
   flex-grow: 1;
   padding: 8px 6px;
-  justify-content: flex-end; /* Joga os textos lá pro pé do card, perto do footer */
+  justify-content: flex-end; 
   
   .machine-model {
     font-size: 0.8rem;
@@ -583,7 +555,7 @@ onUnmounted(() => {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    text-shadow: 0px 1px 3px rgba(0,0,0,0.8); /* Reforça o contraste da letra */
+    text-shadow: 0px 1px 3px rgba(0,0,0,0.8); 
   }
   
   .machine-brand {
@@ -605,9 +577,7 @@ onUnmounted(() => {
   }
 }
 
-/* -------------------------------------------------------------------------
-   CORES DE STATUS (A Borda e a Sombra)
-   ------------------------------------------------------------------------- */
+
 .status-green {
   border-color: #4CAF50;
   .card-footer { background-color: #4CAF50; }
@@ -637,9 +607,7 @@ onUnmounted(() => {
   .card-footer { background-color: #9E9E9E; }
 }
 
-/* -------------------------------------------------------------------------
-   EFEITO DE PULSO (MÁQUINA TRABALHANDO)
-   ------------------------------------------------------------------------- */
+
 .pulse-effect {
   animation: machine-pulse 2s infinite;
 }

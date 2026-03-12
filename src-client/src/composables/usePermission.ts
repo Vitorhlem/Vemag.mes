@@ -5,8 +5,6 @@ export function usePermission() {
   const authStore = useAuthStore();
 
   const role = computed(() => authStore.user?.role);
-
-  // --- REGRAS DE NEGÓCIO ---
   
   const canViewReports = computed(() => {
     return ['admin', 'manager', 'pcp'].includes(role.value || '');
@@ -17,7 +15,6 @@ export function usePermission() {
   });
 
   const canOpenMaintenanceRequest = computed(() => {
-    // Quase todos no chão de fábrica podem abrir chamado
     return ['operator', 'maintenance', 'quality', 'logistics', 'manager'].includes(role.value || '');
   });
 
@@ -25,12 +22,10 @@ export function usePermission() {
     return ['admin'].includes(role.value || '');
   });
 
-  // Acesso à tela de Produção/Kiosk
   const isOperatorAccess = computed(() => {
     return ['operator'].includes(role.value || '');
   });
 
-  // Acesso à tela de Resolução de Chamados (Técnicos)
   const isResponderAccess = computed(() => {
     return ['maintenance', 'quality', 'logistics'].includes(role.value || '');
   });

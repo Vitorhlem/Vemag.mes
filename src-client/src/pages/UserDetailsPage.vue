@@ -231,29 +231,49 @@
                                                     <q-td :props="props">
                                                         <q-badge :color="getEfficiencyColorName(props.value)" class="q-px-sm text-weight-bold shadow-1">
                                                             {{ props.value }}%
+                                                            <q-tooltip>Baseado no tempo estimado vs realizado</q-tooltip>
                                                         </q-badge>
                                                     </q-td>
                                                 </template>
                                                 
                                                 <template v-slot:body-cell-start_time="props">
                                                     <q-td :props="props">
-                                                        <div class="row items-center">
-                                                            <div class="bg-blue-grey-1 text-blue-grey-9 q-pa-xs rounded-borders q-mr-sm text-weight-bold" style="font-size: 0.75rem;">
-                                                                {{ new Date(props.value).getDate().toString().padStart(2, '0') }}
+                                                        <div class="column justify-center q-py-xs">
+                                                            <div class="row items-center q-mb-xs">
+                                                                <div class="bg-blue-grey-1 text-blue-grey-9 q-pa-xs rounded-borders q-mr-sm text-weight-bold" style="font-size: 0.75rem;">
+                                                                    {{ formatDateStr(props.row.start_time) }}
+                                                                </div>
                                                             </div>
-                                                            {{ new Date(props.value).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) }}
+                                                            <div class="text-caption text-grey-8 text-weight-medium row items-center">
+                                                                <q-icon name="schedule" size="xs" class="q-mr-xs text-grey-6" />
+                                                                {{ formatTimeOnly(props.row.start_time) }} 
+                                                                <span class="q-mx-xs">até</span> 
+                                                                {{ formatTimeOnly(props.row.end_time) }}
+                                                            </div>
                                                         </div>
                                                     </q-td>
                                                 </template>
 
                                                 <template v-slot:body-cell-order_code="props">
-    <q-td :props="props">
-        <div class="row items-center justify-center">
-            <q-badge outline color="blue-grey" :label="props.row.order_code" class="text-weight-bold q-mr-xs" />
-            <q-badge v-if="props.row.step" color="grey-3" text-color="grey-9" :label="'ET: ' + props.row.step" class="text-caption" />
-        </div>
-    </q-td>
-</template>
+                                                    <q-td :props="props">
+                                                        <div class="column items-center justify-center q-gutter-y-xs q-py-xs">
+                                                            <div class="row items-center no-wrap">
+                                                                <q-badge 
+                                                                    :color="props.row.is_service ? 'blue-9' : 'orange-10'" 
+                                                                    class="q-mr-sm shadow-1 text-weight-bold"
+                                                                >
+                                                                    {{ props.row.is_service ? 'O.S.' : 'O.P.' }}
+                                                                </q-badge>
+                                                                <span class="text-weight-bolder text-dark" style="font-size: 0.9rem;">
+                                                                    {{ props.row.order_code }}
+                                                                </span>
+                                                            </div>
+                                                            <q-badge v-if="props.row.step" color="grey-3" text-color="grey-9" class="text-caption text-weight-bold shadow-1">
+                                                                Etapa: {{ props.row.step }}
+                                                            </q-badge>
+                                                        </div>
+                                                    </q-td>
+                                                </template>
                                             </q-table>
                                         </div>
                                     </div>
@@ -277,8 +297,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useUserStore } from 'stores/user-store'; // ✅ STORE DE USUÁRIOS
-import { api } from 'boot/axios'; // ✅ AXIOS
+import { useUserStore } from 'stores/user-store';
+import { api } from 'boot/axios';
 import { Notify } from 'quasar';
 import type { QTableColumn } from 'quasar';
 
@@ -302,14 +322,16 @@ interface SessionData {
     id: number;
     machine_name: string;
     order_code: string;
-    step?: string; // <--- CAMPO NOVO
+    is_service: boolean; 
+    step?: string;
     start_time: string;
     end_time?: string;
     duration_minutes: number;
-    efficiency: number; // 0-100
+    estimated_minutes: number; 
+    efficiency: number; 
 }
 
-// --- ESTADOS ---
+
 const user = ref<UserProfile | null>(null);
 const userSessions = ref<SessionData[]>([]);
 const isLoading = ref(true);
@@ -323,12 +345,12 @@ const monthNames = [
 ];
 
 const sessionColumns: QTableColumn[] = [
-  { name: 'start_time', label: 'Dia / Hora', field: 'start_time', align: 'left', sortable: true },
+  { name: 'start_time', label: 'Data / Horário', field: 'start_time', align: 'left', sortable: true },
   { name: 'machine_name', label: 'Equipamento', field: 'machine_name', align: 'left' },
-  { name: 'order_code', label: 'O.P. / Etapa', field: 'order_code', align: 'center' }, // Label alterado
+  { name: 'order_code', label: 'Ordem / Etapa', field: 'order_code', align: 'center' },
   { 
     name: 'duration', 
-    label: 'Duração', 
+    label: 'Duração Real', 
     field: (row: SessionData) => formatDuration(row.duration_minutes), 
     align: 'center' 
   },
@@ -339,23 +361,34 @@ function goBack() {
     router.go(-1);
 }
 
+function formatDateStr(dateStr?: string) {
+    if (!dateStr) return '--/--';
+    const d = new Date(dateStr);
+    return d.getDate().toString().padStart(2, '0') + '/' + (d.getMonth() + 1).toString().padStart(2, '0');
+}
+
+function formatTimeOnly(dateStr?: string) {
+    if (!dateStr) return 'Atual';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+
 function formatDuration(minutes: number) {
-    if (minutes === 0) return '< 1m'; // Mostra que foi rápido, mas existiu
+    if (minutes === 0) return '< 1m'; 
     if (!minutes) return '--';
     
     const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
+    const m = Math.floor(minutes % 60); 
     
-    if (h === 0) return `${m}m`; // Ex: "45m"
-    return `${h}h ${m}m`;        // Ex: "1h 30m"
+    if (h === 0) return `${m}m`;
+    return `${h}h ${m}m`;
 }
 
-// --- CARREGAMENTO DE DADOS REAIS ---
 async function loadUserData() {
     try {
         isLoading.value = true;
         
-        // 1. Busca perfil do usuário
+
         const foundUser = userStore.users.find(u => u.id === userId);
         if (foundUser) {
             user.value = foundUser;
@@ -364,24 +397,47 @@ async function loadUserData() {
             user.value = data;
         }
 
-        // 2. Busca histórico de sessões do usuário
-        // Rota que criamos no backend: /production/history/user/{id}
         const historyRes = await api.get(`/production/history/user/${userId}`);
         
-        // Mapeia para o formato local
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userSessions.value = historyRes.data.map((item: any) => ({
-            id: item.id,
-            machine_name: item.machine_name || `Máquina #${item.machine_id}`,
-            order_code: item.op_number || 'N/A',
-            step: item.step, // <--- MAPEANDO ETAPA
-            start_time: item.start_time,
-            end_time: item.end_time,
-            duration_minutes: item.duration_minutes || 0,
-            efficiency: item.efficiency || 100
-        }));
+        userSessions.value = historyRes.data.map((item: any) => {
+            const startObj = item.start_time ? new Date(item.start_time) : null;
+            const endObj = item.end_time ? new Date(item.end_time) : null;
+            
+            let actualMinutes = item.duration_minutes || 0;
 
-        console.log("Dados carregados:", userSessions.value.length, "sessões");
+            if (actualMinutes === 0 && startObj && endObj) {
+                actualMinutes = Math.max(1, Math.round((endObj.getTime() - startObj.getTime()) / 60000));
+            }
+
+
+            const orderCode = item.op_number || 'N/A';
+            const isService = orderCode.toUpperCase().startsWith('OS-') || item.is_service === true;
+
+
+            const estMinutes = item.estimated_minutes || (item.timeEst ? item.timeEst * 60 : actualMinutes);
+            
+            let calcEff = 100;
+            if (estMinutes > 0 && actualMinutes > 0) {
+
+                calcEff = Math.round((estMinutes / actualMinutes) * 100);
+            } else if (item.efficiency) {
+                calcEff = item.efficiency; 
+            }
+
+            return {
+                id: item.id,
+                machine_name: item.machine_name || `Máquina #${item.machine_id}`,
+                order_code: orderCode,
+                is_service: isService,
+                step: item.step, 
+                start_time: item.start_time,
+                end_time: item.end_time,
+                duration_minutes: actualMinutes,
+                estimated_minutes: estMinutes,
+                efficiency: calcEff
+            };
+        });
 
     } catch (error) {
         console.error('Erro ao carregar dados do usuário:', error);
@@ -391,7 +447,7 @@ async function loadUserData() {
     }
 }
 
-// --- LÓGICA COMPUTADA (MANTIDA MAS ADAPTADA PARA userSessions REF) ---
+
 
 const availableYears = computed(() => {
     if (!userSessions.value.length) return [currentSysYear];
@@ -404,8 +460,7 @@ const availableYears = computed(() => {
 
 const currentYearData = computed(() => {
     const year = selectedYear.value;
-    
-    // Inicializa 12 meses vazios
+ 
     const months = Array.from({ length: 12 }, () => ({
         sessions: [] as SessionData[],
         totalHours: 0,
@@ -413,12 +468,10 @@ const currentYearData = computed(() => {
         machineStats: {} as Record<string, { count: number, percent: number }>
     }));
 
-    // Filtra pelo ano selecionado
     const yearSessions = userSessions.value.filter(s => 
         s.start_time && new Date(s.start_time).getFullYear() === year
     );
 
-    // Distribui nos meses
     yearSessions.forEach(session => {
         const date = new Date(session.start_time);
         const targetMonth = months[date.getMonth()];
@@ -427,17 +480,18 @@ const currentYearData = computed(() => {
         }
     });
 
-    // Calcula estatísticas mensais
     months.forEach(m => {
         if (m.sessions.length === 0) return;
         
         m.sessions.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
 
+
         const totalEff = m.sessions.reduce((sum, s) => sum + s.efficiency, 0);
         m.avgEfficiency = Math.round(totalEff / m.sessions.length);
 
         const totalMinutes = m.sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-        m.totalHours = Math.round(totalMinutes / 60);
+
+        m.totalHours = Math.round(totalMinutes / 60); 
 
         const machineCounts: Record<string, number> = {};
         m.sessions.forEach(s => {
@@ -477,7 +531,7 @@ const globalStats = computed(() => {
     return { hours, efficiency: eff, sessions: count };
 });
 
-// --- HELPERS VISUAIS ---
+
 function getEfficiencyColorName(val: number) {
     if (val >= 90) return 'positive';
     if (val >= 70) return 'warning';
@@ -499,7 +553,7 @@ function getEfficiencyLabel(val: number) {
     return 'Abaixo da Meta';
 }
 
-// --- INIT ---
+
 onMounted(async () => {
     await loadUserData();
 });

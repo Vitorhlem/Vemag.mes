@@ -63,7 +63,6 @@ const form = ref<MaintenanceRequestUpdate>({
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen && props.request?.machine) {
-    // Sugere +180 dias (semestral) para a próxima preventiva
     const today = new Date();
     today.setDate(today.getDate() + 180); 
     const dateStr = today.toISOString().split('T')[0];

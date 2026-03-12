@@ -662,9 +662,6 @@ function translateStatus(status: string, block?: any): string {
     return status;
 }
 
-// =====================================================================
-// 2. COR DO GANTT CHART
-// =====================================================================
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGanttColor(block: any) {
     const s = String(block.status || '').toUpperCase().trim();
@@ -794,7 +791,6 @@ async function refreshData(isSilent: boolean = false) {
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
             machineStats.value = await ProductionService.getMachineStats(selectedMachine.value, filterDate.value);
 
-            // 🚀 CORREÇÃO DA AVALIAÇÃO DE NULO NOS LOGS E LISTA DE MAQUINAS
             if (mesStore.rawLogs && mesStore.rawLogs.length > 0) {
                 const latestLog = mesStore.rawLogs[0];
                 if (latestLog && latestLog.new_status && productionStore.machinesList) {

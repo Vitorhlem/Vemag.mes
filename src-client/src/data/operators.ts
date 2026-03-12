@@ -1,4 +1,3 @@
-// Arquivo: src-client/src/data/operators.ts
 
 export const OPERATORS_MAP: Record<string, string> = {
   '00104281': 'Adecio',
@@ -320,10 +319,8 @@ export const OPERATORS_MAP: Record<string, string> = {
 
 export function getOperatorName(badge: string): string {
   if (!badge) return '';
-  // Limpa espaços
   const cleanBadge = String(badge).trim();
   
-  // Busca exata (agora os códigos no mapa já tem 00 e final 1)
   if (OPERATORS_MAP[cleanBadge]) {
     return OPERATORS_MAP[cleanBadge];
   }

@@ -151,7 +151,7 @@ import { useQuasar, type QTableProps } from 'quasar';
 import { useDocumentStore, type DocumentCreatePayload } from 'stores/document-store';
 import { useMachineStore } from 'stores/machine-store';
 import { useUserStore } from 'stores/user-store';
-import { useAuthStore } from 'stores/auth-store'; // <--- NOVO IMPORT
+import { useAuthStore } from 'stores/auth-store'; 
 import type { DocumentPublic } from 'src/models/document-models';
 import type { User } from 'src/models/auth-models';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -164,14 +164,12 @@ const backendBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
 const documentStore = useDocumentStore();
 const machineStore = useMachineStore();
 const userStore = useUserStore();
-const authStore = useAuthStore(); // <--- STORE DE AUTH
+const authStore = useAuthStore(); 
 
-// --- Verificação de Permissão ---
 const isManager = computed(() => {
   const role = authStore.user?.role;
   return role === 'admin' || role === 'manager' || authStore.user?.is_superuser === true;
 });
-// --- Lógica da Tabela ---
 const columns: QTableProps['columns'] = [
   { name: 'document_type', required: true, label: 'Tipo', align: 'left', field: 'document_type', sortable: true },
   { name: 'expiry_date', label: 'Vencimento', field: 'expiry_date', align: 'center', sortable: true },
@@ -193,7 +191,6 @@ function getExpiryStatusColor(dateString: string): { color: string, textColor: s
 }
 
 
-// --- Lógica do Diálogo e Formulário ---
 interface NewDocumentForm {
   document_type: string;
   expiry_date: string;
@@ -217,7 +214,6 @@ const initialNewDocumentState: NewDocumentForm = {
 
 const newDocument = ref<NewDocumentForm>({ ...initialNewDocumentState });
 
-// Opções para os QSelects
 const documentTypeOptions = ['CNH', 'CRLV', 'ANTT', 'ASO', 'Seguro', 'Outro'];
 const machineOptions = computed(() => machineStore.machines.map(v => ({
   label: `${v.brand} ${v.model} (${v.identifier || v.identifier})`,
@@ -231,7 +227,6 @@ const driverOptions = computed(() => drivers.value.map((d: User) => ({
 })));
 
 
-// Limpa os IDs associados quando o tipo de dono muda
 watch(ownerType, () => {
   newDocument.value.machine_id = undefined;
   newDocument.value.operator_id = undefined;
@@ -277,14 +272,13 @@ function confirmDelete(document: DocumentPublic) {
 }
 
 
-// --- Ciclo de Vida ---
+
 onMounted(() => {
   void documentStore.fetchDocuments();
-  
-  // --- CORREÇÃO: Só busca dados de formulário se for gestor ---
+
   if (isManager.value) {
     void machineStore.fetchAllMachines();
-    void userStore.fetchAllUsers(); // Isso prevenia o erro 403
+    void userStore.fetchAllUsers(); 
   }
 });
 

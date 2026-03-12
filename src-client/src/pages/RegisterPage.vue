@@ -221,7 +221,7 @@ const formData = ref<UserRegister>({
   password: '',
 });
 
-// Opção Única Fixa
+
 const sectorOptions: { label: string, value: UserSector }[] = [
   { label: 'Indústria Metalúrgica / Manufatura', value: 'manufatura' }, 
 ];
@@ -284,13 +284,13 @@ function handleMouseLeave() {
 </script>
 
 <style scoped>
-/* --- CORES VEMAG --- */
+
 .text-vemag-primary { color: #008478 !important; }
 .bg-vemag-primary { background-color: #008478 !important; }
 .bg-vemag-dark { background-color: #003D38 !important; }
 .bg-vemag-muted { background-color: #00665E !important; }
 
-/* --- ESTRUTURA GERAL --- */
+
 .industrial-register-container {
     width: 100vw;
     height: 100vh;
@@ -309,21 +309,20 @@ function handleMouseLeave() {
     z-index: 0;
 }
 
-/* --- CARD DE REGISTRO --- */
+
 .register-card {
     width: 500px;
     max-width: 90vw;
     background: rgba(30, 30, 30, 0.85);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px; /* Cantos retos = industrial */
+    border-radius: 4px; 
     position: relative;
     overflow: hidden;
 }
 
 .safety-stripe {
     height: 4px;
-    /* Alterado de amarelo/laranja para #008478 */
     background: repeating-linear-gradient(45deg, #008478, #008478 10px, #000 10px, #000 20px);
     width: 100%;
 }
@@ -333,7 +332,6 @@ function handleMouseLeave() {
     top: var(--shine-y, 0); left: var(--shine-x, 0);
     transform: translate(-50%, -50%);
     width: 400px; height: 400px;
-    /* Alterado de laranja para #008478 */
     background: radial-gradient(circle, rgba(0, 132, 120, 0.15) 0%, rgba(0, 132, 120, 0) 60%);
     opacity: var(--shine-opacity, 0);
     transition: opacity 0.3s ease-out;
@@ -363,13 +361,13 @@ function handleMouseLeave() {
 /* BOTÕES */
 .industrial-btn {
     border-radius: 2px;
-    border: 1px solid #008478; /* VEMAG Primary */
+    border: 1px solid #008478; 
     font-weight: bold;
     letter-spacing: 1px;
     transition: all 0.3s ease;
 }
 .industrial-btn:hover {
-    background-color: #00665E !important; /* VEMAG Muted */
+    background-color: #00665E !important; 
     box-shadow: 0 0 15px rgba(0, 132, 120, 0.4);
 }
 .border-grey {
@@ -379,7 +377,7 @@ function handleMouseLeave() {
 
 .hover-underline:hover { text-decoration: underline; }
 
-/* --- LADO DIREITO (VISUAL) --- */
+
 .industrial-bg {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;

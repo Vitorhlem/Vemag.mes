@@ -29,7 +29,7 @@ export interface OperatorDashboardResponse {
   produced_items: number;
 }
 
-// --- ESTADO DA STORE ---
+
 export interface DashboardState {
   managerDashboard: ManagerDashboardResponse | null;
   operatorDashboard: OperatorDashboardResponse | null;

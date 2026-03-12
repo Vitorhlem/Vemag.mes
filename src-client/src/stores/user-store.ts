@@ -20,7 +20,6 @@ export const useUserStore = defineStore('user', {
       this.isLoading = true;
       try {
         const response = await api.get<User[]>('/users');
-        // ----------------------------------------
         this.users = response.data;
       } catch (error) {
         Notify.create({ type: 'negative', message: 'Falha ao carregar usuários.' });
@@ -34,7 +33,6 @@ export const useUserStore = defineStore('user', {
       this.isLoading = true;
       try {
         const response = await api.post<User>('/users', userData);
-        // ----------------------------------------
         this.users.unshift(response.data);
         Notify.create({ type: 'positive', message: 'Usuário adicionado com sucesso!' });
 

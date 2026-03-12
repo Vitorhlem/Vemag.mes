@@ -197,7 +197,6 @@ async function handleLogin() {
 }
 
 onMounted(() => {
-    // Configura a cor primária globalmente para o verde da VEMAG
     setCssVar('primary', '#008478');
     if (typeof window !== 'undefined') {
         mouseX.value = window.innerWidth / 2;
@@ -207,20 +206,19 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* --- CORES VEMAG --- */
 $vemag-dark: #003D38;
 $vemag-primary: #008478;
 $vemag-muted: #00665E;
 
 .text-vemag-primary { color: $vemag-primary !important; }
 .text-vemag-muted { color: $vemag-muted !important; }
-.text-vemag-dark { color: #002925 !important; } /* Um tom ainda mais escuro para texto sobre fundo claro se necessário, ou igual */
+.text-vemag-dark { color: #002925 !important; } 
 
-/* --- CONTAINER E FUNDO --- */
+
 .industrial-login-container {
     width: 100vw;
     height: 100vh;
-    background-color: #121212; /* Preto Industrial neutro */
+    background-color: #121212; 
     overflow: hidden;
     position: relative;
     cursor: crosshair;
@@ -236,7 +234,6 @@ $vemag-muted: #00665E;
     left: 0;
     width: 100%;
     height: 100%;
-    /* Grid em verde VEMAG muito sutil */
     background-image: 
         linear-gradient(rgba(0, 132, 120, 0.05) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 132, 120, 0.05) 1px, transparent 1px);
@@ -244,14 +241,12 @@ $vemag-muted: #00665E;
     z-index: 0;
 }
 
-/* --- SCANNER BAR --- */
 .scanner-bar {
     position: absolute;
     top: -20%;
     left: 0;
     width: 100%;
     height: 60px;
-    /* Scanner verde */
     background: linear-gradient(to bottom, transparent, rgba(0, 132, 120, 0.15) 50%, transparent);
     border-bottom: 2px solid rgba(0, 132, 120, 0.3);
     z-index: 1;
@@ -267,7 +262,6 @@ $vemag-muted: #00665E;
     100% { top: 120%; opacity: 0; }
 }
 
-/* --- EIXOS --- */
 .axis-x, .axis-y {
     position: absolute;
     background-color: rgba(0, 102, 94, 0.25);
@@ -322,7 +316,7 @@ $vemag-muted: #00665E;
     box-shadow: 0 0 20px 8px rgba(0, 132, 120, 0.4);
 }
 
-/* --- CARD GLASS --- */
+
 .login-content {
     z-index: 10;
     width: 100%;
@@ -331,7 +325,7 @@ $vemag-muted: #00665E;
 }
 
 .login-card {
-    background: rgba(15, 20, 20, 0.8); /* Fundo escuro levemente esverdeado */
+    background: rgba(15, 20, 20, 0.8); 
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
     border: 1px solid rgba(0, 132, 120, 0.2);
@@ -342,7 +336,6 @@ $vemag-muted: #00665E;
 
 .safety-stripe {
     height: 5px;
-    /* Listras VEMAG Primary e Preto */
     background: repeating-linear-gradient(
         45deg,
         $vemag-primary,
@@ -377,7 +370,6 @@ $vemag-muted: #00665E;
     border-radius: 6px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     height: 48px;
-    /* Gradiente VEMAG */
     background: linear-gradient(135deg, $vemag-primary, $vemag-muted) !important;
 }
 

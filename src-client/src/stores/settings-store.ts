@@ -25,7 +25,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
     const organizationSettings = ref<OrganizationPublic | null>(null);
   const isLoadingOrgSettings = ref(false);
-  // --------------------------------
+
 
 
   async function fetchOrganizationSettings() {
@@ -54,7 +54,7 @@ export const useSettingsStore = defineStore('settings', () => {
       isLoadingOrgSettings.value = false;
     }
   }
-  // -------------------------------------
+
 
   return {
     darkMode,

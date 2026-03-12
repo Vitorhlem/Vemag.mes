@@ -402,7 +402,6 @@ const allServices = computed(() => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const list: any[] = [];
 
-  // Mapeia as linhas de Mão de Obra
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   industrialData.value.labor_rows?.forEach((row: any, i: number) => {
     list.push({
@@ -413,7 +412,6 @@ const allServices = computed(() => {
     });
   });
 
-  // Mapeia as linhas de Material
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   industrialData.value.material_rows?.forEach((row: any, i: number) => {
     list.push({
@@ -461,12 +459,10 @@ const showFinishDialog = ref(false);
 
 const selectedComponent = ref<MachineComponent | null>(null);
 
-// --- LÓGICA DE CUSTOS INDUSTRIAIS ---
 const industrialData = computed(() => {
   if (!props.request?.manager_notes) return null;
   try {
     const meta = JSON.parse(props.request.manager_notes);
-    // Verifica se tem as chaves da manutenção industrial
     if (meta.labor_total !== undefined || meta.material_total !== undefined) return meta;
     return null;
   } catch { return null; }

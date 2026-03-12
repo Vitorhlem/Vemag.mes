@@ -178,7 +178,6 @@ const detailedLogs = ref<any[]>([]);
 const logSearch = ref('');
 let socket: WebSocket | null = null; 
 
-// 🚀 ADICIONADO: 'total_idle' para suportar o novo card de Ociosidade
 const summaryData = ref({
   total_running: 0,
   total_setup: 0,
@@ -215,7 +214,6 @@ const reliabilityStatus = computed(() => {
   return { label: 'Instável / Crítico', color: 'negative' };
 });
 
-// 🚀 ADICIONADO: Novo card de Ocioso (Disponível) usando total_idle
 const stateCards = computed(() => [
   { label: 'Em Operação', value: summaryData.value.total_running, color: 'green', icon: 'precision_manufacturing' },
   { label: 'Setup / Ajustes', value: summaryData.value.total_setup, color: 'purple', icon: 'settings_suggest' },
@@ -411,13 +409,11 @@ const handleResize = () => {
 onMounted(() => {
   void loadAllData();
   listenForSystemUpdates(); 
-  // Liga o evento de redimensionamento de forma segura
   window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
   if (socket) socket.close(); 
-  // Desliga o evento de redimensionamento ao sair da página (Evita o erro "null")
   window.removeEventListener('resize', handleResize);
 });
 </script>
@@ -431,7 +427,7 @@ onUnmounted(() => {
 }
 .state-card:hover { transform: translateY(-5px); box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
 
-/* ✅ A cor da borda do novo card (Ocioso) é definida aqui */
+
 .border-left-green { border-left: 8px solid #43a047; }
 .border-left-purple { border-left: 8px solid #8e24aa; }
 .border-left-grey { border-left: 8px solid #9e9e9e; } 

@@ -11,7 +11,7 @@
       content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width<% if (ctx.mode.cordova || ctx.mode.capacitor) { %>, viewport-fit=cover<% } %>"
     />
     
-    <!-- Fontes -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,7 +26,7 @@
       href="icons/favicon-128x128.png"
     />
 
-    <!-- Estilos da tela de carregamento DO SISTEMA -->
+
     <style>
       html, body {
         margin: 0;
@@ -58,7 +58,7 @@
         letter-spacing: -1px;
       }
       .trucar-logo span:nth-child(4) {
-        color: #0d6efd; /* Cor Primária */
+        color: #0d6efd;
       }
       .spinner {
         width: 40px;
@@ -83,10 +83,6 @@
     </style>
   </head>
   <body>
-    <!-- 
-      Este é o "Splash Screen" que o Quasar entende.
-      Ele será removido automaticamente quando o app estiver pronto.
-    -->
     <div id="q-app-loading">
       <div class="loader-content">
         <div class="trucar-logo">
@@ -97,7 +93,6 @@
       </div>
     </div>
 
-    <!-- Ponto de entrada do Quasar. NÃO REMOVA ISSO. -->
     <!-- quasar:entry-point -->
   </body>
 </html>

@@ -2,7 +2,6 @@
 import { api } from 'boot/axios';
 import { db } from 'src/db/offline-db';
 import { Notify } from 'quasar';
-// --- INTERFACES ---
 
 export interface MachineStats {
   date: string;
@@ -40,7 +39,7 @@ export interface AppointmentPayload {
   machine_id: number;
 }
 
-// --- CLASSE DO SERVIÇO ---
+
 
 export class ProductionService {
   

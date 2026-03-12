@@ -272,10 +272,8 @@ function resetAndFetch() {
   void onRequest({ pagination: pagination.value });
 }
 
-// CORREÇÃO: Tipagem e lógica segura de conversão para string
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function wrapCsvValue(val: unknown, formatFn?: (v: any, r?: any) => any) {
-  // Passamos 'val' direto. O segundo argumento do formatFn (row) vai como undefined pois no CSV tratamos celula a celula
   let formatted = formatFn !== undefined ? formatFn(val, undefined) : val;
   
   if (formatted === undefined || formatted === null) {
@@ -290,27 +288,21 @@ function wrapCsvValue(val: unknown, formatFn?: (v: any, r?: any) => any) {
 function exportTable() {
   if (rows.value.length === 0) return;
 
-  // 1. Gera o cabeçalho
   const header = columns.map(col => wrapCsvValue(col.label)).join(',');
 
-  // 2. Gera as linhas de dados
   const body = rows.value.map(row => {
     return columns.map(col => {
-      // Type assertion para acessar dinamicamente
       const rowData = row as Record<string, unknown>;
       
-      // Acessa valor do campo
       const fieldVal = typeof col.field === 'function' 
         ? col.field(row) 
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         : rowData[col.field as string];
-      
-      // CORREÇÃO: Agora o TypeScript aceita col.format porque as assinaturas batem
+
       return wrapCsvValue(fieldVal, col.format);
     }).join(',');
   }).join('\r\n');
 
-  // 3. Junta tudo
   const content = `${header}\r\n${body}`;
 
   const status = exportFile(

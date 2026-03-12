@@ -262,11 +262,11 @@ const userStore = useUserStore();
 
 const currentTab = ref('account');
 
-// --- UTILITÁRIOS ---
+
 function getAvatarUrl(url: string | null | undefined): string {
   if (!url) return defaultAvatar;
   if (url.startsWith('http')) return url;
-  // Ajuste para desenvolvimento local se necessário, ou produção
+
   const backendUrl = process.env.API_URL || 'http://127.0.0.1:8000'; 
   if (url.startsWith('/static') || url.startsWith('/')) {
     return `${backendUrl}${url}`;
@@ -274,7 +274,7 @@ function getAvatarUrl(url: string | null | undefined): string {
   return url;
 }
 
-// --- UPLOAD DE FOTO ---
+
 const fileInput = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
 
@@ -297,7 +297,7 @@ async function handleFileUpload(event: Event) {
       const newAvatarUrl = uploadRes.data.file_url;
       await api.put('/users/me', { avatar_url: newAvatarUrl });
       
-      // Atualiza localmente
+
       if (authStore.user) {
         authStore.user.avatar_url = newAvatarUrl;
         const storedUser = localStorage.getItem('user');
@@ -317,7 +317,7 @@ async function handleFileUpload(event: Event) {
   }
 }
 
-// --- PERFIL ---
+
 const profileForm = reactive({
   full_name: authStore.user?.full_name || '',
   email: authStore.user?.email || '',
@@ -345,7 +345,6 @@ async function handleUpdateProfile() {
   }
 }
 
-// --- SENHA ---
 const passwordForm = ref({ current_password: '', new_password: '', confirm_password: '' });
 const isSubmittingPassword = ref(false);
 
@@ -386,12 +385,12 @@ async function handleChangePassword() {
   }
 }
 
-// --- INTERFACE ---
+
 function updateDarkMode(val: boolean | 'auto') {
   settingsStore.setDarkMode(val);
 }
 
-// --- INTEGRAÇÃO SAP (NOVO CÓDIGO) ---
+
 const isSyncingSap = ref(false);
 const lastSyncStatus = ref('');
 
@@ -422,7 +421,7 @@ async function triggerSapSync() {
   }
 }
 
-// --- TABS VISÍVEIS ---
+
 const visibleTabs = computed(() => {
   const tabs = [
     { name: 'account', label: 'Minha Conta', caption: 'Perfil e Segurança', icon: 'person' },

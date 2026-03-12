@@ -1,9 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
-  // =========================================================================
-  // 1. ÁREA ADMINISTRATIVA / GESTOR (Com Menu Lateral - MainLayout)
-  // =========================================================================
+
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
@@ -11,7 +9,6 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: '/dashboard' },
       
-      // Dashboard Geral
       { 
         path: 'dashboard', 
         name: 'dashboard', 
@@ -120,17 +117,6 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  {
-    path: '/print',
-    component: () => import('layouts/BlankLayout.vue'),
-    children: [
-      { path: 'mes-report', component: () => import('pages/PrintMesReportPage.vue') }
-    ]
-  },
-
-  // =========================================================================
-  // 4. ERROS (404)
-  // =========================================================================
   {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),

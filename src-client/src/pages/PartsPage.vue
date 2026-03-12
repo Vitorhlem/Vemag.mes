@@ -208,20 +208,7 @@
                             <q-input outlined dense v-model.number="formData.value" type="number" label="Custo Médio (R$)" prefix="R$" step="0.01" />
                         </div>
                     </div>
-                    
-                    <div v-if="formData.category === 'Pneu'" class="bg-blue-1 q-pa-sm rounded-borders q-mb-sm">
-                        <div class="text-caption text-primary q-mb-xs text-weight-bold">Dados de Rodagem</div>
-                        <q-input outlined dense bg-color="white" v-model="formData.serial_number" label="Modelo/Série Padrão" />
-                        <q-input 
-                            outlined dense bg-color="white"
-                            v-model.number="formData.lifespan_km" 
-                            type="number" 
-                            label="Vida Útil Esperada (Horas)" 
-                            hint="Para cálculo de previsibilidade de troca"
-                            class="q-mt-sm"
-                        />
-                    </div>
-                    
+
                     <div class="row q-col-gutter-sm">
                         <div class="col-6">
                              <q-input outlined dense v-model="formData.part_number" label="Código (Part Number)" />
@@ -388,7 +375,7 @@ function getCategoryIcon(category: PartCategory): string {
     'Consumível': 'oil_barrel', 
     'EPI': 'masks', 
     'Outro': 'category',
-    'Pneu': 'settings_backup_restore'
+
   };
   return iconMap[category] || 'inventory_2';
 }

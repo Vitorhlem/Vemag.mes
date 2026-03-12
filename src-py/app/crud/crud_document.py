@@ -41,7 +41,7 @@ async def get_multi_by_org(
     skip: int = 0,
     limit: int = 100,
     expiring_in_days: Optional[int] = None,
-    operator_id: Optional[int] = None # <--- NOVO PARÂMETRO DE FILTRO
+    operator_id: Optional[int] = None
 ) -> List[DocumentPublic]:
     """
     Busca uma lista de documentos para uma organização, com paginação e filtros.

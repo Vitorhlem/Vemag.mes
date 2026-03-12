@@ -263,7 +263,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* Estilização Trucar PCM */
 .dashboard-bg { 
   background-color: #f0f4f4;
   min-height: 100vh;
@@ -277,7 +276,6 @@ onMounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
-/* Glassmorphism Puro */
 .glass-card {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) saturate(180%);
@@ -335,15 +333,12 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
-/* =========================================
-   DARK MODE OVERRIDES (DARK FOREST)
-   ========================================= */
+
 .body--dark {
   .dashboard-bg { 
     background-color: #05100e !important; 
   }
 
-  /* Glass Components */
   .glass-card {
     background: rgba(5, 20, 18, 0.7) !important;
     border-color: rgba(18, 140, 126, 0.2);
@@ -360,35 +355,32 @@ onMounted(() => {
     }
   }
 
-  /* Text Colors */
   .text-teal-9 { color: #80cbc4 !important; }
   .text-teal-10 { color: #ffffff !important; }
   .text-teal-8 { color: #b2dfdb !important; }
   .text-grey-7 { color: #b0bec5 !important; }
   .text-grey-6 { color: #90a4ae !important; }
 
-  /* KPI Cards Text Adjustments for Dark Mode */
-  .text-orange-8 { color: #ffcc80 !important; } /* Lighter Orange */
-  .text-blue-8 { color: #90caf9 !important; }   /* Lighter Blue */
-  .text-green-8 { color: #a5d6a7 !important; }  /* Lighter Green */
 
-  /* KPI Icon Backgrounds (Darker tint) */
+  .text-orange-8 { color: #ffcc80 !important; } 
+  .text-blue-8 { color: #90caf9 !important; }  
+  .text-green-8 { color: #a5d6a7 !important; } 
+
+
   .bg-orange-1 { background-color: rgba(251, 140, 0, 0.15) !important; }
   .bg-blue-1 { background-color: rgba(25, 118, 210, 0.15) !important; }
   .bg-green-1 { background-color: rgba(67, 160, 71, 0.15) !important; }
   .bg-teal-1 { background-color: rgba(18, 140, 126, 0.15) !important; }
 
-  /* Tab Text Color */
+
   .tab-text-color {
     color: #80cbc4 !important;
   }
 
-  /* List Hover */
   .hover-bg-teal-faded:hover {
     background-color: rgba(18, 140, 126, 0.15) !important;
   }
 
-  /* Table Comparison in Dialog */
   .glass-table {
     :deep(thead tr) { background: rgba(18, 140, 126, 0.2); }
     :deep(tbody tr td) { color: #e0f2f1; }
@@ -396,7 +388,7 @@ onMounted(() => {
   .bg-orange-1 { background-color: rgba(255, 152, 0, 0.1) !important; }
   .text-orange-9, .text-orange-10 { color: #ffb74d !important; }
   
-  /* Footer Gradient */
+
   .bg-teal-gradient-faded-full {
     background: linear-gradient(90deg, rgba(18, 140, 126, 0.1) 0%, rgba(0,0,0,0.2) 100%);
   }

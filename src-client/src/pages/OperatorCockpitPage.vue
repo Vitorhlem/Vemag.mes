@@ -675,10 +675,10 @@ const router = useRouter();
 const $q = useQuasar();
 const searchQuery = ref('');
 const pagination = ref({
-  sortBy: 'op_number', // (Opcional) Já traz ordenado pelo número da OP
-  descending: true,    // (Opcional) As OPs mais novas primeiro
+  sortBy: 'op_number',
+  descending: true,  
   page: 1,
-  rowsPerPage: 50      // 🚀 AQUI: Define 50 como o padrão ao abrir a tela!
+  rowsPerPage: 50     
 });
 const productionStore = useProductionStore();
 const authStore = useAuthStore();
@@ -728,10 +728,9 @@ const andonNote = ref('');
 
 const andonOptions = ANDON_OPTIONS; 
 
-// --- Tabela Atualizada ---
+
 const openOps = ref([]);
 const opColumns = [
-  // MUDANÇA: Rótulo da coluna atualizado
   { name: 'op_number', label: 'Nome / Identificação', align: 'left', field: 'op_number', sortable: true },
   { name: 'part_name', label: 'Produto / Item', align: 'left', field: 'part_name', sortable: true },
   { name: 'planned_qty', label: 'Qtd', align: 'center', field: 'planned_qty' },
@@ -763,7 +762,7 @@ function openStepSelection() {
 function cancelStepSelection() {
     isStepConfirmationDialogOpen.value = false;
     isStepSelectionDialogOpen.value = false;
-    productionStore.activeOrder = null; // Reseta a ordem para voltar a aguardar O.P.
+    productionStore.activeOrder = null; 
     $q.loading.hide();
 }
 
@@ -777,7 +776,6 @@ function confirmAndStartStep() {
     isStepConfirmationDialogOpen.value = false;
     isStepSelectionDialogOpen.value = false;
 
-    // 🚀 INICIA DE FATO O MODO SETUP/PRODUÇÃO APENAS APÓS A CONFIRMAÇÃO
     if (productionStore.currentMachine) {
         productionStore.currentMachine.status = 'SETUP';
     }
@@ -801,15 +799,12 @@ function formatSapText(text: string | undefined | null) {
   
   let formatted = String(text);
 
-  // 1. Troca quebras de linha literais (texto \n) ou reais por tags HTML <br>
   formatted = formatted.replace(/\\r\\n/g, '<br>')
                        .replace(/\\n/g, '<br>')
                        .replace(/\r\n/g, '<br>')
                        .replace(/\n/g, '<br>');
 
-  // 2. O TRUQUE MÁGICO PARA O SEU SAP: 
-  // O SAP está juntando as frases com ".- ". Vamos forçar a quebra de linha aí!
-  // Isso vai transformar ".- FIXAR O EIXO" em uma linha nova começando com um bullet.
+
   // eslint-disable-next-line no-useless-escape
   formatted = formatted.replace(/\.\-\s/g, '.<br><br>• ');
   // eslint-disable-next-line no-useless-escape
@@ -859,22 +854,20 @@ const normalizedStatus = computed(() => {
   return 'DISPONÍVEL';
 });
 const displayStatus = computed(() => {
-  // Se estiver em pausa manual (tela vermelha aberta ou aguardando), mostra o motivo
   if (isPaused.value) return 'PAUSADA - ' + (currentPauseObj.value?.reasonLabel || '');
   
-  // Senão, mostramos o status real da máquina
   return normalizedStatus.value;
 });
 const statusBgClass = computed(() => {
   const s = normalizedStatus.value;
   if (s === 'SETUP') return 'bg-purple-9 text-white';
   if (s === 'MANUTENÇÃO') return 'bg-red-10 text-white';
-  if (s === 'AUTÔNOMO') return 'bg-blue-6 text-white'; // Azul claro diferenciado
+  if (s === 'AUTÔNOMO') return 'bg-blue-6 text-white'; 
   if (s === 'EM OPERAÇÃO') return 'bg-positive text-white';
   if (s === 'PARADA') return 'bg-orange-9 text-white';
-  if (s === 'OCIOSO') return 'bg-grey-7 text-white'; // Cinza para ocioso
+  if (s === 'OCIOSO') return 'bg-grey-7 text-white';
   
-  return 'bg-blue-grey-9 text-white'; // Disponível
+  return 'bg-blue-grey-9 text-white';
 });
 
 const statusTextClass = computed(() => {
@@ -889,7 +882,7 @@ const statusIcon = computed(() => {
   const s = normalizedStatus.value;
   if (s === 'SETUP') return 'build_circle';
   if (s === 'MANUTENÇÃO') return 'engineering';
-  if (s === 'AUTÔNOMO') return 'smart_toy'; // Ícone de robô para autônomo
+  if (s === 'AUTÔNOMO') return 'smart_toy'; 
   if (s === 'EM OPERAÇÃO') return 'autorenew';
   if (s === 'PARADA') return 'pause_circle_filled';
   return 'hourglass_empty';
@@ -967,8 +960,8 @@ const updateOnlineStatus = () => {
 async function openOpListDialog() {
   showOpList.value = true;
   loadingOps.value = true;
-  openOps.value = []; // Limpa a tabela
-  searchQuery.value = ''; // 🚀 Limpa a pesquisa anterior toda vez que abrir a tela
+  openOps.value = []; 
+  searchQuery.value = ''; 
   
   try {
     await api.get(`/production/orders/open?machine_id=${productionStore.machineId}`);
@@ -991,7 +984,7 @@ async function selectOp(op: any) {
 
   showOpList.value = false;
   
-  // 🚀 MOSTRA LOADING DE BUSCA DE ETAPA
+
   $q.loading.show({
       message: 'Carregando melhor operação...',
       spinnerColor: 'teal-9',
@@ -1005,7 +998,7 @@ async function selectOp(op: any) {
 async function handleSapPause(stopReason: any) {
   console.log(`🛑 [UI] Motivo Selecionado: ${stopReason.label} (${stopReason.code})`);
 
-  // 1. Atualiza o objeto local (apenas visual e para o payload de retorno futuro)
+  // 1. Atualiza o objeto local
   if (!currentPauseObj.value) {
       currentPauseObj.value = { 
           startTime: new Date(), 
@@ -1017,7 +1010,6 @@ async function handleSapPause(stopReason: any) {
       currentPauseObj.value.reasonLabel = stopReason.label;
   }
 
-  // 2. Avisa o backend IMEDIATAMENTE sobre o motivo (Atualiza o log "SEM MOTIVO")
   try {
       await productionStore.sendEvent('STATUS_CHANGE', { 
           new_status: 'STOPPED', 
@@ -1027,27 +1019,25 @@ async function handleSapPause(stopReason: any) {
       console.error("Erro ao atualizar motivo no backend:", e);
   }
 
-  // 3. Fecha o diálogo (NÃO ENVIA NADA AO SAP AQUI)
   isStopDialogOpen.value = false;
 
   // --- TRATAMENTO DE CASOS ESPECIAIS ---
 
-  // A. SETUP (Cód 52) - Transforma a parada em Setup
   if (stopReason.code === '52') {
       void productionStore.setMachineStatus('SETUP');
       void productionStore.sendEvent('STATUS_CHANGE', { new_status: 'SETUP', reason: 'Preparação / Setup' });
-      productionStore.isInSetup = true; // Ativa modo visual setup
+      productionStore.isInSetup = true; 
       $q.notify({ type: 'info', color: 'purple-9', icon: 'build_circle', message: 'Modo Setup Ativado.' });
       return;
   }
 
-  // B. MANUTENÇÃO (Cód 21)
+
   if (stopReason.code === '21' || stopReason.requiresMaintenance) {
       void triggerCriticalBreakdown(); 
       return;
   }
 
-  // C. TROCA DE TURNO (Cód 111)
+
   if (stopReason.code === '111') {
       isShiftChangeDialogOpen.value = true; 
       return;
@@ -1085,10 +1075,8 @@ async function applyNormalPause(fromPlc = false) {
     const rawSeq = Number(actualStep?.seq || 10);
     const position = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
     
-    // 🚀 AQUI ESTÁ A CORREÇÃO: Lê a operação DIRETAMENTE do step do SAP, sem tentar adivinhar a etapa
     let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
     
-    // Fallback caso a etapa do SAP tenha vindo vazia ou quebrado
     if (!sapData) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
@@ -1167,7 +1155,6 @@ async function triggerCriticalBreakdown() {
         const machineRes = productionStore.machineResource || '4.02.01';
         const machineName = productionStore.machineName || '';
 
-        // 1. Encerra a Produção atual (se houver OP ativa)
         if (activeOrder.value?.code) {
             
             const actualStep = currentViewedStep.value;
@@ -1175,7 +1162,6 @@ async function triggerCriticalBreakdown() {
             const rawSeq = Number(actualStep?.seq || 10);
             const stageStr = rawSeq === 999 ? '999' : rawSeq.toString().padStart(3, '0');
             
-            // 🚀 LÊ DIRETO DO SAP
             let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
             if (!sapData) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1204,7 +1190,6 @@ async function triggerCriticalBreakdown() {
             await ProductionService.sendAppointment(productionPayload);
         }
 
-        // 2. Registra a Parada de Manutenção (Tipo 2)
         const stopPayload = {
             op_number: '',
             resource_code: machineRes,
@@ -1223,13 +1208,11 @@ async function triggerCriticalBreakdown() {
         console.log("📤 [2/2] Registrando Parada de Recurso:", stopPayload);
         await ProductionService.sendAppointment(stopPayload);
 
-        // 3. Envia status explícito 'MAINTENANCE' ao Backend
         await productionStore.sendEvent('STATUS_CHANGE', { 
             new_status: 'MAINTENANCE', 
             reason: 'Manutenção / Conserto' 
         });
 
-        // 4. Atualiza estado local e desloga
         await productionStore.setMachineStatus('Em manutenção');
         await productionStore.finishSession();
         await productionStore.logoutOperator('MAINTENANCE'); 
@@ -1255,7 +1238,6 @@ async function triggerCriticalBreakdown() {
 async function finishPauseAndResume(fromPlc = false) {
   if (!currentPauseObj.value) return;
   
-  // 1. BLOQUEIO IMEDIATO DE DUPLICIDADE
   if (!isPaused.value) {
       console.warn("⚠️ Tentativa de retomada duplicada ignorada.");
       return;
@@ -1264,7 +1246,6 @@ async function finishPauseAndResume(fromPlc = false) {
   isPaused.value = false;
   if (activeOrder.value) activeOrder.value.status = 'RUNNING';
   
-  // Atualiza visualmente local
   if (productionStore.currentMachine) productionStore.currentMachine.status = 'Em uso';
 
   const isSetupReturn = currentPauseObj.value.reasonCode === '52';
@@ -1291,18 +1272,13 @@ async function finishPauseAndResume(fromPlc = false) {
       start_time: pauseStart.toISOString(),
       end_time: now.toISOString(),
       DataSource: 'I',
-      U_TipoDocumento: '2' // Setup também é tipo 2 (Parada Planejada) no seu Addon
+      U_TipoDocumento: '2' 
     };
 
     await ProductionService.sendAppointment(stopPayload);
 
-    // 2. LÓGICA DE STATUS
-    // Se veio do PLC, o backend já recebeu o sinal 1. 
-    // Porém, se estávamos em SETUP, o backend ignorou o sinal 1 (por causa da trava).
-    // Então, AGORA precisamos forçar o status 'RUNNING' explicitamente.
-    
+
     if (!fromPlc || isSetupReturn) {
-      // Se era Setup, TEMOS que avisar que acabou, mesmo que tenha vindo do PLC
       console.log("🚀 Enviando status RUNNING (Fim de Pausa/Setup)");
       await productionStore.setMachineStatus('RUNNING');
       await productionStore.sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' });
@@ -1319,7 +1295,7 @@ async function finishPauseAndResume(fromPlc = false) {
 
   } catch (error) {
     console.error("Erro ao retomar:", error);
-    isPaused.value = true; // Reverte erro
+    isPaused.value = true;
   } finally {
     $q.loading.hide();
   }
@@ -1327,7 +1303,6 @@ async function finishPauseAndResume(fromPlc = false) {
 function confirmFinishOp() {
   let badge = productionStore.currentOperatorBadge;
 
-  // Verificação de segurança do crachá
   if (!badge && authStore.user?.employee_id) {
       const role = authStore.user.role || '';
       if (role !== 'admin' && role !== 'manager') badge = authStore.user.employee_id;
@@ -1346,29 +1321,23 @@ function confirmFinishOp() {
       return; 
   }
 
-  // Diálogo de confirmação final
   $q.dialog({
     title: 'Encerrar Etapa / O.P.',
     message: 'Tem certeza que deseja finalizar esta etapa? A máquina ficará DISPONÍVEL.',
     cancel: true, persistent: true,
     ok: { label: 'SIM, ENCERRAR', color: 'negative', push: true, size: 'lg' }
   }).onOk(() => {
-      // ✅ "Bolha" assíncrona isolada com 'void' para não quebrar a tipagem estrita do Quasar/ESLint
       void (async () => {
           $q.loading.show({ message: 'Encerrando sessão...' });
           
           try {
-            // Para os timers do alerta e o apito instantaneamente!
             if (inactivityTimer) clearTimeout(inactivityTimer);
             stopInactivityAlert();
 
-            // 1. Fecha a sessão no Backend
             await productionStore.finishSession();
 
-            // 2. Muda o status da máquina para DISPONÍVEL
             await productionStore.setMachineStatus('AVAILABLE');
             
-            // 3. Logout e Redirecionamento (Enviamos o motivo de encerramento aqui!)
             await productionStore.logoutOperator('AVAILABLE', false, 'Etapa Finalizada pelo Operador');
             
             await router.push({ name: 'machine-kiosk' });
@@ -1380,7 +1349,7 @@ function confirmFinishOp() {
             $q.notify({ type: 'negative', message: 'Erro ao comunicar com o servidor.' });
           } finally {
             $q.loading.hide();
-            isStopDialogOpen.value = false; // Fecha o diálogo se algo der errado mas não sair da tela
+            isStopDialogOpen.value = false;
           }
       })();
   });
@@ -1407,10 +1376,9 @@ async function simulateOpScan() {
 async function confirmAndonCall(sector: string) {
     isAndonDialogOpen.value = false;
     
-    // Envia o setor e a nota digitada
+
     await productionStore.triggerAndon(sector, andonNote.value);
     
-    // Limpa o campo para a próxima vez
     andonNote.value = ''; 
     
     $q.notify({
@@ -1426,13 +1394,11 @@ async function confirmAndonCall(sector: string) {
 let scanBuffer = '';
 let scanTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// Esta é a função que o erro diz estar "missing"
 const onKeydown = (e: KeyboardEvent) => {
   void handleGlobalKeydown(e);
 };
 
 async function handleGlobalKeydown(event: KeyboardEvent) {
-  // Ignora se o foco estiver em um campo de input
   if ((event.target as HTMLElement).tagName === 'INPUT') return;
 
   if (event.key === 'Enter') {
@@ -1441,7 +1407,6 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
       $q.loading.show({ message: `Autenticando crachá...` });
       
       try {
-        // Tenta logar o operador no AuthStore
         await authStore.loginByBadge(scannedBadge);
         
         if (authStore.user?.employee_id) {
@@ -1452,8 +1417,6 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
             icon: 'person' 
           });
 
-          // 🚀 CORREÇÃO: Abre a lista de OPs automaticamente após o login do crachá
-          // Verifica se não há uma OP já rodando antes de abrir a lista
           if (!productionStore.activeOrder) {
              await openOpListDialog();
           }
@@ -1471,11 +1434,9 @@ async function handleGlobalKeydown(event: KeyboardEvent) {
     }
     scanBuffer = ''; 
   } else {
-    // Adiciona o caractere ao buffer se for uma tecla comum
     if (event.key.length === 1) {
       scanBuffer += event.key;
       
-      // Limpa o buffer se o operador demorar mais de 2 segundos entre teclas
       if (scanTimeout) clearTimeout(scanTimeout);
       scanTimeout = setTimeout(() => { scanBuffer = ''; }, 2000);
     }
@@ -1494,15 +1455,15 @@ function playBeep() {
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     
-    oscillator.type = 'square'; // Som mais estridente (estilo alarme industrial)
-    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800 Hz
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volume (0.1 = 10%)
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
     
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     
     oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.25); // Toca por 250ms
+    oscillator.stop(audioCtx.currentTime + 0.25);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     console.warn("Áudio não suportado ou bloqueado pelo navegador.");
@@ -1511,8 +1472,7 @@ function playBeep() {
 
 function startInactivityAlert() {
   stopDialogAlertActive.value = true;
-  playBeep(); // Toca o primeiro bip
-  // Repete o bip a cada 1.5 segundos
+  playBeep(); 
   beepInterval = setInterval(playBeep, 1500); 
 }
 
@@ -1522,28 +1482,23 @@ function stopInactivityAlert() {
   beepInterval = null;
 }
 
-// Observa a tela de parada. Se abrir, conta 3 minutos. Se fechar, cancela tudo.
 watch(isStopDialogOpen, (isOpen) => {
   if (isOpen) {
-    // 3 minutos = 180000 milissegundos
     const TRES_MINUTOS = 180000; 
     
     inactivityTimer = setTimeout(() => {
       startInactivityAlert();
     }, TRES_MINUTOS);
   } else {
-    // Se a tela fechou (operador escolheu o motivo), limpa os alertas e os timers
     if (inactivityTimer) clearTimeout(inactivityTimer);
     stopInactivityAlert();
   }
 });
 
-// ✅ NOVA PARTE: Garante que tudo seja desligado se o operador sair da página (ex: Finalizar Etapa)
 onUnmounted(() => {
   if (inactivityTimer) clearTimeout(inactivityTimer);
   stopInactivityAlert();
   
-  // Opcional: Desliga o contexto de áudio completamente para liberar memória
   if (audioCtx && audioCtx.state !== 'closed') {
       audioCtx.close().catch(e => console.error(e));
   }
@@ -1558,7 +1513,6 @@ async function finishAutoSetup() {
         // eslint-disable-next-line prefer-const
         let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
 
-        // 1. Envia o Apontamento de SETUP ao SAP (Tipo 2 - Parada)
         await ProductionService.sendAppointment({
             op_number: '', 
             resource_code: productionStore.machineResource,
@@ -1573,12 +1527,10 @@ async function finishAutoSetup() {
             U_TipoDocumento: '2'
         });
 
-        // 2. Transição de Estado Local
         productionStore.isInSetup = false; 
-        statusStartTime.value = new Date(); // Zera relógio para produção
+        statusStartTime.value = new Date();
         if (activeOrder.value) activeOrder.value.status = 'RUNNING';
         
-        // 3. Atualiza Backend para 'Em Uso' (Sem gerar apontamento extra agora)
         await productionStore.setMachineStatus('RUNNING');
         await productionStore.sendEvent('STATUS_CHANGE', { new_status: 'RUNNING' });
 
@@ -1591,8 +1543,7 @@ async function finishAutoSetup() {
     }
 }
 
-const isProcessingSignal = ref(false); // Trava para evitar loop infinito de eventos
-
+const isProcessingSignal = ref(false);
 let socket: WebSocket | null = null;
 
 function connectWebSocket() {
@@ -1601,7 +1552,6 @@ function connectWebSocket() {
       socket = null;
   }
 
-  // 🚀 NOVA MÁGICA: Usa o mesmo endereço que o Axios usa (O IP do Servidor), ignorando o localhost do Android.
   const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';
   const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
   const wsUrl = `${wsBase}/ws/${productionStore.machineId}`;
@@ -1618,9 +1568,6 @@ function connectWebSocket() {
     try {
       const data = JSON.parse(event.data);
 
-      // =========================================================
-      // 🚀 1. ATUALIZAÇÃO UNIVERSAL E SINCRONISMO (Os 500ms)
-      // =========================================================
       if (data.machine_id && Number(data.machine_id) === Number(productionStore.machineId)) {
           if (data.new_status || data.machine_status_db) {
               if (productionStore.currentMachine) {
@@ -1632,9 +1579,6 @@ function connectWebSocket() {
           }
       }
 
-      // =========================================================
-      // 📡 ESCUTADORES DO CELERY (Integração SAP Assíncrona)
-      // =========================================================
       if (data.type === 'SAP_OPEN_ORDERS' && Number(data.machine_id) === Number(productionStore.machineId)) {
           console.log("📥 OPs recebidas via Celery!");
           openOps.value = data.data || [];
@@ -1643,15 +1587,13 @@ function connectWebSocket() {
       }
 
       if (data.type === 'SAP_ORDER_DATA' && Number(data.machine_id) === Number(productionStore.machineId)) {
-          $q.loading.hide(); // Esconde o "Carregando melhor operação..."
+          $q.loading.hide(); 
 
           if (data.data) {
              console.log("📥 OP Encontrada via Celery:", data.code);
-             
-             // Processa e define currentStepIndex na store (em background)
+
              await productionStore.processReceivedOrder(data.data);
-             
-             // 🚀 ABRE A JANELA DE PERGUNTA PARA O OPERADOR
+
              isStepConfirmationDialogOpen.value = true;
              
           } else {
@@ -1660,9 +1602,6 @@ function connectWebSocket() {
           return;
       }
 
-      // =========================================================
-      // 🛡️ TRAVA DE SEGURANÇA: TROCA DE TURNO E SINAIS PLC
-      // =========================================================
       if (isShiftChangeDialogOpen.value) return;
       
       if (
@@ -1715,55 +1654,40 @@ function connectWebSocket() {
 }
 
 onMounted(async () => {
-  // 1. Inicialização de Roteiro e Timers
   if (productionStore.currentStepIndex !== -1) {
     viewedStepIndex.value = productionStore.currentStepIndex;
   }
 
-  // Inicia cronômetro visual (Atualiza currentTime a cada segundo)
   timerInterval = setInterval(() => { 
     currentTime.value = new Date(); 
   }, 1000);
   resetTimer();
 
-  // 2. Listeners de Sistema
   window.addEventListener('keydown', onKeydown);
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  // 3. Recuperação de Sessão (Login / Troca de Turno)
-  // Se veio do login, o authStore tem o crachá correto
+
   if (!productionStore.currentOperatorBadge && authStore.user?.employee_id) {
       productionStore.currentOperatorBadge = authStore.user.employee_id;
   }
 
-  // 4. Sincronização de Dados
   await syncOfflineData();
-  
-  // Força atualização do estado da máquina do servidor
-  // Isso é vital para saber se o estado real é 'AUTÔNOMO', 'EM USO' ou 'PARADA'
+
   if (productionStore.machineId) {
       await productionStore.fetchMachine(productionStore.machineId);
   }
 
-  // 5. Lógica de "Reivindicação" (Troca de Turno Quente)
-  // Se tem ordem ativa E a máquina está em modo Autônomo (Deixada pelo turno anterior)
-  // O operador loga e "pega o bastão" sem parar a máquina.
   if (productionStore.activeOrder && (normalizedStatus.value === 'AUTÔNOMO' || normalizedStatus.value === 'OCIOSO')) {
       console.log("👤 Operador assumindo o posto (Troca Quente). Reivindicando máquina...");
-      
-      // A. Atualiza VISUALMENTE agora (Otimistic Update)
-      // Garante que a tela fique verde imediatamente
+
       if (productionStore.currentMachine) {
           productionStore.currentMachine.status = 'Em uso'; 
-          isPaused.value = false; // Garante que não mostre tela de pausa
+          isPaused.value = false; 
       }
 
-      // B. Avisa o Backend que agora é Produção Humana
-      // O Backend vai fechar a fatia 'Autônoma' e abrir 'Em uso'
       await productionStore.setMachineStatus('RUNNING');
       
-      // Envia evento apenas para registro (O backend já trataria o status change, mas garantimos o motivo)
       await productionStore.sendEvent('STATUS_CHANGE', { 
           new_status: 'RUNNING', 
           reason: 'Operador assumiu máquina em movimento' 
@@ -1772,9 +1696,6 @@ onMounted(async () => {
       resetTimer(); 
   }
 
-  // 6. CONEXÃO WEBSOCKET (Fundamental)
-  // ✅ CORREÇÃO: Conecta IMEDIATAMENTE ao abrir a página (se tiver ID da máquina).
-  // Isso garante que o tablet já esteja escutando as respostas do SAP enviadas pelo Celery.
   if (productionStore.machineId) {
       console.log("🔌 Iniciando conexão com Servidor (WebSocket)...");
       connectWebSocket();
@@ -1782,8 +1703,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  // 1. Limpeza de Listeners
-  window.removeEventListener('keydown', onKeydown);
+    window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('online', updateOnlineStatus);
   window.removeEventListener('offline', updateOnlineStatus);
 
@@ -1791,8 +1711,6 @@ onUnmounted(() => {
     clearInterval(timerInterval);
   }
 
-  // 2. FECHAMENTO DO SOCKET (CRUCIAL PARA EVITAR DUPLICIDADE)
-  // Se não fechar, o componente antigo continua recebendo sinais e disparando logs duplicados
   if (socket) {
     socket.close();
     socket = null;
@@ -1827,13 +1745,12 @@ onUnmounted(() => {
   box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
-/* Destaque para os itens Especiais (Troca de Turno e Manutenção) */
+
 .special-active {
-  border: 2px solid #008C7A !important; /* Borda cor da marca */
+  border: 2px solid #008C7A !important; 
   background: #f0fdfa !important;
 }
 
-/* Animação de pulsação discreta no ícone sinalizado */
 .pulse-animation {
   animation: pulse-shadow 2s infinite;
 }
@@ -1861,9 +1778,9 @@ onUnmounted(() => {
   line-height: 1.2;
 }
 .format-instructions {
-  white-space: pre-wrap; /* Mágica acontece aqui: respeita os Enters do texto */
-  word-break: break-word; /* Evita que palavras gigantes quebrem o layout */
-  line-height: 1.6; /* Dá um respiro melhor entre as linhas para facilitar a leitura */
+  white-space: pre-wrap; 
+  word-break: break-word; 
+  line-height: 1.6; 
 }
 .font-inter { font-family: 'Roboto', sans-serif; }
 .maintenance-dialog {
@@ -1874,7 +1791,7 @@ onUnmounted(() => {
   background: #ffffff;
 }
 
-/* Pulsação do ícone de aviso para atrair atenção */
+
 .pulse-animation {
   animation: pulse-red 2s infinite;
   box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
@@ -1890,12 +1807,11 @@ onUnmounted(() => {
 img, iframe {
   max-width: 100%;
 }
-/* Força o scroll se o conteúdo for maior que a tela mobile */
+
 .q-page {
   min-height: auto !important;
 }
 
-/* Botão de confirmação com destaque */
 .q-btn--push.text-weight-bolder {
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
@@ -1935,26 +1851,25 @@ img, iframe {
 .hover-scale-producing:active { transform: scale(0.98); }
 .border-bottom-light { border-bottom: 2px solid #e0e0e0; }
 .highlight-shift {
-  border: 2px solid #ef6c00 !important; /* Laranja forte */
-  background: #fff3e0 !important; /* Fundo laranja claríssimo */
+  border: 2px solid #ef6c00 !important; 
+  background: #fff3e0 !important; 
   box-shadow: 0 4px 12px rgba(239, 108, 0, 0.2) !important;
 }
 
-/* Destaque para Manutenção */
+
 .highlight-maintenance {
-  border: 2px solid #b71c1c !important; /* Vermelho forte */
-  background: #ffebee !important; /* Fundo vermelho claríssimo */
+  border: 2px solid #b71c1c !important;
+  background: #ffebee !important;
   box-shadow: 0 4px 12px rgba(183, 28, 28, 0.2) !important;
 }
 
 .highlight-setup {
-  border: 2px solid #ca4bca !important; /* Vermelho forte */
-  background: #fce5f8 !important; /* Fundo vermelho claríssimo */
+  border: 2px solid #ca4bca !important;
+  background: #fce5f8 !important; 
   box-shadow: 0 4px 12px rgba(213, 31, 219, 0.2) !important;
 }
 
 
-/* Animação para chamar atenção nos itens especiais */
 .pulse-animation {
   animation: pulse-ring 2s infinite;
 }

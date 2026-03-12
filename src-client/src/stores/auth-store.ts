@@ -9,7 +9,6 @@ import type {
   User,
   UserSector,
 } from 'src/models/auth-models';
-// REMOVIDO: import { useTerminologyStore } from './terminology-store';
 
 function getFromLocalStorage<T>(key: string): T | null {
   const itemString = localStorage.getItem(key);
@@ -149,7 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = token;
     user.value = userData;
 
-    // REMOVIDO: useTerminologyStore().setSector(userData.organization.sector);
+
 
     localStorage.setItem('accessToken', token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -173,7 +172,6 @@ export const useAuthStore = defineStore('auth', () => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    // REMOVIDO: useTerminologyStore().setSector(user.value?.organization?.sector ?? null);
   }
 
   init();

@@ -92,6 +92,6 @@ function translateStatus(status: MaintenanceStatus) {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  min-height: 42px; /* Garante altura uniforme */
+  min-height: 42px; 
 }
 </style>

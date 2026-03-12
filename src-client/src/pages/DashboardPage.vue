@@ -183,7 +183,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { setCssVar, useQuasar } from 'quasar'; // Adicionado useQuasar
+import { setCssVar, useQuasar } from 'quasar'; 
 import { useDashboardStore } from 'stores/dashboard-store';
 import { useAuthStore } from 'stores/auth-store';
 import { useMachineStore } from 'stores/machine-store'; 
@@ -199,22 +199,19 @@ const dashboardStore = useDashboardStore();
 const authStore = useAuthStore();
 const machineStore = useMachineStore(); 
 const router = useRouter();
-const $q = useQuasar(); // Para detectar modo escuro nos gráficos
+const $q = useQuasar(); 
 
 
 
-// --- CORES REATIVAS PARA GRÁFICOS (DARK MODE) ---
 const chartTextColor = computed(() => $q.dark.isActive ? '#cbd5e1' : '#64748b');
 
 const realTimeStats = computed(() => {
   const allMachines = machineStore.machines;
-  // Normaliza o status para evitar erros de maiúsculo/minúsculo ou espaços
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getStatus = (m: any) => String(m.status || '').trim().toUpperCase();
 
   const total = allMachines.length;
   
-  // Contagem por Categoria
   const running = allMachines.filter(m => 
     ['EM USO', 'PRODUÇÃO AUTÔNOMA', 'EM OPERAÇÃO', 'RUNNING'].includes(getStatus(m))
   ).length;
@@ -230,13 +227,11 @@ const realTimeStats = computed(() => {
     ['DISPONÍVEL', 'OCIOSIDADE', 'AVAILABLE', 'IDLE'].includes(getStatus(m))
   ).length;
 
-  // DISPONIBILIDADE: (Produzindo + Disponível) / (Total - Setup)
-  // Máquinas em Setup são "paradas planejadas", por isso saem da conta
+
   const baseAvailable = total - setup;
   const currentAvailable = running + idle;
   const availabilityRate = baseAvailable > 0 ? (currentAvailable / baseAvailable) * 100 : 0;
 
-  // TAXA DE UTILIZAÇÃO: (Somente o que está produzindo agora) / Total
   const utilizationRate = total > 0 ? (running / total) * 100 : 0;
 
   return { 
@@ -261,7 +256,6 @@ const fleetStatusChart = computed(() => {
             legend: { position: 'bottom' as const, labels: { colors: chartTextColor.value } },
             dataLabels: { enabled: false },
             plotOptions: { 
-                // 🚀 CORREÇÃO PRINCIPAL: Adicionado o agrupador 'pie' aqui!
                 pie: {
                     donut: { 
                         size: '75%', 
@@ -271,7 +265,6 @@ const fleetStatusChart = computed(() => {
                                 show: true, 
                                 label: 'Ativos', 
                                 color: $q.dark.isActive ? '#ffffff' : '#128c7e',
-                                // Convertido para String para o TS ficar 100% feliz
                                 formatter: () => String(s.total) 
                             } 
                         } 
@@ -299,18 +292,16 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-// Variáveis Trucar
 $trucar-green: #128c7e;
 $trucar-mint: #70c0b0;
 $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 
 .dashboard-bg { 
-  background-color: #f0f4f4; // Fundo padrão claro
+  background-color: #f0f4f4; 
   min-height: 100vh;
   transition: background-color 0.3s ease;
 }
 
-/* --- Glassmorphism --- */
 .glass-card {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) saturate(180%);
@@ -340,7 +331,7 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
 .text-gradient {
   background: linear-gradient(to right, $trucar-green, $trucar-mint);
   -webkit-background-clip: text;
-  background-clip: text; /* Correção para compatibilidade */
+  background-clip: text; 
   -webkit-text-fill-color: transparent;
 }
 .letter-spacing-2 { letter-spacing: 2px; }
@@ -431,16 +422,12 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
     min-height: 300px;
 }
 
-/* =========================================
-   DARK MODE OVERRIDES (DARK FOREST)
-   ========================================= */
+
 .body--dark {
-  // Fundo Floresta Negra
   .dashboard-bg { 
     background-color: #05100e !important; 
   }
 
-  // Cards Escuros Translúcidos
   .glass-card {
     background: rgba(5, 20, 18, 0.7) !important;
     border-color: rgba(18, 140, 126, 0.2);
@@ -457,11 +444,11 @@ $shadow-green: 0 4px 14px 0 rgba(18, 140, 126, 0.39);
   }
 
   // Textos
-  .text-teal-9 { color: #80cbc4 !important; }  // Teal claro
-  .text-teal-10 { color: #e0f2f1 !important; } // Quase branco
-  .text-grey-7 { color: #94a3b8 !important; }  // Cinza médio
+  .text-teal-9 { color: #80cbc4 !important; } 
+  .text-teal-10 { color: #e0f2f1 !important; } 
+  .text-grey-7 { color: #94a3b8 !important; }  
   .text-grey-6 { color: #64748b !important; }
-  .text-grey-9 { color: #e2e8f0 !important; } // Títulos de alerta
+  .text-grey-9 { color: #e2e8f0 !important; }
 
   // Ícones e Box
   .icon-box, .icon-box-sm {

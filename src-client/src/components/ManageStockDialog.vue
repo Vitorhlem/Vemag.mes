@@ -108,8 +108,6 @@ const machineOptions = ref<{label: string, value: number}[]>([]);
 const filteredItemOptions = ref<{label: string, value: number}[]>([]);
 
 const filteredTransactionOptions = computed(() => {
-  // Pneus/Ferramentas geralmente não têm 'Saída para Uso' simples sem OS, 
-  // mas vamos deixar flexível aqui.
   return baseTransactionOptions;
 });
 
@@ -147,7 +145,6 @@ watch(() => formData.value.transaction_type, async (newType) => {
 function filterMachines (val: string, update: (callbackFn: () => void) => void) {
   update(() => {
     const needle = val.toLowerCase();
-    // Filtro local nas máquinas já carregadas
     const source = machineStore.machines; 
     
     if (val === '') {

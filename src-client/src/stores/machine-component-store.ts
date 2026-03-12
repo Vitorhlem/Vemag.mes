@@ -8,7 +8,7 @@ export const useMachineComponentStore = defineStore('machineComponent', {
   state: () => ({
     components: [] as MachineComponent[],
     isLoading: false,
-    currentMachineId: null as number | null, // <-- ADICIONE ESTA LINHA
+    currentMachineId: null as number | null,
   }),
   actions: {
     async fetchComponents(machineId: number) {
@@ -16,10 +16,10 @@ export const useMachineComponentStore = defineStore('machineComponent', {
       try {
         const response = await api.get<MachineComponent[]>(`/machines/${machineId}/components`);
         this.components = response.data;
-        this.currentMachineId = machineId; // <-- ADICIONE ESTA LINHA
+        this.currentMachineId = machineId;
       } catch {
         Notify.create({ type: 'negative', message: 'Falha ao carregar componentes do veículo.' });
-        this.currentMachineId = null; // <-- Opcional: limpar em caso de falha
+        this.currentMachineId = null; 
       } finally {
         this.isLoading = false;
       }
@@ -30,7 +30,7 @@ export const useMachineComponentStore = defineStore('machineComponent', {
       try {
         await api.post(`/machines/${machineId}/components`, payload);
         Notify.create({ type: 'positive', message: 'Componente instalado com sucesso!' });
-        await this.fetchComponents(machineId); // Recarrega a lista
+        await this.fetchComponents(machineId); 
         return true;
       } catch (error) {
         const message = isAxiosError(error) ? error.response?.data?.detail : 'Erro ao instalar componente.';
@@ -47,7 +47,7 @@ export const useMachineComponentStore = defineStore('machineComponent', {
         await api.put(`/machine-components/${componentId}/discard`);
         Notify.create({ type: 'positive', message: 'Componente marcado como descartado.' });
         await this.fetchComponents(machineId);
-        return true; // Recarrega a lista
+        return true;
       } catch {
         Notify.create({ type: 'negative', message: 'Erro ao descartar componente.' });
         return false;

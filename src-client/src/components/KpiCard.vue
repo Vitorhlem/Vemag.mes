@@ -1,4 +1,3 @@
-<!-- ARQUIVO: src/components/KpiCard.vue -->
 <template>
   <q-card flat bordered class="full-height floating-card">
     <q-card-section>

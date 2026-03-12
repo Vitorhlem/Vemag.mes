@@ -6,7 +6,6 @@
 import { ref, onMounted, watch, type PropType } from 'vue';
 import * as echarts from 'echarts';
 
-// Interface genérica para aceitar qualquer objeto que tenha esses campos
 interface ChartCost {
   cost_type: string;
   amount: number;

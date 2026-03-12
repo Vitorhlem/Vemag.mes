@@ -237,9 +237,6 @@ export const useMesStore = defineStore('mes', () => {
           rawReason.includes('TROCA DE TURNO')
       );
 
-      // CASO 2: O meio da transição (Operador Entrou, mas ainda não assumiu)
-      // Pintamos o Login de AZUL também para ele não criar uma fatia verde minúscula no meio.
-      // Isso une visualmente o Logoff até o "Assumir".
       const isAutonomousTransition = isRunning && (
           rawEventType.includes('ENTRADA') || 
           rawEventType.includes('LOGIN')
@@ -247,17 +244,14 @@ export const useMesStore = defineStore('mes', () => {
 
       if (isAutonomousStart || isAutonomousTransition) {
            finalStatusForGantt = 'AUTONOMOUS';
-           customColor = '#2196F3'; // Azul Material Design
+           customColor = '#2196F3'; 
       } 
       else {
-          // --- LÓGICA PADRÃO ---
 
-          // GRUPO 1: EM OPERAÇÃO (Verde)
           if (isRunning) {
              finalStatusForGantt = 'RUNNING'; 
           }
-          
-          // GRUPO 2: MANUTENÇÃO / SETUP (Roxo ou Vermelho)
+
           else if (
               ['SETUP', 'MAINTENANCE', 'EM MANUTENÇÃO', 'MANUTENÇÃO'].includes(rawStatus) ||
               rawReason.includes('SETUP') || 
@@ -270,12 +264,10 @@ export const useMesStore = defineStore('mes', () => {
               }
           }
 
-          // GRUPO 3: PARADA (Laranja)
           else if (['PAUSED', 'PARADA', 'STOPPED', 'AVAILABLE', 'DISPONÍVEL'].includes(rawStatus)) {
               finalStatusForGantt = 'PAUSED';
           }
-          
-          // FALLBACK
+
           else {
               finalStatusForGantt = 'PAUSED'; 
           }
@@ -288,8 +280,7 @@ export const useMesStore = defineStore('mes', () => {
         duration_min: Math.round(durationMin),
         reason: current.reason || null,
         operator_name: current.operator_name || null,
-        color: customColor // Passa a cor azul se for autônomo, ou vazio p/ padrão
-      });
+        color: customColor 
     }
     
     timeline.value = blocks;

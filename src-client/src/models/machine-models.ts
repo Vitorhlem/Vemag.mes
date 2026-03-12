@@ -1,6 +1,9 @@
 export enum MachineStatus {
   AVAILABLE = 'Disponível',
   IN_USE = 'Em uso',
+  IN_USE_AUTONOMOUS = 'Uso Autônomo', 
+  SETUP = 'Em Setup',                
+  STOPPED = 'Parada',            
   MAINTENANCE = 'Em manutenção',
 }
 

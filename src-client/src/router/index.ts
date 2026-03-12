@@ -54,12 +54,10 @@ export default route(function (/* { store, ssrContext } */) {
       }
     }
 
-    // 4. Verificação de Permissões (Roles)
     if (to.meta.roles && Array.isArray(to.meta.roles)) {
       if (!to.meta.roles.includes(userRole)) {
         console.warn(`Acesso negado: Usuário ${userRole} tentou acessar ${to.path}`);
-        
-        // Redirecionamento de Segurança baseado no cargo
+
         if (userRole === 'operator') return next({ name: 'machine-kiosk' });
         if (userRole === 'maintenance') return next({ name: 'manutencao' });
         if (userRole === 'pcp') return next({ name: 'dashboard' });
@@ -70,7 +68,6 @@ export default route(function (/* { store, ssrContext } */) {
       }
     }
 
-    // 🚀 O BLOQUEIO FANTASMA FOI REMOVIDO DAQUI!
 
     next();
   });

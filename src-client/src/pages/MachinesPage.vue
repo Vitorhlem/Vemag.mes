@@ -280,17 +280,14 @@ import { useQuasar, setCssVar } from 'quasar';
 import { api } from 'boot/axios';
 import { useMachineStore } from 'stores/machine-store';
 import { useAuthStore } from 'stores/auth-store';
-// REMOVIDO: import { useTerminologyStore } from 'stores/terminology-store';
 import { MachineStatus, type Machine, type MachineCreate, type MachineUpdate } from 'src/models/machine-models';
 import { format, parse, isValid, isBefore, startOfDay } from 'date-fns';
 
 const $q = useQuasar();
 const machineStore = useMachineStore();
 const authStore = useAuthStore();
-// REMOVIDO: const terminologyStore = useTerminologyStore();
 const router = useRouter();
 
-// --- ESTADO ---
 const viewMode = ref<'folders' | 'grid'>('folders');
 const searchTerm = ref('');
 const isFormDialogOpen = ref(false);
@@ -326,8 +323,6 @@ const formData = ref<MachineFormData>({
     photo_url: null
 });
 
-
-// --- FILTROS ---
 const filteredList = computed(() => {
   const all = machineStore.machines;
   if (!searchTerm.value) return all;
@@ -357,12 +352,10 @@ const groupedMachines = computed(() => {
 
 const hasMachines = computed(() => filteredList.value.length > 0);
 
-// --- CÁLCULOS VISUAIS DE DATA ---
 function formatDateDisplay(dateStr: string | null | undefined) {
     if (!dateStr) return 'Não agendada';
     try {
         const d = new Date(dateStr);
-        // Corrige fuso horário para exibição local correta
         const dtDateOnly = new Date(d.valueOf() + d.getTimezoneOffset() * 60 * 1000);
         return format(dtDateOnly, 'dd/MM/yyyy');
     } catch {
@@ -378,16 +371,16 @@ function getMaintenanceColor(dateStr: string | null | undefined) {
         const today = startOfDay(new Date());
         
         if (isBefore(fixedTargetDate, today)) {
-            return 'negative'; // Atrasada
+            return 'negative';
         }
         
-        // Se falta menos de 7 dias (604800000 ms)
+
         const diffTime = fixedTargetDate.getTime() - today.getTime();
         if (diffTime <= 604800000) {
             return 'warning';
         }
 
-        return 'positive'; // OK
+        return 'positive'; 
     } catch {
         return 'grey';
     }
@@ -432,7 +425,6 @@ function getStatusColor(status: MachineStatus): string {
     return statusColors[status] || 'grey';
 }
 
-// --- LÓGICA DO FORMULÁRIO ---
 
 function openCreateDialog() {
     editingMachineId.value = null;
@@ -523,7 +515,7 @@ async function onFormSubmit() {
     }
 }
 
-// --- OUTROS MÉTODOS ---
+
 function openQrDialog(machine: Machine) { 
     selectedMachineForQr.value = machine; 
     isQrDialogOpen.value = true; 
@@ -574,7 +566,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-/* --- IDENTIDADE TRUCAR --- */
 .bg-glass-layout {
   background-color: #f0f4f4; 
   min-height: 100vh;
@@ -588,7 +579,6 @@ onMounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
-/* --- GLASSMORPHISM --- */
 .glass-card, .glass-card-dialog {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) saturate(180%);
@@ -627,7 +617,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* --- INTERACTIONS --- */
 .machine-card { 
   cursor: pointer; 
   transition: transform 0.2s, box-shadow 0.2s; 
@@ -648,9 +637,6 @@ onMounted(() => {
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* =========================================
-   DARK MODE OVERRIDES (DARK FOREST)
-   ========================================= */
 .body--dark {
   .bg-glass-layout { 
     background-color: #05100e !important; 
@@ -672,17 +658,15 @@ onMounted(() => {
     }
   }
 
-  /* Expansion Item Header */
   .bg-glass-header {
     background: rgba(18, 140, 126, 0.15) !important;
   }
 
-  /* Separators */
+
   .glass-separator {
     border-color: rgba(18, 140, 126, 0.2) !important;
   }
 
-  /* Badges & Metrics */
   .glass-metric-box {
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(18, 140, 126, 0.2);
@@ -694,13 +678,11 @@ onMounted(() => {
     background: rgba(255, 255, 255, 0.1) !important;
   }
 
-  /* Texts */
   .text-teal-9, .text-teal-10 { color: #80cbc4 !important; }
   .text-grey-9 { color: #ffffff !important; }
   .text-grey-7, .text-grey-6, .text-grey-8 { color: #b0bec5 !important; }
   .machine-title { color: #80cbc4 !important; }
 
-  /* Buttons */
   .q-btn-toggle {
     background: rgba(18, 140, 126, 0.1) !important;
     color: #b2dfdb !important;

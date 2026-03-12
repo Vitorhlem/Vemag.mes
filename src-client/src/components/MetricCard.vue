@@ -42,7 +42,6 @@ const formattedValue = computed(() => {
   if (props.formatter) {
     return props.formatter(props.value);
   }
-  // Formatação padrão se nenhuma função for passada
   return props.value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 });
 </script>

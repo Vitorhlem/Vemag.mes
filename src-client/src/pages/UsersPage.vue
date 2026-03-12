@@ -147,7 +147,7 @@ const editingUserId = ref<number | null>(null);
 const isEditing = computed(() => editingUserId.value !== null);
 
 
-// --- OPÇÕES DE CARGO (ROLES) - MES ---
+
 const roleOptions = computed(() => {
   const options = [
     { label: 'Colaborador (Padrão)', value: 'operator', icon: 'badge', color: 'green-7', description: 'Acesso Básico' },
@@ -163,7 +163,6 @@ const roleOptions = computed(() => {
 
 const formData = ref<Partial<UserCreate & UserUpdate>>({});
 
-// --- COLUNAS DA TABELA ---
 const columns: QTableColumn[] = [
   { name: 'full_name', label: 'Nome', field: 'full_name', align: 'left', sortable: true },
   { name: 'job_title', label: 'Cargo', field: 'job_title', align: 'left', sortable: true }, // <--- NOVA COLUNA
@@ -174,7 +173,6 @@ const columns: QTableColumn[] = [
   { name: 'actions', label: '', field: 'actions', align: 'right' },
 ];
 
-// Helpers
 function getRoleLabel(roleVal: string) {
     const opt = roleOptions.value.find(r => r.value === roleVal || r.value === roleVal.toLowerCase());
     return opt ? opt.label : roleVal;
@@ -221,7 +219,7 @@ function openEditDialog(user: User) {
 }
 
 function openCreateDialog() {
-  resetForm(); // Limpa o formulário e garante que não está editando
+  resetForm(); 
   isFormDialogOpen.value = true;
 }
 

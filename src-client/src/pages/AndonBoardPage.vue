@@ -207,7 +207,6 @@ const sortedCalls = computed(() => {
   });
 });
 
-// Tempo Real via WebSocket
 function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
@@ -215,7 +214,7 @@ function connectWebSocket() {
   
   if (!orgId) return;
 
-  // Garanta que a URL está batendo com a rota do FastAPI
+
   const wsUrl = `${protocol}//${host}/api/v1/andon/ws/${orgId}`;
   console.log("📡 Conectando ao Andon via:", wsUrl);
 
@@ -226,21 +225,19 @@ function connectWebSocket() {
       const message = JSON.parse(event.data);
       console.log("📥 Mensagem recebida no Andon:", message);
 
-      // 🔔 Independente do tipo (NEW_CALL ou UPDATE_CALL),
-      // nós recarregamos a lista oficial do servidor.
       if (message.type === 'NEW_CALL' || message.type === 'UPDATE_CALL') {
         
-        // 1. Recarrega os dados do banco (Garante 100% de sincronia)
+
         void fetchCalls(); 
         
-        // 2. Notificação e Som (Apenas para novos chamados)
+
         if (message.type === 'NEW_CALL') {
           $q.notify({ 
             icon: 'campaign', 
             color: 'negative', 
             message: `NOVO CHAMADO: ${message.data?.machine_name || 'Equipamento'}`,
             position: 'top',
-            classes: 'text-h6' // Deixa o aviso maior para a TV
+            classes: 'text-h6' 
           });
           playAndonAlert();
         }

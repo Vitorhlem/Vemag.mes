@@ -10,9 +10,6 @@ from app.models.user_model import User
 async def create(db: AsyncSession, *, log_in: AuditLogCreate) -> AuditLog:
     db_obj = AuditLog(**log_in.model_dump())
     db.add(db_obj)
-    # Não fazemos commit aqui geralmente se for parte de outra transação, 
-    # mas para logs é bom garantir que seja salvo mesmo se a operação principal falhar? 
-    # Não, melhor seguir a transação principal.
     return db_obj
 
 async def get_multi_by_org(
@@ -26,7 +23,7 @@ async def get_multi_by_org(
     stmt = (
         select(AuditLog)
         .where(AuditLog.organization_id == organization_id)
-        .options(selectinload(AuditLog.user)) # Carrega o usuário para mostrar o nome
+        .options(selectinload(AuditLog.user)) 
         .order_by(desc(AuditLog.created_at))
     )
     

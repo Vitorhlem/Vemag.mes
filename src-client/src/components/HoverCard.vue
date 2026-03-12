@@ -19,7 +19,7 @@ const isHovered = ref(false);
 const mouseX = ref(0);
 const mouseY = ref(0);
 
-// Uma forma mais robusta de pegar as dimensões do card
+
 const cardWidth = ref(0);
 const cardHeight = ref(0);
 
@@ -28,8 +28,8 @@ function handleMouseMove(event: MouseEvent) {
   const card = event.currentTarget as HTMLElement;
   if (card) {
     const rect = card.getBoundingClientRect();
-    mouseX.value = event.clientX - rect.left; // x position within the element.
-    mouseY.value = event.clientY - rect.top; // y position within the element.
+    mouseX.value = event.clientX - rect.left; 
+    mouseY.value = event.clientY - rect.top;
     cardWidth.value = rect.width;
     cardHeight.value = rect.height;
   }

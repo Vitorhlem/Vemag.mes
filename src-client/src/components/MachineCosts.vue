@@ -103,7 +103,6 @@ const costTypeOptions: CostType[] = [
 const formData = ref<MachineCostCreate>({
   cost_type: 'Outros',
   amount: 0,
-  // CORREÇÃO AQUI: Adicionado || '' para evitar tipo undefined
   date: new Date().toISOString().split('T')[0] || '', 
   description: '',
 });
@@ -134,12 +133,11 @@ async function onFormSubmit() {
   isSubmitting.value = true;
   try {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const parsedDate = parse(formData.value.date, 'yyyy-MM-dd', new Date()); // O input date retorna yyyy-MM-dd
-    
+    const parsedDate = parse(formData.value.date, 'yyyy-MM-dd', new Date());
     const payload: MachineCostCreate = {
       cost_type: formData.value.cost_type,
       amount: formData.value.amount,
-      date: formData.value.date, // Já está no formato correto do input type="date"
+      date: formData.value.date, 
       description: formData.value.description
     };
     

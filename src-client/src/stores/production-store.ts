@@ -8,7 +8,7 @@ import type { AndonCallCreate } from 'src/services/andon-service';
 import { findBestStepIndex } from 'src/data/sap-operations'; 
 import { db } from 'src/db/offline-db';
 
-// --- INTERFACES ---
+
 export interface Machine {
   id: number;
   brand: string;
@@ -36,12 +36,10 @@ export interface ProductionOrder {
   id: number;
   code: string;
   
-  // --- CAMPOS NOVOS ---
-  custom_ref?: string;    // DocNum ou Nome do Cliente
-  op_number?: string;     // Número original da OP/OS
-  part_code?: string;     // Código do item (ItemCode)
-  drawing?: string;       // URL ou código do desenho
-  // --------------------
+  custom_ref?: string;  
+  op_number?: string;    
+  part_code?: string;    
+  drawing?: string;       
   planned_qty?: number; 
   uom?: string;
   client?: string;
@@ -76,8 +74,7 @@ export interface Operator {
 }
 
 export const useProductionStore = defineStore('production', () => {
-  
-  // --- ESTADO ---
+
   const machinesList = ref<Machine[]>([]);
   const machineId = ref<number | null>(Number(sessionStorage.getItem('TRU_MACHINE_ID')) || null);
   const machineResource = ref<string>('');
@@ -101,7 +98,6 @@ export const useProductionStore = defineStore('production', () => {
 
 
 
-  // --- GETTERS ---
   const isKioskConfigured = computed(() => !!machineId.value);
   const isShiftActive = computed(() => !!currentOperatorBadge.value);
   const hasActiveOrder = computed(() => !!activeOrder.value);
@@ -121,7 +117,6 @@ export const useProductionStore = defineStore('production', () => {
       return status.includes('maintenance') || status.includes('broken') || status.includes('manutencao') || status.includes('manutenção');
   });
 
-  // --- ACTIONS ---
 
   async function identifyOperator(badge: string) {
     try {
@@ -242,7 +237,7 @@ async function loadKioskConfig() {
   const statusPayload = { 
     machine_id: machineId.value, 
     status: status,
-    reason: reason || null, // 👈 ENVIANDO O MOTIVO AQUI!
+    reason: reason || null, 
     timestamp: new Date().toISOString() 
   };
 
@@ -519,7 +514,7 @@ async function loginOperator(scannedCode: string) {
     }
 
     return new Promise((resolve, reject) => {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';// 👈 Porta 8000 do novo ambiente
+        const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';
         const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
         const wsUrl = `${wsBase}/ws/${machineId.value}`; 
 

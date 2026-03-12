@@ -288,7 +288,6 @@ const $q = useQuasar();
 const searchModel = ref(null);
 const searchResults = ref([]);
 
-// Função que bate no servidor enquanto o usuário digita
 async function onSearchFilter(val: string, update: (fn: () => void) => void, abort: () => void) {
   if (val.length < 2) {
     abort();
@@ -296,7 +295,6 @@ async function onSearchFilter(val: string, update: (fn: () => void) => void, abo
   }
 
   try {
-    // Chama a rota que acabamos de criar no backend
     const { data } = await api.get(`/production/search?q=${val}`);
     update(() => {
       searchResults.value = data;
@@ -307,19 +305,15 @@ async function onSearchFilter(val: string, update: (fn: () => void) => void, abo
   }
 }
 
-// Função executada quando o usuário CLICA em uma opção da lista
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function onItemSelected(item: any) {
   if (item && item.route) {
-    // Joga o usuário pra página correspondente!
     void router.push(item.route);
     
-    // Limpa a barra depois de clicar
     searchModel.value = null; 
   }
 }
 
-// --- Lógica de Tema ---
 function changeTheme(color: string) {
   customColor.value = color;
   setCssVar('primary', color);
@@ -378,7 +372,6 @@ async function handleNotificationClick(notification: any) {
   }
 }
 
-// --- Definição do Menu Industrial ---
 interface MenuItem { title: string; icon: string; to: string; }
 interface MenuCategory { label: string; icon?: string; children: MenuItem[]; separator?: boolean; }
 
@@ -508,7 +501,6 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 function connectNotificationSocket() {
-    // 👈 CORREÇÃO 2: Busca correta do organization.id
     const orgId = authStore.user?.organization?.id; 
     
     if (!orgId) {
@@ -516,7 +508,6 @@ function connectNotificationSocket() {
         return;
     }
 
-    // 👈 CORREÇÃO 3: Uso do as any para ignorar o erro do import.meta
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const envVars = (import.meta as any).env; 
     const apiBase = envVars.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -547,10 +538,8 @@ onMounted(async () => {
         connectNotificationSocket();
     }
 
-    // 👈 CORREÇÃO 4: accessToken no lugar de token
     if (authStore.accessToken) { 
         
-        // 👈 CORREÇÃO 5: window as any para declarar a variável global dinamicamente
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((window as any).FCM_TOKEN_PENDING) {
             console.log('📦 Encontrado token pendente do boot. Enviando para API...');
@@ -671,9 +660,9 @@ onMounted(async () => {
 .animate-fade { animation: fadeIn 0.8s ease-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* --- Dark Mode Overrides (Dark Forest Theme) --- */
+/* --- Dark Mode Overrides */
 .body--dark {
-  /* Fundo principal: Verde muito escuro, quase preto (Dark Forest) */
+  /* Fundo principal*/
   .bg-grey-1 { background-color: #05100e !important; }
 
   /* Header e Drawer: Translúcidos com tom esverdeado */
@@ -708,7 +697,7 @@ onMounted(async () => {
   /* Item Ativo (Destaque) */
   .active-item { 
     background: linear-gradient(90deg, rgba(18, 140, 126, 0.25) 0%, transparent 100%) !important;
-    color: #4db6ac !important; /* Teal brilhante */
+    color: #4db6ac !important;
     border-left-color: #4db6ac;
     .nav-icon { color: #4db6ac !important; }
   }
@@ -723,10 +712,10 @@ onMounted(async () => {
 
   /* Notificações */
   .bg-blue-50 {
-     background-color: rgba(18, 140, 126, 0.12) !important; /* Destaque verde escuro para não lidos */
+     background-color: rgba(18, 140, 126, 0.12) !important;
   }
   .bg-teal-1 {
-     background-color: rgba(18, 140, 126, 0.2) !important; /* Header da notificação */
+     background-color: rgba(18, 140, 126, 0.2) !important; 
   }
   .text-teal-10 {
      color: #ffffff !important;
@@ -749,7 +738,6 @@ onMounted(async () => {
   background-color: #f0f9f9;
 }
 
-/* Indicador de "Novo" com brilho suave */
 .new-indicator-glow {
   width: 8px;
   height: 8px;

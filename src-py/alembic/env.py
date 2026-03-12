@@ -6,35 +6,20 @@ from alembic import context
 import os
 import sys
 
-# ===========================================================================
-# 1. AJUSTE DE PATH (CRÍTICO)
-# Adiciona o diretório pai (src-py) ao path do Python para ele encontrar o 'app'
-# ===========================================================================
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-# ===========================================================================
-# 2. IMPORTAÇÕES DO PROJETO
-# ===========================================================================
 from app.core.config import settings
 from app.db.base_class import Base
 
-# IMPORTANTE: Ao importar 'app.models', o arquivo app/models/__init__.py é executado.
-# Como ele contém imports de TODOS os seus modelos (ProductionOrder, Machine, etc.),
-# eles são automaticamente registrados na Base.metadata neste momento.
 from app import models 
 
-# ===========================================================================
-# 3. CONFIGURAÇÃO DO ALEMBIC
-# ===========================================================================
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Define a metadata alvo para o autogenerate
 target_metadata = Base.metadata
 
-# Sobrescreve a URL do arquivo .ini com a URL das variáveis de ambiente (Docker/Env)
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
 
 def run_migrations_offline() -> None:

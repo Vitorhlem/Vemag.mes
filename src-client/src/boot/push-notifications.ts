@@ -16,7 +16,7 @@ export default boot(async ({ store }) => {
   const authStore = useAuthStore(store);
 
   try {
-      // 1. Pedir permissão ao usuário
+
       let permStatus = await PushNotifications.checkPermissions();
 
       if (permStatus.receive === 'prompt') {

@@ -156,7 +156,6 @@ function clearFile() {
 async function onSubmit() {
   loading.value = true;
   try {
-    // Mudança para FormData para permitir envio de arquivo
     const formData = new FormData();
     formData.append('type', form.value.type);
     formData.append('message', form.value.message);
@@ -174,7 +173,7 @@ async function onSubmit() {
       timeout: 3000
     });
     
-    // Correção do erro ESLint: Promise ignored
+
     void router.push({ name: 'dashboard' });
   } catch (error) {
     console.error(error);

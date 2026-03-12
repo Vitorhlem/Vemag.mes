@@ -1,13 +1,10 @@
 export interface SapOperationMap {
-  code: string;           // Código da Operação (Ex: 701)
-  description: string;    // Descrição da Operação (Ex: PPCP)
-  resourceCode: string;   // Código do Recurso (Ex: 7.01.01)
-  resourceName: string;   // Descrição do Recurso (Ex: Analista de PPCP)
+  code: string;           
+  description: string; 
+  resourceCode: string; 
+  resourceName: string; 
 }
 
-/**
- * Mapa Global de Operações e seus respectivos Recursos vinculados
- */
 export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
   '101': { code: '101', description: 'ENGENHARIA INDUSTRIAL', resourceCode: '1.01.01', resourceName: 'Técnico de Processos' },
   '201': { code: '201', description: 'DOCUMENTACAO TECNICA DA QUALIDADE', resourceCode: '2.01.01', resourceName: 'Técnico de Solda' },
@@ -62,9 +59,7 @@ export const SAP_OPERATIONS_MAP: Record<string, SapOperationMap> = {
   '703': { code: '703', description: 'TERCEIRIZACAO SERVICOS E ATIVIDADES', resourceCode: '7.03.01', resourceName: 'Tercerização Serviços e Atividades' },
 };
 
-/**
- * Busca a configuração da Operação pelo Código recebido do SAP (ex: '423')
- */
+
 export function getSapOperationByCode(opCode: string): SapOperationMap | null {
   if (opCode && SAP_OPERATIONS_MAP[opCode]) {
     return SAP_OPERATIONS_MAP[opCode];
@@ -72,32 +67,24 @@ export function getSapOperationByCode(opCode: string): SapOperationMap | null {
   return null;
 }
 
-/**
- * Busca qual é a operação dona do recurso logado no tablet
- */
+
 export function findGlobalOpByResource(machineResource: string): SapOperationMap | null {
   if (!machineResource) return null;
   const found = Object.values(SAP_OPERATIONS_MAP).find(op => op.resourceCode === machineResource.trim());
   return found || null;
 }
 
-/**
- * FUNÇÃO INTELIGENTE DE ROTEAMENTO
- * Varre as etapas que vieram do SAP e retorna o índice da etapa cuja
- * operação exigida corresponda à máquina que o operador está logado.
- */
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function findBestStepIndex(machineResourceCode: string, steps: any[]): number {
   if (!machineResourceCode || !steps || steps.length === 0) return -1;
   const myResource = machineResourceCode.trim();
 
   const index = steps.findIndex(step => {
-    // step.resource agora contém o U_Operacao que veio do SAP (ex: '423')
     const opCode = String(step.resource || '').trim();
     const config = SAP_OPERATIONS_MAP[opCode];
 
     if (config) {
-      // Confirma se o Recurso exigido pelo SAP (ex: 4.23.01) bate com o do Tablet
       const match = myResource.startsWith(config.resourceCode) || config.resourceCode.startsWith(myResource);
       return match && step.status !== 'COMPLETED';
     }

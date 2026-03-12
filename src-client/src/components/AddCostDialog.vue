@@ -139,7 +139,6 @@ async function handleSubmit() {
     emit('close');
   } catch (error) {
     console.error(error);
-    // CORREÇÃO: Cast explícito dentro do bloco catch para evitar erro do ESLint
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const err = error as any; 
     const msg = err.response?.data?.detail 

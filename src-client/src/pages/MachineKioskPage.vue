@@ -370,8 +370,7 @@ function listenForMachineStatus() {
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   
-  // ✅ CORREÇÃO: Conectando no canal específico da máquina para evitar o erro 403!
-  // (Caso o seu backend exija 'andon' na rota, mude para /ws/andon/${productionStore.machineId})
+
   const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${productionStore.machineId}`;
 
   socket = new WebSocket(wsUrl);
@@ -380,7 +379,6 @@ function listenForMachineStatus() {
     try {
       const data = JSON.parse(event.data);
       
-      // Quando a manutenção for finalizada e o backend avisar...
       if (data.type === 'MACHINE_STATUS_CHANGED' || data.type === 'STATUS_CHANGE') {
           console.log(`📡 Rádio Kiosk: Novo status recebido -> ${data.status}`);
           
@@ -392,7 +390,7 @@ function listenForMachineStatus() {
           if (s.includes('DISPONÍVEL') || s.includes('AVAILABLE') || s.includes('EM USO') || s.includes('RUNNING')) {
               forcedMaintenance.value = false;
               if (route.query.state === 'maintenance') {
-                  void router.replace({ query: {} }); // Limpa a URL
+                  void router.replace({ query: {} });
               }
           }
       }
@@ -402,7 +400,6 @@ function listenForMachineStatus() {
   };
 
   socket.onclose = () => {
-     // Auto-reconecta caso a internet pisque
      setTimeout(() => { 
        if (!socket || socket.readyState === WebSocket.CLOSED) listenForMachineStatus(); 
      }, 3000);
@@ -410,17 +407,14 @@ function listenForMachineStatus() {
 }
 
 
-// --- Ciclo de Vida ---
 onMounted(async () => {
   await productionStore.loadKioskConfig();
   
   if (productionStore.machineId) {
     selectedMachineOption.value = productionStore.machineId;
     
-    // ✅ 1. Busca o status REAL apenas uma vez ao abrir a tela
     await productionStore.fetchMachine(productionStore.machineId);
     
-    // ✅ 2. Liga o rádio para ficar escutando
     listenForMachineStatus(); 
   }
   
@@ -428,22 +422,19 @@ onMounted(async () => {
       forcedMaintenance.value = true;
   }
 
-  // ❌ TODO O BLOCO DO setInterval FOI REMOVIDO! A máquina não vai mais bombardear o servidor.
 
   window.addEventListener('keydown', handleKeydown);
 });
 
 onUnmounted(() => {
-   // ❌ clearInterval(pollingTimer) removido
    window.removeEventListener('keydown', handleKeydown);
    void stopScanner();
    if (socket) {
-     socket.onclose = null; // Evita loop de reconexão ao sair da página
+     socket.onclose = null; 
      socket.close();
    }
 });
 
-// --- SCANNER DE CÂMERA ---
 function openBadgeScanner() {
   if (!productionStore.isKioskConfigured) {
     $q.notify({ type: 'warning', message: 'Necessário configurar terminal.' });
@@ -534,7 +525,6 @@ async function submitManualLogin() {
   await handleLogin(badgeCode);
 }
 
-// --- LEITOR USB (TECLADO) ---
 let keyBuffer = '';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let keyTimeout: any = null;
@@ -563,7 +553,6 @@ function handleKeydown(event: KeyboardEvent) {
     }
 }
 
-// --- LOGIN DO OPERADOR ---
 async function handleLogin(code: string) {
     if (isMaintenanceMode.value) {
         $q.notify({ type: 'warning', message: 'Máquina em manutenção. Operação bloqueada.' });
@@ -582,7 +571,6 @@ async function handleLogin(code: string) {
             return;
         }
 
-        // 🚀 O Router oficial agora vai funcionar perfeitamente!
         await router.push(`/factory/cockpit/${productionStore.machineId}`);
 
     } catch (e) {
@@ -592,7 +580,6 @@ async function handleLogin(code: string) {
         isLoading.value = false;
     }
 }
-// --- CONFIGURAÇÃO ---
 async function openConfigDialog() {
   adminPassword.value = '';
   selectedMachineOption.value = productionStore.machineId; 
@@ -616,7 +603,6 @@ async function saveConfig() {
   }
 }
 
-// --- MANUTENÇÃO (ABRIR O.M.) ---
 function openMaintenanceDialog() {
     let badge = route.query.last_operator;
 
@@ -674,7 +660,6 @@ async function submitMaintenance() {
     }
 }
 
-// --- DESBLOQUEIO DE MÁQUINA ---
 function unlockMachine() {
     $q.dialog({
         title: 'Desbloqueio Supervisão',
@@ -691,10 +676,6 @@ function unlockMachine() {
                 $q.loading.show({ message: 'Liberando sistema...' });
                 
                 try {
-                    // 🚀 CORREÇÃO: Dispara APENAS a rota de status enviando a justificativa.
-                    // O Backend agora é inteligente o suficiente para montar o log e alterar a máquina de uma vez só.
-                    // E usamos uma frase que NÃO contém a palavra "Manutenção" para não acionar
-                    // a regra de "auto-correção" do motor lá no python!
                     await productionStore.setMachineStatus('AVAILABLE', 'Máquina Liberada (Desbloqueio Manual)');
                     
                     forcedMaintenance.value = false;
@@ -716,7 +697,6 @@ function unlockMachine() {
 }
 </script>
 <style scoped>
-/* CORES VEMAG */
 .text-vemag-green { color: #008C7A !important; }
 .bg-vemag-green { background-color: #008C7A !important; }
 .bg-industrial-gradient {
@@ -727,14 +707,12 @@ function unlockMachine() {
     opacity: 0.6;
 }
 
-/* BOTÃO PRINCIPAL */
 .vemag-btn-primary {
     background: linear-gradient(135deg, #008C7A 0%, #00695C 100%);
     transition: all 0.3s ease;
 }
 .vemag-btn-primary:active { transform: scale(0.98); filter: brightness(0.9); }
 
-/* CARD ESTILIZADO */
 .kiosk-card {
     width: 500px; 
     max-width: 90vw;
@@ -748,7 +726,6 @@ function unlockMachine() {
 
 .bg-black-transparent { background: rgba(0,0,0,0.4); }
 
-/* ANIMAÇÕES */
 .hover-scale { transition: transform 0.2s; }
 .hover-scale:hover { transform: scale(1.02); }
 
@@ -766,7 +743,6 @@ function unlockMachine() {
     animation: ringPulse 2s infinite;
 }
 
-/* SCANNER OVERLAY */
 .scanner-frame {
     width: 90%;
     max-width: 500px;
@@ -814,7 +790,6 @@ function unlockMachine() {
 .letter-spacing-1 { letter-spacing: 1px; }
 .opacity-80 { opacity: 0.8; }
 
-/* SHINE EFFECT */
 .shine-effect {
     position: absolute;
     top: 0; left: -100%;
@@ -824,7 +799,6 @@ function unlockMachine() {
     animation: shine 3s infinite;
 }
 
-/* KEYFRAMES */
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

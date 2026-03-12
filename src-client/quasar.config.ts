@@ -3,7 +3,6 @@ import { defineConfig } from '#q-app/wrappers';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default defineConfig((ctx: any) => {
   return {
-    // REMOVI O BLOCO sourceFiles DAQUI
 
     boot: ['axios', 'apexcharts', 'push-notifications'],
 
@@ -14,8 +13,8 @@ export default defineConfig((ctx: any) => {
     build: {
       eslint: {
     warnings: true,
-    errors: false, // <-- MUDE PARA FALSE: Impede que o erro pare o build
-    fix: true      // Tenta corrigir erros simples (como ponto e vírgula) sozinho
+    errors: false, 
+    fix: true 
   },
       target: {
         browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
@@ -52,7 +51,6 @@ export default defineConfig((ctx: any) => {
 
     framework: {
       config: {},
-      // CORREÇÃO AQUI: Adicionado 'Loading' na lista
       plugins: ['Notify', 'Dialog', 'Loading'], 
     },
 
