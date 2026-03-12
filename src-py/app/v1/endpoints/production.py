@@ -53,7 +53,7 @@ class MachineStatsRealTime(BaseModel):
     formatted_setup: str
     formatted_pause: str
     formatted_micro_stop: str
-
+    formatted_idle: str
 
 # ============================================================================
 # 0. ESTATÍSTICAS DE FUNCIONÁRIOS
