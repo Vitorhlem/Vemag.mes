@@ -208,14 +208,22 @@ const sortedCalls = computed(() => {
 });
 
 function connectWebSocket() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
   const orgId = authStore.user?.organization?.id;
-  
   if (!orgId) return;
 
-
-  const wsUrl = `${protocol}//${host}/api/v1/andon/ws/${orgId}`;
+  // 1. Busca o IP de forma segura (sem localhost e sem porta 8000)
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+  
+  // 2. Transforma http em ws e tira o /api/v1
+  const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
+  
+  // 3. Cria um ID de "Gestor" (maior que 90000) para o AndonBoard
+  // Isso faz o main.py colocar ele na Org 1 e receber os broadcasts
+  const andonId = 99500 + Math.floor(Math.random() * 499); 
+  
+  // 4. Conecta na rota global correta do main.py
+  const wsUrl = `${wsBase}/ws/${andonId}`;
+  
   console.log("📡 Conectando ao Andon via:", wsUrl);
 
   socket = new WebSocket(wsUrl);
@@ -226,11 +234,8 @@ function connectWebSocket() {
       console.log("📥 Mensagem recebida no Andon:", message);
 
       if (message.type === 'NEW_CALL' || message.type === 'UPDATE_CALL') {
-        
-
         void fetchCalls(); 
         
-
         if (message.type === 'NEW_CALL') {
           $q.notify({ 
             icon: 'campaign', 

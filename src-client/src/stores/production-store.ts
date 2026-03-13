@@ -514,9 +514,9 @@ async function loginOperator(scannedCode: string) {
     }
 
     return new Promise((resolve, reject) => {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5:8000/api/v1';
+        const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
         const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
-        const wsUrl = `${wsBase}/ws/${machineId.value}`; 
+        const wsUrl = `${wsBase}/ws/${machineId.value}`;
 
         if (orderSocket) {
             orderSocket.close();

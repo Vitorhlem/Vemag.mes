@@ -367,11 +367,11 @@ const isMaintenanceMode = computed(() => {
 // =========================================================
 function listenForMachineStatus() {
   if (!productionStore.machineId) return;
-
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+  const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
   
-
-  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${productionStore.machineId}`;
+  // No machinedetaispage use adminId, no kiosk use productionStore.machineId
+  const wsUrl = `${wsBase}/ws/${productionStore.machineId}`;  
 
   socket = new WebSocket(wsUrl);
 

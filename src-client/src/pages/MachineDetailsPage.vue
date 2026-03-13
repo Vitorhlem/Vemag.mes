@@ -159,11 +159,13 @@
 </template>
 
 <script setup lang="ts">
+import { useProductionStore } from 'stores/production-store';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import { api } from 'boot/axios';
 import { useQuasar } from 'quasar';
+const productionStore = useProductionStore();
 const $q = useQuasar();
 const route = useRoute();
 const machineId = route.params.id;
@@ -292,9 +294,11 @@ function translateEventType(val: string) {
 }
 
 function listenForSystemUpdates() {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const adminId = 99000 + Math.floor(Math.random() * 999);
-  const wsUrl = `${wsProtocol}//${window.location.hostname}:8000/ws/${adminId}`;
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+  const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
+  
+  // No machinedetaispage use adminId, no kiosk use productionStore.machineId
+  const wsUrl = `${wsBase}/ws/${productionStore.adminId}`;
 
   socket = new WebSocket(wsUrl);
 

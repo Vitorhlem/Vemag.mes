@@ -330,12 +330,10 @@ let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 
 function connectWebSocket() {
-  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
   const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
-  
-
-  const plantId = 98000 + Math.floor(Math.random() * 999);
-  const wsUrl = `${wsBase}/ws/${plantId}`; 
+  const gestorId = 99000 + Math.floor(Math.random() * 999);
+  const wsUrl = `${wsBase}/ws/${gestorId}`;
   
   ws = new WebSocket(wsUrl);
 

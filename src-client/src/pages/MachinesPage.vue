@@ -527,7 +527,13 @@ function getQrData(machine: Machine) {
 
 function getImageUrl(url: string | null | undefined) { 
     if (!url) return null; 
-    return url.startsWith('http') ? url : `http://127.0.0.1:8000${url}`; 
+    if (url.startsWith('http')) return url;
+
+    // Pega a URL limpa do servidor (Tira o /api/v1 do final para acessar a pasta static)
+    const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+    const serverUrl = apiBase.replace('/api/v1', '');
+
+    return `${serverUrl}${url}`; 
 }
 
 async function handlePhotoUpload(file: File | null) { 

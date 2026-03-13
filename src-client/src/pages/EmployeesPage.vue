@@ -887,12 +887,11 @@ let reconnectTimer: NodeJS.Timeout | null = null;
 
 function connectWebSocket() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const envVars = (import.meta as any).env;
-    const apiBase = envVars.VITE_API_URL || 'http://localhost:8000/api/v1';
+    const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
     const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
     
     const gestorId = 99000 + Math.floor(Math.random() * 999);
-    const wsUrl = `${wsBase}/ws/${gestorId}`; 
+    const wsUrl = `${wsBase}/ws/${gestorId}`;
     
     ws = new WebSocket(wsUrl);
 
