@@ -262,7 +262,8 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     import fitz
     import requests
 
-    DRAWINGS_DIR = os.environ.get("DRAWINGS_PATH", "/mnt/engenharia")
+    # 1. APONTA PARA O NOSSO PORTAL DO WINDOWS
+    DRAWINGS_DIR = "/mnt/desenhos"
     
     CACHE_DIR = os.path.join(os.getcwd(), "static", "drawings_cache")
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -271,30 +272,42 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     png_filename = f"{safe_code}.png"
     png_path = os.path.join(CACHE_DIR, png_filename)
 
+    # IP do Servidor para o Tablet acessar (Sem 8000)
+    EXTERNAL_URL = f"http://192.168.0.5/api/v1/drawings/render/{png_filename}"
+    # IP Local para o Celery falar com a API (Com 8000)
+    INTERNAL_BROADCAST_URL = "http://127.0.0.1:8000/api/v1/production/internal/broadcast"
+
     if os.path.exists(png_path):
         payload = {
             "type": "DRAWING_READY",
             "machine_id": machine_id,
-            "drawing_url": f"http://192.168.0.5:8000/api/v1/drawings/render/{png_filename}"
+            "drawing_url": EXTERNAL_URL
         }
-        # Comunicação interna local no Linux!
-        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        requests.post(INTERNAL_BROADCAST_URL, json=payload, timeout=5)
         return f"Imagem {safe_code} servida via cache."
 
-    print(f"⏳ [CELERY] Vasculhando engenharia por: {safe_code}...")
+    print(f"⏳ [CELERY] Vasculhando portal Windows por: {safe_code}...")
     found_pdfs = []
     
+    # Ignorar pastas que o Windows cria e não precisamos
+    skip_dirs = ["$recycle.bin", "system volume information", ".git"]
+
     for root, dirs, files in os.walk(DRAWINGS_DIR):
+        # Filtro para ignorar lixo
+        dirs[:] = [d for d in dirs if d.lower() not in skip_dirs]
+        
         folder_name = os.path.basename(root).lower()
         for file in files:
             if file.lower().endswith(".pdf"):
                 file_name = file.lower()
+                # Busca inteligente: código no nome do arquivo ou na pasta
                 if safe_code in file_name or safe_code in folder_name:
                     found_pdfs.append(os.path.join(root, file))
 
     if not found_pdfs:
-        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Desenho não encontrado nas pastas."}
-        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        print(f"❌ [CELERY] Nada encontrado para {safe_code}")
+        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Desenho não encontrado nas pastas do Windows."}
+        requests.post(INTERNAL_BROADCAST_URL, json=payload, timeout=5)
         return "Desenho não encontrado."
 
     def score_file(filepath):
@@ -306,12 +319,12 @@ def task_process_drawing(drawing_code: str, machine_id: int):
         return (score, os.path.getmtime(filepath))
 
     best_file = max(found_pdfs, key=score_file)
-    print(f"🏆 [CELERY] PDF Escolhido: {best_file}. Convertendo...")
+    print(f"🏆 [CELERY] Encontrado no Windows: {best_file}. Convertendo...")
 
     try:
         doc = fitz.open(best_file)
         page = doc.load_page(0)
-        mat = fitz.Matrix(2.0, 2.0)
+        mat = fitz.Matrix(2.5, 2.5) # Aumentei um pouco a qualidade (2.5x)
         pix = page.get_pixmap(matrix=mat)
         pix.save(png_path)
         doc.close()
@@ -319,14 +332,14 @@ def task_process_drawing(drawing_code: str, machine_id: int):
         payload = {
             "type": "DRAWING_READY",
             "machine_id": machine_id,
-            "drawing_url": f"http://192.168.0.5:8000/api/v1/drawings/render/{png_filename}"
+            "drawing_url": EXTERNAL_URL
         }
-        # Comunicação interna local no Linux!
-        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        requests.post(INTERNAL_BROADCAST_URL, json=payload, timeout=5)
         
-        print("✅ [CELERY] Imagem salva e tablet notificado!")
-        return "Sucesso"
+        print("✅ [CELERY] PDF convertido e tablet notificado!")
+        return f"Sucesso: {png_filename}"
     except Exception as e:
-        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Erro ao converter arquivo da engenharia."}
-        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        print(f"❌ [CELERY] Erro na conversão: {e}")
+        payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Erro ao converter o PDF do Windows."}
+        requests.post(INTERNAL_BROADCAST_URL, json=payload, timeout=5)
         return f"Erro: {e}"
