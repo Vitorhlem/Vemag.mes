@@ -26,7 +26,7 @@ export default defineConfig((ctx: any) => {
       },
       vueRouterMode: 'hash',
       env: {
-        VITE_API_URL: ctx.dev ? 'http://localhost:8000/api/v1' : 'http://192.168.0.22:8000/api/v1' 
+        VITE_API_URL: ctx.dev ? 'http://localhost:8000/api/v1' : 'http://192.168.0.5:8000/api/v1' 
       },
       vitePlugins: [
         [

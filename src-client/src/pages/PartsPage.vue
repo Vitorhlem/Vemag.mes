@@ -289,7 +289,6 @@ import { useQuasar, type QTableProps } from 'quasar';
 import { usePartStore, type PartCreatePayload } from 'stores/part-store';
 import type { Part, PartCategory } from 'src/models/part-models';
 import ManageStockDialog from 'components/ManageStockDialog.vue';
-import PartHistoryDialog from 'components/PartHistoryDialog.vue';
 
 // --- CONFIGURAÇÃO DE URL DE IMAGENS ---
 const getBaseUrlForAssets = () => {

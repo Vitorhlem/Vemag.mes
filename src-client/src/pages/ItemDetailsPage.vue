@@ -132,7 +132,6 @@ import { storeToRefs } from 'pinia';
 import { format } from 'date-fns';
 import type { TransactionType } from 'src/models/inventory-transaction-models';
 import { InventoryItemStatus } from 'src/models/inventory-item-models';
-import PartHistoryDialog from 'components/PartHistoryDialog.vue';
 
 const route = useRoute();
 const partStore = usePartStore();

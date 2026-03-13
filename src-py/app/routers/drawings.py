@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 import os
-from app.core.celery_app import celery_app # Importa o Celery
+from app.core.celery_app import celery_app
 
 router = APIRouter(prefix="/drawings", tags=["Drawings"])
 

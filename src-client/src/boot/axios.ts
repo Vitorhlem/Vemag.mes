@@ -9,9 +9,10 @@ declare module '@vue/runtime-core' {
   }
 }
 
-
-
 export default boot(({ app, store }) => {
+  // CONFIGURAÇÃO DO IP DO SERVIDOR LINUX
+  api.defaults.baseURL = 'http://192.168.0.5/api/v1';
+  
   api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const authStore = useAuthStore(store);
     

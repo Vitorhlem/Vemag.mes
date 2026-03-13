@@ -3,7 +3,7 @@ import time
 
 # --- CONFIGURAÇÕES ---
 # Substitua pelo IP real do seu servidor
-API_BASE_URL = "http://192.168.0.22:8000/api/v1"
+API_BASE_URL = "http://192.168.0.5:8000/api/v1"
 MACHINE_ID = 1 
 
 # Badge alterado para ficar idêntico ao código do ESP32

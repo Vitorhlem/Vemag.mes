@@ -74,12 +74,12 @@ manual_origins = [
     "http://localhost:9000",
     "http://127.0.0.1:9000",
     "http://localhost:3000",
-    "http://192.168.0.22:9500",
-    "http://192.168.0.22:9000",
-    "http://192.168.0.22:8080", 
-    "http://192.168.0.22",
+    "http://192.168.0.5:9500",
+    "http://192.168.0.5:9000",
+    "http://192.168.0.5:8080", 
+    "http://192.168.0.5",
     "https://trumachine.netlify.app",
-    "http://192.168.0.22:8000/docs",
+    "http://192.168.0.5:8000/docs",
     "capacitor://localhost",
     "http://localhost:8000"
 ]

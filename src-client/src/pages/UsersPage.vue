@@ -1,23 +1,17 @@
 <template>
   <q-page padding>
-    
-    
-    <div class="flex items-center justify-between q-mb-md">
-      <h1 class="text-h5 text-weight-bold q-my-none">Gestão de Equipe & Acessos</h1>
-    </div>
+
     <div class="flex items-center justify-between q-mb-md">
       <h1 class="text-h5 text-weight-bold q-my-none">Gestão de Equipe & Acessos</h1>
       
-      <q-btn 
-        color="primary" 
-        icon="person_add" 
-        label="Novo Colaborador" 
-        @click="openCreateDialog" 
+      <q-btn
+        color="primary"
+        icon="person_add"
+        label="Novo Colaborador"
+        @click="openCreateDialog"
         unelevated
       />
-    </div>
-     
-    <q-card flat bordered>
+    </div> <q-card flat bordered>
       <q-table
         @row-click="goToUserDetails"
         class="cursor-pointer"

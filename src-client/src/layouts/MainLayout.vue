@@ -501,33 +501,52 @@ function getManagerMenu(): MenuCategory[] {
 }
 
 function connectNotificationSocket() {
-    const orgId = authStore.user?.organization?.id; 
-    
+    const orgId = authStore.user?.organization?.id;
+
     if (!orgId) {
         console.warn('⏳ Aguardando dados do usuário para conectar o WebSocket...');
         return;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const envVars = (import.meta as any).env; 
-    const apiBase = envVars.VITE_API_URL || 'http://localhost:8000/api/v1';
-    const wsBase = apiBase.replace(/^http/, 'ws'); 
+    const envVars = (import.meta as any).env;
     
+    // 🚀 LÓGICA INTELIGENTE: Pega o IP atual do navegador automaticamente
+    const apiBase = envVars.VITE_API_URL || `${window.location.origin}/api/v1`;
+    const wsBase = apiBase.replace(/^http/, 'ws');
+
     const wsUrl = `${wsBase}/andon/ws/${orgId}`;
-    
+
+    console.log(`🔌 Conectando Andon WS em: ${wsUrl}`);
     const socket = new WebSocket(wsUrl);
 
     socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'NEW_NOTIFICATION') {
-            void notificationStore.fetchUnreadCount();
-            $q.notify({
-                icon: 'notifications_active',
-                color: 'teal-9',
-                message: 'Você tem um novo alerta da fábrica!',
-                position: 'top-right'
-            });
+        try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'NEW_NOTIFICATION') {
+                void notificationStore.fetchUnreadCount();
+                $q.notify({
+                    icon: 'notifications_active',
+                    color: 'teal-9',
+                    message: 'Você tem um novo alerta da fábrica!',
+                    position: 'top-right'
+                });
+            }
+        } catch (e) {
+            console.error("Erro ao processar mensagem do Andon:", e);
         }
+    };
+
+    socket.onopen = () => {
+        console.log("✅ WebSocket do Andon Conectado!");
+    };
+
+    socket.onclose = () => {
+        console.warn("⚠️ WebSocket do Andon desconectado.");
+    };
+
+    socket.onerror = (error) => {
+        console.error("❌ Erro no WebSocket do Andon:", error);
     };
 }
 onMounted(async () => {

@@ -700,6 +700,7 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify, useQuasar } from 'quasar';
@@ -714,9 +715,11 @@ import { getOperatorName } from 'src/data/operators';
 import { SAP_OPERATIONS_MAP } from 'src/data/sap-operations';
 import { SAP_STOP_REASONS } from 'src/data/sap-stops';
 import { ANDON_OPTIONS } from 'src/data/andon-options';
+import Panzoom from '@panzoom/panzoom'; // 👈 ADICIONAR ISSO
 const isStepConfirmationDialogOpen = ref(false);
 const isStepSelectionDialogOpen = ref(false);
-
+const panzoomElement = ref(null); // 👈 ADICIONAR ISSO
+let panzoomInstance: any = null;
 const suggestedStep = computed(() => {
     if (!productionStore.activeOrder?.steps || productionStore.activeOrder.steps.length === 0) return null;
     const index = productionStore.currentStepIndex !== -1 ? productionStore.currentStepIndex : 0;
@@ -1737,7 +1740,7 @@ function connectWebSocket() {
       socket = null;
   }
 
-  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.22:8000/api/v1';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5:8000/api/v1';
   const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
   const wsUrl = `${wsBase}/ws/${productionStore.machineId}`;
 

@@ -1,38 +1,24 @@
 <template>
   <q-page class="q-pa-md q-pa-lg-xl dashboard-bg">
-    
+
     <div class="row items-center justify-between q-mb-lg q-col-gutter-y-md animate-fade-down">
+      
       <div class="col-12 col-md-auto">
         <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
           <q-icon name="engineering" size="md" class="text-primary" />
           Gestão de Manutenção (PCM)
         </h1>
-        <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
-          Controle de Ordens de Manutenção (OM), Preventivas e Paradas
-        </div>
-      </div>
-    </div>
-
-    <div class="row items-center justify-between q-mb-lg q-col-gutter-y-md animate-fade-down">
-      <div class="col-12 col-md-auto">
-        <h1 class="text-h4 text-weight-bolder q-my-none text-gradient-trucar flex items-center gap-sm">
-          <q-icon name="engineering" size="md" class="text-primary" />
-          Gestão de Manutenção (PCM)
-        </h1>
-        <div class="text-subtitle2 text-teal-9 opacity-80 q-mt-xs">
-          Controle de Ordens de Manutenção (OM), Preventivas e Paradas
-        </div>
       </div>
 
       <div class="col-12 col-md-auto">
-        <q-btn 
-            label="Nova Solicitação" 
-            icon="add_circle" 
-            color="primary" 
+        <q-btn
+            label="Nova Solicitação"
+            icon="add_circle"
+            color="primary"
             size="md"
             unelevated
             class="shadow-green btn-rounded"
-            @click="isCreateDialogOpen = true" 
+            @click="isCreateDialogOpen = true"
         />
       </div>
     </div>

@@ -9,6 +9,7 @@ from app.models.production_model import ProductionAppointment
 from sqlalchemy import select
 from app.core.websocket_manager import manager
 import requests
+import os
 
 # --- UTILITÁRIOS ---
 
@@ -35,7 +36,6 @@ def task_daily_closing_yesterday():
     Roda todo dia de madrugada para calcular a eficiência, paradas e tempo
     de todos os operadores e máquinas referentes ao dia que acabou de terminar.
     """
-    # Como a task roda de madrugada (ex: 00:05 do dia 20), os dados que queremos são do dia 19
     yesterday = date.today() - timedelta(days=1)
     
     async def _run_closing():
@@ -43,15 +43,12 @@ def task_daily_closing_yesterday():
             print(f"🌙 [CELERY] Iniciando fechamento diário para o dia {yesterday}...")
             
             try:
-                # 1. Consolida as métricas das MÁQUINAS 
-                machines_processed = await ProductionService.consolidate_machine_metrics(db, target_date)
+                machines_processed = await ProductionService.consolidate_machine_metrics(db, yesterday)
                 print(f"✅ [CELERY] Fechamento de MÁQUINAS concluído: {machines_processed} processadas.")
 
-                # 2. Consolida as métricas dos OPERADORES 
-                users_processed = await ProductionService.consolidate_daily_metrics(db, target_date)
+                users_processed = await ProductionService.consolidate_daily_metrics(db, yesterday)
                 print(f"✅ [CELERY] Fechamento de OPERADORES concluído: {users_processed} processados.")
                 
-                # 🚀 NOVIDADE: Avisa os painéis (WebSocket) para darem F5 sozinhos
                 import httpx
                 payload = {
                     "type": "DAILY_CLOSING_COMPLETED",
@@ -59,6 +56,7 @@ def task_daily_closing_yesterday():
                 }
                 try:
                     async with httpx.AsyncClient() as client:
+                        # Comunicação interna local no Linux!
                         await client.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload)
                     print("📣 [CELERY] Telas avisadas para sincronizar.")
                 except Exception as e:
@@ -69,7 +67,6 @@ def task_daily_closing_yesterday():
                 import traceback
                 traceback.print_exc()
 
-    # Usamos a nossa função segura 'run_async' em vez de asyncio.run()
     run_async(_run_closing())
     
     return f"Fechamento do dia {yesterday} concluído."
@@ -84,7 +81,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             sap_service = SAPIntegrationService(db, organization_id)
             print(f"🏭 [CELERY] Processando apontamento SAP para OP {appointment_data.get('op_number', 'N/A')}...")
             
-            # 1. TRATAMENTO DE TEMPO
             def parse_date(dt_val):
                 if not dt_val: return None
                 if isinstance(dt_val, datetime): return dt_val.replace(tzinfo=None)
@@ -97,7 +93,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             op_badge = str(appointment_data.get('operator_badge') or appointment_data.get('operator_id') or "0")
             m_id = appointment_data.get('machine_id')
 
-            # 2. CHECAGEM DE DUPLICIDADE (Usando o novo campo 'operator_badge')
             stmt = select(ProductionAppointment).where(
                 ProductionAppointment.operator_badge == op_badge,
                 ProductionAppointment.start_time == start_t,
@@ -108,7 +103,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             if existing_appt and existing_appt.sap_status == "SENT":
                 return f"Apontamento já sincronizado no SAP (ID: {existing_appt.id})"
 
-            # 3. LÓGICA DE DETECÇÃO DE EVENTOS
             is_internal_log = bool(appointment_data.get('event_type'))
             op_number_raw = str(appointment_data.get('op_number', ''))
             is_os = op_number_raw.startswith("OS-")
@@ -117,7 +111,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             is_stop = is_stop_reason or is_setup_desc
             has_op = bool(op_number_raw)
 
-            # 4. ENVIO PARA O SAP (Só envia se tiver OP ou for parada)
             success = False
             sap_msg = "Log interno salvo apenas no MES"
             
@@ -132,7 +125,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
                     sap_msg = f"Erro de rede: {str(sap_err)}"
                     print(f"❌ [CELERY] Falha na integração SAP: {sap_err}")
 
-            # 5. PREPARAR CAMPOS ESPELHADOS PARA O BANCO LOCAL
             if is_os and '-' in op_number_raw:
                 try: final_doc_num = op_number_raw.split('-')[1]
                 except: final_doc_num = op_number_raw
@@ -154,7 +146,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             raw_op_id = str(appointment_data.get('operator_id', '0'))
             clean_op_id = raw_op_id.lstrip('0')[:-1] if len(raw_op_id) > 1 and raw_op_id.isdigit() else raw_op_id
 
-            # Se já existe (mas falhou antes), apenas atualiza o status. Se não, cria um novo.
             if not existing_appt:
                 existing_appt = ProductionAppointment(
                     machine_id=m_id,
@@ -162,8 +153,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
                     appointment_type="STOP" if is_stop else "PRODUCTION",
                     start_time=start_t,
                     end_time=end_t or start_t, 
-                    
-                    # Campos SAP
                     sap_doc_num=final_doc_num,
                     sap_position=posicao_final,
                     sap_operation_code=operacao_final,
@@ -181,7 +170,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
                     sap_stop_reason_desc=appointment_data.get('stop_description', ""),
                     sap_is_setup=is_setup_val,
                     sap_stoppage_apt=is_apto_parada,
-                    
                     sap_status="SENT" if success else ("ERROR" if not is_internal_log else "NOT_REQUIRED"),
                     sap_message=sap_msg
                 )
@@ -193,7 +181,6 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
             await db.commit()
             print(f"✅ [CELERY] Apontamento local espelhado salvo. ID: {existing_appt.id}")
 
-            # 6. DISPARA NOTIFICAÇÃO PUSH SE FOR MANUTENÇÃO (Cód 21 ou 34)
             reason = str(appointment_data.get('stop_reason'))
             if reason in ['21', '34']:
                 from app.services.fcm_service import enviar_push_lista
@@ -213,6 +200,7 @@ def process_sap_appointment(self, appointment_data: dict, organization_id: int):
                     enviar_push_lista(list(tokens), "🛑 MÁQUINA PARADA", msg, {"tipo": "manutencao"})
 
     return run_async(_logic())
+
 # ============================================================================
 # TAREFA 2: BUSCA DE TODAS AS OPs ABERTAS
 # ============================================================================
@@ -223,7 +211,7 @@ def task_fetch_open_orders(machine_id: int):
             sap_service = SAPIntegrationService(db, organization_id=1)
             ops = await sap_service.get_released_production_orders()
             oss = await sap_service.get_open_service_orders()
-            return ops + oss # Retorna a lista para fora da função async
+            return ops + oss
 
     all_orders = run_async(_logic())
     
@@ -233,9 +221,9 @@ def task_fetch_open_orders(machine_id: int):
         "data": all_orders
     }
     
-    # 🚀 Disparo Síncrono e na rede correta do Docker (backend:8000)
     try:
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        # Comunicação interna local no Linux!
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
     except Exception as e:
         print(f"❌ Erro ao avisar o FastAPI: {e}")
 
@@ -254,14 +242,15 @@ def task_fetch_order_details(code: str, machine_id: int):
     sap_data = run_async(_logic())
     
     payload = {
-        "type": "SAP_ORDER_DATA", # 👈 Nome da mensagem corrigida para o frontend ler
+        "type": "SAP_ORDER_DATA", 
         "code": code,
         "machine_id": machine_id,
         "data": sap_data
     }
     
     try:
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        # Comunicação interna local no Linux!
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
     except Exception as e:
         print(f"❌ Erro ao avisar o FastAPI: {e}")
 
@@ -273,9 +262,8 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     import fitz
     import requests
 
-    DRAWINGS_DIR = os.environ.get("DRAWINGS_PATH", r"C:\Users\vitor.lemes\VEMAG EQUIPAMENTOS INDUSTRIAIS\Clientes - Documentos")
+    DRAWINGS_DIR = os.environ.get("DRAWINGS_PATH", "/mnt/engenharia")
     
-    # Nova pasta inteligente de cache de imagens
     CACHE_DIR = os.path.join(os.getcwd(), "static", "drawings_cache")
     os.makedirs(CACHE_DIR, exist_ok=True)
 
@@ -283,17 +271,16 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     png_filename = f"{safe_code}.png"
     png_path = os.path.join(CACHE_DIR, png_filename)
 
-    # 1. SE A IMAGEM JÁ EXISTE NO CACHE, AVISA O TABLET E ENCERRA A TAREFA (0.1 segundos)
     if os.path.exists(png_path):
         payload = {
             "type": "DRAWING_READY",
             "machine_id": machine_id,
-            "drawing_url": f"http://192.168.0.22:8000/api/v1/drawings/render/{png_filename}"
+            "drawing_url": f"http://192.168.0.5:8000/api/v1/drawings/render/{png_filename}"
         }
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        # Comunicação interna local no Linux!
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
         return f"Imagem {safe_code} servida via cache."
 
-    # 2. SE NÃO EXISTE, O CELERY VAI VASCULHAR A REDE...
     print(f"⏳ [CELERY] Vasculhando engenharia por: {safe_code}...")
     found_pdfs = []
     
@@ -307,10 +294,9 @@ def task_process_drawing(drawing_code: str, machine_id: int):
 
     if not found_pdfs:
         payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Desenho não encontrado nas pastas."}
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
         return "Desenho não encontrado."
 
-    # 3. ALGORITMO DE PONTUAÇÃO E CONVERSÃO
     def score_file(filepath):
         score = 0
         filename = os.path.basename(filepath).lower()
@@ -323,7 +309,6 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     print(f"🏆 [CELERY] PDF Escolhido: {best_file}. Convertendo...")
 
     try:
-        # Tira a "foto" em alta resolução e SALVA NO DISCO
         doc = fitz.open(best_file)
         page = doc.load_page(0)
         mat = fitz.Matrix(2.0, 2.0)
@@ -331,17 +316,17 @@ def task_process_drawing(drawing_code: str, machine_id: int):
         pix.save(png_path)
         doc.close()
 
-        # 4. AVISA O TABLET QUE ESTÁ PRONTO
         payload = {
             "type": "DRAWING_READY",
             "machine_id": machine_id,
-            "drawing_url": f"http://192.168.0.22:8000/api/v1/drawings/render/{png_filename}"
+            "drawing_url": f"http://192.168.0.5:8000/api/v1/drawings/render/{png_filename}"
         }
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        # Comunicação interna local no Linux!
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
         
         print("✅ [CELERY] Imagem salva e tablet notificado!")
         return "Sucesso"
     except Exception as e:
         payload = {"type": "DRAWING_ERROR", "machine_id": machine_id, "message": "Erro ao converter arquivo da engenharia."}
-        requests.post("http://192.168.0.22:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
+        requests.post("http://127.0.0.1:8000/api/v1/production/internal/broadcast", json=payload, timeout=5)
         return f"Erro: {e}"
