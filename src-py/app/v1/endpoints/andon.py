@@ -160,7 +160,29 @@ async def get_active_andon_calls(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    calls = await crud_andon.get_active_calls(db, org_id=current_user.organization_id)
+    
+    # 1. Mapeia quem pode ver o quê
+    allowed_sectors = None # None significa "Vê tudo" (Gerentes/Admins)
+    
+    if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        if current_user.role == UserRole.MAINTENANCE:
+            allowed_sectors = [AndonSector.MAINTENANCE]
+        elif current_user.role == UserRole.LOGISTICS:
+            allowed_sectors = [AndonSector.LOGISTICS]
+        elif current_user.role == UserRole.PCP:
+            allowed_sectors = [AndonSector.PCP]
+        elif current_user.role == UserRole.QUALITY:
+            allowed_sectors = [AndonSector.QUALITY]
+        else:
+            allowed_sectors = [] # Se for um cargo sem setor mapeado, não vê nada
+            
+    # 2. Pede pro banco apenas os chamados permitidos
+    calls = await crud_andon.get_active_calls(
+        db, 
+        org_id=current_user.organization_id, 
+        sector_filters=allowed_sectors
+    )
+    
     return [_format_response(c) for c in calls]
 
 @router.put("/{id}/accept", response_model=AndonCallResponse)

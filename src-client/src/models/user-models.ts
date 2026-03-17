@@ -48,11 +48,11 @@ export interface User {
   id: number;
   full_name: string;
   email: string;
-  role: 'operator' | 'admin';
+  role: 'operator' | 'admin' | 'ADMIN' | 'MANAGER' | 'MAINTENANCE' | 'LOGISTICS' | 'PCP' | 'QUALITY';
   is_active: boolean;
   avatar_url?: string | null;
   organization_id: number;
   employee_id: string;
-  phone?: string | null; // <-- ADICIONADO
+  phone?: string | null; 
   job_title?: string;
 }

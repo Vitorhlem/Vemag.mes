@@ -231,20 +231,38 @@ function connectWebSocket() {
   socket.onmessage = (event) => {
     try {
       const message = JSON.parse(event.data);
-      console.log("📥 Mensagem recebida no Andon:", message);
-
+      
       if (message.type === 'NEW_CALL' || message.type === 'UPDATE_CALL') {
-        void fetchCalls(); 
         
-        if (message.type === 'NEW_CALL') {
-          $q.notify({ 
-            icon: 'campaign', 
-            color: 'negative', 
-            message: `NOVO CHAMADO: ${message.data?.machine_name || 'Equipamento'}`,
-            position: 'top',
-            classes: 'text-h6' 
-          });
-          playAndonAlert();
+        // 🚀 1. DESCOBRE QUEM SOU EU
+        const role = String(authStore.user?.role || '').toUpperCase();
+        const callSector = (message.data?.sector || '').toUpperCase();
+        
+        // 🚀 2. VERIFICA SE O CHAMADO É PARA O MEU SETOR
+        let canSee = false;
+        if (role === 'ADMIN' || role === 'MANAGER') canSee = true;
+        if (role === 'MAINTENANCE' && (callSector.includes('MANUTEN') || callSector.includes('ELÉTRICA'))) canSee = true;
+        if (role === 'LOGISTICS' && callSector.includes('LOGÍSTICA')) canSee = true;
+        if (role === 'PCP' && callSector.includes('PCP')) canSee = true;
+        if (role === 'QUALITY' && (callSector.includes('QUALIDADE') || callSector.includes('PROCESSO'))) canSee = true;
+
+        // 🚀 3. SÓ REAGE SE FOR PARA MIM!
+        if (canSee) {
+          console.log("📥 Mensagem relevante recebida no Andon:", message);
+          void fetchCalls(); 
+          
+          if (message.type === 'NEW_CALL') {
+            $q.notify({ 
+              icon: 'campaign', 
+              color: 'negative', 
+              message: `NOVO CHAMADO: ${message.data?.machine_name || 'Equipamento'}`,
+              position: 'top',
+              classes: 'text-h6' 
+            });
+            playAndonAlert();
+          }
+        } else {
+          console.log(`🔇 Ignorando chamado para ${callSector} (Não pertence ao meu cargo)`);
         }
       }
     } catch (e) {

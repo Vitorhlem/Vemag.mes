@@ -32,10 +32,9 @@ async def create_call(db: AsyncSession, obj_in: AndonCallCreate, org_id: int, op
 async def get_active_calls(
     db: AsyncSession, 
     org_id: int, 
-    sector_filter: Optional[AndonSector] = None 
+    sector_filters: Optional[list] = None # <-- Mudamos para LISTA
 ) -> List[AndonCall]:
     
-
     stmt = select(AndonCall).options(
         selectinload(AndonCall.machine),
         selectinload(AndonCall.operator),
@@ -45,8 +44,9 @@ async def get_active_calls(
         AndonCall.status != AndonStatus.RESOLVED
     )
     
-    if sector_filter:
-        stmt = stmt.where(AndonCall.sector == sector_filter)
+    # 🚀 O FILTRO MÁGICO: Só busca se o setor estiver na lista permitida!
+    if sector_filters is not None:
+        stmt = stmt.where(AndonCall.sector.in_(sector_filters))
         
     stmt = stmt.order_by(AndonCall.opened_at.asc())
     

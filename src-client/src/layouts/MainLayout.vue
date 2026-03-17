@@ -404,7 +404,6 @@ function getMaintenanceMenu(): MenuCategory[] {
                 { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Feedback', icon: 'chat', to: '/feedback' },
-                { title: 'Rastreabilidade', icon: 'qr_code_2', to: '/inventory-items' }
             ]
         }
     ];
