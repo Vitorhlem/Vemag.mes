@@ -526,43 +526,45 @@ function getQrData(machine: Machine) {
 }
 
 function getImageUrl(url: string | null | undefined) { 
-    if (!url) return null; 
-    if (url.startsWith('http')) return url;
+  if (!url) return null; 
+  
+  // Corrige barras invertidas do Windows, se houver
+  const fixedUrl = url.replace(/\\/g, '/');
 
-    const apiBase = api.defaults.baseURL || import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
-    
-    const serverUrl = apiBase.replace(/\/api\/v1\/?$/, '');
+  if (fixedUrl.startsWith('http')) return fixedUrl; 
 
-    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
-    
-    return `${serverUrl}${cleanUrl}`; 
+  // Garante que a URL comece com barra
+  const cleanUrl = fixedUrl.startsWith('/') ? fixedUrl : `/${fixedUrl}`;
+
+  // Bate direto na porta 8000 (Python) igualzinho na SupervisoryPage!
+  const host = window.location.hostname;
+  return `http://${host}:8000${cleanUrl}`; 
 }
 
 async function handlePhotoUpload(file: File | null) { 
-    if (!file) return; 
-    isUploading.value = true; 
-    const data = new FormData(); 
-    data.append('file', file); 
+  if (!file) return; 
+  isUploading.value = true; 
+  const data = new FormData(); 
+  data.append('file', file); 
+  
+  try { 
+    // 🚀 O SEGREDO DO UPLOAD: Bater direto no Python (porta 8000)
+    const host = window.location.hostname;
+    const uploadUrl = `http://${host}:8000/upload-photo`;
+
+    const res = await api.post(uploadUrl, data); 
     
-    try { 
-
-        const apiBase = api.defaults.baseURL || import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
-        const serverUrl = apiBase.replace(/\/api\/v1\/?$/, '');
-        
-        const res = await api.post(`${serverUrl}/upload-photo`, data); 
-        
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-explicit-any
-        formData.value.photo_url = (res.data as any).file_url; 
-        
-        $q.notify({ type: 'positive', message: 'Foto enviada com sucesso!', icon: 'check_circle' });
-    } catch(e) { 
-        console.error(e); 
-        $q.notify({ type: 'negative', message: 'Erro ao fazer upload da imagem.' });
-    } finally { 
-        isUploading.value = false; 
-    } 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-explicit-any
+    formData.value.photo_url = (res.data as any).file_url; 
+    
+    $q.notify({ type: 'positive', message: 'Foto enviada com sucesso!' });
+  } catch(e) { 
+    console.error(e); 
+    $q.notify({ type: 'negative', message: 'Erro ao fazer upload da imagem.' });
+  } finally { 
+    isUploading.value = false; 
+  } 
 }
-
 function handleCardClick(machine: Machine) { 
     void router.push(`/machines/${machine.id}`); 
 }
