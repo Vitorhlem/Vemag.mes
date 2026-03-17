@@ -310,10 +310,14 @@ class ProductionService:
     @staticmethod
     async def calculate_oee(db: AsyncSession, machine_id: int, start_date: datetime, end_date: datetime):
         """Calcula métricas, separa Pausa de Ocioso e gera Pareto."""
+        
         query = select(ProductionTimeSlice).where(
             ProductionTimeSlice.machine_id == machine_id,
-            ProductionTimeSlice.start_time >= start_date,
-            ProductionTimeSlice.start_time <= end_date
+            ProductionTimeSlice.start_time <= end_date,
+            or_(
+                ProductionTimeSlice.end_time == None,
+                ProductionTimeSlice.end_time >= start_date
+            )
         )
         slices = (await db.execute(query)).scalars().all()
         

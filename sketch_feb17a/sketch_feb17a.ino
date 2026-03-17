@@ -1,5 +1,5 @@
-#include <SPI.h>
-#include <Ethernet.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 #include <ArduinoJson.h>
 
 // =========================================================
@@ -7,71 +7,68 @@
 // =========================================================
 const int MACHINE_ID = 1;
 
-// --- REDE ---
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-IPAddress server(192, 168, 0, 22);
-int serverPort = 8000;
-String endpoint = "/api/v1/production/event";
+// --- REDE WI-FI ---
+const char* ssid = "IOT";
+const char* password = "007481Ab";
 
-EthernetClient client;
+// URL completa do seu servidor Linux
+const char* serverUrl = "http://192.168.0.5:8000/api/v1/production/event";
 
-// --- PINOS (O Loop de Sinal) ---
-const int pinSource = 3;  // PINO DE SAÍDA (Vai agir como Terra/GND)
-const int pinSensor = 2;  // PINO DE ENTRADA (Vai ler o sinal)
+// --- A SUA LÓGICA SIMPLES (PINOS ESP32) ---
+const int pinSensor = 4;  // Pino que vai LER o fio (GPIO 4)
+const int pinSource = 5;  // Pino que vai FORNECER o GND (GPIO 5)
 
-// --- CONTROLE ---
 int lastSentState = -1; 
 unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 2000; // Aumentei para 2s para evitar falsos positivos do disjuntor batendo
+unsigned long debounceDelay = 500; 
+
+int ultimoEstadoFisico = -1; 
 
 void setup() {
-  // 1. SOLUÇÃO DA FONTE 9V: Espera a energia estabilizar antes de ligar o Shield
-  delay(5000); 
-
   Serial.begin(115200);
-  while (!Serial) { ; } 
+  delay(1000); // Tempinho pro monitor serial abrir
 
-  Serial.println("\n🚀 INICIANDO SISTEMA MES - LOOP 2 PINOS");
+  Serial.println("\n🚀 INICIANDO ESP32 - LÓGICA SIMPLES PINOS 4 E 5");
 
-  // 2. CONFIGURAÇÃO DOS PINOS (A Mágica do Loop)
-  
-  // Configura o Pino 3 como SAÍDA e força ele a ser NEGATIVO (LOW)
-  // Ele vai agir como se fosse um pino GND, mas controlado por software.
+  // Transforma o Pino 5 em um "GND" controlado por software
   pinMode(pinSource, OUTPUT);
   digitalWrite(pinSource, LOW); 
 
-  // Configura o Pino 2 como ENTRADA com resistor interno ativado
+  // Configura o Pino 4 para ler o sinal (nasce como 1)
   pinMode(pinSensor, INPUT_PULLUP);
 
-  conectarRede();
+  conectarWiFi();
 }
 
 void loop() {
-  // Reconexão automática se o cabo cair
-  if (Ethernet.linkStatus() == LinkOFF) {
-    Serial.println("⚠️ Cabo de rede desconectado!");
-    delay(2000);
-    return;
+  // Reconexão automática se o Wi-Fi cair
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Wi-Fi desconectado! Tentando reconectar...");
+    conectarWiFi();
   }
 
-  // --- LEITURA DO LOOP ---
-  // Se o relé FECHAR, o Pino 2 encosta no Pino 3 (LOW). Leitura = 0.
-  // Se o relé ABRIR, o Pino 2 fica solto (PullUp). Leitura = 1.
-  int leituraSensor = digitalRead(pinSensor);
+  // --- LEITURA DIRETA ---
+  int leitura = digitalRead(pinSensor);
   
-  // Converte a leitura elétrica para Lógica de Negócio
-  // Leitura 0 (LOW) significa que o circuito fechou -> MÁQUINA LIGADA
-  int estadoAtual = (leituraSensor == LOW) ? 1 : 0;
+  // A Lógica: Encostado = 1, Desencostado = 0
+  int sinal = (leitura == LOW) ? 1 : 0;
 
-  // Lógica de envio (Só envia se mudar)
-  if (estadoAtual != lastSentState) {
+  // 👀 DEBUG: Mostra na hora se você encostou ou soltou
+  if (sinal != ultimoEstadoFisico) {
+    Serial.print("👀 [DEBUG] Status Físico: ");
+    Serial.println(sinal == 1 ? "ENCOSTADO (Sinal 1)" : "DESENCOSTADO (Sinal 0)");
+    ultimoEstadoFisico = sinal;
+  }
+
+  // Envia para o servidor depois de meio segundo estabilizado
+  if (sinal != lastSentState) {
     if ((millis() - lastDebounceTime) > debounceDelay) {
       
-      Serial.print("⚡ Estado Mudou para: ");
-      Serial.println(estadoAtual == 1 ? "LIGADA (RUNNING)" : "DESLIGADA (STOPPED)");
+      Serial.print("⚡ Enviando para API: ");
+      Serial.println(sinal == 1 ? "RUNNING (1)" : "STOPPED (0)");
       
-      if (enviarSinalParaSistema(estadoAtual)) {
-        lastSentState = estadoAtual;
+      if (enviarSinalParaSistema(sinal)) {
+        lastSentState = sinal;
       }
       
       lastDebounceTime = millis();
@@ -82,60 +79,57 @@ void loop() {
 }
 
 // ---------------------------------------------------------
-// FUNÇÕES AUXILIARES
+// FUNÇÕES AUXILIARES DE REDE (ESP32)
 // ---------------------------------------------------------
 
-void conectarRede() {
-  Serial.println("🔌 Conectando Ethernet (DHCP)...");
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("🔴 Falha DHCP. Verifique cabo/roteador.");
-    while (true) delay(1000); // Trava se não tiver rede
+void conectarWiFi() {
+  Serial.print("🔌 Conectando ao Wi-Fi: ");
+  Serial.println(ssid);
+  
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
-  delay(1000);
-  Serial.print("🟢 IP: ");
-  Serial.println(Ethernet.localIP());
+  
+  Serial.println("\n🟢 Wi-Fi Conectado!");
+  Serial.print("   ↳ IP: ");
+  Serial.println(WiFi.localIP());
 }
 
-bool enviarSinalParaSistema(int estado) {
-  if (!client.connected()) {
-    client.stop();
-    if (!client.connect(server, serverPort)) return false;
-  }
+bool enviarSinalParaSistema(int sinal) {
+  // O ESP32 tem uma biblioteca HTTP muito mais inteligente
+  HTTPClient http;
+  
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "application/json");
 
-  // Monta JSON Otimizado
+  // Monta o JSON
   StaticJsonDocument<128> doc;
   doc["machine_id"] = MACHINE_ID;
   doc["event_type"] = "STATUS_CHANGE";
-  // Envia as strings exatas que o Python espera
-  doc["new_status"] = (estado == 1) ? "RUNNING" : "STOPPED";
-  doc["operator_badge"] = "ARDUINO_LOOP";
+  doc["new_status"] = (sinal == 1) ? "RUNNING" : "STOPPED";
+  doc["operator_badge"] = "ESP32_WIFI";
 
-  size_t len = measureJson(doc);
+  String jsonOutput;
+  serializeJson(doc, jsonOutput);
 
-  // Envia HTTP
-  client.print("POST ");
-  client.print(endpoint);
-  client.println(" HTTP/1.1");
-  client.print("Host: ");
-  client.println(server);
-  client.println("Connection: close");
-  client.println("Content-Type: application/json");
-  client.print("Content-Length: ");
-  client.println(len);
-  client.println();
+  // Faz o POST direto passando a String
+  int httpResponseCode = http.POST(jsonOutput);
   
-  serializeJson(doc, client); // Envia corpo direto para a rede
-
-  // Aguarda resposta rápida
-  unsigned long t = millis();
   bool ok = false;
-  while (client.connected() && millis() - t < 2000) {
-    if (client.available()) { client.read(); ok = true; t = millis(); }
+  if (httpResponseCode > 0) {
+    Serial.print("✅ Enviado pro Linux! Resposta HTTP: ");
+    Serial.println(httpResponseCode);
+    ok = true;
+  } else {
+    Serial.print("❌ Erro de Envio: ");
+    Serial.println(http.errorToString(httpResponseCode).c_str());
   }
-  client.stop();
   
-  if(ok) Serial.println("✅ Enviado!");
-  else Serial.println("❌ Erro de Envio");
+  // Fecha a conexão para liberar memória
+  http.end();
   
   return ok;
 }

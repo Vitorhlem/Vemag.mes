@@ -729,13 +729,35 @@ function getOeeColor(val?: number) {
 function getRealDurationText(block: any) {
     if (!block.start) return '0 min';
     
-    const start = new Date(block.start);
-    let end = block.end ? new Date(block.end) : new Date();
+    const blockStart = new Date(block.start);
+    let blockEnd = block.end ? new Date(block.end) : new Date();
     
     const now = new Date();
-    if (end > now) end = now;
+    if (blockEnd > now) blockEnd = now;
 
-    let mins = Math.round((end.getTime() - start.getTime()) / 60000);
+    // --- 🚀 CORREÇÃO DA MEIA-NOITE NO TOOLTIP ---
+    // Fatiar o tempo calculado para não vazar do dia filtrado
+    const parts = String(filterDate.value || '').split('-');
+    let actualStart = blockStart;
+    let actualEnd = blockEnd;
+
+    if (parts.length === 3) {
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        const day = Number(parts[2]);
+
+        const viewStart = new Date(year, month - 1, day, 0, 0, 0); 
+        const viewEnd = new Date(year, month - 1, day, 23, 59, 59); 
+
+        // Se começou ontem, recomeça a conta 00:00 de hoje
+        if (actualStart < viewStart) actualStart = viewStart;
+        // Se terminar amanhã, corta às 23:59 de hoje
+        if (actualEnd > viewEnd) actualEnd = viewEnd;
+        // Trava para não contar o futuro
+        if (actualEnd > now) actualEnd = now;
+    }
+
+    let mins = Math.round((actualEnd.getTime() - actualStart.getTime()) / 60000);
     if (mins < 0) mins = 0;
     
     if (mins >= 60) {
