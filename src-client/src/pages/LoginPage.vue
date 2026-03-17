@@ -145,9 +145,7 @@ function goToForgotPassword() {
     void router.push('/auth/forgot-password');
 }
 
-function goToRegister() {
-    void router.push('/auth/register');
-}
+
 
 async function handleLogin() {
   if (!email.value || !password.value) {
