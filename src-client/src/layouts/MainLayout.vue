@@ -384,6 +384,8 @@ function getMaintenanceMenu(): MenuCategory[] {
                 { title: 'Máquinas/Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
                 { title: 'Feedback', icon: 'chat', to: '/feedback' },
+                                { title: 'Supervisorio', icon: 'dashboard', to: '/supervisory' },
+
             ]
         }
     ];
@@ -395,12 +397,24 @@ function getPCPMenu(): MenuCategory[] {
             label: 'Planejamento e Controle',
             children: [
                 { title: 'Dashboard Geral', icon: 'dashboard', to: '/dashboard' },
+                { title: 'Supervisorio', icon: 'dashboard', to: '/supervisory' },
                 { title: 'Performance (OEE)', icon: 'trending_up', to: '/employees' },
                 { title: 'Máquinas e Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
+            ]
+        },
+        {
+            label: 'Manutenção',
+            children: [
                 { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
                 { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
+            ]
+        },
+         {
+            label: 'Suporte',
+            children: [
                 { title: 'Gestão de Feedback', icon: 'chat', to: '/feedback' }
+
             ]
         }
     ];
