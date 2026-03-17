@@ -103,18 +103,6 @@
                 </template>
             </q-btn>
 
-            <div class="text-center q-mt-md">
-                <q-btn 
-                    flat 
-                    dense
-                    no-caps
-                    size="sm"
-                    class="opacity-80 font-inter text-vemag-muted"
-                    label="Não tem acesso? Solicite aqui (Registrar)" 
-                    @click="goToRegister"
-                />
-            </div>
-
           </q-form>
         </q-card-section>
 

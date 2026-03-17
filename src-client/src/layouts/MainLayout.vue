@@ -225,20 +225,6 @@
               <div class="column" style="flex: 1;">
                 <div class="text-overline text-teal-9 q-mb-sm">Sistema</div>
                 
-                <div class="q-mb-md">
-                  <div class="text-caption text-weight-medium text-grey-8 q-mb-xs">Cor do Tema</div>
-                  <div class="row q-gutter-xs">
-                    <q-btn round size="xs" class="shadow-1" color="teal-9" @click="changeTheme('#128c7e')" /> 
-                    <q-btn round size="xs" class="shadow-1" color="blue-10" @click="changeTheme('#154ec1')" /> 
-                    <q-btn round size="xs" class="shadow-1" color="grey-9" @click="changeTheme('#263238')" /> 
-                    <q-btn round size="xs" class="shadow-1" color="red-9" @click="changeTheme('#c62828')" /> 
-                    <q-btn round size="xs" icon="palette" flat class="text-grey-6 bg-grey-2">
-                      <q-popup-proxy>
-                        <q-color v-model="customColor" @update:model-value="(val) => val && changeTheme(val)" no-header no-footer default-view="palette" />
-                      </q-popup-proxy>
-                    </q-btn>
-                  </div>
-                </div>
 
                 <q-separator class="q-mb-md opacity-20" />
                 
@@ -280,7 +266,6 @@ import { ptBR } from 'date-fns/locale';
 
 import { api } from 'boot/axios';
 const leftDrawerOpen = ref(true);
-const customColor = ref('#128c7e');
 const router = useRouter();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
@@ -314,11 +299,6 @@ function onItemSelected(item: any) {
   }
 }
 
-function changeTheme(color: string) {
-  customColor.value = color;
-  setCssVar('primary', color);
-  setCssVar('secondary', color); 
-}
 function toggleLeftDrawer() {
   leftDrawerOpen.value = !leftDrawerOpen.value;
 }
@@ -418,7 +398,6 @@ function getPCPMenu(): MenuCategory[] {
                 { title: 'Performance (OEE)', icon: 'trending_up', to: '/employees' },
                 { title: 'Máquinas e Ativos', icon: 'precision_manufacturing', to: '/machines' },
                 { title: 'Quadro Andon', icon: 'campaign', to: '/andon-board' },
-                { title: 'Relatórios Históricos', icon: 'bar_chart', to: '/reports' },
                 { title: 'Ordens de Manutenção', icon: 'engineering', to: '/maintenance' },
                 { title: 'Formulários', icon: 'fact_check', to: '/manutencao' },
                 { title: 'Gestão de Feedback', icon: 'chat', to: '/feedback' }
