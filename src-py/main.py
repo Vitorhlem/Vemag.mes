@@ -55,14 +55,19 @@ from app.routers import drawings
 # ==============================================================================
 
 setup_logging()
-UPLOAD_DIR = "static/uploads"
+
+# ======================= DIRETÓRIOS ESTÁTICOS (LINUX SAFE) =======================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+UPLOAD_DIR = os.path.join(STATIC_DIR, "uploads")
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+# =================================================================================
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 5. Configurar o CORS
 origins_list = []
@@ -157,7 +162,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         custom_errors.append(new_err)
     return JSONResponse(status_code=422, content={"detail": custom_errors})
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
