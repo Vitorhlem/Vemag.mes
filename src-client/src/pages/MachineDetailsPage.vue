@@ -159,13 +159,11 @@
 </template>
 
 <script setup lang="ts">
-import { useProductionStore } from 'stores/production-store';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import { api } from 'boot/axios';
 import { useQuasar } from 'quasar';
-const productionStore = useProductionStore();
 const $q = useQuasar();
 const route = useRoute();
 const machineId = route.params.id;
