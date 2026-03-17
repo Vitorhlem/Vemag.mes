@@ -529,11 +529,13 @@ function getImageUrl(url: string | null | undefined) {
     if (!url) return null; 
     if (url.startsWith('http')) return url;
 
-    // Pega a URL limpa do servidor (Tira o /api/v1 do final para acessar a pasta static)
-    const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
-    const serverUrl = apiBase.replace('/api/v1', '');
+    const apiBase = api.defaults.baseURL || import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+    
+    const serverUrl = apiBase.replace(/\/api\/v1\/?$/, '');
 
-    return `${serverUrl}${url}`; 
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    
+    return `${serverUrl}${cleanUrl}`; 
 }
 
 async function handlePhotoUpload(file: File | null) { 
@@ -541,12 +543,21 @@ async function handlePhotoUpload(file: File | null) {
     isUploading.value = true; 
     const data = new FormData(); 
     data.append('file', file); 
+    
     try { 
-        const res = await api.post('/upload-photo', data); 
+
+        const apiBase = api.defaults.baseURL || import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+        const serverUrl = apiBase.replace(/\/api\/v1\/?$/, '');
+        
+        const res = await api.post(`${serverUrl}/upload-photo`, data); 
+        
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion, @typescript-eslint/no-explicit-any
         formData.value.photo_url = (res.data as any).file_url; 
+        
+        $q.notify({ type: 'positive', message: 'Foto enviada com sucesso!', icon: 'check_circle' });
     } catch(e) { 
         console.error(e); 
+        $q.notify({ type: 'negative', message: 'Erro ao fazer upload da imagem.' });
     } finally { 
         isUploading.value = false; 
     } 
