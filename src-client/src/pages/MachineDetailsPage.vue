@@ -297,10 +297,15 @@ function listenForSystemUpdates() {
   const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
   const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
   
-  // No machinedetaispage use adminId, no kiosk use productionStore.machineId
-  const wsUrl = `${wsBase}/ws/${productionStore.adminId}`;
+  // Cria um ID aleatório para a aba do navegador (ex: 99452) para escutar os avisos
+  const gestorId = 99000 + Math.floor(Math.random() * 999);
+  const wsUrl = `${wsBase}/ws/${gestorId}`;
 
   socket = new WebSocket(wsUrl);
+
+  socket.onopen = () => {
+      console.log('🟢 [MES] Conectado para receber atualizações automáticas!');
+  };
 
   socket.onmessage = (event) => {
     try {
@@ -309,7 +314,7 @@ function listenForSystemUpdates() {
           console.log("🔄 Fechamento noturno detectado. Atualizando gráficos...");
           $q.notify({ 
              type: 'positive', 
-             message: 'Sincronização do sistema concluída! Atualizando dados...',
+             message: 'Fechamento diário concluído! Atualizando gráficos...',
              icon: 'sync'
           });
           void loadAllData();
@@ -323,7 +328,6 @@ function listenForSystemUpdates() {
     console.warn("WebSocket para atualizações do sistema indisponível.", error);
   };
 }
-
 async function loadAllData() {
   loading.value = true;
   try {
