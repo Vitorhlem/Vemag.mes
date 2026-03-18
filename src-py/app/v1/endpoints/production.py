@@ -149,7 +149,36 @@ async def get_employee_stats(
             ProductionLog.timestamp <= dt_end
         ).order_by(ProductionLog.timestamp.asc())
         
-        user_logs = (await db.execute(q_logs)).scalars().all()
+        user_logs = list((await db.execute(q_logs)).scalars().all())
+
+        # --- 🚀 A MÁGICA DO EVENTO FANTASMA AQUI ---
+        # Busca o último evento do operador ANTES da meia-noite de hoje
+        q_last_before = select(ProductionLog).where(
+            ProductionLog.operator_id == user.id,
+            ProductionLog.timestamp < dt_start
+        ).order_by(ProductionLog.timestamp.desc()).limit(1)
+        
+        last_before = (await db.execute(q_last_before)).scalars().first()
+        
+        # Se ele terminou o dia anterior trabalhando (não deu logout), insere o evento fantasma à 00:00
+        if last_before:
+            ev_type = str(last_before.event_type or "").upper()
+            rsn = str(last_before.reason or "").upper()
+            
+            if ev_type not in ['LOGOUT', 'SESSION_END', 'LOGOFF'] and "SAÍDA" not in rsn:
+                phantom = ProductionLog(
+                    machine_id=last_before.machine_id,
+                    operator_id=last_before.operator_id,
+                    operator_badge=last_before.operator_badge,
+                    operator_name=last_before.operator_name,
+                    event_type=last_before.event_type,
+                    new_status=last_before.new_status,
+                    reason=last_before.reason,
+                    details="[FANTASMA 00:00]",
+                    timestamp=dt_start
+                )
+                user_logs.insert(0, phantom) # 👈 Adiciona na posição inicial (00:00)
+        # -------------------------------------------
         
         if not user_logs:
             stats_list.append({

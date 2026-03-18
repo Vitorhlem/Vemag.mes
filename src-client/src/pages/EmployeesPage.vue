@@ -65,7 +65,6 @@
           narrow-indicator
         >
           <q-tab name="machine" icon="precision_manufacturing" label="Visão Máquina" />
-          <q-tab name="employee" icon="badge" label="Visão Operadores" />
         </q-tabs>
     </q-card>
 
@@ -807,7 +806,27 @@ async function refreshData(isSilent: boolean = false) {
     if (!isSilent) isLoading.value = true;
     
     try {
-        await mesStore.fetchEmployeeStats(filterDate.value, filterDate.value);
+        // --- LÓGICA DO MÊS INTEIRO PARA OPERADORES ---
+        const dateParts = String(filterDate.value || '').split('-');
+        if (dateParts.length === 3) {
+            const year = dateParts[0];
+            const month = dateParts[1];
+            
+            // Pega o primeiro dia do mês (ex: 2026-03-01)
+            const startOfMonth = `${year}-${month}-01`;
+            
+            // Descobre qual é o último dia desse mês específico (ex: 28, 30 ou 31)
+            const lastDay = new Date(Number(year), Number(month), 0).getDate();
+            const endOfMonth = `${year}-${month}-${lastDay}`;
+            
+            // Busca o acumulado do mês inteiro!
+            await mesStore.fetchEmployeeStats(startOfMonth, endOfMonth);
+        } else {
+            // Fallback de segurança caso a data esteja estranha
+            await mesStore.fetchEmployeeStats(filterDate.value, filterDate.value);
+        }
+        // ----------------------------------------------
+
         if (selectedMachine.value) {
             await mesStore.fetchDailyTimeline(selectedMachine.value, filterDate.value);
             await mesStore.fetchMachineOEE(selectedMachine.value, filterDate.value, filterDate.value);
