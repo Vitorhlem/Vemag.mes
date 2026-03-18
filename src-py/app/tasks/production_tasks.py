@@ -263,7 +263,7 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     import requests
 
     # 1. APONTA PARA O NOSSO PORTAL DO WINDOWS
-    DRAWINGS_DIR = "/home/vemag/drawings_repo"
+    DRAWINGS_DIR = "/mnt/backup_storage/drawings_repo"
     
     CACHE_DIR = os.path.join(os.getcwd(), "static", "drawings_cache")
     os.makedirs(CACHE_DIR, exist_ok=True)
