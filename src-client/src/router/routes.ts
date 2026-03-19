@@ -15,6 +15,10 @@ const routes: RouteRecordRaw[] = [
         component: () => import('pages/DashboardPage.vue'),
         meta: { roles: ['admin', 'pcp', 'maintenance', 'cliente_ativo', 'cliente_demo'] }
       },
+      {
+  path: '/tracker/:codigo',
+  component: () => import('pages/PartTrackerPage.vue'),
+},
       { 
         path: 'auditlogs', 
         name: 'auditlogs', 

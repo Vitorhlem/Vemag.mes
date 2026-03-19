@@ -1307,3 +1307,97 @@ async def global_search(q: str, db: AsyncSession = Depends(deps.get_db)):
 
     return results
 
+
+@router.get("/tracker/{op_code}")
+async def get_digital_traveler(op_code: str, db: AsyncSession = Depends(deps.get_db)):
+    """
+    RG DIGITAL DA PEÇA (Digital Traveler)
+    Busca tudo sobre a OP/OS no SAP e cruza com o histórico local do MES.
+    """
+    # 1. BUSCA O "RG" NO SAP (Material, Quantidade, Desenho e Roteiro)
+    sap_service = SAPIntegrationService(db, organization_id=1)
+    sap_data = await sap_service.get_production_order_by_code(op_code)
+
+    if not sap_data:
+        raise HTTPException(status_code=404, detail="Ordem não encontrada no SAP.")
+
+    # 2. BUSCA O "HISTÓRICO CRIMINAL" NO MES (Onde ela já passou)
+    # Trata o código para achar tanto OS (OS-4595-1) quanto OP (4595)
+    doc_num_search = op_code.split('-')[1] if str(op_code).startswith("OS-") else op_code
+
+    stmt_apts = select(ProductionAppointment, Machine).outerjoin(
+        Machine, ProductionAppointment.machine_id == Machine.id
+    ).where(
+        or_(
+            ProductionAppointment.sap_doc_num == op_code,
+            ProductionAppointment.sap_doc_num == doc_num_search
+        )
+    ).order_by(ProductionAppointment.start_time.asc())
+
+    result_apts = await db.execute(stmt_apts)
+    appointments = result_apts.all()
+
+    # 3. MONTA A LINHA DO TEMPO BRUTA
+    timeline = []
+    for apt, machine in appointments:
+        dur_sec = (apt.end_time - apt.start_time).total_seconds() if apt.start_time and apt.end_time else 0
+        timeline.append({
+            "id": apt.id,
+            "step_seq": apt.sap_position,
+            "operator": apt.sap_operator_name or apt.operator_badge,
+            "machine": f"{machine.brand} {machine.model}" if machine else "Bancada/Manual",
+            "start_time": apt.start_time,
+            "end_time": apt.end_time,
+            "duration_minutes": round(max(0, dur_sec) / 60, 1),
+            "type": apt.appointment_type,  # PRODUCTION, SETUP, STOP
+            "produced_qty": getattr(apt, 'target_qty', 0)
+        })
+
+    # 4. CRUZA O HISTÓRICO COM O ROTEIRO (Para saber o progresso da peça)
+    steps = sap_data.get("steps", [])
+    total_time_op = 0.0
+
+    for step in steps:
+        # Pega só o que aconteceu nesta etapa específica
+        step_apts = [t for t in timeline if str(t["step_seq"]) == str(step["seq"])]
+        
+        step_time = sum(t["duration_minutes"] for t in step_apts if t["type"] == "PRODUCTION")
+        total_time_op += step_time
+
+        if step_apts:
+            step["status"] = "IN_PROGRESS"
+            step["history"] = step_apts
+            step["time_spent"] = step_time
+        else:
+            step["status"] = "PENDING"
+            step["history"] = []
+            step["time_spent"] = 0.0
+
+    # 5. DESCOBRE ONDE A PEÇA ESTÁ AGORA
+    current_step = None
+    # Vai de trás pra frente ou pega a última etapa que teve ação
+    for step in reversed(steps):
+        if step["status"] == "IN_PROGRESS":
+            current_step = step["seq"]
+            break
+    
+    # Se não achou nada em progresso, marca a primeira como atual
+    if current_step is None and steps:
+        current_step = steps[0]["seq"]
+
+    # 6. ENTREGA O PACOTE COMPLETO PARA O VUE.JS
+    return {
+        "header": {
+            "op_number": sap_data["op_number"],
+            "item_code": sap_data["item_code"],
+            "part_name": sap_data["part_name"],
+            "planned_qty": sap_data["planned_qty"],
+            "uom": sap_data["uom"],
+            "custom_ref": sap_data["custom_ref"],
+            "drawing_code": sap_data["drawing"], # Esse é o código que o Celery vai usar pra buscar o PDF!
+            "is_service": sap_data.get("is_service", False),
+            "total_time_spent_min": round(total_time_op, 1)
+        },
+        "current_step_seq": current_step,
+        "routing": steps
+    }
