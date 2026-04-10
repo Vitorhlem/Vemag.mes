@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const getBaseURL = () => {
-    // Tiramos a porta :8000 daqui também!
-    return import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
+    // Tenta ler o .env, se falhar, assume que é a máquina local
+    return import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 };
 
 const api = axios.create({

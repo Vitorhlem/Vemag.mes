@@ -144,12 +144,14 @@ const $q = useQuasar();
 
 const isLoading = ref(true);
 const errorMsg = ref('');
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const trackerData = ref<any>(null);
 const isDrawingLoading = ref(false);
 
 // Função para buscar os dados mágicos do Python
 async function fetchData() {
-  const opCode = route.params.codigo; // Pega o número da OP da URL (ex: /tracker/9420)
+  const opCode = route.params.opCode as string;
   
   if (!opCode) {
     errorMsg.value = 'Código da Ordem não fornecido.';
@@ -163,6 +165,7 @@ async function fetchData() {
   try {
     const response = await api.get(`/production/tracker/${opCode}`);
     trackerData.value = response.data;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error(error);
     if (error.response && error.response.status === 404) {
@@ -176,11 +179,12 @@ async function fetchData() {
 }
 
 // Lógica de Cores da Linha do Tempo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getStepColor(step: any) {
   if (step.status === 'IN_PROGRESS' || (step.history && step.history.length > 0)) return 'positive';
   return 'grey-4';
 }
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getStepIcon(step: any) {
   if (step.history && step.history.length > 0) return 'check_circle';
   if (step.status === 'IN_PROGRESS') return 'play_circle';
@@ -241,7 +245,7 @@ function checkDrawingReady(drawingCode: string, attempts = 0) {
 }
 
 onMounted(() => {
-  fetchData();
+  void fetchData();
 });
 </script>
 

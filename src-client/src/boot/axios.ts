@@ -10,8 +10,8 @@ declare module '@vue/runtime-core' {
 }
 
 export default boot(({ app, store }) => {
-  // CONFIGURAÇÃO DO IP DO SERVIDOR LINUX (Sem porta, pois o Nginx fará o roteamento)
-  api.defaults.baseURL = 'http://192.168.0.5/api/v1';
+  // Puxa o IP dinamicamente baseado no ambiente (.env)
+  api.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
   
   api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const authStore = useAuthStore(store);

@@ -967,9 +967,7 @@ function formatSapText(text: string | undefined | null) {
                        .replace(/\n/g, '<br>');
 
 
-  // eslint-disable-next-line no-useless-escape
   formatted = formatted.replace(/\.\-\s/g, '.<br><br>• ');
-  // eslint-disable-next-line no-useless-escape
   formatted = formatted.replace(/(?<!^)\s\-\s/g, '<br> - ');
 
   return formatted;
@@ -1133,7 +1131,6 @@ async function openOpListDialog() {
     loadingOps.value = false;
   }
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function selectOp(op: any) {
   if (!op.steps || op.steps.length === 0) {
       $q.notify({ 
@@ -1156,7 +1153,6 @@ async function selectOp(op: any) {
   await productionStore.requestOrderFromSAP(String(op.op_number));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleSapPause(stopReason: any) {
   console.log(`🛑 [UI] Motivo Selecionado: ${stopReason.label} (${stopReason.code})`);
 
@@ -1240,7 +1236,6 @@ async function applyNormalPause(fromPlc = false) {
     let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
     
     if (!sapData) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
     }
 
@@ -1326,7 +1321,6 @@ async function triggerCriticalBreakdown() {
             
             let sapData = actualStep && actualStep.resource ? SAP_OPERATIONS_MAP[actualStep.resource] : null;
             if (!sapData) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 sapData = Object.values(SAP_OPERATIONS_MAP).find((op: any) => op.resourceCode === machineRes) || { code: '', description: '' };
             }
 
@@ -1638,7 +1632,6 @@ let audioCtx: AudioContext | null = null;
 
 function playBeep() {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -1652,7 +1645,6 @@ function playBeep() {
     
     oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.25);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e) {
     console.warn("Áudio não suportado ou bloqueado pelo navegador.");
   }
@@ -1698,7 +1690,6 @@ async function finishAutoSetup() {
     try {
         const now = new Date();
         const startSetup = statusStartTime.value; 
-        // eslint-disable-next-line prefer-const
         let badge = productionStore.activeOperator.badge || productionStore.currentOperatorBadge;
 
         await ProductionService.sendAppointment({

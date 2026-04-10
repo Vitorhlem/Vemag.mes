@@ -262,8 +262,10 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     import fitz
     import requests
 
-    # 1. APONTA PARA O NOSSO PORTAL DO WINDOWS
-    DRAWINGS_DIR = "/mnt/backup_storage/drawings_repo"
+    # LÊ DO .ENV: Se não achar (como no Linux sem .env editado), usa o padrão /mnt/
+    DRAWINGS_DIR = os.getenv("DRAWINGS_DIR", "/mnt/backup_storage/drawings_repo")
+    API_HOST_EXTERNAL = os.getenv("API_HOST_EXTERNAL", "http://192.168.0.5")
+    API_HOST_INTERNAL = os.getenv("API_HOST_INTERNAL", "http://127.0.0.1:8000")
     
     CACHE_DIR = os.path.join(os.getcwd(), "static", "drawings_cache")
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -272,10 +274,9 @@ def task_process_drawing(drawing_code: str, machine_id: int):
     png_filename = f"{safe_code}.png"
     png_path = os.path.join(CACHE_DIR, png_filename)
 
-    # IP do Servidor para o Tablet acessar (Sem 8000)
-    EXTERNAL_URL = f"http://192.168.0.5/api/v1/drawings/render/{png_filename}"
-    # IP Local para o Celery falar com a API (Com 8000)
-    INTERNAL_BROADCAST_URL = "http://127.0.0.1:8000/api/v1/production/internal/broadcast"
+    # URLs Dinâmicas baseadas no ambiente
+    EXTERNAL_URL = f"{API_HOST_EXTERNAL}/api/v1/drawings/render/{png_filename}"
+    INTERNAL_BROADCAST_URL = f"{API_HOST_INTERNAL}/api/v1/production/internal/broadcast"
 
     if os.path.exists(png_path):
         payload = {

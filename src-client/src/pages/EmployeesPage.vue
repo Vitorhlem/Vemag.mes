@@ -927,7 +927,6 @@ let ws: WebSocket | null = null;
 let reconnectTimer: NodeJS.Timeout | null = null;
 
 function connectWebSocket() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.0.5/api/v1';
     const wsBase = apiBase.replace(/^http/, 'ws').replace('/api/v1', '');
     
